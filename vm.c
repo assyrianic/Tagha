@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <stdlib.h>
 
 bool running = true;
@@ -37,14 +38,8 @@ typedef enum {
 #define STACKSIZE	256
 uint64_t	stack[STACKSIZE];
 
-void exec(uint64_t *code)
+void exec(const uint64_t *code)
 {
-	union {
-		uint64_t ll;
-		double d;
-		char c[8];
-	} converter;
-	
 	uint64_t b, a;
 	double da, db;
 	
@@ -53,7 +48,7 @@ void exec(uint64_t *code)
 		&&exec_push, &&exec_pop,
 		&&exec_add, &&exec_fadd, &&exec_sub, &&exec_fsub,
 		&&exec_mul, &&exec_fmul, &&exec_idiv, &&exec_fdiv, &&exec_mod,
-		&&exec_jmp, &&exec_lessthan, &&exec_grtrthan, &&exec_cmp,
+		&&exec_jmp, &&exec_lt, &&exec_gt, &&exec_cmp,
 		&&exec_jnz, &&exec_jz,
 		&&exec_inc, &&exec_dec, &&exec_shl, &&exec_shr, //&&exec_and, &&exec_or, &&exec_xor,
 		&&exec_cpy, &&exec_swap, &&exec_load, &&exec_store,
@@ -62,14 +57,15 @@ void exec(uint64_t *code)
 	};
 	//printf("current instruction == \'%u\'\n", instr);
 	if( code[ip] > halt || code[ip] < nop ) {
-		printf("handled instruction exception. instruction == \'%llu\'\n", code[ip]);
+		printf("handled instruction exception. instruction == \'%" PRIu64 "\'\n", code[ip]);
 		goto *dispatch[halt];
 		return;
 	}
-	#define DISPATCH()	goto *dispatch[ code[ip] ]
-	DISPATCH();
+	goto *dispatch[ code[ip] ];
 
-exec_nop:; return;
+exec_nop:;
+	ip++;
+	return;
 exec_halt:;
 	running = false;
 	printf("vm done\n");
@@ -77,37 +73,37 @@ exec_halt:;
 exec_cpy:;	// makes a copy of the current value at the top of the stack and places the copy at the top.
 	a=stack[sp];
 	stack[++sp] = a;
-	printf("copied %llu, top of stack: %llu\n", stack[sp-1], stack[sp]);
+	printf("copied %" PRIu64 ", top of stack: %" PRIu64 "\n", stack[sp-1], stack[sp]);
+	ip++;
 	return;
 exec_swap:;	// swaps two, topmost stack values.
 	a = stack[sp--];
 	b = stack[sp--];
 	stack[sp++] = b;
 	stack[sp++] = a;
-	printf("swapped: a == %llu | b == %llu\n", stack[sp-2], stack[sp-1]);
+	printf("swapped: a == %" PRIu64 " | b == %" PRIu64 "\n", stack[sp-2], stack[sp-1]);
+	ip++;
 	return;
 exec_load:;	// stores a register value into the top of the stack.
 	a = code[++ip];
 	stack[sp] = reg[a];
-	printf("loaded %llu from reg[%llu]\n", stack[sp], a);
+	printf("loaded %" PRIu64 " from reg[%" PRIu64 "]\n", stack[sp], a);
 	return;
 exec_store:;	// pops value off the stack into a register.
 	a = code[++ip];
 	reg[a] = stack[sp--];
-	printf("stored %llu to reg[%llu] | reg[%llu] = %llu\n", reg[a], a, a, stack[sp+1]);
+	printf("stored %" PRIu64 " to reg[%" PRIu64 "] | reg[%" PRIu64 "] = %" PRIu64 "\n", reg[a], a, a, stack[sp+1]);
 	return;
 
 // various jumps
 exec_jmp:;	// unconditional jump
-	ip = code[++ip];
+	ip = code[ip+1];
 	printf("jumping to... %u\n", ip);
-	DISPATCH();
+	return;
 exec_jnz:;	// Jump if Not Zero = JNZ
-	++ip;
 	if( stack[sp] ) {
-		ip=code[ip];
+		ip=code[ip+1];
 		printf("jnz'ing to... %u\n", ip);
-		DISPATCH();
 	}
 	return;
 exec_jz:;	// Jump if Zero = JZ
@@ -115,28 +111,30 @@ exec_jz:;	// Jump if Zero = JZ
 	if( !stack[sp] ) {
 		ip=code[ip];
 		printf("jz'ing to... %u\n", ip);
-		DISPATCH();
 	}
 	return;
 
 // conditional stuff. Conditionals are always done signed I believe.
-exec_lessthan:;
+exec_lt:;
 	b = stack[sp--];
 	a = stack[sp--];
 	stack[++sp] = (int64_t)a < (int64_t)b;
-	printf("less than result %llu < %llu == %llu\n", a, b, stack[sp]);
+	printf("less than result %" PRIu64 " < %" PRIu64 " == %" PRIu64 "\n", a, b, stack[sp]);
+	ip++;
 	return;
-exec_grtrthan:;
+exec_gt:;
 	b = stack[sp--];
 	a = stack[sp--];
 	stack[++sp] = (int64_t)a > (int64_t)b;
-	printf("greater than result %llu > %llu == %llu\n", a, b, stack[sp]);
+	printf("greater than result %" PRIu64 " > %" PRIu64 " == %" PRIu64 "\n", a, b, stack[sp]);
+	ip++;
 	return;
 exec_cmp:;
 	b = stack[sp--];
 	a = stack[sp--];
 	stack[++sp] = (int64_t)a == (int64_t)b;
-	printf("compare result %llu == %llu %llu\n", a, b, stack[sp]);
+	printf("compare result %" PRIu64 " == %" PRIu64 " %" PRIu64 "\n", a, b, stack[sp]);
+	ip++;
 	return;
 	
 // push and pop
@@ -147,7 +145,8 @@ exec_push:;	// put an item on the top of the stack
 		goto *dispatch[halt];
 	}
 	stack[sp] = code[++ip];
-	printf("pushing %llu\n", stack[sp]);
+	printf("pushing %" PRIu64 "\n", stack[sp]);
+	ip++;
 	return;
 exec_pop:;	// reduce stack
 	if( sp )
@@ -157,6 +156,7 @@ exec_pop:;	// reduce stack
 		goto *dispatch[halt];
 	}
 	printf("popped, stack pointer 0x%x\n", sp);
+	ip++;
 	return;
 
 // arithmetic maths. order: int math, float math is last.
@@ -165,7 +165,8 @@ exec_add:;
 	a = stack[sp--];
 	// we then add the result and push it to the stack
 	stack[++sp] = a+b;	// set the value to the top of the stack
-	printf("add result %llu\n", stack[sp]);
+	printf("add result %" PRIu64 "\n", stack[sp]);
+	ip++;
 	return;
 exec_sub:;
 	b = stack[sp--];
@@ -174,13 +175,15 @@ exec_sub:;
 	// 0x8... is uint64_t's sign bit
 	if( stack[sp] & 0x8000000000000000 )
 		printf( "sub result %lli\n", (int64_t)stack[sp] );
-	else printf( "sub result %llu\n", stack[sp] );
+	else printf( "sub result %" PRIu64 "\n", stack[sp] );
+	ip++;
 	return;
 exec_mul:;
 	b = stack[sp--];
 	a = stack[sp--];
 	stack[++sp] = a*b;
-	printf("mul result %llu\n", stack[sp]);
+	printf("mul result %" PRIu64 "\n", stack[sp]);
+	ip++;
 	return;
 exec_idiv:;
 	b = stack[sp--];
@@ -191,85 +194,82 @@ exec_idiv:;
 		return;
 	}
 	stack[++sp] = b/a;
-	printf("div result %llu\n", stack[sp]);
+	printf("div result %" PRIu64 "\n", stack[sp]);
+	ip++;
 	return;
 exec_mod:;
 	b = stack[sp--];
 	a = stack[sp--];
 	stack[++sp] = b%a;
-	printf("mod result %llu\n", stack[sp]);
+	printf("mod result %" PRIu64 "\n", stack[sp]);
+	ip++;
 	return;
 exec_inc:;
 	stack[sp]++;
-	printf("increment result %llu\n", stack[sp]);
+	printf("increment result %" PRIu64 "\n", stack[sp]);
+	ip++;
 	return;
 exec_dec:;
 	stack[sp]--;
-	printf("decrement result %llu\n", stack[sp]);
+	printf("decrement result %" PRIu64 "\n", stack[sp]);
+	ip++;
 	return;
 exec_shl:;
 	b = stack[sp--];
 	a = stack[sp--];
 	stack[++sp] = b<<a;
-	printf( "bit shift left result %llu\n", stack[sp] );
+	printf( "bit shift left result %" PRIu64 "\n", stack[sp] );
+	ip++;
 	return;
 exec_shr:;
 	b = stack[sp--];
 	a = stack[sp--];
 	stack[++sp] = b>>a;
-	printf( "bit shift right result %llu\n", stack[sp] );
+	printf( "bit shift right result %" PRIu64 "\n", stack[sp] );
+	ip++;
 	return;
 
 // floating point maths
 exec_fadd:;
-	// gotta convert long int bits into float/double bits
-	converter.ll = stack[sp--];
-	db = converter.d;
-	converter.ll = stack[sp--];
-	da = converter.d;
-	//printf("da %f | db %f\n", da, db);
-	
-	converter.d = da+db;
-	stack[++sp] = converter.ll;
-	printf("f add result %f\n", converter.d);
+	db = *(double *)(&stack[sp--]);
+	da = *(double *)(&stack[sp--]);
+	printf("da %f | db %f\n", da, db);
+	db += da;
+	stack[++sp] = *(uint64_t *)(&db);
+	printf("f add result %f\n", db);
+	ip++;
 	return;
 exec_fsub:;
-	converter.ll = stack[sp--];
-	db = converter.d;
-	converter.ll = stack[sp--];
-	da = converter.d;
+	db = *(double *)(&stack[sp--]);
+	da = *(double *)(&stack[sp--]);
 	//printf("da %f | db %f\n", da, db);
-	
-	converter.d = db-da;
-	stack[++sp] = converter.ll;
-	printf("f sub result %f\n", converter.d);
+	db -= da;
+	stack[++sp] = *(uint64_t *)(&db);
+	printf("f sub result %f\n", db);
+	ip++;
 	return;
 exec_fmul:;
-	converter.ll = stack[sp--];
-	db = converter.d;
-	converter.ll = stack[sp--];
-	da = converter.d;
+	db = *(double *)(&stack[sp--]);
+	da = *(double *)(&stack[sp--]);
 	//printf("da %f | db %f\n", da, db);
-	
-	converter.d = da*db;
-	stack[++sp] = converter.ll;
-	printf("f mul result %f\n", converter.d);
+	db *= da;
+	stack[++sp] = *(uint64_t *)(&db);
+	printf("f mul result %f\n", db);
+	ip++;
 	return;
 exec_fdiv:;
-	converter.ll = stack[sp--];
-	db = converter.d;
-	converter.ll = stack[sp--];
-	da = converter.d;
+	db = *(double *)(&stack[sp--]);
+	da = *(double *)(&stack[sp--]);
 	printf("da %f | db %f\n", da, db);
-	if( da==0 ) {
-		printf("fdiv by 0.0 not allowed, restoring stack\n");
+	if( !db ) {
+		printf("fdiv by 0 not allowed, restoring stack\n");
 		sp += 2;
 		return;
 	}
-	
-	converter.d = db/da;
-	stack[++sp] = converter.ll;
-	printf("f div result %f\n", converter.d);
+	db /= da;
+	stack[++sp] = *(uint64_t *)(&db);
+	printf("f div result %f\n", db);
+	ip++;
 	return;
 }
 
@@ -286,26 +286,12 @@ uint64_t get_file_size(FILE *pFile)
 
 int main(void)
 {
-/*
-typedef enum {
-	// push and pop are always assumed to hold a long int
-	nop=0,
-	push, pop,
-	add, fadd, sub, fsub,
-	mul, fmul, idiv, fdiv, mod,
-	jmp, lt, gt, cmp, 
-	jnz, jz,
-	inc, dec, shl, shr, //and, or, xor,
-	cpy, swap, load, store,
-	halt,
-} InstrSet;*/
-	// floats are converted to double
 	uint64_t program[] = {
 		// to deal with floats, we first convert them to an unsigned longs bit value
-		push, 0,
 		push, 0x4014000000000000,
-		fdiv,
-		pop,
+		push, 0x4014000000000000,
+		fadd,
+		jz, 2,
 		halt
 	};
 	/*
@@ -318,10 +304,8 @@ typedef enum {
 	uint64_t *program = malloc(sizeof(uint64_t)*size);
 	fread(program, sizeof(uint64_t), size, pFile);
 	*/
-	while( running ) {
+	while( running )
 		exec( program );
-		ip++;
-	}
 	/*
 	fclose(pFile); pFile=NULL;
 	free(program); program=NULL;
@@ -329,11 +313,11 @@ typedef enum {
 	return 0;
 }
 
-void printBits(size_t const size_bytes, void const * const ptr)
+void printBits(const size_t size_bytes, void const * const ptr)
 {
-	unsigned char *b = (unsigned char *)ptr;
-	unsigned char byte;
-	unsigned int i, j;
+	uint8_t *b = (unsigned char *)ptr;
+	uint8_t byte;
+	uint32_t i, j;
 
 	for( i=size_bytes-1 ; i>=0 ; i-- ) {
 		for( j=7 ; j>=0 ; j-- ) {
