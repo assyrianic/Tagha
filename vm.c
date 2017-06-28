@@ -61,7 +61,7 @@ void exec(uint64_t *code)
 		&&exec_halt
 	};
 	//printf("current instruction == \'%u\'\n", instr);
-	if( code[ip] > halt || code[ip] < push ) {
+	if( code[ip] > halt || code[ip] < nop ) {
 		printf("handled instruction exception. instruction == \'%llu\'\n", code[ip]);
 		goto *dispatch[halt];
 		return;
