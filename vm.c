@@ -62,7 +62,7 @@ void exec(uint64_t *code)
 	};
 	//printf("current instruction == \'%u\'\n", instr);
 	if( code[ip] > halt || code[ip] < push ) {
-		printf("handled instruction exception. instruction == \'%u\'\n", code[ip]);
+		printf("handled instruction exception. instruction == \'%llu\'\n", code[ip]);
 		goto *dispatch[halt];
 		return;
 	}
@@ -77,14 +77,14 @@ exec_halt:;
 exec_cpy:;	// makes a copy of the current value at the top of the stack and places the copy at the top.
 	a=stack[sp];
 	stack[++sp] = a;
-	printf("copied %llu\n", stack[sp]);
+	printf("copied %llu, top of stack: %llu\n", stack[sp-1], stack[sp]);
 	return;
 exec_swap:;	// swaps two, topmost stack values.
 	a = stack[sp--];
 	b = stack[sp--];
-	stack[sp++] = a;
 	stack[sp++] = b;
-	printf("swapped: a == %llu | b == %llu\n", a, b);
+	stack[sp++] = a;
+	printf("swapped: a == %llu | b == %llu\n", stack[sp-2], stack[sp-1]);
 	return;
 exec_load:;	// stores a register value into the top of the stack.
 	a = code[++ip];
@@ -94,7 +94,7 @@ exec_load:;	// stores a register value into the top of the stack.
 exec_store:;	// pops value off the stack into a register.
 	a = code[++ip];
 	reg[a] = stack[sp--];
-	printf("stored %llu to reg[%llu]\n", reg[a], a);
+	printf("stored %llu to reg[%llu] | reg[%llu] = %llu\n", reg[a], a, a, stack[sp+1]);
 	return;
 
 // various jumps
@@ -124,25 +124,25 @@ exec_lessthan:;
 	b = stack[sp--];
 	a = stack[sp--];
 	stack[++sp] = (int64_t)a < (int64_t)b;
-	printf("less than result %llu\n", stack[sp]);
+	printf("less than result %llu < %llu == %llu\n", a, b, stack[sp]);
 	return;
 exec_grtrthan:;
 	b = stack[sp--];
 	a = stack[sp--];
 	stack[++sp] = (int64_t)a > (int64_t)b;
-	printf("greater than result %llu\n", stack[sp]);
+	printf("greater than result %llu > %llu == %llu\n", a, b, stack[sp]);
 	return;
 exec_cmp:;
 	b = stack[sp--];
 	a = stack[sp--];
 	stack[++sp] = (int64_t)a == (int64_t)b;
-	printf("compare result %llu\n", stack[sp]);
+	printf("compare result %llu == %llu %llu\n", a, b, stack[sp]);
 	return;
 	
 // push and pop
 exec_push:;	// put an item on the top of the stack
 	sp++;
-	if( !sp ) {
+	if( !sp ) {	// if we increment sp and sp is 0, we ran out of stack memory.
 		printf("stack overflow!\n");
 		goto *dispatch[halt];
 	}
@@ -152,7 +152,7 @@ exec_push:;	// put an item on the top of the stack
 exec_pop:;	// reduce stack
 	if( sp )
 		--sp;
-	if( sp==255 ) {
+	if( sp==255 ) {		// if we decrement sp and sp's bits went all 1, we popped too much!
 		printf("stack underflow!\n");
 		goto *dispatch[halt];
 	}
@@ -185,6 +185,11 @@ exec_mul:;
 exec_idiv:;
 	b = stack[sp--];
 	a = stack[sp--];
+	if( a==0 ) {
+		printf("div by 0 not allowed, restoring stack\n");
+		sp += 2;
+		return;
+	}
 	stack[++sp] = b/a;
 	printf("div result %llu\n", stack[sp]);
 	return;
@@ -255,7 +260,12 @@ exec_fdiv:;
 	db = converter.d;
 	converter.ll = stack[sp--];
 	da = converter.d;
-	//printf("da %f | db %f\n", da, db);
+	printf("da %f | db %f\n", da, db);
+	if( da==0 ) {
+		printf("fdiv by 0.0 not allowed, restoring stack\n");
+		sp += 2;
+		return;
+	}
 	
 	converter.d = db/da;
 	stack[++sp] = converter.ll;
@@ -276,16 +286,26 @@ uint64_t get_file_size(FILE *pFile)
 
 int main(void)
 {
+/*
+typedef enum {
+	// push and pop are always assumed to hold a long int
+	nop=0,
+	push, pop,
+	add, fadd, sub, fsub,
+	mul, fmul, idiv, fdiv, mod,
+	jmp, lt, gt, cmp, 
+	jnz, jz,
+	inc, dec, shl, shr, //and, or, xor,
+	cpy, swap, load, store,
+	halt,
+} InstrSet;*/
 	// floats are converted to double
 	uint64_t program[] = {
 		// to deal with floats, we first convert them to an unsigned longs bit value
-		push, 0x4014000000000000, // 5.0 as uint64_t integer
-		push, 0x40230b43a0000000, // 9.522 as uint64_t integer
+		push, 0,
+		push, 0x4014000000000000,
 		fdiv,
-		push, 0x40230b43a0000000,	// line 5
-		fmul,
-		jnz, 7, // stop immediately
-		pop,	// line 10
+		pop,
 		halt
 	};
 	/*
