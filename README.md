@@ -29,3 +29,9 @@ minimal but complex stack-based virtual machine, written in C.
 -  load - load a register value to the top of the stack
 -  store - pops a value off the stack and stores it into a register
 -  halt - stops all execution.
+
+## TODO list
+- [ ] add a callstack, call + ret instructions to support procedures.
+- [ ] \(thinking about it) make an assembler or make compiler that generates binary.
+- [ ] add bitwise AND, OR, XOR operations
+- [ ] add memory addressing so we can support pointers.
