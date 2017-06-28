@@ -34,4 +34,5 @@ minimal but complex stack-based virtual machine, written in C.
 - [ ] add a callstack, call + ret instructions to support procedures.
 - [ ] \(thinking about it) make an assembler or make compiler that generates binary.
 - [ ] add bitwise AND, OR, XOR operations
-- [ ] add memory addressing so we can support pointers.
+- [ ] add memory addressing so we can support pointers (achieved saving stack pointer index to stack I believe?).
+- [ ] add memory dereferencing (can't have memory addressing without dereferencing can we?)
