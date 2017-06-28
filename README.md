@@ -3,9 +3,9 @@ minimal but complex stack-based virtual machine, written in C.
 
 ### Features
 * float64 (double, not 32bit float) support by converting integer to a float by its bits. For example, "5.0" double is '0x4014000000000000' or '4617315517961601024' in terms of its bits if it were a long.
-I usually use hexadecimals but decimal numbers work just as good. The giants numbers are then transformed into doubles using a union via Type Punning which is valid C99.
+I usually use hexadecimals but decimal numbers work just as good. The giant numbers are then transformed into doubles by typecasting into double\* and dereferencing.
 * uses computed gotos (the ones that use a void\*) which is 20%-25% faster than a switch [citation needed for this one].
-* "CPU" is 64-bit as the entire stack and registers are uint64_t.
+* "CPU" is "64-bit" as the entire stack and registers are uint64_t. I will likely change this to uint8_t so it simulates real memory better.
 * three registers (r1, r2, r3) where all three manipulate or are manipulated by the stack.
 * has integer and float arithmetic, conditional and unconditional jumps, comparisons, and stack and register manipulations,
 
