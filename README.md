@@ -2,9 +2,10 @@
 minimal but complex stack-based virtual machine, written in C.
 
 ### Features
-* float64 (double, not 32bit float) support
-* uses computed gotos (the ones that use a void\*) which is 20%-25% faster than a switch [citation needed for this one]
-* "cpu" is 64-bit
+* float64 (double, not 32bit float) support by converting integer to a float by its bits. For example, "5.0" double is '0x4014000000000000' or '4617315517961601024' in terms of its bits if it were a long.
+I usually use hexadecimals but decimal numbers work just as good. The giants numbers are then transformed into doubles using a union via Type Punning which is valid C99.
+* uses computed gotos (the ones that use a void\*) which is 20%-25% faster than a switch [citation needed for this one].
+* "CPU" is 64-bit as the entire stack and registers are uint64_t.
 * three registers (r1, r2, r3) where all three manipulate or are manipulated by the stack.
 * has integer and float arithmetic, conditional and unconditional jumps, comparisons, and stack and register manipulations,
 
@@ -15,7 +16,7 @@ minimal but complex stack-based virtual machine, written in C.
  - add, fadd - arithmetic addition, int and float supported
 -  sub, fsub - arithmetic subraction
 -  mul, fmul - arithmetic multiplication
--  idiv, fdiv - arithmetic division (division with 0 hasn't been tested out)
+-  idiv, fdiv - arithmetic division (division with 0 is excepted by skipped operation and restoring stack, I should probably change that but restoring stack prevents an underflow.)
 -  mod - modulo arithmetic
 -  jmp - unconditional jump
 -  lt - less than comparison, pop two items off stack and pushes result
@@ -36,3 +37,5 @@ minimal but complex stack-based virtual machine, written in C.
 - [ ] add bitwise AND, OR, XOR operations
 - [ ] add memory addressing so we can support pointers (achieved saving stack pointer index to stack I believe?).
 - [ ] add memory dereferencing (can't have memory addressing without dereferencing can we?)
+- [ ] implementing a call stack and memory addressing means we would need a form of buffer overflow protection.
+- [ ] group all globals into a single struct
