@@ -25,10 +25,11 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
 -  jnz, jz - jump if not zero and jump if zero for conditional branching.
  - inc, dec - increment and decrement by 1 respectively, haven't added float support on this one!
 -  shl, shr - bit shift left and shift right, pops two numbers off stack and does bit shift op
+- and, or, xor, not - bitwise &, |, ^, and ~ operations.
 -  cpy - cpy takes the item pointed to by the stack pointer, makes a copy, and pushes that onto the top of stack.
 -  swap - swap takes the two top most items off the stack and swaps their position.
--  load - load a register value to the top of the stack
--  store - pops a value off the stack and stores it into a register
+-  load - load a memory value to the top of the stack, pretty much push but with memory.
+-  store - pops a value off the stack and stores it into a memory address.
 -  halt - stops all execution.
 
 ## TODO list
