@@ -10,14 +10,6 @@ bool running = true;
 // index pointers should NEVER go under 0...
 uint8_t ip=0, sp=0, callbp=0, callsp=0;
 
-// we need this register stuff to save necessary values!
-// technically this is still a stack machine since almost everything we do fiddles with the stack.
-// saving and loading from registers still requires the stack.
-enum {
-	r1=0,
-	r2, r3
-};
-uint64_t reg[3];
 
 typedef enum {
 	// push and pop are always assumed to hold a long int
@@ -30,13 +22,50 @@ typedef enum {
 	inc, dec, shl, shr, //and, or, xor,
 	// cpy copies the top of the stack and pushes that to the top.
 	cpy, swap,
-	load,	// put register value to top of stack.
-	store,	// stores top of stack to register.
+	load,	// put memory value to top of stack.
+	store,	// stores top of stack to memory.
 	halt,
 } InstrSet;
 
+const char *opcode2str(const InstrSet i)
+{
+	switch( i ) {
+		case nop:	return "nop";
+		case push:	return "push";
+		case pop:	return "pop";
+		case add:	return "add";
+		case fadd:	return "fadd";
+		case sub:	return "sub";
+		case fsub:	return "fsub";
+		case mul:	return "mul";
+		case fmul:	return "fmul";
+		case idiv:	return "idiv";
+		case fdiv:	return "fdiv";
+		case mod:	return "mod";
+		case jmp:	return "jmp";
+		case lt:	return "lt";
+		case gt:	return "gt";
+		case cmp:	return "cmp";
+		case jnz:	return "jnz";
+		case jz:	return "jz";
+		case inc:	return "inc";
+		case dec:	return "dec";
+		case shl:	return "shl";
+		case shr:	return "shr";
+		case cpy:	return "cpy";
+		case swap:	return "swap";
+		case load:	return "load";
+		case store:	return "store";
+		case halt:	return "halt";
+		default:	return "UNKNOWN OPCODE";
+	}
+}
+
 #define STACKSIZE	256
 uint64_t	stack[STACKSIZE];
+
+#define MEM_SIZE	STACKSIZE << 2	// 1024
+uint64_t	memory[MEM_SIZE];
 
 void exec(const uint64_t *code)
 {
@@ -55,7 +84,7 @@ void exec(const uint64_t *code)
 		//&&exec_z,
 		&&exec_halt
 	};
-	//printf("current instruction == \'%u\'\n", instr);
+	//printf("current instruction == \"%s\"\n", opcode2str(code[ip]));
 	if( code[ip] > halt || code[ip] < nop ) {
 		printf("handled instruction exception. instruction == \'%" PRIu64 "\'\n", code[ip]);
 		goto *dispatch[halt];
@@ -84,15 +113,17 @@ exec_swap:;	// swaps two, topmost stack values.
 	printf("swapped: a == %" PRIu64 " | b == %" PRIu64 "\n", stack[sp-2], stack[sp-1]);
 	ip++;
 	return;
-exec_load:;	// stores a register value into the top of the stack.
+exec_load:;	// stores a memory value into the top of the stack. pretty much push from memory.
 	a = code[++ip];
-	stack[sp] = reg[a];
-	printf("loaded %" PRIu64 " from reg[%" PRIu64 "]\n", stack[sp], a);
+	stack[++sp] = memory[a];
+	printf("loaded %" PRIu64 " from memory[%" PRIu64 "]\n", stack[sp], a);
+	ip++;
 	return;
-exec_store:;	// pops value off the stack into a register.
+exec_store:;	// pops value off stack into memory.
 	a = code[++ip];
-	reg[a] = stack[sp--];
-	printf("stored %" PRIu64 " to reg[%" PRIu64 "] | reg[%" PRIu64 "] = %" PRIu64 "\n", reg[a], a, a, stack[sp+1]);
+	memory[a] = stack[sp--];
+	printf("stored %" PRIu64 " to memory[%" PRIu64 "] | memory[%" PRIu64 "] = %" PRIu64 "\n", memory[a], a, a, stack[sp+1]);
+	ip++;
 	return;
 
 // various jumps
@@ -101,10 +132,12 @@ exec_jmp:;	// unconditional jump
 	printf("jumping to... %u\n", ip);
 	return;
 exec_jnz:;	// Jump if Not Zero = JNZ
+	++ip;
 	if( stack[sp] ) {
-		ip=code[ip+1];
+		ip=code[ip];
 		printf("jnz'ing to... %u\n", ip);
 	}
+	else ++ip;
 	return;
 exec_jz:;	// Jump if Zero = JZ
 	++ip;
@@ -112,6 +145,7 @@ exec_jz:;	// Jump if Zero = JZ
 		ip=code[ip];
 		printf("jz'ing to... %u\n", ip);
 	}
+	else ++ip;
 	return;
 
 // conditional stuff. Conditionals are always done signed I believe.
@@ -149,7 +183,7 @@ exec_push:;	// put an item on the top of the stack
 	ip++;
 	return;
 exec_pop:;	// reduce stack
-	if( sp )
+	if( sp )	// make sure that there's something in the stack before popping.
 		--sp;
 	if( sp==255 ) {		// if we decrement sp and sp's bits went all 1, we popped too much!
 		printf("stack underflow!\n");
@@ -286,12 +320,28 @@ uint64_t get_file_size(FILE *pFile)
 
 int main(void)
 {
-	uint64_t program[] = {
-		// to deal with floats, we first convert them to an unsigned longs bit value
-		push, 0x4014000000000000,
-		push, 0x4014000000000000,
-		fadd,
-		jz, 2,
+	/*
+		uint i = 10;
+		uint n = 0;
+		while( n<i )
+			++n;
+	*/
+	uint64_t loop[] = {
+		push, 10,	// push 10
+		store, 0,	// store 10 to memory address 0
+		push, 0,	// push 0
+		store, 1,	// store 0 to address #1
+		load, 1,	// push 0 from address #1
+		load, 0,	// push 10 from address #0
+		lt,		// 0 < 10?
+		//jz, 24,	// jump to halt if 0.
+		jz, 22,
+		load, 1,	// push 0 from memory
+		//push, 1,	// push 1,
+		//add,		// increment by 1, possibly change to inc?
+		inc,		// increment by 1
+		store, 1,	// store result to mem address #1.
+		jmp, 8,		// jump to loading 0x01 into stack.
 		halt
 	};
 	/*
@@ -305,25 +355,10 @@ int main(void)
 	fread(program, sizeof(uint64_t), size, pFile);
 	*/
 	while( running )
-		exec( program );
+		exec( loop );
 	/*
 	fclose(pFile); pFile=NULL;
 	free(program); program=NULL;
 	*/
 	return 0;
-}
-
-void printBits(const size_t size_bytes, void const * const ptr)
-{
-	uint8_t *b = (unsigned char *)ptr;
-	uint8_t byte;
-	uint32_t i, j;
-
-	for( i=size_bytes-1 ; i>=0 ; i-- ) {
-		for( j=7 ; j>=0 ; j-- ) {
-			byte = ( b[i] >> j ) & 1;
-			printf("%u", byte);
-		}
-	}
-	puts("");
 }
