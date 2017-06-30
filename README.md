@@ -7,7 +7,8 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
 * uses computed gotos (the ones that use a void\*) which is 20%-25% faster than a switch [citation needed for this one].
 * "CPU" is "64-bit" as the entire stack and memory is uint64_t. I will likely change this to uint8_t so it simulates real memory better.
 * memory manipulation where loading copies the top of the stack into any memory address and storing pops off the top of the stack into any memory address.
-* has integer and float arithmetic, conditional and unconditional jumps, comparisons, and stack and register manipulations,
+* has integer and float arithmetic, conditional and unconditional jumps, comparisons, and stack and register manipulations.
+* call stack for functions (still testing function prologues and epilogues for stack frame construction)
 
 ### Instruction Set.
  - nop - does nothing.
@@ -30,13 +31,29 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
 -  swap - swap takes the two top most items off the stack and swaps their position.
 -  load - load a memory value to the top of the stack, pretty much push but with memory.
 -  store - pops a value off the stack and stores it into a memory address.
+-  prol - sets up a function/subroutine prologue which is assembly code to set up stack frames, example:
+```asm
+push  ebp
+mov   ebp, esp
+```
+-  epil - function/subroutine epilogue, same as prologue but for the ending of a function to restore the old stack frame, example:
+```asm
+mov  esp, ebp
+pop  ebp
+```
+- call - jumps to a section of code and saves the original instruction address to jump back to.
+- ret - jumps back to the code that is after the `call` and call address argument.
 -  halt - stops all execution.
 
 ## TODO list
-- [ ] add a callstack, call + ret instructions to support procedures.
+- [x] add a callstack, call + ret instructions to support procedures.
+- [ ] bug test `prol` and `epil` opcodes so call stack can establish stack frames for recursive calls.
 - [ ] \(thinking about it) make an assembler or make compiler that generates binary.
 - [x] add bitwise AND, OR, XOR, NOT operations
 - [ ] add memory addressing so we can support pointers (achieved saving stack pointer index to stack I believe?).
 - [ ] add memory dereferencing (can't have memory addressing without dereferencing can we?)
 - [ ] implementing a call stack and memory addressing means we would need a form of buffer overflow protection.
 - [ ] group all globals into a single struct
+- [ ] segment data stack and memory into uint8_ts
+- [ ] expand opcodes to take various sizes of data and sources. What I mean is make a push and pop for a byte, word (2 bytes), dword (4 bytes), and qword (8 bytes).
+- [ ] have opcodes encode into bytes for more compact executables.
