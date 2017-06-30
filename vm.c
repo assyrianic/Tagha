@@ -11,82 +11,57 @@ bool running = true;
 uint8_t ip=0, sp=0, callbp=0, callsp=0;
 
 
-typedef enum {
+enum InstrSet {
 	// push and pop are always assumed to hold a long int
 	nop=0,
-	push, pop,						// 1
-	add, fadd, sub, fsub,			// 3
-	mul, fmul, idiv, fdiv, mod,		// 7
-	jmp, lt, gt, cmp /* cmp does == */, 
-	jnz, jz,
-	inc, dec, shl, shr, //and, or, xor,
-	// cpy copies the top of the stack and pushes that to the top.
-	cpy, swap,
-	load,	// put memory value to top of stack.
-	store,	// stores top of stack to memory.
+	push, pop, cpush, cpop,			// 1
+	add, fadd, sub, fsub,			// 5
+	mul, fmul, idiv, fdiv, mod,		// 9
+	jmp, lt, gt, cmp, 			// 14
+	jnz, jz,				// 18
+	inc, dec, shl, shr, and, or, xor, not,	// 20
+	cpy, swap,	// 28
+	load, store,	// 30
+	prol, epil, call, ret,	// 32
 	halt,
-} InstrSet;
-
-const char *opcode2str(const InstrSet i)
-{
-	switch( i ) {
-		case nop:	return "nop";
-		case push:	return "push";
-		case pop:	return "pop";
-		case add:	return "add";
-		case fadd:	return "fadd";
-		case sub:	return "sub";
-		case fsub:	return "fsub";
-		case mul:	return "mul";
-		case fmul:	return "fmul";
-		case idiv:	return "idiv";
-		case fdiv:	return "fdiv";
-		case mod:	return "mod";
-		case jmp:	return "jmp";
-		case lt:	return "lt";
-		case gt:	return "gt";
-		case cmp:	return "cmp";
-		case jnz:	return "jnz";
-		case jz:	return "jz";
-		case inc:	return "inc";
-		case dec:	return "dec";
-		case shl:	return "shl";
-		case shr:	return "shr";
-		case cpy:	return "cpy";
-		case swap:	return "swap";
-		case load:	return "load";
-		case store:	return "store";
-		case halt:	return "halt";
-		default:	return "UNKNOWN OPCODE";
-	}
-}
+};
 
 #define STACKSIZE	256
 uint64_t	stack[STACKSIZE];
+uint64_t	callstack[STACKSIZE >> 2];
+uint64_t	memory[STACKSIZE << 2];
 
-#define MEM_SIZE	STACKSIZE << 2	// 1024
-uint64_t	memory[MEM_SIZE];
+// don't forget to update this!
+const char *opcode2str[] = {
+	"nop","push","pop","cpush","cpop",
+	"add","fadd","sub","fsub","mul","fmul","idiv","fdiv","mod",
+	"jmp","lt","gt","cmp","jnz","jz",
+	"inc","dec","shl","shr","and","or","xor","not",
+	"cpy","swap","load","store","prol","epil","call","ret",
+	"halt"
+};
 
-void exec(const uint64_t *code)
+void vm_exec(const uint64_t *code)
 {
 	uint64_t b, a;
 	double da, db;
 	
 	static const void *dispatch[] = {
 		&&exec_nop,
-		&&exec_push, &&exec_pop,
+		&&exec_push, &&exec_pop, &&exec_cpush, &&exec_cpop,
 		&&exec_add, &&exec_fadd, &&exec_sub, &&exec_fsub,
 		&&exec_mul, &&exec_fmul, &&exec_idiv, &&exec_fdiv, &&exec_mod,
 		&&exec_jmp, &&exec_lt, &&exec_gt, &&exec_cmp,
 		&&exec_jnz, &&exec_jz,
-		&&exec_inc, &&exec_dec, &&exec_shl, &&exec_shr, //&&exec_and, &&exec_or, &&exec_xor,
+		&&exec_inc, &&exec_dec, &&exec_shl, &&exec_shr, &&exec_and, &&exec_or, &&exec_xor, &&exec_not,
 		&&exec_cpy, &&exec_swap, &&exec_load, &&exec_store,
+		&&exec_prol, &&exec_epil, &&exec_call, &&exec_ret, 
 		//&&exec_z,
 		&&exec_halt
 	};
-	//printf("current instruction == \"%s\"\n", opcode2str(code[ip]));
+	//printf( "current instruction == \"%s\"\n", opcode2str[code[ip]] );
 	if( code[ip] > halt || code[ip] < nop ) {
-		printf("handled instruction exception. instruction == \'%" PRIu64 "\'\n", code[ip]);
+		printf("illegal instruction exception! instruction == \'%" PRIu64 "\'\n", code[ip]);
 		goto *dispatch[halt];
 		return;
 	}
@@ -126,6 +101,66 @@ exec_store:;	// pops value off stack into memory.
 	ip++;
 	return;
 
+/* C - x86 calling convention.
+	code:
+		cpush lastarg,
+		cpush, 2nd-to-last-arg,
+		...
+		cpush, 1st-arg
+		call procedure
+		cpop all args
+	procedure:
+		prol,
+		// callstack[callbp-1] == return address;
+		1st_arg = callstack[callbp+1];
+		// code
+		epil,
+		ret
+*/
+// procedure instructions | call and ret act more like 
+exec_prol:;	// function prologue or beginning to start new stack frame.
+	callstack[++callsp] = callbp;	// push	ebp
+	callbp = callsp;		// mov	ebp, esp
+	printf("prolog: pushed frame pointer %u to call stack %" PRIu64 "\n", callbp, callstack[callsp]);
+	ip++;
+	return;
+exec_epil:;	// function epilogue or ending to restore previous stack frame.
+	callsp = callbp;		// mov	esp, ebp
+	callbp = callstack[callsp--];	// pop	ebp
+	printf("epilog: popped frame pointer %u from call stack %" PRIu64 "\n", callbp, callstack[callsp+1]);
+	ip++;
+	return;
+exec_call:;	// calling a procedure
+	ip++;	// increment to function address
+	callstack[++callsp] = ip+1;	// save post address so we can jump back to it after we finish.
+	ip = code[ip];	// jump to function address.
+	printf("calling @ %" PRIu64 " @ address: %u\n", callstack[callsp], ip);
+	return;
+exec_ret:;
+	ip = callstack[callsp--];
+	printf("returning to address: %u from %" PRIu64 "\n", ip, callstack[callsp]);
+	return;
+exec_cpush:;	// have call stack put from memory or from data stack? I pick data stack
+	++callsp;
+	if( !callsp ) {
+		printf("call stack overflow!\n");
+		goto *dispatch[halt];
+	}
+	callstack[callsp] = stack[sp--];
+	printf("pushed to call stack: %" PRIu64 "\n", callstack[callsp]);
+	ip++;
+	return;
+exec_cpop:;
+	if( callsp )
+		stack[++sp] = callstack[callsp--];
+	if( callsp==255 ) {
+		printf("call stack underflow!\n");
+		goto *dispatch[halt];
+	}
+	printf("cpopped, call stack pointer %u | data from call stack : %" PRIu64 "\n", callsp, stack[sp]);
+	ip++;
+	return;
+
 // various jumps
 exec_jmp:;	// unconditional jump
 	ip = code[ip+1];
@@ -133,19 +168,23 @@ exec_jmp:;	// unconditional jump
 	return;
 exec_jnz:;	// Jump if Not Zero = JNZ
 	++ip;
-	if( stack[sp] ) {
-		ip=code[ip];
-		printf("jnz'ing to... %u\n", ip);
-	}
-	else ++ip;
+	//if( stack[sp] ) {
+	//	ip=code[ip];
+	//	printf("jnz'ing to... %u\n", ip);
+	//}
+	//else ++ip;
+	ip = (stack[sp]) ? code[ip] : ip+1;
+	printf("jnz'ing to... %u\n", ip);
 	return;
 exec_jz:;	// Jump if Zero = JZ
 	++ip;
-	if( !stack[sp] ) {
-		ip=code[ip];
-		printf("jz'ing to... %u\n", ip);
-	}
-	else ++ip;
+	//if( !stack[sp] ) {
+	//	ip=code[ip];
+	//	printf("jz'ing to... %u\n", ip);
+	//}
+	//else ++ip;
+	ip = (!stack[sp]) ? code[ip] : ip+1;
+	printf("jz'ing to... %u\n", ip);
 	return;
 
 // conditional stuff. Conditionals are always done signed I believe.
@@ -171,9 +210,9 @@ exec_cmp:;
 	ip++;
 	return;
 	
-// push and pop
+// pushes and pops
 exec_push:;	// put an item on the top of the stack
-	sp++;
+	++sp;
 	if( !sp ) {	// if we increment sp and sp is 0, we ran out of stack memory.
 		printf("stack overflow!\n");
 		goto *dispatch[halt];
@@ -184,12 +223,12 @@ exec_push:;	// put an item on the top of the stack
 	return;
 exec_pop:;	// reduce stack
 	if( sp )	// make sure that there's something in the stack before popping.
-		--sp;
+		sp--;
 	if( sp==255 ) {		// if we decrement sp and sp's bits went all 1, we popped too much!
 		printf("stack underflow!\n");
 		goto *dispatch[halt];
 	}
-	printf("popped, stack pointer 0x%x\n", sp);
+	printf("popped, stack pointer %x\n", sp);
 	ip++;
 	return;
 
@@ -248,6 +287,8 @@ exec_dec:;
 	printf("decrement result %" PRIu64 "\n", stack[sp]);
 	ip++;
 	return;
+
+// bit wise maths
 exec_shl:;
 	b = stack[sp--];
 	a = stack[sp--];
@@ -260,6 +301,33 @@ exec_shr:;
 	a = stack[sp--];
 	stack[++sp] = b>>a;
 	printf( "bit shift right result %" PRIu64 "\n", stack[sp] );
+	ip++;
+	return;
+exec_and:;
+	b = stack[sp--];
+	a = stack[sp--];
+	stack[++sp] = b & a;
+	printf( "bitwise and result %" PRIu64 "\n", stack[sp] );
+	ip++;
+	return;
+exec_or:;
+	b = stack[sp--];
+	a = stack[sp--];
+	stack[++sp] = b | a;
+	printf( "bitwise or result %" PRIu64 "\n", stack[sp] );
+	ip++;
+	return;
+exec_xor:;
+	b = stack[sp--];
+	a = stack[sp--];
+	stack[++sp] = b ^ a;
+	printf( "bitwise xor result %" PRIu64 "\n", stack[sp] );
+	ip++;
+	return;
+exec_not:;
+	a = stack[sp--];
+	stack[++sp] = ~a;
+	printf( "bitwise not result %" PRIu64 "\n", stack[sp] );
 	ip++;
 	return;
 
@@ -309,12 +377,14 @@ exec_fdiv:;
 
 uint64_t get_file_size(FILE *pFile)
 {
+	uint64_t size = 0;
 	if( !pFile )
-		return 0;
+		return size;
 	
-	fseek(pFile, 0, SEEK_END);
-	uint64_t size = ftell(pFile);
-	rewind(pFile);
+	if( !fseek(pFile, 0, SEEK_END) ) {
+		size = ( uint64_t )ftell(pFile);
+		rewind(pFile);
+	}
 	return size;
 }
 
@@ -345,6 +415,40 @@ int main(void)
 		halt
 	};
 	/*
+		uint a = 10;
+		if( a )
+			a = 15;
+	*/
+	uint64_t ifcond[] = {
+		push, 10,
+		jz, 8,
+		push, 15,
+		store, 0x0,
+		halt
+	};
+	// test call and ret opcodes
+	uint64_t func[] = {
+		nop,
+		call, 4,	// 1
+		halt,		// 3
+		ret,		// 4
+	};
+	// test calls within calls and returning.
+	uint64_t multicall[] = {
+		nop,
+		call, 6,
+		call, 9,
+		halt,
+		push, 9,
+		ret,
+		push, 5,
+		push, 10,
+		mul,
+		mul,
+		ret,
+	};
+	
+	/*
 	FILE *pFile = fopen("./myfile.casm", "rb");
 	if( !pFile )
 		return 0;
@@ -355,7 +459,7 @@ int main(void)
 	fread(program, sizeof(uint64_t), size, pFile);
 	*/
 	while( running )
-		exec( loop );
+		vm_exec( multicall );
 	/*
 	fclose(pFile); pFile=NULL;
 	free(program); program=NULL;
