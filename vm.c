@@ -5,7 +5,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
-#include <unistd.h>	// sleep()
+//#include <unistd.h>	// sleep()
 
 
 enum InstrSet {
@@ -25,14 +25,6 @@ enum InstrSet {
 
 bool running = true;
 
-// index pointers should NEVER go under 0...
-uint8_t ip=0, sp=0, callsp=0, callbp=0;
-
-#define STACKSIZE	256
-uint64_t	stack[STACKSIZE];
-uint64_t	callstack[STACKSIZE >> 2];
-uint64_t	memory[STACKSIZE << 2];
-
 // don't forget to update this!
 const char *opcode2str[] = {
 	"nop","push","pop","pushsp", "popsp",
@@ -45,6 +37,14 @@ const char *opcode2str[] = {
 
 void vm_exec(const uint64_t *code)
 {
+	// index pointers should NEVER go under 0...
+	static uint8_t ip=0, sp=0, callsp=0, callbp=0;
+
+#define STACKSIZE	256
+	static uint64_t	stack[STACKSIZE];
+	static uint64_t	callstack[STACKSIZE >> 2];
+	static uint64_t	memory[STACKSIZE << 2];
+	
 	uint64_t b, a;
 	double da, db;
 	
@@ -372,13 +372,14 @@ uint64_t get_file_size(FILE *pFile)
 
 int main(void)
 {
+	typedef uint64_t	casm[];
 	/*
 		uint i = 10;
 		uint n = 0;
 		while( n<i )
 			++n;
 	*/
-	uint64_t loop[] = {
+	casm loop = {
 		push, 10,	// push 10
 		store, 0,	// store 10 to memory address 0
 		push, 0,	// push 0
@@ -401,15 +402,17 @@ int main(void)
 		if( a )
 			a = 15;
 	*/
-	uint64_t ifcond[] = {
+	casm ifcond = {
 		push, 10,
-		jz, 8,
+		store, 0x0,
+		load, 0x0,
+		jz, 12,
 		push, 15,
 		store, 0x0,
 		halt
 	};
 	// test call and ret opcodes
-	uint64_t func[] = {
+	casm func = {
 		nop,
 		call, 5,	// 1
 		jmp, 11,
@@ -421,7 +424,7 @@ int main(void)
 	};
 	// test calls within calls and returning.
 	uint8_t func1=4, func2=9;
-	uint64_t callercalling[] = {
+	casm callercalling = {
 		nop,
 		call, func1,
 		halt,
@@ -436,6 +439,16 @@ int main(void)
 		mul,
 		ret	// 15
 	};
+	casm test_pushsppopsp = {
+		nop,
+		push, 10,
+		push, 10,
+		push, 2,
+		popsp,
+		pushsp,
+		halt
+	};
+	
 	/*
 	FILE *pFile = fopen("./myfile.casm", "rb");
 	if( !pFile )
@@ -447,8 +460,8 @@ int main(void)
 	fread(program, sizeof(uint64_t), size, pFile);
 	*/
 	while( running ) {
-		vm_exec( callercalling );
-		sleep(1);
+		vm_exec( loop );
+		//sleep(1);
 	}
 	/*
 	fclose(pFile); pFile=NULL;
