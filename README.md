@@ -7,9 +7,9 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
 * uses computed gotos (the ones that use a void\*) which is 20%-25% faster than a switch [citation needed for this one].
 * "CPU" is "64-bit" as the entire stack and memory is uint64_t. I will likely change this to uint8_t so it simulates real memory better.
 * memory manipulation where loading copies the top of the stack into any memory address and storing pops off the top of the stack into any memory address.
-* has integer and float arithmetic, conditional and unconditional jumps, comparisons, and stack and memory manipulations.
+* has integer and float arithmetic, (un)conditional jumps, comparisons, and stack and memory manipulations.
 * call stack for functions. Supports function calls from function calls! (unless you overflow the call stack...)
-* 
+* It's Turing Complete! (lol)
 
 ### Instruction Set.
  - nop - does nothing.
@@ -46,6 +46,6 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
 - [ ] add memory addressing so we can support pointers (achieved saving stack pointer index to stack I believe?).
 - [ ] add memory dereferencing (can't have memory addressing without dereferencing can we?)
 - [ ] implementing a call stack and memory addressing means we would need a form of buffer overflow protection.
-- [ ] group all globals into a single struct
-- [ ] segment data stack and memory into uint8_ts
+- [x] group all globals into a single struct
+- [ ] segment ~~data stack and~~ memory into uint8_ts
 - [ ] expand opcodes to take various sizes of data and sources. What I mean is make a push and pop for a byte, word (2 bytes), dword (4 bytes), and qword (8 bytes).
