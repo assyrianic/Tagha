@@ -26,7 +26,7 @@ bool running = true;
 #define STACKSIZE	256
 struct vm_cpu {
 	uint64_t	memory[STACKSIZE << 2], stack[STACKSIZE], callstack[STACKSIZE >> 2];
-	uint64_t	*code;
+	const uint64_t	*code;
 	uint8_t		ip, sp, callsp, callbp;
 };
 
@@ -112,9 +112,9 @@ exec_call:;	// calling a procedure
 	return;
 exec_ret:;
 	vm->callsp = vm->callbp;
-	vm->callbp = --vm->callsp;
 	printf("callsp set to callbp, callsp == %u\n", vm->callsp);
-	vm->ip = vm->callstack[vm->callsp];
+	vm->ip = vm->callstack[vm->callsp--];
+	vm->callbp = vm->callsp;
 	printf("returning to address: %u\n", vm->ip);
 	return;
 
@@ -362,7 +362,7 @@ uint64_t get_file_size(FILE *pFile)
 	}
 	return size;
 }
-//#include <unistd.h>	// sleep() fnc
+#include <unistd.h>	// sleep() fnc
 int main(void)
 {
 	typedef uint64_t	casm[] ;
@@ -406,14 +406,14 @@ int main(void)
 	};
 	// test call and ret opcodes
 	casm func = {
-		nop,
+		nop,		// 0
 		call, 5,	// 1
-		jmp, 11,
-		push, 10,
-		push, 15,
-		add,
-		ret,		// 4
-		halt,		// 3
+		jmp, 11,	// 3
+		push, 10,	// 5
+		push, 15,	// 7
+		add,		// 9
+		ret,		// 10
+		halt		// 11
 	};
 	// test calls within calls and returning.
 	uint8_t func1=4, func2=9, func3=18;
@@ -472,10 +472,10 @@ int main(void)
 	fread(program, sizeof(uint64_t), size, pFile);
 	*/
 	struct vm_cpu *p_vm = &(struct vm_cpu){ 0 };
-	p_vm->code = callcallcall;
+	p_vm->code = ifcond;
 	while( running ) {
 		vm_exec( p_vm );
-		//sleep(1);
+		sleep(1);
 	}
 	/*
 	fclose(pFile); pFile=NULL;
