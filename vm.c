@@ -114,9 +114,9 @@ exec_call:;	// calling a procedure
 	return;
 exec_ret:;
 	callsp = callbp;
+	callbp = callsp--;
 	printf("callsp set to callbp, callsp == %u\n", callsp);
-	ip = callstack[callsp--];
-	callbp = callsp;
+	ip = callstack[callsp];
 	printf("returning to address: %u\n", ip);
 	return;
 
