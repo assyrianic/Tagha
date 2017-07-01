@@ -5,8 +5,6 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
-//#include <unistd.h>	// sleep()
-
 
 enum InstrSet {
 	// push and pop are always assumed to hold a long int
@@ -66,7 +64,7 @@ void vm_exec(const uint64_t *code)
 		goto *dispatch[halt];
 		return;
 	}
-	printf( "current instruction == \"%s\"\n", opcode2str[code[ip]] );
+	printf( "current instruction == \"%s\" @ ip == %u\n", opcode2str[code[ip]], ip );
 	goto *dispatch[ code[ip] ];
 
 exec_nop:;
@@ -114,7 +112,7 @@ exec_call:;	// calling a procedure
 	return;
 exec_ret:;
 	callsp = callbp;
-	callbp = callsp--;
+	callbp = --callsp;
 	printf("callsp set to callbp, callsp == %u\n", callsp);
 	ip = callstack[callsp];
 	printf("returning to address: %u\n", ip);
@@ -369,7 +367,7 @@ uint64_t get_file_size(FILE *pFile)
 	}
 	return size;
 }
-
+#include <unistd.h>	// sleep()
 int main(void)
 {
 	typedef uint64_t	casm[];
@@ -423,7 +421,7 @@ int main(void)
 		halt,		// 3
 	};
 	// test calls within calls and returning.
-	uint8_t func1=4, func2=9;
+	uint8_t func1=4, func2=9, func3=18;
 	casm callercalling = {
 		nop,
 		call, func1,
@@ -437,7 +435,12 @@ int main(void)
 		push, 10,
 		mul,
 		mul,
-		ret	// 15
+		call, func3,	// 15
+		ret,	
+	// func3:
+		push, 40,
+		idiv,	// 20
+		ret,
 	};
 	casm test_pushsppopsp = {
 		nop,
@@ -460,8 +463,8 @@ int main(void)
 	fread(program, sizeof(uint64_t), size, pFile);
 	*/
 	while( running ) {
-		vm_exec( loop );
-		//sleep(1);
+		vm_exec( callercalling );
+		sleep(1);
 	}
 	/*
 	fclose(pFile); pFile=NULL;
