@@ -5,43 +5,39 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
-
-enum InstrSet {
-	// push and pop are always assumed to hold a long int
-	nop=0,
-	push, pop, pushsp, popsp,		// 1
-	add, fadd, sub, fsub,			// 5
-	mul, fmul, idiv, fdiv, mod,		// 9
-	jmp, lt, gt, cmp, 			// 14
-	jnz, jz,				// 18
-	inc, dec, shl, shr, and, or, xor, not,	// 20
-	cpy, swap,	// 28
-	load, store,	// 30
-	call, ret,	// 32
-	halt,
-};
-
-bool running = true;
+#define INSTR_SET \
+	X(nop) \
+	X(push) X(pop) X(pushsp) X(popsp) \
+	X(add) X(fadd) X(sub) X(fsub) \
+	X(mul) X(fmul) X(idiv) X(fdiv) X(mod) \
+	X(jmp) X(lt) X(gt) X(cmp) \
+	X(jnz) X(jz) \
+	X(inc) X(dec) X(shl) X(shr) X(and) X(or) X(xor) X(not) \
+	X(cpy) X(swap) \
+	X(load) X(store) \
+	X(call) X(ret) \
+	X(halt)
+#define X(x) x,
+enum InstrSet { INSTR_SET };
+#undef X
+#define X(x) # x ,
+const char *opcode2str[] = { INSTR_SET };
+#undef X
+#undef INSTR_SET
 
 #define STACKSIZE	256
 struct vm_cpu {
 	uint64_t	memory[STACKSIZE << 2], stack[STACKSIZE], callstack[STACKSIZE >> 2];
-	const uint64_t	*code;
 	uint8_t		ip, sp, callsp, callbp;
 };
 
-// don't forget to update this!
-const char *opcode2str[] = {
-	"nop","push","pop","pushsp", "popsp",
-	"add","fadd","sub","fsub","mul","fmul","idiv","fdiv","mod",
-	"jmp","lt","gt","cmp","jnz","jz",
-	"inc","dec","shl","shr","and","or","xor","not",
-	"cpy","swap","load","store","call","ret",
-	"halt"
-};
-
-void vm_exec(struct vm_cpu *const vm)
+//#include <unistd.h>	// sleep() fnc
+void vm_exec(const uint64_t *code, struct vm_cpu *const vm)
 {
+	union {
+		uint64_t ull;
+		double d;
+	} conv;
 	uint64_t b, a;
 	double da, db;
 	
@@ -59,47 +55,47 @@ void vm_exec(struct vm_cpu *const vm)
 		&&exec_halt
 	};
 	
-	if( vm->code[vm->ip] > halt || vm->code[vm->ip] < nop ) {
-		printf("illegal instruction exception! instruction == \'%" PRIu64 "\'\n", vm->code[vm->ip]);
+	if( code[vm->ip] > halt) {
+		printf("illegal instruction exception! instruction == \'%" PRIu64 "\' @ %u\n", code[vm->ip], vm->ip);
 		goto *dispatch[halt];
 		return;
 	}
-	printf( "current instruction == \"%s\" @ ip == %u\n", opcode2str[vm->code[vm->ip]], vm->ip );
-	goto *dispatch[ vm->code[vm->ip] ];
+	//printf( "current instruction == \"%s\" @ ip == %u\n", opcode2str[code[vm->ip]], vm->ip );
+#ifdef _UNISTD_H
+	#define DISPATCH()	sleep(1); goto *dispatch[ code[++vm->ip] ]
+#else
+	#define DISPATCH()	goto *dispatch[ code[++vm->ip] ]
+#endif
+	goto *dispatch[ code[vm->ip] ];
 
 exec_nop:;
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_halt:;
-	running = false;
-	printf("vm done\n");
+	//running = false;
+	printf("===================== vm done\n");
 	return;
 exec_cpy:;	// makes a copy of the current value at the top of the stack and places the copy at the top.
 	a = vm->stack[vm->sp];
 	vm->stack[++vm->sp] = a;
 	printf("copied %" PRIu64 ", top of stack: %" PRIu64 "\n", vm->stack[vm->sp-1], vm->stack[vm->sp]);
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_swap:;	// swaps two, topmost stack values.
 	a = vm->stack[vm->sp--];
 	b = vm->stack[vm->sp--];
 	vm->stack[vm->sp++] = b;
 	vm->stack[vm->sp++] = a;
 	printf("swapped: a == %" PRIu64 " | b == %" PRIu64 "\n", vm->stack[vm->sp-2], vm->stack[vm->sp-1]);
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_load:;	// stores a memory value into the top of the stack. pretty much push from memory.
-	a = vm->code[++vm->ip];
+	a = code[++vm->ip];
 	vm->stack[++vm->sp] = vm->memory[a];
 	printf("loaded %" PRIu64 " from memory[%" PRIu64 "]\n", vm->stack[vm->sp], a);
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_store:;	// pops value off stack into memory.
-	a = vm->code[++vm->ip];
+	a = code[++vm->ip];
 	vm->memory[a] = vm->stack[vm->sp--];
 	printf("stored %" PRIu64 " to memory[%" PRIu64 "] | memory[%" PRIu64 "] = %" PRIu64 "\n", vm->memory[a], a, a, vm->stack[vm->sp+1]);
-	vm->ip++;
-	return;
+	DISPATCH();
 
 // procedure instructions
 exec_call:;	// calling a procedure
@@ -107,22 +103,31 @@ exec_call:;	// calling a procedure
 	printf("calling address: %u\n", vm->ip);
 	vm->callstack[++vm->callsp] = vm->ip+1;	// save post address so we can jump back to it after we finish.
 	vm->callbp = vm->callsp;	// save stack pointer to frame pointer so we can make a stack frame
-	vm->ip = vm->code[vm->ip];	// jump to function address.
+	vm->ip = code[vm->ip];	// jump to function address.
 	printf("call return addr: %" PRIu64 " | frame ptr == %u\n", vm->callstack[vm->callsp], vm->callbp);
-	return;
+#ifdef _UNISTD_H
+	sleep(1);
+#endif
+	goto *dispatch[ code[vm->ip] ];
 exec_ret:;
 	vm->callsp = vm->callbp;
 	printf("callsp set to callbp, callsp == %u\n", vm->callsp);
 	vm->ip = vm->callstack[vm->callsp--];
 	vm->callbp = vm->callsp;
 	printf("returning to address: %u\n", vm->ip);
-	return;
+#ifdef _UNISTD_H
+	sleep(1);
+#endif
+	goto *dispatch[ code[vm->ip] ];
 
 // various jumps
 exec_jmp:;	// unconditional jump
-	vm->ip = vm->code[vm->ip+1];
+	vm->ip = code[vm->ip+1];
 	printf("jumping to... %u\n", vm->ip);
-	return;
+#ifdef _UNISTD_H
+	sleep(1);
+#endif
+	goto *dispatch[ code[vm->ip] ];
 exec_jnz:;	// Jump if Not Zero = JNZ
 	++vm->ip;
 	//if( stack[sp] ) {
@@ -130,9 +135,12 @@ exec_jnz:;	// Jump if Not Zero = JNZ
 	//	printf("jnz'ing to... %u\n", ip);
 	//}
 	//else ++ip;
-	vm->ip = (vm->stack[vm->sp]) ? vm->code[vm->ip] : vm->ip+1;
+	vm->ip = (vm->stack[vm->sp]) ? code[vm->ip] : vm->ip+1;
 	printf("jnz'ing to... %u\n", vm->ip);
-	return;
+#ifdef _UNISTD_H
+	sleep(1);
+#endif
+	goto *dispatch[ code[vm->ip] ];
 exec_jz:;	// Jump if Zero = JZ
 	++vm->ip;
 	//if( !stack[sp] ) {
@@ -140,9 +148,12 @@ exec_jz:;	// Jump if Zero = JZ
 	//	printf("jz'ing to... %u\n", ip);
 	//}
 	//else ++ip;
-	vm->ip = (!vm->stack[vm->sp]) ? vm->code[vm->ip] : vm->ip+1;
+	vm->ip = (!vm->stack[vm->sp]) ? code[vm->ip] : vm->ip+1;
 	printf("jz'ing to... %u\n", vm->ip);
-	return;
+#ifdef _UNISTD_H
+	sleep(1);
+#endif
+	goto *dispatch[ code[vm->ip] ];
 
 // conditional stuff. Conditionals are always done signed I believe.
 exec_lt:;
@@ -150,22 +161,19 @@ exec_lt:;
 	a = vm->stack[vm->sp--];
 	vm->stack[++vm->sp] = (int64_t)a < (int64_t)b;
 	printf("less than result %" PRIu64 " < %" PRIu64 " == %" PRIu64 "\n", a, b, vm->stack[vm->sp]);
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_gt:;
 	b = vm->stack[vm->sp--];
 	a = vm->stack[vm->sp--];
 	vm->stack[++vm->sp] = (int64_t)a > (int64_t)b;
 	printf("greater than result %" PRIu64 " > %" PRIu64 " == %" PRIu64 "\n", a, b, vm->stack[vm->sp]);
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_cmp:;
 	b = vm->stack[vm->sp--];
 	a = vm->stack[vm->sp--];
 	vm->stack[++vm->sp] = (int64_t)a == (int64_t)b;
 	printf("compare result %" PRIu64 " == %" PRIu64 " %" PRIu64 "\n", a, b, vm->stack[vm->sp]);
-	vm->ip++;
-	return;
+	DISPATCH();
 	
 // pushes and pops
 exec_push:;	// put an item on the top of the stack
@@ -174,10 +182,9 @@ exec_push:;	// put an item on the top of the stack
 		printf("stack overflow!\n");
 		goto *dispatch[halt];
 	}
-	vm->stack[vm->sp] = vm->code[++vm->ip];
+	vm->stack[vm->sp] = code[++vm->ip];
 	printf("pushing %" PRIu64 "\n", vm->stack[vm->sp]);
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_pushsp:;	// pushes value of sp to the top of the stack
 	++vm->sp;
 	if( !vm->sp ) {	// if we increment sp and sp is 0, we ran out of stack memory.
@@ -186,8 +193,7 @@ exec_pushsp:;	// pushes value of sp to the top of the stack
 	}
 	vm->stack[vm->sp] = vm->sp-1;
 	printf("pushing sp val of %" PRIu64 "\n", vm->stack[vm->sp]);
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_pop:;	// reduce stack
 	if( vm->sp )	// make sure that there's something in the stack before popping.
 		vm->sp--;
@@ -196,14 +202,12 @@ exec_pop:;	// reduce stack
 		goto *dispatch[halt];
 	}
 	printf("popped, stack pointer %x\n", vm->sp);
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_popsp:;	// Pops value off top of stack and sets SP to that value
 	if( vm->sp )
 		vm->sp = vm->stack[vm->sp];
 	printf("popped sp, stack pointer %x\n", vm->sp);
-	vm->ip++;
-	return;
+	DISPATCH();
 
 // arithmetic maths. order: int math, float math is last.
 exec_add:;
@@ -212,8 +216,7 @@ exec_add:;
 	// we then add the result and push it to the stack
 	vm->stack[++vm->sp] = a + b;	// set the value to the top of the stack
 	printf("add result %" PRIu64 "\n", vm->stack[vm->sp]);
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_sub:;
 	b = vm->stack[vm->sp--];
 	a = vm->stack[vm->sp--];
@@ -222,15 +225,13 @@ exec_sub:;
 	if( vm->stack[vm->sp] & 0x8000000000000000 )
 		printf( "sub result %lli\n", (int64_t)vm->stack[vm->sp] );
 	else printf( "sub result %" PRIu64 "\n", vm->stack[vm->sp] );
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_mul:;
 	b = vm->stack[vm->sp--];
 	a = vm->stack[vm->sp--];
 	vm->stack[++vm->sp] = a * b;
 	printf("mul result %" PRIu64 "\n", vm->stack[vm->sp]);
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_idiv:;
 	b = vm->stack[vm->sp--];
 	a = vm->stack[vm->sp--];
@@ -240,8 +241,7 @@ exec_idiv:;
 	}
 	vm->stack[++vm->sp] = a / b;
 	printf("div result %" PRIu64 "\n", vm->stack[vm->sp]);
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_mod:;
 	b = vm->stack[vm->sp--];
 	a = vm->stack[vm->sp--];
@@ -251,18 +251,15 @@ exec_mod:;
 	}
 	vm->stack[++vm->sp] = a % b;
 	printf("mod result %" PRIu64 "\n", vm->stack[vm->sp]);
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_inc:;
 	vm->stack[vm->sp]++;
 	printf("increment result %" PRIu64 "\n", vm->stack[vm->sp]);
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_dec:;
 	vm->stack[vm->sp]--;
 	printf("decrement result %" PRIu64 "\n", vm->stack[vm->sp]);
-	vm->ip++;
-	return;
+	DISPATCH();
 
 // bit wise maths
 exec_shl:;
@@ -270,84 +267,86 @@ exec_shl:;
 	a = vm->stack[vm->sp--];
 	vm->stack[++vm->sp] = b << a;
 	printf( "bit shift left result %" PRIu64 "\n", vm->stack[vm->sp] );
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_shr:;
 	b = vm->stack[vm->sp--];
 	a = vm->stack[vm->sp--];
 	vm->stack[++vm->sp] = b >> a;
 	printf( "bit shift right result %" PRIu64 "\n", vm->stack[vm->sp] );
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_and:;
 	b = vm->stack[vm->sp--];
 	a = vm->stack[vm->sp--];
 	vm->stack[++vm->sp] = b & a;
 	printf( "bitwise and result %" PRIu64 "\n", vm->stack[vm->sp] );
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_or:;
 	b = vm->stack[vm->sp--];
 	a = vm->stack[vm->sp--];
 	vm->stack[++vm->sp] = b | a;
 	printf( "bitwise or result %" PRIu64 "\n", vm->stack[vm->sp] );
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_xor:;
 	b = vm->stack[vm->sp--];
 	a = vm->stack[vm->sp--];
 	vm->stack[++vm->sp] = b ^ a;
 	printf( "bitwise xor result %" PRIu64 "\n", vm->stack[vm->sp] );
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_not:;
 	a = vm->stack[vm->sp--];
 	vm->stack[++vm->sp] = ~a;
 	printf( "bitwise not result %" PRIu64 "\n", vm->stack[vm->sp] );
-	vm->ip++;
-	return;
+	DISPATCH();
 
 // floating point maths
 exec_fadd:;
-	db = *(double *)(&vm->stack[vm->sp--]);
-	da = *(double *)(&vm->stack[vm->sp--]);
+	conv.ull = vm->stack[vm->sp--];
+	db = conv.d;
+	conv.ull = vm->stack[vm->sp--];
+	da = conv.d;
 	printf("da %f | db %f\n", da, db);
 	db += da;
-	vm->stack[++vm->sp] = *(uint64_t *)(&db);
+	conv.d = db;
+	vm->stack[++vm->sp] = conv.ull;
 	printf("f add result %f\n", db);
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_fsub:;
-	db = *(double *)(&vm->stack[vm->sp--]);
-	da = *(double *)(&vm->stack[vm->sp--]);
+	conv.ull = vm->stack[vm->sp--];
+	db = conv.d;
+	conv.ull = vm->stack[vm->sp--];
+	da = conv.d;
 	//printf("da %f | db %f\n", da, db);
 	db -= da;
-	vm->stack[++vm->sp] = *(uint64_t *)(&db);
+	conv.d = db;
+	vm->stack[++vm->sp] = conv.ull;
 	printf("f sub result %f\n", db);
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_fmul:;
-	db = *(double *)(&vm->stack[vm->sp--]);
-	da = *(double *)(&vm->stack[vm->sp--]);
+	conv.ull = vm->stack[vm->sp--];
+	db = conv.d;
+	conv.ull = vm->stack[vm->sp--];
+	da = conv.d;
 	//printf("da %f | db %f\n", da, db);
 	db *= da;
-	vm->stack[++vm->sp] = *(uint64_t *)(&db);
+	conv.d = db;
+	vm->stack[++vm->sp] = conv.ull;
 	printf("f mul result %f\n", db);
-	vm->ip++;
-	return;
+	DISPATCH();
 exec_fdiv:;
-	db = *(double *)(&vm->stack[vm->sp--]);
-	da = *(double *)(&vm->stack[vm->sp--]);
+	conv.ull = vm->stack[vm->sp--];
+	db = conv.d;
+	conv.ull = vm->stack[vm->sp--];
+	da = conv.d;
 	printf("da %f | db %f\n", da, db);
 	if( !db ) {
 		printf("fdiv by 0 not allowed, restoring stack\n");
 		goto *dispatch[halt];
 	}
 	db /= da;
-	vm->stack[++vm->sp] = *(uint64_t *)(&db);
+	conv.d = db;
+	vm->stack[++vm->sp] = conv.ull;
 	printf("f div result %f\n", db);
-	vm->ip++;
-	return;
+	DISPATCH();
 }
 
 uint64_t get_file_size(FILE *pFile)
@@ -357,12 +356,12 @@ uint64_t get_file_size(FILE *pFile)
 		return size;
 	
 	if( !fseek(pFile, 0, SEEK_END) ) {
-		size = ( uint64_t )ftell(pFile);
+		size = (uint64_t)ftell(pFile);
 		rewind(pFile);
 	}
 	return size;
 }
-#include <unistd.h>	// sleep() fnc
+
 int main(void)
 {
 	typedef uint64_t	casm[] ;
@@ -472,11 +471,12 @@ int main(void)
 	fread(program, sizeof(uint64_t), size, pFile);
 	*/
 	struct vm_cpu *p_vm = &(struct vm_cpu){ 0 };
-	p_vm->code = ifcond;
-	while( running ) {
-		vm_exec( p_vm );
-		sleep(1);
-	}
+	vm_exec( loop, p_vm ); p_vm->ip=0;
+	vm_exec( ifcond, p_vm ); p_vm->ip=0;
+	vm_exec( func, p_vm ); p_vm->ip=0;
+	vm_exec( callercalling, p_vm ); p_vm->ip=0;
+	vm_exec( test_pushsppopsp, p_vm ); p_vm->ip=0;
+	vm_exec( callcallcall, p_vm ); p_vm->ip=0;
 	/*
 	fclose(pFile); pFile=NULL;
 	free(program); program=NULL;
