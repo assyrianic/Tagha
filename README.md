@@ -1,5 +1,18 @@
 # C Virtual Machine
 minimal but complex stack-based virtual machine, written in C.
+## Purpose:
+to be an embeddable C-as-scripting-language scripting engine for C or C++ programs. The plan is to create or use a C compiler frontend to generate bytecode and run the bytecode on this vm.
+## Why?:
+so far, the only C interpreters (that I currently know of) are **CINT**, **PicoC**, **TCC\*** and **Ch**:
+- The problems with CINT is that it's old, clunky to use, outdated, and deprecated.
+- PicoC is good but its problem is that it uses old-school interpreting (just runs literal code) instead of compiling to bytecode and running much faster.
+- The problem with Ch is that, though it's embeddable and updated, it's proprietary and it's unknown how it interprets code; as the usual problem with proprietary code, you don't know what code it could contain and there's no 
+- \* TCC - Tiny C Compiler, it can compile and run scripts for testing but it cannot be embedded. The scripting action is more or less a **great** way to test your program! libtcc only acts as a JIT IIRC.
+
+The goal for this VM is to...
++ 1. be a new and modernly optimized piece of software for C-as-a-scripting-language.
++ 2. have the clear execution speed advantage bytecode interpreters have over traditional interpreters.
++ 3. be open-source and open for anyone who wants to improve this 1st portion of what would become a scripting engine.
 
 ### Features
 * float64 (double, not 32bit float) support by converting integer to a float by its bits. For example, "5.0" double is '0x4014000000000000' or '4617315517961601024' in terms of its bits if it were a long.
