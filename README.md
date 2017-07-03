@@ -6,7 +6,7 @@ to be an embeddable C-as-scripting-language scripting engine for C or C++ progra
 so far, the only C interpreters (that I currently know of) are **CINT**, **PicoC**, **TCC\*** and **Ch**:
 - The problems with CINT is that it's old, clunky to use, outdated, and deprecated.
 - PicoC is good but its problem is that it uses old-school interpreting (just runs literal code) instead of compiling to bytecode and running much faster.
-- The problem with Ch is that, though it's embeddable and updated, it's proprietary and it's unknown how it interprets code; as the usual problem with proprietary code, you don't know what code it could contain and there's no 
+- The problem with Ch is that, though it's embeddable and updated, it's proprietary and it's unknown how it interprets code; as the usual problem with proprietary code, you don't know what code it could contain and there's no telling what security issues that code could have.
 - \* TCC - Tiny C Compiler, it can compile and run scripts for testing but it cannot be embedded. The scripting action is more or less a **great** way to test your program! libtcc only acts as a JIT IIRC.
 
 The goal for this VM is to...
