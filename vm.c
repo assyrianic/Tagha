@@ -5,58 +5,61 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
-#define INSTR_SET \
+
+/*	here's the deal ok? make an opcode for each and erry n-bytes!
+ * 'l' - int32
+ * 's' - int16
+ * 'b' - byte | push and pop do not take bytes
+ * 'f' - float32
+*/
+
+#define INSTR_SET	\
+	X(halt) \
+	X(pushl) X(pushs) X(pushb) \
+	X(popl) X(pops) X(popb) \
+	X(wrtl) X(wrts) X(wrtb) \
+	X(storel) \
 	X(nop) \
-	X(push) X(pop) X(pushsp) X(popsp) \
-	X(add) X(fadd) X(sub) X(fsub) \
-	X(mul) X(fmul) X(idiv) X(fdiv) X(mod) \
-	X(jmp) X(lt) X(gt) X(cmp) \
-	X(jnz) X(jz) \
-	X(inc) X(dec) X(shl) X(shr) X(and) X(or) X(xor) X(not) \
-	X(cpy) X(swap) \
-	X(load) X(store) \
-	X(call) X(ret) \
-	X(halt)
+
 #define X(x) x,
-enum InstrSet { INSTR_SET };
+enum InstrSet{ INSTR_SET };
 #undef X
-#define X(x) # x ,
+
+#define X(x) #x ,
 const char *opcode2str[] = { INSTR_SET };
 #undef X
-#undef INSTR_SET
 
-#define STACKSIZE	256
+#define WORD_SIZE		4
+#define STK_SIZE		1024*WORD_SIZE	// 4096 4Kb
+#define CALLSTK_SIZE	256				// 1024 bytes
+#define MEM_SIZE		256*WORD_SIZE	// 1024 bytes
+
+// 'b' for Byte, not bool
 struct vm_cpu {
-	uint64_t	memory[STACKSIZE << 2], stack[STACKSIZE], callstack[STACKSIZE >> 2];
-	uint8_t		ip, sp, callsp, callbp;
+	uint8_t		bStack[STK_SIZE];			// 4096 bytes
+	uint32_t	bCallstack[CALLSTK_SIZE];	// 1024 bytes
+	uint8_t		bMemory[MEM_SIZE];			// 1024 bytes
+	uint32_t	ip, sp, callsp, callbp;		// 16 bytes
 };
 
-//#include <unistd.h>	// sleep() fnc
-void vm_exec(const uint64_t *code, struct vm_cpu *const vm)
+//#include <unistd.h>	// sleep() func
+void vm_exec(const uint8_t *code, struct vm_cpu *const vm)
 {
 	union {
-		uint64_t ull;
-		double d;
+		uint32_t ui;
+		float f;
+		uint16_t us;
+		uint8_t c[4];
 	} conv;
-	uint64_t b, a;
-	double da, db;
-	
-	static const void *dispatch[] = {
-		&&exec_nop,
-		&&exec_push, &&exec_pop, &&exec_pushsp, &&exec_popsp,
-		&&exec_add, &&exec_fadd, &&exec_sub, &&exec_fsub,
-		&&exec_mul, &&exec_fmul, &&exec_idiv, &&exec_fdiv, &&exec_mod,
-		&&exec_jmp, &&exec_lt, &&exec_gt, &&exec_cmp,
-		&&exec_jnz, &&exec_jz,
-		&&exec_inc, &&exec_dec, &&exec_shl, &&exec_shr, &&exec_and, &&exec_or, &&exec_xor, &&exec_not,
-		&&exec_cpy, &&exec_swap, &&exec_load, &&exec_store,
-		&&exec_call, &&exec_ret, 
-		//&&exec_z,
-		&&exec_halt
-	};
-	
-	if( code[vm->ip] > halt) {
-		printf("illegal instruction exception! instruction == \'%" PRIu64 "\' @ %u\n", code[vm->ip], vm->ip);
+	uint32_t b, a;
+	float fa, fb;
+
+#define X(x) &&exec_##x ,
+	static const void *dispatch[] = { INSTR_SET };
+#undef INSTR_SET
+
+	if( code[vm->ip] > nop) {
+		printf("illegal instruction exception! instruction == \'%" PRIu8 "\' @ %u\n", code[vm->ip], vm->ip);
 		goto *dispatch[halt];
 		return;
 	}
@@ -71,281 +74,95 @@ void vm_exec(const uint64_t *code, struct vm_cpu *const vm)
 exec_nop:;
 	DISPATCH();
 exec_halt:;
-	//running = false;
 	printf("===================== vm done\n");
 	return;
-exec_cpy:;	// makes a copy of the current value at the top of the stack and places the copy at the top.
-	a = vm->stack[vm->sp];
-	vm->stack[++vm->sp] = a;
-	printf("copied %" PRIu64 ", top of stack: %" PRIu64 "\n", vm->stack[vm->sp-1], vm->stack[vm->sp]);
-	DISPATCH();
-exec_swap:;	// swaps two, topmost stack values.
-	a = vm->stack[vm->sp--];
-	b = vm->stack[vm->sp--];
-	vm->stack[vm->sp++] = b;
-	vm->stack[vm->sp++] = a;
-	printf("swapped: a == %" PRIu64 " | b == %" PRIu64 "\n", vm->stack[vm->sp-2], vm->stack[vm->sp-1]);
-	DISPATCH();
-exec_load:;	// stores a memory value into the top of the stack. pretty much push from memory.
-	a = code[++vm->ip];
-	vm->stack[++vm->sp] = vm->memory[a];
-	printf("loaded %" PRIu64 " from memory[%" PRIu64 "]\n", vm->stack[vm->sp], a);
-	DISPATCH();
-exec_store:;	// pops value off stack into memory.
-	a = code[++vm->ip];
-	vm->memory[a] = vm->stack[vm->sp--];
-	printf("stored %" PRIu64 " to memory[%" PRIu64 "] | memory[%" PRIu64 "] = %" PRIu64 "\n", vm->memory[a], a, a, vm->stack[vm->sp+1]);
-	DISPATCH();
 
-// procedure instructions
-exec_call:;	// calling a procedure
-	vm->ip++;	// increment to function address
-	printf("calling address: %u\n", vm->ip);
-	vm->callstack[++vm->callsp] = vm->ip+1;	// save post address so we can jump back to it after we finish.
-	vm->callbp = vm->callsp;	// save stack pointer to frame pointer so we can make a stack frame
-	vm->ip = code[vm->ip];	// jump to function address.
-	printf("call return addr: %" PRIu64 " | frame ptr == %u\n", vm->callstack[vm->callsp], vm->callbp);
-#ifdef _UNISTD_H
-	sleep(1);
-#endif
-	goto *dispatch[ code[vm->ip] ];
-exec_ret:;
-	vm->callsp = vm->callbp;
-	printf("callsp set to callbp, callsp == %u\n", vm->callsp);
-	vm->ip = vm->callstack[vm->callsp--];
-	vm->callbp = vm->callsp;
-	printf("returning to address: %u\n", vm->ip);
-#ifdef _UNISTD_H
-	sleep(1);
-#endif
-	goto *dispatch[ code[vm->ip] ];
-
-// various jumps
-exec_jmp:;	// unconditional jump
-	vm->ip = code[vm->ip+1];
-	printf("jumping to... %u\n", vm->ip);
-#ifdef _UNISTD_H
-	sleep(1);
-#endif
-	goto *dispatch[ code[vm->ip] ];
-exec_jnz:;	// Jump if Not Zero = JNZ
-	++vm->ip;
-	//if( stack[sp] ) {
-	//	ip=code[ip];
-	//	printf("jnz'ing to... %u\n", ip);
-	//}
-	//else ++ip;
-	vm->ip = (vm->stack[vm->sp]) ? code[vm->ip] : vm->ip+1;
-	printf("jnz'ing to... %u\n", vm->ip);
-#ifdef _UNISTD_H
-	sleep(1);
-#endif
-	goto *dispatch[ code[vm->ip] ];
-exec_jz:;	// Jump if Zero = JZ
-	++vm->ip;
-	//if( !stack[sp] ) {
-	//	ip=code[ip];
-	//	printf("jz'ing to... %u\n", ip);
-	//}
-	//else ++ip;
-	vm->ip = (!vm->stack[vm->sp]) ? code[vm->ip] : vm->ip+1;
-	printf("jz'ing to... %u\n", vm->ip);
-#ifdef _UNISTD_H
-	sleep(1);
-#endif
-	goto *dispatch[ code[vm->ip] ];
-
-// conditional stuff. Conditionals are always done signed I believe.
-exec_lt:;
-	b = vm->stack[vm->sp--];
-	a = vm->stack[vm->sp--];
-	vm->stack[++vm->sp] = (int64_t)a < (int64_t)b;
-	printf("less than result %" PRIu64 " < %" PRIu64 " == %" PRIu64 "\n", a, b, vm->stack[vm->sp]);
+// opcodes for longs
+exec_pushl:;	// push 4 bytes onto the stack
+	conv.c[0] = code[++vm->ip];
+	conv.c[1] = code[++vm->ip];
+	conv.c[2] = code[++vm->ip];
+	conv.c[3] = code[++vm->ip];
+	vm->bStack[++vm->sp] = conv.c[0];
+	vm->bStack[++vm->sp] = conv.c[1];
+	vm->bStack[++vm->sp] = conv.c[2];
+	vm->bStack[++vm->sp] = conv.c[3];
+	printf("pushl: pushed %u\n", conv.ui);
 	DISPATCH();
-exec_gt:;
-	b = vm->stack[vm->sp--];
-	a = vm->stack[vm->sp--];
-	vm->stack[++vm->sp] = (int64_t)a > (int64_t)b;
-	printf("greater than result %" PRIu64 " > %" PRIu64 " == %" PRIu64 "\n", a, b, vm->stack[vm->sp]);
+exec_pushs:;	// push 2 bytes onto the stack
+	conv.c[0] = code[++vm->ip];
+	conv.c[1] = code[++vm->ip];
+	vm->bStack[++vm->sp] = conv.c[0];
+	vm->bStack[++vm->sp] = conv.c[1];
+	printf("pushs: pushed %u\n", conv.us);
 	DISPATCH();
-exec_cmp:;
-	b = vm->stack[vm->sp--];
-	a = vm->stack[vm->sp--];
-	vm->stack[++vm->sp] = (int64_t)a == (int64_t)b;
-	printf("compare result %" PRIu64 " == %" PRIu64 " %" PRIu64 "\n", a, b, vm->stack[vm->sp]);
+exec_pushb:;	// push a byte onto the stack
+	vm->bStack[++vm->sp] = code[++vm->ip];
+	printf("pushb: pushed %u\n", vm->bStack[vm->sp]);
 	DISPATCH();
-	
-// pushes and pops
-exec_push:;	// put an item on the top of the stack
-	++vm->sp;
-	if( !vm->sp ) {	// if we increment sp and sp is 0, we ran out of stack memory.
-		printf("stack overflow!\n");
-		goto *dispatch[halt];
-	}
-	vm->stack[vm->sp] = code[++vm->ip];
-	printf("pushing %" PRIu64 "\n", vm->stack[vm->sp]);
+exec_popl:;		// pop 4 bytes to eventually be overwritten
+	vm->sp -= 4;
+	printf("popl\n");
 	DISPATCH();
-exec_pushsp:;	// pushes value of sp to the top of the stack
-	++vm->sp;
-	if( !vm->sp ) {	// if we increment sp and sp is 0, we ran out of stack memory.
-		printf("stack overflow!\n");
-		goto *dispatch[halt];
-	}
-	vm->stack[vm->sp] = vm->sp-1;
-	printf("pushing sp val of %" PRIu64 "\n", vm->stack[vm->sp]);
+exec_pops:;		// pop 2 bytes
+	vm->sp -= 2;
+	printf("pops\n");
 	DISPATCH();
-exec_pop:;	// reduce stack
-	if( vm->sp )	// make sure that there's something in the stack before popping.
-		vm->sp--;
-	if( vm->sp==255 ) {		// if we decrement sp and sp's bits went all 1, we popped too much!
-		printf("stack underflow!\n");
-		goto *dispatch[halt];
-	}
-	printf("popped, stack pointer %x\n", vm->sp);
+exec_popb:;		// pop a byte
+	--vm->sp;
+	printf("popb\n");
 	DISPATCH();
-exec_popsp:;	// Pops value off top of stack and sets SP to that value
-	if( vm->sp )
-		vm->sp = vm->stack[vm->sp];
-	printf("popped sp, stack pointer %x\n", vm->sp);
+exec_wrtl:;	// writes an int to memory, First operand is the memory address as 4 byte number, second is the int of data.
+	conv.c[0] = code[++vm->ip];
+	conv.c[1] = code[++vm->ip];
+	conv.c[2] = code[++vm->ip];
+	conv.c[3] = code[++vm->ip];
+	a = conv.ui;
+	vm->bMemory[a] = code[++vm->ip];
+	vm->bMemory[a+1] = code[++vm->ip];
+	vm->bMemory[a+2] = code[++vm->ip];
+	vm->bMemory[a+3] = code[++vm->ip];
+	conv.c[0] = vm->bMemory[a];
+	conv.c[1] = vm->bMemory[a+1];
+	conv.c[2] = vm->bMemory[a+2];
+	conv.c[3] = vm->bMemory[a+3];
+	printf("wrote int data - %u @ address 0x%x\n", conv.ui, a);
 	DISPATCH();
-
-// arithmetic maths. order: int math, float math is last.
-exec_add:;
-	b = vm->stack[vm->sp--];
-	a = vm->stack[vm->sp--];
-	// we then add the result and push it to the stack
-	vm->stack[++vm->sp] = a + b;	// set the value to the top of the stack
-	printf("add result %" PRIu64 "\n", vm->stack[vm->sp]);
+exec_wrts:;	// writes a short to memory. First operand is the memory address as 4 byte number, second is the short of data.
+	conv.c[0] = code[++vm->ip];
+	conv.c[1] = code[++vm->ip];
+	conv.c[2] = code[++vm->ip];
+	conv.c[3] = code[++vm->ip];
+	a = conv.ui;
+	vm->bMemory[a] = code[++vm->ip];
+	vm->bMemory[a+1] = code[++vm->ip];
+	conv.c[0] = vm->bMemory[a];
+	conv.c[1] = vm->bMemory[a+1];
+	printf("wrote short data - %u @ address 0x%x\n", conv.us, a);
 	DISPATCH();
-exec_sub:;
-	b = vm->stack[vm->sp--];
-	a = vm->stack[vm->sp--];
-	vm->stack[++vm->sp] = a - b;
-	// 0x8... is uint64_t's sign bit
-	if( vm->stack[vm->sp] & 0x8000000000000000 )
-		printf( "sub result %lli\n", (int64_t)vm->stack[vm->sp] );
-	else printf( "sub result %" PRIu64 "\n", vm->stack[vm->sp] );
+exec_wrtb:;	// writes a byte to memory. First operand is the memory address as 32-bit number, second is the byte of data.
+	conv.c[0] = code[++vm->ip];
+	conv.c[1] = code[++vm->ip];
+	conv.c[2] = code[++vm->ip];
+	conv.c[3] = code[++vm->ip];
+	vm->bMemory[conv.ui] = code[++vm->ip];
+	printf("wrote byte data - %u @ address 0x%x\n", vm->bMemory[conv.ui], conv.ui);
 	DISPATCH();
-exec_mul:;
-	b = vm->stack[vm->sp--];
-	a = vm->stack[vm->sp--];
-	vm->stack[++vm->sp] = a * b;
-	printf("mul result %" PRIu64 "\n", vm->stack[vm->sp]);
-	DISPATCH();
-exec_idiv:;
-	b = vm->stack[vm->sp--];
-	a = vm->stack[vm->sp--];
-	if( b==0 ) {
-		printf("div by 0 not allowed, restoring stack\n");
-		goto *dispatch[halt];
-	}
-	vm->stack[++vm->sp] = a / b;
-	printf("div result %" PRIu64 "\n", vm->stack[vm->sp]);
-	DISPATCH();
-exec_mod:;
-	b = vm->stack[vm->sp--];
-	a = vm->stack[vm->sp--];
-	if( b==0 ) {
-		printf("mod by 0 not allowed, restoring stack\n");
-		goto *dispatch[halt];
-	}
-	vm->stack[++vm->sp] = a % b;
-	printf("mod result %" PRIu64 "\n", vm->stack[vm->sp]);
-	DISPATCH();
-exec_inc:;
-	vm->stack[vm->sp]++;
-	printf("increment result %" PRIu64 "\n", vm->stack[vm->sp]);
-	DISPATCH();
-exec_dec:;
-	vm->stack[vm->sp]--;
-	printf("decrement result %" PRIu64 "\n", vm->stack[vm->sp]);
-	DISPATCH();
-
-// bit wise maths
-exec_shl:;
-	b = vm->stack[vm->sp--];
-	a = vm->stack[vm->sp--];
-	vm->stack[++vm->sp] = b << a;
-	printf( "bit shift left result %" PRIu64 "\n", vm->stack[vm->sp] );
-	DISPATCH();
-exec_shr:;
-	b = vm->stack[vm->sp--];
-	a = vm->stack[vm->sp--];
-	vm->stack[++vm->sp] = b >> a;
-	printf( "bit shift right result %" PRIu64 "\n", vm->stack[vm->sp] );
-	DISPATCH();
-exec_and:;
-	b = vm->stack[vm->sp--];
-	a = vm->stack[vm->sp--];
-	vm->stack[++vm->sp] = b & a;
-	printf( "bitwise and result %" PRIu64 "\n", vm->stack[vm->sp] );
-	DISPATCH();
-exec_or:;
-	b = vm->stack[vm->sp--];
-	a = vm->stack[vm->sp--];
-	vm->stack[++vm->sp] = b | a;
-	printf( "bitwise or result %" PRIu64 "\n", vm->stack[vm->sp] );
-	DISPATCH();
-exec_xor:;
-	b = vm->stack[vm->sp--];
-	a = vm->stack[vm->sp--];
-	vm->stack[++vm->sp] = b ^ a;
-	printf( "bitwise xor result %" PRIu64 "\n", vm->stack[vm->sp] );
-	DISPATCH();
-exec_not:;
-	a = vm->stack[vm->sp--];
-	vm->stack[++vm->sp] = ~a;
-	printf( "bitwise not result %" PRIu64 "\n", vm->stack[vm->sp] );
-	DISPATCH();
-
-// floating point maths
-exec_fadd:;
-	conv.ull = vm->stack[vm->sp--];
-	db = conv.d;
-	conv.ull = vm->stack[vm->sp--];
-	da = conv.d;
-	printf("da %f | db %f\n", da, db);
-	db += da;
-	conv.d = db;
-	vm->stack[++vm->sp] = conv.ull;
-	printf("f add result %f\n", db);
-	DISPATCH();
-exec_fsub:;
-	conv.ull = vm->stack[vm->sp--];
-	db = conv.d;
-	conv.ull = vm->stack[vm->sp--];
-	da = conv.d;
-	//printf("da %f | db %f\n", da, db);
-	db -= da;
-	conv.d = db;
-	vm->stack[++vm->sp] = conv.ull;
-	printf("f sub result %f\n", db);
-	DISPATCH();
-exec_fmul:;
-	conv.ull = vm->stack[vm->sp--];
-	db = conv.d;
-	conv.ull = vm->stack[vm->sp--];
-	da = conv.d;
-	//printf("da %f | db %f\n", da, db);
-	db *= da;
-	conv.d = db;
-	vm->stack[++vm->sp] = conv.ull;
-	printf("f mul result %f\n", db);
-	DISPATCH();
-exec_fdiv:;
-	conv.ull = vm->stack[vm->sp--];
-	db = conv.d;
-	conv.ull = vm->stack[vm->sp--];
-	da = conv.d;
-	printf("da %f | db %f\n", da, db);
-	if( !db ) {
-		printf("fdiv by 0 not allowed, restoring stack\n");
-		goto *dispatch[halt];
-	}
-	db /= da;
-	conv.d = db;
-	vm->stack[++vm->sp] = conv.ull;
-	printf("f div result %f\n", db);
+exec_storel:;	// pops value off stack and into a memory address.
+	conv.c[0] = code[++vm->ip];
+	conv.c[1] = code[++vm->ip];
+	conv.c[2] = code[++vm->ip];
+	conv.c[3] = code[++vm->ip];
+	a = conv.ui;
+	conv.c[3] = vm->bStack[vm->sp--];
+	conv.c[2] = vm->bStack[vm->sp--];
+	conv.c[1] = vm->bStack[vm->sp--];
+	conv.c[0] = vm->bStack[vm->sp--];
+	vm->bMemory[a] = conv.c[0];
+	vm->bMemory[a+1] = conv.c[1];
+	vm->bMemory[a+2] = conv.c[2];
+	vm->bMemory[a+3] = conv.c[3];
+	printf("stored int data - %u @ address 0x%x\n", conv.ui, a);
 	DISPATCH();
 }
 
@@ -364,119 +181,33 @@ uint64_t get_file_size(FILE *pFile)
 
 int main(void)
 {
-	typedef uint64_t	casm[] ;
-	/*
-		uint i = 10;
-		uint n = 0;
-		while( n<i )
-			++n;
-	*/
-	casm loop = {
-		push, 10,	// push 10
-		store, 0,	// store 10 to memory address 0
-		push, 0,	// push 0
-		store, 1,	// store 0 to address #1
-		load, 1,	// push 0 from address #1
-		load, 0,	// push 10 from address #0
-		lt,		// 0 < 10?
-		//jz, 24,	// jump to halt if 0.
-		jz, 22,
-		load, 1,	// push 0 from memory
-		//push, 1,	// push 1,
-		//add,		// increment by 1, possibly change to inc?
-		inc,		// increment by 1
-		store, 1,	// store result to mem address #1.
-		jmp, 8,		// jump to loading 0x01 into stack.
-		halt
-	};
-	/*
-		uint a = 10;
-		if( a )
-			a = 15;
-	*/
-	casm ifcond = {
-		push, 10,
-		store, 0x0,
-		load, 0x0,
-		jz, 12,
-		push, 15,
-		store, 0x0,
-		halt
-	};
-	// test call and ret opcodes
-	casm func = {
-		nop,		// 0
-		call, 5,	// 1
-		jmp, 11,	// 3
-		push, 10,	// 5
-		push, 15,	// 7
-		add,		// 9
-		ret,		// 10
-		halt		// 11
-	};
-	// test calls within calls and returning.
-	uint8_t func1=4, func2=9, func3=18;
-	casm callercalling = {
-		nop,
-		call, func1,
-		halt,
-	// func1:
-		push, 9,	// 4
-		call, func2,
-		ret,
-	// func2:
-		push, 5,	// 10
-		push, 10,
-		mul,
-		mul,
-		call, func3,	// 15
-		ret,	
-	// func3:
-		push, 40,
-		idiv,	// 20
-		ret,
-	};
-	casm test_pushsppopsp = {
-		nop,
-		push, 10,
-		push, 10,
-		push, 2,
-		popsp,
-		pushsp,
-		halt
-	};
-	
-	casm callcallcall = {
-		nop,
-		call, 4,
-		halt,		// 3
-		call, 7,	// 4
-		ret,
-		call, 10,	// 6
-		ret,
-		call, 13,	// 8
-		ret,
-		call, 15,	// 10
-		ret
-	};
+	typedef uint8_t		bytecode[] ;
 	
 	/*
-	FILE *pFile = fopen("./myfile.casm", "rb");
+	FILE *pFile = fopen("./myfile.cbyte", "rb");
 	if( !pFile )
 		return 0;
 	
 	uint64_t size = get_file_size(pFile);
-	
-	uint64_t *program = malloc(sizeof(uint64_t)*size);
-	fread(program, sizeof(uint64_t), size, pFile);
+	uint8_t *program = malloc(sizeof(uint8_t)*size);
+	fread(program, sizeof(uint8_t), size, pFile);
 	*/
+	const bytecode test1 = {
+		nop,
+		// push 5 as int32
+		pushl, 0x05, 0, 0, 0,
+		//pushs, 0x0D, 0x0C,
+		//pops, popl,
+		//wrtb, 0, 0, 0, 0, 0xFF,
+		//wrts, 1, 0, 0, 0, 0xFF, 0xAD,
+		// read
+		//wrtl, 4, 0, 0, 0, 0xFF, 0xFF, 0, 0x0,
+		storel, 0,0,0,0,
+		halt
+	};
 	struct vm_cpu *p_vm = &(struct vm_cpu){ 0 };
-	vm_exec( loop, p_vm ); p_vm->ip=0;
-	vm_exec( ifcond, p_vm ); p_vm->ip=0;
-	vm_exec( func, p_vm ); p_vm->ip=0;
-	vm_exec( callercalling, p_vm ); p_vm->ip=0;
-	vm_exec( test_pushsppopsp, p_vm ); p_vm->ip=0;
-	vm_exec( callcallcall, p_vm ); p_vm->ip=0;
+	printf("size == %u\n", sizeof(struct vm_cpu));
+	vm_exec( test1, p_vm );
 	/*
 	fclose(pFile); pFile=NULL;
 	free(program); program=NULL;
