@@ -1,3 +1,4 @@
+# PLEASE USE THE V2 BRANCH, MASTER IS DEPRECATED.
 # C Virtual Machine
 minimal but complex stack-based virtual machine, written in C.
 ## Purpose:
