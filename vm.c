@@ -1,126 +1,389 @@
 
 #include <stdio.h>
 #include <stdbool.h>
-#include <stdint.h>
-#include <inttypes.h>
 #include <stdlib.h>
+#include <inttypes.h>
+#include "vm.h"
 
 
-/*	here's the deal ok? make an opcode for each and erry n-bytes!
- * 'l' - int32
- * 's' - int16
- * 'b' - byte | push and pop do not take bytes
- * 'f' - float32
-*/
+unsigned int vm_get_imm4(struct vm_cpu *restrict vm, const unsigned char *restrict code)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return 0;
+#endif
+	union conv_union conv;
+	conv.c[0] = code[++vm->ip];
+	conv.c[1] = code[++vm->ip];
+	conv.c[2] = code[++vm->ip];
+	conv.c[3] = code[++vm->ip];
+	return conv.ui;
+}
 
-#define INSTR_SET	\
-	X(halt) \
-	X(pushl) X(pushs) X(pushb) X(pushsp) X(puship)\
-	X(popl) X(pops) X(popb) \
-	X(wrtl) X(wrts) X(wrtb) \
-	X(storel) X(stores) X(storeb) \
-	X(loadl) X(loads) X(loadb) \
-	X(copyl) X(copys) X(copyb) \
-	X(addl) X(uaddl) X(addf) X(subl) X(usubl) X(subf) \
-	X(mull) X(umull) X(mulf) X(divl) X(udivl) X(divf) X(modl) X(umodl)\
-	X(andl) X(orl) X(xorl) X(notl) X(shl) X(shr) X(incl) X(decl) \
-	X(ltl) X(ultl) X(ltf) X(gtl) X(ugtl) X(gtf) X(cmpl) X(ucmpl) X(compf) \
-	X(leql) X(uleql) X(leqf) X(geql) X(ugeql) X(geqf) \
-	X(jmp) X(jzl) X(jzs) X(jzb) X(jnzl) X(jnzs) X(jnzb) \
-	X(call) X(ret) \
-	X(nop) \
+unsigned short vm_get_imm2(struct vm_cpu *restrict vm, const unsigned char *restrict code)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return 0;
+#endif
+	union conv_union conv;
+	conv.c[0] = code[++vm->ip];
+	conv.c[1] = code[++vm->ip];
+	return conv.us;
+}
 
-#define X(x) x,
-enum InstrSet{ INSTR_SET };
-#undef X
+unsigned char vm_get_imm1(struct vm_cpu *restrict vm, const unsigned char *restrict code)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return 0;
+#endif
+	return code[++vm->ip];
+}
 
-#define X(x) #x ,
-const char *opcode2str[] = { INSTR_SET };
-#undef X
+unsigned int vm_pop_word(struct vm_cpu *vm)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return 0;
+	if( (vm->sp-4) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
+		printf("vm_pop_word reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
+		exit(1);
+	}
+#endif
+	union conv_union conv;
+	conv.c[3] = vm->bStack[vm->sp--];
+	conv.c[2] = vm->bStack[vm->sp--];
+	conv.c[1] = vm->bStack[vm->sp--];
+	conv.c[0] = vm->bStack[vm->sp--];
+	return conv.ui;
+}
 
-#define WORD_SIZE		4
-#define STK_SIZE		1024*WORD_SIZE	// 4096 4Kb
-#define CALLSTK_SIZE	256				// 1024 bytes
-#define MEM_SIZE		256*WORD_SIZE	// 1024 bytes
+unsigned short vm_pop_short(struct vm_cpu *vm)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return 0;
+	if( (vm->sp-2) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
+		printf("vm_pop_short reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-2);
+		exit(1);
+	}
+#endif
+	union conv_union conv;
+	conv.c[1] = vm->bStack[vm->sp--];
+	conv.c[0] = vm->bStack[vm->sp--];
+	return conv.us;
+}
+unsigned char vm_pop_byte(struct vm_cpu *vm)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return 0;
+	if( (vm->sp-1) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
+		printf("vm_pop_byte reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-1);
+		exit(1);
+	}
+#endif
+	return vm->bStack[vm->sp--];
+}
 
-// 'b' for Byte, not bool
-struct vm_cpu {
-	uint8_t		bStack[STK_SIZE];			// 4096 bytes
-	uint32_t	bCallstack[CALLSTK_SIZE];	// 1024 bytes
-	uint8_t		bMemory[MEM_SIZE];			// 1024 bytes
-	uint32_t	ip, sp, callsp, callbp;		// 16 bytes
-};
+float vm_pop_float32(struct vm_cpu *vm)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return 0;
+	if( (vm->sp-4) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
+		printf("vm_pop_float32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
+		exit(1);
+	}
+#endif
+	union conv_union conv;
+	conv.c[3] = vm->bStack[vm->sp--];
+	conv.c[2] = vm->bStack[vm->sp--];
+	conv.c[1] = vm->bStack[vm->sp--];
+	conv.c[0] = vm->bStack[vm->sp--];
+	return conv.f;
+}
 
-void debug_print_memory(const struct vm_cpu *restrict vm)
+void vm_push_word(struct vm_cpu *restrict vm, const unsigned int val)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return;
+	if( (vm->sp+4) >= STK_SIZE ) {
+		printf("vm_push_word reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+4);
+		exit(1);
+	}
+#endif
+	union conv_union conv;
+	conv.ui = val;
+	vm->bStack[++vm->sp] = conv.c[0];
+	vm->bStack[++vm->sp] = conv.c[1];
+	vm->bStack[++vm->sp] = conv.c[2];
+	vm->bStack[++vm->sp] = conv.c[3];
+}
+
+void vm_push_short(struct vm_cpu *restrict vm, const unsigned short val)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return;
+	if( (vm->sp+2) >= STK_SIZE ) {
+		printf("vm_push_short reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+2);
+		exit(1);
+	}
+#endif
+	union conv_union conv;
+	conv.us = val;
+	vm->bStack[++vm->sp] = conv.c[0];
+	vm->bStack[++vm->sp] = conv.c[1];
+}
+
+void vm_push_byte(struct vm_cpu *restrict vm, const unsigned char val)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return;
+	if( (vm->sp+1) >= STK_SIZE ) {
+		printf("vm_push_byte reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+1);
+		exit(1);
+	}
+#endif
+	vm->bStack[++vm->sp] = val;
+}
+
+void vm_push_float(struct vm_cpu *restrict vm, const float val)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return;
+	if( (vm->sp+4) >= STK_SIZE ) {
+		printf("vm_push_float reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+4);
+		exit(1);
+	}
+#endif
+	union conv_union conv;
+	conv.f = val;
+	vm->bStack[++vm->sp] = conv.c[0];
+	vm->bStack[++vm->sp] = conv.c[1];
+	vm->bStack[++vm->sp] = conv.c[2];
+	vm->bStack[++vm->sp] = conv.c[3];
+}
+
+void vm_write_word(struct vm_cpu *restrict vm, const unsigned int val, const unsigned int address)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return;
+	if( address+3 >= MEM_SIZE ) {
+		printf("vm_write_word reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+3);
+		exit(1);
+	}
+#endif
+	union conv_union conv;
+	conv.ui = val;
+	vm->bMemory[address] = conv.c[0];
+	vm->bMemory[address+1] = conv.c[1];
+	vm->bMemory[address+2] = conv.c[2];
+	vm->bMemory[address+3] = conv.c[3];
+}
+
+void vm_write_short(struct vm_cpu *restrict vm, const unsigned short val, const unsigned int address)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return;
+	if( address+1 >= MEM_SIZE ) {
+		printf("vm_write_short reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+1);
+		exit(1);
+	}
+#endif
+	union conv_union conv;
+	conv.us = val;
+	vm->bMemory[address] = conv.c[0];
+	vm->bMemory[address+1] = conv.c[1];
+}
+
+void vm_write_byte(struct vm_cpu *restrict vm, const unsigned char val, const unsigned int address)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return;
+	if( address >= MEM_SIZE ) {
+		printf("vm_write_byte reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
+		exit(1);
+	}
+#endif
+	vm->bMemory[address] = val;
+}
+
+void vm_write_float(struct vm_cpu *restrict vm, const float val, const unsigned int address)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return;
+	if( address+3 >= MEM_SIZE ) {
+		printf("vm_write_float reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+3);
+		exit(1);
+	}
+#endif
+	union conv_union conv;
+	conv.f = val;
+	vm->bMemory[address] = conv.c[0];
+	vm->bMemory[address+1] = conv.c[1];
+	vm->bMemory[address+2] = conv.c[2];
+	vm->bMemory[address+3] = conv.c[3];
+}
+
+unsigned int vm_read_word(struct vm_cpu *restrict vm, const unsigned int address)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return 0;
+	if( address+3 >= MEM_SIZE ) {
+		printf("vm_read_word reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+3);
+		exit(1);
+	}
+#endif
+	union conv_union conv;
+	conv.c[0] = vm->bMemory[address];
+	conv.c[1] = vm->bMemory[address+1];
+	conv.c[2] = vm->bMemory[address+2];
+	conv.c[3] = vm->bMemory[address+3];
+	return conv.ui;
+}
+
+unsigned short vm_read_short(struct vm_cpu *restrict vm, const unsigned int address)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return 0;
+	if( address+1 >= MEM_SIZE ) {
+		printf("vm_read_short reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+1);
+		exit(1);
+	}
+#endif
+	union conv_union conv;
+	conv.c[0] = vm->bMemory[address];
+	conv.c[1] = vm->bMemory[address+1];
+	return conv.f;
+}
+
+unsigned char vm_read_byte(struct vm_cpu *restrict vm, const unsigned int address)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return 0;
+	if( address >= MEM_SIZE ) {
+		printf("vm_read_byte reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
+		exit(1);
+	}
+#endif
+	return vm->bMemory[address];
+}
+
+float vm_read_float(struct vm_cpu *restrict vm, const unsigned int address)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return 0;
+	if( address+3 >= MEM_SIZE ) {
+		printf("vm_read_float reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+3);
+		exit(1);
+	}
+#endif
+	union conv_union conv;
+	conv.c[0] = vm->bMemory[address];
+	conv.c[1] = vm->bMemory[address+1];
+	conv.c[2] = vm->bMemory[address+2];
+	conv.c[3] = vm->bMemory[address+3];
+	return conv.f;
+}
+
+
+void vm_debug_print_memory(const struct vm_cpu *vm)
 {
 	if( !vm )
 		return;
 	printf("DEBUG ...---===---... Printing Memory...\n");
-	uint32_t i;
+	unsigned int i;
 	for( i=0 ; i<MEM_SIZE ; i++ )
 		if( vm->bMemory[i] )
-			printf("Memory Index: 0x%x | data: %u\n", i, vm->bMemory[i]);
+			printf("Memory Index: 0x%x | data: %" PRIu32 "\n", i, vm->bMemory[i]);
 	printf("\n");
 }
-void debug_print_stack(const struct vm_cpu *restrict vm)
+void vm_debug_print_stack(const struct vm_cpu *vm)
 {
 	if( !vm )
 		return;
 	printf("DEBUG ...---===---... Printing Stack...\n");
-	uint32_t i;
+	unsigned int i;
 	for( i=0 ; i<STK_SIZE ; i++ )
 		if( vm->bStack[i] )
-			printf("Stack Index: 0x%x | data: %u\n", i, vm->bStack[i]);
+			printf("Stack Index: 0x%x | data: %" PRIu32 "\n", i, vm->bStack[i]);
 	printf("\n");
 }
-void debug_print_callstack(const struct vm_cpu *restrict vm)
+void vm_debug_print_callstack(const struct vm_cpu *vm)
 {
 	if( !vm )
 		return;
 	printf("DEBUG ...---===---... Printing Call Stack...\n");
-	uint32_t i;
+	unsigned int i;
 	for( i=0 ; i<CALLSTK_SIZE ; i++ )
 		if( vm->bCallstack[i] )
-			printf("Call Stack Index: 0x%x | data: %u\n", i, vm->bCallstack[i]);
+			printf("Call Stack Index: 0x%x | data: %" PRIu32 "\n", i, vm->bCallstack[i]);
 	printf("\n");
 }
-void debug_print_ptrs(const struct vm_cpu *restrict vm)
+void vm_debug_print_ptrs(const struct vm_cpu *vm)
 {
 	if( !vm )
 		return;
 	printf("DEBUG ...---===---... Printing Pointers...\n");
-	printf("Instruction Pointer: %u\
-			\nStack Pointer: %u\
-			\nCall Stack Pointer: %u\
-			\nCall Stack Frame Pointer: %u\n", vm->ip, vm->sp, vm->callsp, vm->callbp);
+	printf("Instruction Pointer: %" PRIu32 "\
+			\nStack Pointer: %" PRIu32 "\
+			\nCall Stack Pointer: %" PRIu32 ""
+			/*\nCall Stack Frame Pointer: %" PRIu32 "\n"*/, vm->ip, vm->sp, vm->callsp/*, vm->callbp*/);
 	printf("\n");
 }
 
-//#include <unistd.h>	// sleep() func
-void vm_exec(const uint8_t *code, struct vm_cpu *const vm)
+void vm_reset(struct vm_cpu *vm)
 {
-	union {
-		uint32_t ui;
-		int32_t	i;
-		float f;
-		uint16_t us;
-		int16_t	s;
-		uint8_t c[4];
-	} conv;
-	uint32_t b, a;
+	unsigned int i;
+	for( i=0 ; i<MEM_SIZE ; i++ )
+		vm->bMemory[i] = 0;
+	for( i=0 ; i<STK_SIZE ; i++ )
+		vm->bStack[i] = 0;
+	for( i=0 ; i<CALLSTK_SIZE ; i++ )
+		vm->bCallstack[i] = 0;
+	vm->ip = 0;
+	vm->sp = 0;
+	vm->callsp = 0;
+}
+
+//#include <unistd.h>	// sleep() func
+void vm_exec(const unsigned char *restrict code, struct vm_cpu *restrict vm)
+{
+	if( !vm )
+		return;
+	else if( !code )
+		return;
+	
+	union conv_union conv;
+	unsigned int b, a;
 	float fa, fb;
-	uint16_t usa, usb;
+	unsigned short usa, usb;
 
 #define X(x) &&exec_##x ,
 	static const void *dispatch[] = { INSTR_SET };
+#undef X
 #undef INSTR_SET
 
 	if( code[vm->ip] > nop) {
-		printf("illegal instruction exception! instruction == \'%" PRIu8 "\' @ %u\n", code[vm->ip], vm->ip);
+		printf("illegal instruction exception! instruction == \'%" PRIu32 "\' @ %" PRIu32 "\n", code[vm->ip], vm->ip);
 		goto *dispatch[halt];
 		return;
 	}
-	//printf( "current instruction == \"%s\" @ ip == %u\n", opcode2str[code[vm->ip]], vm->ip );
+	//printf( "current instruction == \"%s\" @ ip == %" PRIu32 "\n", opcode2str[code[vm->ip]], vm->ip );
 #ifdef _UNISTD_H
 	#define DISPATCH()	sleep(1); goto *dispatch[ code[++vm->ip] ]
 #else
@@ -130,67 +393,97 @@ void vm_exec(const uint8_t *code, struct vm_cpu *const vm)
 
 exec_nop:;
 	DISPATCH();
+	
 exec_halt:;
-	printf("===================== vm done\n");
+	printf("===================== vm done\n\n");
 	return;
 
 // opcodes for longs
 exec_pushl:;	// push 4 bytes onto the stack
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
-	printf("pushl: pushed %u\n", conv.ui);
+	conv.ui = vm_get_imm4(vm, code);
+	vm_push_word(vm, conv.ui);
+	printf("pushl: pushed %" PRIu32 "\n", conv.ui);
 	DISPATCH();
+	
 exec_pushs:;	// push 2 bytes onto the stack
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
+	conv.us = vm_get_imm2(vm, code);
+#ifdef SAFEMODE
+	if( vm->sp+2 >= STK_SIZE ) {
+		printf("exec_pushs reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+2);
+		goto *dispatch[halt];
+	}
+#endif
+	//conv.c[0] = code[++vm->ip];
+	//conv.c[1] = code[++vm->ip];
 	vm->bStack[++vm->sp] = conv.c[0];
 	vm->bStack[++vm->sp] = conv.c[1];
-	printf("pushs: pushed %u\n", conv.us);
+	printf("pushs: pushed %" PRIu32 "\n", conv.us);
 	DISPATCH();
+	
 exec_pushb:;	// push a byte onto the stack
+#ifdef SAFEMODE
+	if( vm->sp+1 >= STK_SIZE ) {
+		printf("exec_pushb reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+1);
+		goto *dispatch[halt];
+	}
+#endif
 	vm->bStack[++vm->sp] = code[++vm->ip];
-	printf("pushb: pushed %u\n", vm->bStack[vm->sp]);
+	printf("pushb: pushed %" PRIu32 "\n", vm->bStack[vm->sp]);
 	DISPATCH();
+	
 exec_pushsp:;	// push sp onto the stack, uses 4 bytes since 'sp' is uint32
 	conv.ui = vm->sp;
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
-	printf("pushsp: pushed sp index: %u\n", conv.ui);
+	vm_push_word(vm, conv.ui);
+	printf("pushsp: pushed sp index: %" PRIu32 "\n", conv.ui);
 	DISPATCH();
+	
 exec_puship:;
 	conv.ui = vm->ip;
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
-	printf("puship: pushed ip index: %u\n", conv.ui);
+	vm_push_word(vm, conv.ui);
+	printf("puship: pushed ip index: %" PRIu32 "\n", conv.ui);
 	DISPATCH();
+	
 exec_popl:;		// pop 4 bytes to eventually be overwritten
+#ifdef SAFEMODE
+	if( vm->sp-4 >= STK_SIZE ) {
+		printf("exec_popl reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
+		goto *dispatch[halt];
+	}
+#endif
 	vm->sp -= 4;
 	printf("popl\n");
 	DISPATCH();
+	
 exec_pops:;		// pop 2 bytes
+#ifdef SAFEMODE
+	if( vm->sp-2 >= STK_SIZE ) {
+		printf("exec_pops reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-2);
+		goto *dispatch[halt];
+	}
+#endif
 	vm->sp -= 2;
 	printf("pops\n");
 	DISPATCH();
+	
 exec_popb:;		// pop a byte
+#ifdef SAFEMODE
+	if( vm->sp-1 >= STK_SIZE ) {
+		printf("exec_popb reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-1);
+		goto *dispatch[halt];
+	}
+#endif
 	--vm->sp;
 	printf("popb\n");
 	DISPATCH();
+	
 exec_wrtl:;	// writes an int to memory, First operand is the memory address as 4 byte number, second is the int of data.
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
-	a = conv.ui;
+	a = vm_get_imm4(vm, code);
+#ifdef SAFEMODE
+	if( a+3 >= MEM_SIZE ) {
+		printf("exec_wrtl reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a+3);
+		goto *dispatch[halt];
+	}
+#endif
 	vm->bMemory[a] = code[++vm->ip];
 	vm->bMemory[a+1] = code[++vm->ip];
 	vm->bMemory[a+2] = code[++vm->ip];
@@ -199,34 +492,48 @@ exec_wrtl:;	// writes an int to memory, First operand is the memory address as 4
 	conv.c[1] = vm->bMemory[a+1];
 	conv.c[2] = vm->bMemory[a+2];
 	conv.c[3] = vm->bMemory[a+3];
-	printf("wrote int data - %u @ address 0x%x\n", conv.ui, a);
+	printf("wrote int data - %" PRIu32 " @ address 0x%x\n", conv.ui, a);
 	DISPATCH();
+	
 exec_wrts:;	// writes a short to memory. First operand is the memory address as 4 byte number, second is the short of data.
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
-	a = conv.ui;
+	a = vm_get_imm4(vm, code);
+#ifdef SAFEMODE
+	if( a+1 >= MEM_SIZE ) {
+		printf("exec_wrts reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a+1);
+		goto *dispatch[halt];
+	}
+#endif
 	vm->bMemory[a] = code[++vm->ip];
 	vm->bMemory[a+1] = code[++vm->ip];
 	conv.c[0] = vm->bMemory[a];
 	conv.c[1] = vm->bMemory[a+1];
-	printf("wrote short data - %u @ address 0x%x\n", conv.us, a);
+	printf("wrote short data - %" PRIu32 " @ address 0x%x\n", conv.us, a);
 	DISPATCH();
+	
 exec_wrtb:;	// writes a byte to memory. First operand is the memory address as 32-bit number, second is the byte of data.
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
+	conv.ui = vm_get_imm4(vm, code);
+#ifdef SAFEMODE
+	if( conv.ui >= MEM_SIZE ) {
+		printf("exec_wrtb reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, conv.ui);
+		goto *dispatch[halt];
+	}
+#endif
 	vm->bMemory[conv.ui] = code[++vm->ip];
-	printf("wrote byte data - %u @ address 0x%x\n", vm->bMemory[conv.ui], conv.ui);
+	printf("wrote byte data - %" PRIu32 " @ address 0x%x\n", vm->bMemory[conv.ui], conv.ui);
 	DISPATCH();
+	
 exec_storel:;	// pops 4-byte value off stack and into a memory address.
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
-	a = conv.ui;
+	a = vm_get_imm4(vm, code);
+#ifdef SAFEMODE
+	if( a+3 >= MEM_SIZE ) {
+		printf("exec_storel reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a+3);
+		goto *dispatch[halt];
+	}
+	else if( vm->sp-4 >= STK_SIZE ) {
+		printf("exec_storel reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
+		goto *dispatch[halt];
+	}
+#endif
 	vm->bMemory[a+3] = vm->bStack[vm->sp--];
 	vm->bMemory[a+2] = vm->bStack[vm->sp--];
 	vm->bMemory[a+1] = vm->bStack[vm->sp--];
@@ -235,859 +542,586 @@ exec_storel:;	// pops 4-byte value off stack and into a memory address.
 	conv.c[1] = vm->bMemory[a+1];
 	conv.c[2] = vm->bMemory[a+2];
 	conv.c[3] = vm->bMemory[a+3];
-	printf("stored int data - %u @ address 0x%x\n", conv.ui, a);
+	printf("stored int data - %" PRIu32 " @ address 0x%x\n", conv.ui, a);
 	DISPATCH();
+	
 exec_stores:;	// pops 2-byte value off stack and into a memory address.
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
-	a = conv.ui;
+	a = vm_get_imm4(vm, code);
+#ifdef SAFEMODE
+	if( a+1 >= MEM_SIZE ) {
+		printf("exec_stores reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a+1);
+		goto *dispatch[halt];
+	}
+	else if( vm->sp-2 >= STK_SIZE ) {
+		printf("exec_stores reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-2);
+		goto *dispatch[halt];
+	}
+#endif
 	vm->bMemory[a+1] = vm->bStack[vm->sp--];
 	vm->bMemory[a] = vm->bStack[vm->sp--];
 	conv.c[0] = vm->bMemory[a];
 	conv.c[1] = vm->bMemory[a+1];
-	printf("stored short data - %u @ address 0x%x\n", conv.us, a);
+	printf("stored short data - %" PRIu32 " @ address 0x%x\n", conv.us, a);
 	DISPATCH();
+	
 exec_storeb:;	// pops byte value off stack and into a memory address.
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
-	a = conv.ui;
+	a = vm_get_imm4(vm, code);
+#ifdef SAFEMODE
+	if( a >= MEM_SIZE ) {
+		printf("exec_storeb reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
+		goto *dispatch[halt];
+	}
+	else if( vm->sp-1 >= STK_SIZE ) {
+		printf("exec_storeb reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-1);
+		goto *dispatch[halt];
+	}
+#endif
 	vm->bMemory[a] = vm->bStack[vm->sp--];
 	conv.c[0] = vm->bMemory[a];
-	printf("stored byte data - %u @ address 0x%x\n", conv.c[0], a);
+	printf("stored byte data - %" PRIu32 " @ address 0x%x\n", conv.c[0], a);
 	DISPATCH();
+	
 exec_loadl:;
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
-	a = conv.ui;
-	conv.c[0] = vm->bStack[++vm->sp] = vm->bMemory[a];
-	conv.c[1] = vm->bStack[++vm->sp] = vm->bMemory[a+1];
-	conv.c[2] = vm->bStack[++vm->sp] = vm->bMemory[a+2];
-	conv.c[3] = vm->bStack[++vm->sp] = vm->bMemory[a+3];
-	printf("loaded int data to T.O.S. - %u from address 0x%x\n", conv.ui, a);
-	DISPATCH();
-exec_loads:;
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
-	a = conv.ui;
-	conv.c[1] = vm->bStack[++vm->sp] = vm->bMemory[a];
-	conv.c[0] = vm->bStack[++vm->sp] = vm->bMemory[a+1];
-	printf("loaded short data to T.O.S. - %u from address 0x%x\n", conv.us, a);
-	DISPATCH();
-exec_loadb:;
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
-	a = conv.ui;
+	a = vm_get_imm4(vm, code);
+#ifdef SAFEMODE
+	if( a+3 >= MEM_SIZE ) {
+		printf("exec_loadl reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a+3);
+		goto *dispatch[halt];
+	}
+	else if( vm->sp+4 >= STK_SIZE ) {
+		printf("exec_loadl reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+4);
+		goto *dispatch[halt];
+	}
+#endif
 	vm->bStack[++vm->sp] = vm->bMemory[a];
-	printf("loaded byte data to T.O.S. - %u from address 0x%x\n", vm->bStack[vm->sp], a);
+	vm->bStack[++vm->sp] = vm->bMemory[a+1];
+	vm->bStack[++vm->sp] = vm->bMemory[a+2];
+	vm->bStack[++vm->sp] = vm->bMemory[a+3];
+	conv.c[0] = vm->bMemory[a];
+	conv.c[1] = vm->bMemory[a+1];
+	conv.c[2] = vm->bMemory[a+2];
+	conv.c[3] = vm->bMemory[a+3];
+	printf("loaded int data to T.O.S. - %" PRIu32 " from address 0x%x\n", conv.ui, a);
 	DISPATCH();
+	
+exec_loads:;
+	a = vm_get_imm4(vm, code);
+#ifdef SAFEMODE
+	if( a+1 >= MEM_SIZE ) {
+		printf("exec_loads reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a+1);
+		goto *dispatch[halt];
+	}
+	else if( vm->sp+2 >= STK_SIZE ) {
+		printf("exec_loads reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+2);
+		goto *dispatch[halt];
+	}
+#endif
+	vm->bStack[++vm->sp] = vm->bMemory[a];
+	vm->bStack[++vm->sp] = vm->bMemory[a+1];
+	conv.c[0] = vm->bMemory[a];
+	conv.c[1] = vm->bMemory[a+1];
+	printf("loaded short data to T.O.S. - %" PRIu32 " from address 0x%x\n", conv.us, a);
+	DISPATCH();
+	
+exec_loadb:;
+	a = vm_get_imm4(vm, code);
+#ifdef SAFEMODE
+	if( a >= MEM_SIZE ) {
+		printf("exec_loadb reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
+		goto *dispatch[halt];
+	}
+	else if( vm->sp+1 >= STK_SIZE ) {
+		printf("exec_loadb reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+1);
+		goto *dispatch[halt];
+	}
+#endif
+	vm->bStack[++vm->sp] = vm->bMemory[a];
+	printf("loaded byte data to T.O.S. - %" PRIu32 " from address 0x%x\n", vm->bStack[vm->sp], a);
+	DISPATCH();
+	
 exec_copyl:;	// copy 4 bytes of top of stack and put as new top of stack.
+#ifdef SAFEMODE
+	if( vm->sp-3 >= STK_SIZE ) {
+		printf("exec_copyl reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-3);
+		goto *dispatch[halt];
+	}
+#endif
 	conv.c[0] = vm->bStack[vm->sp-3];
 	conv.c[1] = vm->bStack[vm->sp-2];
 	conv.c[2] = vm->bStack[vm->sp-1];
 	conv.c[3] = vm->bStack[vm->sp];
-	printf("copied int data from T.O.S. - %u\n", conv.ui);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("copied int data from T.O.S. - %" PRIu32 "\n", conv.ui);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_copys:;
+#ifdef SAFEMODE
+	if( vm->sp-1 >= STK_SIZE ) {
+		printf("exec_copys reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-1);
+		goto *dispatch[halt];
+	}
+#endif
 	conv.c[0] = vm->bStack[vm->sp-1];
 	conv.c[1] = vm->bStack[vm->sp];
 	vm->bStack[++vm->sp] = conv.c[0];
 	vm->bStack[++vm->sp] = conv.c[1];
-	printf("copied short data from T.O.S. - %u\n", conv.us);
+	printf("copied short data from T.O.S. - %" PRIu32 "\n", conv.us);
 	DISPATCH();
+	
 exec_copyb:;
+#ifdef SAFEMODE
+	if( vm->sp+1 >= STK_SIZE ) {
+		printf("exec_copys reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+1);
+		goto *dispatch[halt];
+	}
+#endif
 	conv.c[0] = vm->bStack[vm->sp];
 	vm->bStack[++vm->sp] = conv.c[0];
-	printf("copied byte data from T.O.S. - %u\n", conv.c[0]);
+	printf("copied byte data from T.O.S. - %" PRIu32 "\n", conv.c[0]);
 	DISPATCH();
+	
 exec_addl:;		// pop 8 bytes, signed addition, and push 4 byte result to top of stack
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
-	conv.i = (int32_t)a + (int32_t)b;
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
+	conv.i = (int)a + (int)b;
 	printf("signed 4 byte addition result: %i == %i + %i\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_uaddl:;	// In C, all integers in an expression are promoted to int32, if number is bigger then unsigned int32 or int64
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
 	conv.ui = a+b;
-	printf("unsigned 4 byte addition result: %u == %u + %u\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("unsigned 4 byte addition result: %" PRIu32 " == %" PRIu32 " + %" PRIu32 "\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_addf:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fb=conv.f;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fa=conv.f;
+	fb=vm_pop_float32(vm);
+	fa=vm_pop_float32(vm);
 	conv.f = fa+fb;
 	printf("float addition result: %f == %f + %f\n", conv.f, fa,fb);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	vm_push_float(vm, conv.f);
 	DISPATCH();
+	
 exec_subl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
-	conv.i = (int32_t)a - (int32_t)b;
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
+	conv.i = (int)a - (int)b;
 	printf("signed 4 byte subtraction result: %i == %i - %i\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_usubl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
 	conv.ui = a-b;
-	printf("unsigned 4 byte subtraction result: %u == %u - %u\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("unsigned 4 byte subtraction result: %" PRIu32 " == %" PRIu32 " - %" PRIu32 "\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_subf:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fb=conv.f;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fa=conv.f;
+	fb=vm_pop_float32(vm);
+	fa=vm_pop_float32(vm);
 	conv.f = fa-fb;
 	printf("float subtraction result: %f == %f - %f\n", conv.f, fa,fb);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	vm_push_float(vm, conv.f);
 	DISPATCH();
+	
 exec_mull:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
-	conv.i = (int32_t)a * (int32_t)b;
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
+	conv.i = (int)a * (int)b;
 	printf("signed 4 byte mult result: %i == %i * %i\n", conv.i, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_umull:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
 	conv.ui = a*b;
-	printf("unsigned 4 byte mult result: %u == %u * %u\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("unsigned 4 byte mult result: %" PRIu32 " == %" PRIu32 " * %" PRIu32 "\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_mulf:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fb=conv.f;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fa=conv.f;
+	fb=vm_pop_float32(vm);
+	fa=vm_pop_float32(vm);
 	conv.f = fa*fb;
 	printf("float mul result: %f == %f * %f\n", conv.f, fa,fb);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	vm_push_float(vm, conv.f);
 	DISPATCH();
+	
 exec_divl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
+	b=vm_pop_word(vm);
 	if( !b ) {
 		printf("divl: divide by 0 error.\n");
 		goto *dispatch[halt];
 	}
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
-	conv.i = (int32_t)a / (int32_t)b;
+	a=vm_pop_word(vm);
+	conv.i = (int)a / (int)b;
 	printf("signed 4 byte division result: %i == %i / %i\n", conv.i, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_udivl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
+	b=vm_pop_word(vm);
 	if( !b ) {
 		printf("udivl: divide by 0 error.\n");
 		goto *dispatch[halt];
 	}
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	a=vm_pop_word(vm);
 	conv.ui = a/b;
-	printf("unsigned 4 byte division result: %u == %u / %u\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("unsigned 4 byte division result: %" PRIu32 " == %" PRIu32 " / %" PRIu32 "\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_divf:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fb=conv.f;
+	fb=vm_pop_float32(vm);
 	if( !fb ) {
 		printf("divf: divide by 0.0 error.\n");
 		goto *dispatch[halt];
 	}
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fa=conv.f;
+	fa=vm_pop_float32(vm);
 	conv.f = fa/fb;
 	printf("float division result: %f == %f / %f\n", conv.f, fa,fb);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	vm_push_float(vm, conv.f);
 	DISPATCH();
+	
 exec_modl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
+	b=vm_pop_word(vm);
 	if( !b ) {
 		printf("modl: divide by 0 error.\n");
 		goto *dispatch[halt];
 	}
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
-	conv.i = (int32_t)a % (int32_t)b;
+	a=vm_pop_word(vm);
+	conv.i = (int)a % (int)b;
 	printf("signed 4 byte modulo result: %i == %i %% %i\n", conv.i, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_umodl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
+	b=vm_pop_word(vm);
 	if( !b ) {
 		printf("umodl: divide by 0 error.\n");
 		goto *dispatch[halt];
 	}
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	a=vm_pop_word(vm);
 	conv.ui = a%b;
-	printf("unsigned 4 byte modulo result: %u == %u %% %u\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("unsigned 4 byte modulo result: %" PRIu32 " == %" PRIu32 " %% %" PRIu32 "\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_andl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
 	conv.ui = a & b;
-	printf("4 byte AND result: %u == %i & %i\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte AND result: %" PRIu32 " == %i & %i\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_orl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
 	conv.ui = a | b;
-	printf("4 byte OR result: %u == %i | %i\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte OR result: %" PRIu32 " == %i | %i\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_xorl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
 	conv.ui = a ^ b;
-	printf("4 byte XOR result: %u == %i ^ %i\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte XOR result: %" PRIu32 " == %i ^ %i\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_notl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	a=vm_pop_word(vm);
 	conv.ui = ~a;
-	printf("4 byte NOT result: %u\n", conv.ui);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte NOT result: %" PRIu32 "\n", conv.ui);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_shl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
 	conv.ui = a << b;
-	printf("4 byte Shift Left result: %u == %i >> %i\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte Shift Left result: %" PRIu32 " == %i >> %i\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_shr:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
 	conv.ui = a >> b;
-	printf("4 byte Shift Right result: %u == %i >> %i\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte Shift Right result: %" PRIu32 " == %i >> %i\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_incl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	a=vm_pop_word(vm);
 	conv.ui = ++a;
-	printf("4 byte Increment result: %u\n", conv.ui);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte Increment result: %" PRIu32 "\n", conv.ui);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_decl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	a=vm_pop_word(vm);
 	conv.ui = --a;
-	printf("4 byte Decrement result: %u\n", conv.ui);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte Decrement result: %" PRIu32 "\n", conv.ui);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_ltl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
-	conv.ui = (int32_t)a < (int32_t)b;
-	printf("4 byte Signed Less Than result: %u == %i < %i\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
+	conv.ui = (int)a < (int)b;
+	printf("4 byte Signed Less Than result: %" PRIu32 " == %i < %i\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_ultl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
 	conv.ui = a < b;
-	printf("4 byte Unsigned Less Than result: %u == %u < %u\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte Unsigned Less Than result: %" PRIu32 " == %" PRIu32 " < %" PRIu32 "\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_ltf:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fb=conv.f;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fa=conv.f;
+	fb=vm_pop_float32(vm);
+	fa=vm_pop_float32(vm);
 	conv.ui = fa < fb;
-	printf("4 byte Less Than Float result: %u == %f < %f\n", conv.ui, fa,fb);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte Less Than Float result: %" PRIu32 " == %f < %f\n", conv.ui, fa,fb);
+	vm_push_float(vm, conv.f);
 	DISPATCH();
+	
 exec_gtl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
-	conv.ui = (int32_t)a > (int32_t)b;
-	printf("4 byte Signed Greater Than result: %u == %i > %i\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
+	conv.ui = (int)a > (int)b;
+	printf("4 byte Signed Greater Than result: %" PRIu32 " == %i > %i\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_ugtl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
 	conv.ui = a > b;
-	printf("4 byte Signed Greater Than result: %u == %u > %u\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte Signed Greater Than result: %" PRIu32 " == %" PRIu32 " > %" PRIu32 "\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_gtf:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fb=conv.f;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fa=conv.f;
+	fb=vm_pop_float32(vm);
+	fa=vm_pop_float32(vm);
 	conv.ui = fa > fb;
-	printf("4 byte Greater Than Float result: %u == %f > %f\n", conv.ui, fa,fb);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte Greater Than Float result: %" PRIu32 " == %f > %f\n", conv.ui, fa,fb);
+	vm_push_float(vm, conv.f);
 	DISPATCH();
+	
 exec_cmpl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
-	conv.ui = (int32_t)a == (int32_t)b;
-	printf("4 byte Signed Compare result: %u == %i == %i\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
+	conv.ui = (int)a == (int)b;
+	printf("4 byte Signed Compare result: %" PRIu32 " == %i == %i\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_ucmpl:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
 	conv.ui = a == b;
-	printf("4 byte Unsigned Compare result: %u == %u == %u\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte Unsigned Compare result: %" PRIu32 " == %" PRIu32 " == %" PRIu32 "\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_compf:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fb=conv.f;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fa=conv.f;
+	fb=vm_pop_float32(vm);
+	fa=vm_pop_float32(vm);
 	conv.ui = fa == fb;
-	printf("4 byte Compare Float result: %u == %f == %f\n", conv.ui, fa,fb);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte Compare Float result: %" PRIu32 " == %f == %f\n", conv.ui, fa,fb);
+	vm_push_float(vm, conv.f);
 	DISPATCH();
+	
 exec_leql:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
-	conv.ui = (int32_t)a <= (int32_t)b;
-	printf("4 byte Signed Less Equal result: %u == %i <= %i\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
+	conv.ui = (int)a <= (int)b;
+	printf("4 byte Signed Less Equal result: %" PRIu32 " == %i <= %i\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_uleql:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
 	conv.ui = a <= b;
-	printf("4 byte Unsigned Less Equal result: %u == %u <= %u\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte Unsigned Less Equal result: %" PRIu32 " == %" PRIu32 " <= %" PRIu32 "\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_leqf:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fb=conv.f;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fa=conv.f;
+	fb=vm_pop_float32(vm);
+	fa=vm_pop_float32(vm);
 	conv.ui = fa <= fb;
-	printf("4 byte Less Equal Float result: %u == %f <= %f\n", conv.ui, fa, fb);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte Less Equal Float result: %" PRIu32 " == %f <= %f\n", conv.ui, fa, fb);
+	vm_push_float(vm, conv.f);
 	DISPATCH();
+	
 exec_geql:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
-	conv.ui = (int32_t)a >= (int32_t)b;
-	printf("4 byte Signed Greater Equal result: %u == %i >= %i\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
+	conv.ui = (int)a >= (int)b;
+	printf("4 byte Signed Greater Equal result: %" PRIu32 " == %i >= %i\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_ugeql:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	b=conv.ui;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	a=conv.ui;
+	b=vm_pop_word(vm);
+	a=vm_pop_word(vm);
 	conv.ui = a >= b;
-	printf("4 byte Unsigned Greater Equal result: %u == %u >= %u\n", conv.ui, a,b);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte Unsigned Greater Equal result: %" PRIu32 " == %" PRIu32 " >= %" PRIu32 "\n", conv.ui, a,b);
+	vm_push_word(vm, conv.ui);
 	DISPATCH();
+	
 exec_geqf:;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fb=conv.f;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
-	fa=conv.f;
+	fb=vm_pop_float32(vm);
+	fa=vm_pop_float32(vm);
 	conv.ui = fa >= fb;
-	printf("4 byte Greater Equal Float result: %u == %f >= %f\n", conv.ui, fa, fb);
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	printf("4 byte Greater Equal Float result: %" PRIu32 " == %f >= %f\n", conv.ui, fa, fb);
+	vm_push_float(vm, conv.f);
 	DISPATCH();
-exec_jmp:;	// addresses are 4 bytes.
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
+	
+exec_jmp:;		// addresses are 4 bytes.
+	conv.ui = vm_get_imm4(vm, code);
 	vm->ip = conv.ui;
-	printf("jmping to instruction address: %u\n", vm->ip);
+	printf("jmping to instruction address: %" PRIu32 "\n", vm->ip);
 	goto *dispatch[ code[vm->ip] ];
-exec_jzl:;	// check if the first 4 bytes on stack are zero, if yes then jump it.
+	
+exec_jzl:;		// check if the first 4 bytes on stack are zero, if yes then jump it.
+#ifdef SAFEMODE
+	if( vm->sp-3 >= STK_SIZE ) {
+		printf("exec_jzl reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-3);
+		goto *dispatch[halt];
+	}
+#endif
 	conv.c[3] = vm->bStack[vm->sp];
 	conv.c[2] = vm->bStack[vm->sp-1];
 	conv.c[1] = vm->bStack[vm->sp-2];
 	conv.c[0] = vm->bStack[vm->sp-3];
 	a = conv.ui;
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
+	conv.ui = vm_get_imm4(vm, code);
 	vm->ip = (!a) ? conv.ui : vm->ip+1 ;
-	printf("jzl'ing to instruction address: %u\n", vm->ip);
+	printf("jzl'ing to instruction address: %" PRIu32 "\n", vm->ip);	//opcode2str[code[vm->ip]]
 	goto *dispatch[ code[vm->ip] ];
+	
 exec_jzs:;
+#ifdef SAFEMODE
+	if( vm->sp-1 >= STK_SIZE ) {
+		printf("exec_jzs reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-1);
+		goto *dispatch[halt];
+	}
+#endif
 	conv.c[1] = vm->bStack[vm->sp];
 	conv.c[0] = vm->bStack[vm->sp-1];
 	a = conv.ui;
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
+	conv.ui = vm_get_imm4(vm, code);
 	vm->ip = (!a) ? conv.ui : vm->ip+1 ;
-	printf("jzs'ing to instruction address: %u\n", vm->ip);
+	printf("jzs'ing to instruction address: %" PRIu32 "\n", vm->ip);
 	goto *dispatch[ code[vm->ip] ];
+	
 exec_jzb:;
 	conv.c[0] = vm->bStack[vm->sp];
 	a = conv.ui;
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
+	conv.ui = vm_get_imm4(vm, code);
 	vm->ip = (!a) ? conv.ui : vm->ip+1 ;
-	printf("jzb'ing to instruction address: %u\n", vm->ip);
+	printf("jzb'ing to instruction address: %" PRIu32 "\n", vm->ip);
 	goto *dispatch[ code[vm->ip] ];
+	
 exec_jnzl:;
+#ifdef SAFEMODE
+	if( vm->sp-3 >= STK_SIZE ) {
+		printf("exec_jnzl reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-3);
+		goto *dispatch[halt];
+	}
+#endif
 	conv.c[3] = vm->bStack[vm->sp];
 	conv.c[2] = vm->bStack[vm->sp-1];
 	conv.c[1] = vm->bStack[vm->sp-2];
 	conv.c[0] = vm->bStack[vm->sp-3];
 	a = conv.ui;
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
+	conv.ui = vm_get_imm4(vm, code);
 	vm->ip = (a) ? conv.ui : vm->ip+1 ;
-	printf("jnzl'ing to instruction address: %u\n", vm->ip);
+	printf("jnzl'ing to instruction address: %" PRIu32 "\n", vm->ip);
 	goto *dispatch[ code[vm->ip] ];
+	
 exec_jnzs:;
+#ifdef SAFEMODE
+	if( vm->sp-1 >= STK_SIZE ) {
+		printf("exec_jnzs reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-1);
+		goto *dispatch[halt];
+	}
+#endif
 	conv.c[1] = vm->bStack[vm->sp];
 	conv.c[0] = vm->bStack[vm->sp-1];
 	a = conv.ui;
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
+	conv.ui = vm_get_imm4(vm, code);
 	vm->ip = (a) ? conv.ui : vm->ip+1 ;
-	printf("jnzs'ing to instruction address: %u\n", vm->ip);
+	printf("jnzs'ing to instruction address: %" PRIu32 "\n", vm->ip);
 	goto *dispatch[ code[vm->ip] ];
+	
 exec_jnzb:;
 	conv.c[0] = vm->bStack[vm->sp];
 	a = conv.ui;
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
+	conv.ui = vm_get_imm4(vm, code);
 	vm->ip = (a) ? conv.ui : vm->ip+1 ;
-	printf("jnzb'ing to instruction address: %u\n", vm->ip);
+	printf("jnzb'ing to instruction address: %" PRIu32 "\n", vm->ip);
 	goto *dispatch[ code[vm->ip] ];
+	
 exec_call:;
-	conv.c[0] = code[++vm->ip];
-	conv.c[1] = code[++vm->ip];
-	conv.c[2] = code[++vm->ip];
-	conv.c[3] = code[++vm->ip];
-	printf("calling address: %u\n", conv.ui);
+	conv.ui = vm_get_imm4(vm, code);
+	printf("calling address: %" PRIu32 "\n", conv.ui);
+#ifdef SAFEMODE
+	if( vm->callsp+1 >= CALLSTK_SIZE ) {
+		printf("exec_call reported: callstack overflow! Current instruction address: %" PRIu32 " | Call Stack index: %" PRIu32 "\n", vm->ip, vm->callsp+1);
+		goto *dispatch[halt];
+	}
+#endif
 	vm->bCallstack[++vm->callsp] = vm->ip + 1;
-	vm->callbp = vm->callsp;
+	//vm->callbp = vm->callsp;
 	vm->ip = conv.ui;
-	printf("call return addr: %u | frame ptr == %u\n", vm->bCallstack[vm->callsp], vm->callbp);
+	printf("call return addr: %" PRIu32 "\n", vm->bCallstack[vm->callsp]);
 	goto *dispatch[ code[vm->ip] ];
+	
 exec_ret:;
-	vm->callsp = vm->callbp;
-	printf("callsp set to callbp, callsp == %u\n", vm->callsp);
+	//vm->callsp = vm->callbp;
+	//printf("callsp set to callbp, callsp == %" PRIu32 "\n", vm->callsp);
+#ifdef SAFEMODE
+	if( vm->callsp-1 >= CALLSTK_SIZE ) {
+		printf("exec_ret reported: callstack underflow! Current instruction address: %" PRIu32 " | Call Stack index: %" PRIu32 "\n", vm->ip, vm->callsp-1);
+		goto *dispatch[halt];
+	}
+#endif
 	vm->ip = vm->bCallstack[vm->callsp--];
-	vm->callbp = vm->callsp;
-	printf("returning to address: %u\n", vm->ip);
+	//vm->callbp = vm->callsp;
+	printf("returning to address: %" PRIu32 "\n", vm->ip);
 	goto *dispatch[ code[vm->ip] ];
+	
+exec_reset:;
+	vm_reset(vm);
+	return;
 }
 
-uint64_t get_file_size(FILE *pFile)
+
+unsigned long long int get_file_size(FILE *pFile)
 {
-	uint64_t size = 0;
+	unsigned long long int size = 0;
 	if( !pFile )
 		return size;
 	
 	if( !fseek(pFile, 0, SEEK_END) ) {
-		size = (uint64_t)ftell(pFile);
+		size = (unsigned long long int)ftell(pFile);
 		rewind(pFile);
 	}
 	return size;
@@ -1095,16 +1129,16 @@ uint64_t get_file_size(FILE *pFile)
 
 int main(void)
 {
-	typedef uint8_t		bytecode[] ;
+	typedef unsigned char		bytecode[] ;
 	
 	/*
 	FILE *pFile = fopen("./myfile.cbyte", "rb");
 	if( !pFile )
 		return 0;
 	
-	uint64_t size = get_file_size(pFile);
-	uint8_t *program = malloc(sizeof(uint8_t)*size);
-	fread(program, sizeof(uint8_t), size, pFile);
+	unsigned long long int size = get_file_size(pFile);
+	unsigned char *program = malloc(sizeof(unsigned char)*size);
+	fread(program, sizeof(unsigned char), size, pFile);
 	*/
 	const bytecode test1 = {
 		nop,
@@ -1130,9 +1164,9 @@ int main(void)
 		//pushl, 255,0,0,255,
 		//pushl, 1,0,0,0,
 		// -855637761
-		//pushl, 255,0,0,205,
-		//pushl, 255,255,0,0,
-		//uaddl,
+		pushl, 255,0,0,205,
+		pushl, 255,255,0,0,
+		uaddl, popl,
 		// 10.f in 4 bytes form
 		pushl, 0,0,32,65,
 		jzb, 17,0,0,0,
@@ -1162,16 +1196,65 @@ int main(void)
 		divl,	// 41
 		ret,
 	};
-	struct vm_cpu *p_vm = malloc( sizeof(struct vm_cpu) ); //&(struct vm_cpu){ 0 };
-	if( p_vm ) { //printf("size == %u\n", sizeof(struct vm_cpu));
-		vm_exec( test3, p_vm );
-		debug_print_memory(p_vm);
-		debug_print_stack(p_vm);
-		//debug_print_callstack(p_vm);
-		//debug_print_ptrs(p_vm);
-		free(p_vm);
-	}
-	p_vm=NULL;
+	
+	// Fibonnaci sequence to test performance!
+	/*	int fib(int n)
+		{
+			int a = 0;
+			int b = 1;
+			while (n-- > 1) {
+				int t = a;
+				a = b;
+				b += t;
+			}
+			return b;
+		}
+	*/
+	const bytecode fibonacci = {
+		nop, // calc fibonnaci number
+		// 50+ yield correct numbers
+		wrtl, 0,0,0,0, 25,0,0,0,	// write n to address 0
+		call, 16,0,0,0,
+		halt,
+		// a = 0;
+		wrtl, 4,0,0,0, 0,0,0,0,		// 16
+		// b = 1;
+		wrtl, 8,0,0,0, 1,0,0,0,		// 25
+		// while( n-- > 1 ) {
+		loadl, 0,0,0,0,		// load param n		// 34
+		pushl, 1,0,0,0,		// push 1
+		gtl,
+		loadl, 0,0,0,0,		// load param n
+		decl,				// decrement address 0
+		storel, 0,0,0,0,	// store decrement result to memory address
+		jzl, 103,0,0,0,		// jmp to storing b and returning.
+		popl,
+		// int t = a;
+		loadl, 4,0,0,0,		// load a's value.
+		storel, 12,0,0,0,	// store a's value into another address as 't'
+		// a = b;
+		loadl, 8,0,0,0,		// load b.
+		storel, 4,0,0,0,	// store b's value into a's address.
+		// b += t;
+		loadl, 12,0,0,0,	// load t.
+		loadl, 8,0,0,0,		// load b.
+		uaddl,				// add b and t
+		storel, 8,0,0,0,	// store addition value to b's address.
+		jmp, 34,0,0,0,		// jmp back to start of loop.	// 98
+		// }
+		ret		// b has been fully 'mathemized' and is stored into memory for reuse.
+	};
+	
+	struct vm_cpu *p_vm = &(struct vm_cpu){ 0 };
+	//printf("size == %" PRIu32 "\n", sizeof(struct vm_cpu));
+	vm_exec( test1, p_vm ); vm_reset(p_vm);
+	vm_exec( test2, p_vm ); vm_reset(p_vm);
+	vm_exec( test3, p_vm ); vm_reset(p_vm);
+	vm_exec( fibonacci, p_vm ); vm_reset(p_vm);
+	vm_debug_print_memory(p_vm);
+	vm_debug_print_stack(p_vm);
+	//vm_debug_print_callstack(p_vm);
+	//vm_debug_print_ptrs(p_vm);
 	/*
 	fclose(pFile); pFile=NULL;
 	free(program); program=NULL;
