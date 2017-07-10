@@ -6,6 +6,36 @@
 #include "vm.h"
 
 
+/*	here's the deal ok? make an opcode for each and erry n-bytes!
+ * 'q' = int64
+ * 'l' - int32
+ * 's' - int16
+ * 'b' - byte | push and pop do not take bytes
+ * 'f' - float32
+ * 'df' - float64
+*/
+
+#define INSTR_SET	\
+	X(halt) \
+	X(pushl) X(pushs) X(pushb) X(pushsp) X(puship) \
+	X(popl) X(pops) X(popb) \
+	X(wrtl) X(wrts) X(wrtb) \
+	X(storel) X(stores) X(storeb) \
+	X(loadl) X(loads) X(loadb) \
+	X(copyl) X(copys) X(copyb) \
+	X(addl) X(uaddl) X(addf) X(subl) X(usubl) X(subf) \
+	X(mull) X(umull) X(mulf) X(divl) X(udivl) X(divf) X(modl) X(umodl) \
+	X(andl) X(orl) X(xorl) X(notl) X(shl) X(shr) X(incl) X(decl) \
+	X(ltl) X(ultl) X(ltf) X(gtl) X(ugtl) X(gtf) X(cmpl) X(ucmpl) X(compf) \
+	X(leql) X(uleql) X(leqf) X(geql) X(ugeql) X(geqf) \
+	X(jmp) X(jzl) X(jzs) X(jzb) X(jnzl) X(jnzs) X(jnzb) \
+	X(call) X(ret) X(reset) \
+	X(nop) \
+
+#define X(x) x,
+enum InstrSet { INSTR_SET };
+#undef X
+
 static inline unsigned int vm_get_imm4(struct vm_cpu *restrict vm)
 {
 #ifdef SAFEMODE
@@ -444,7 +474,10 @@ void vm_exec(struct vm_cpu *restrict vm)
 	union conv_union conv;
 	unsigned int b, a;
 	float fa, fb;
-	unsigned short usa, usb;
+	
+#define X(x) #x ,
+	const char *opcode2str[] = { INSTR_SET };
+#undef X
 
 #define X(x) &&exec_##x ,
 	static const void *dispatch[] = { INSTR_SET };
