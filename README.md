@@ -30,6 +30,8 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  - pushl - push 4-byte data to top of stack (TOS).
  - pushs - push 2-byte data to TOS.
  - pushb - push a byte to TOS.
+ - pushsp - pushes the current stack pointer index to TOS.
+ - puship - pushes current instruction pointer index to TOS.
  
  - popl - pops 4 bytes from TOS.
  - pops - pops 2 bytes from TOS.
@@ -54,6 +56,7 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  - addl - signed 4-byte integer addition.
  - uaddl - unsigned 4-byte int addition.
  - addf - float addition.
+ 
  - subl - signed 4-byte int subtraction
  - usubl - unsigned int subtract.
  - subf - float subtract.
@@ -61,9 +64,11 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  - mull - signed int multiplication.
  - umull - unsigned int mult.
  - mulf - float mult.
+ 
  - divl - signed int division. divide by zero causes immediate halt of vm.
  - udivl - unsigned int division. divide by zero causes immediate halt of vm.
  - divf - float division. divide by zero causes immediate halt of vm.
+ 
  - modl - signed int modulo math.
  - umodl - unsigned int modulo.
  
@@ -106,11 +111,13 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  
  - call - jumps to an address of code and returns to original address if a `ret` opcode is executed.
  - ret - returns to an original instruction address after using `call` opcode for subroutines/procedures.
--  halt - stops all execution.
+ - reset - halts execution of program and refreshes VM data to 0.
+ - halt - stops all execution.
 
 ## TODO list
 - [x] add call + ret instructions to support procedures.
-- [ ] test call + ret for recursive functions.
-- [ ] implementing a call stack and memory addressing means we would need a form of buffer overflow protection.
+- [x] test call + ret for recursive functions.
+- [x] implementing a call stack and memory addressing means we would need a form of buffer overflow protection.
 - [x] expand opcodes to take various sizes of data and sources. What I mean is make a push and pop for a byte, word (2 bytes), dword (4 bytes), and qword (8 bytes).
 - [ ] add more opcodes for the arithmetic and comparisons so we can do packed vector mathematics easier.
+- [ ] add API for host applications to embed this VM.
