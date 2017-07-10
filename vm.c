@@ -264,6 +264,25 @@ void vm_write_float(struct vm_cpu *restrict vm, const float val, const unsigned 
 	vm->bMemory[address+3] = conv.c[3];
 }
 
+void vm_write_array(struct vm_cpu *restrict vm, unsigned char *restrict val, const unsigned int size, const unsigned int address)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return;
+#endif
+	unsigned int addr = address;
+	unsigned int i = 0;
+	while( i < size ) {
+#ifdef SAFEMODE
+		if( addr >= MEM_SIZE ) {
+			printf("vm_write_array reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, addr);
+			exit(1);
+		}
+#endif
+		vm->bMemory[addr++] = val[i++];
+	}
+}
+
 unsigned int vm_read_word(struct vm_cpu *restrict vm, const unsigned int address)
 {
 #ifdef SAFEMODE
@@ -327,6 +346,25 @@ float vm_read_float(struct vm_cpu *restrict vm, const unsigned int address)
 	conv.c[2] = vm->bMemory[address+2];
 	conv.c[3] = vm->bMemory[address+3];
 	return conv.f;
+}
+
+void vm_read_array(struct vm_cpu *restrict vm, unsigned char *restrict buffer, const unsigned int size, const unsigned int address)
+{
+#ifdef SAFEMODE
+	if( !vm )
+		return;
+#endif
+	unsigned int addr = address;
+	unsigned int i = 0;
+	while( i < size ) {
+#ifdef SAFEMODE
+		if( addr >= MEM_SIZE ) {
+			printf("vm_read_array reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, addr);
+			exit(1);
+		}
+#endif
+		buffer[i++] = vm->bMemory[addr++];
+	}
 }
 
 
@@ -1238,13 +1276,14 @@ int main(void)
 	typedef unsigned char		bytecode[] ;
 	
 	/*
-	FILE *pFile = fopen("./myfile.cbyte", "rb");
+	FILE *pFile = fopen("./myfile.original_lang_file_ext", "rb");
 	if( !pFile )
 		return 0;
 	
 	unsigned long long int size = get_file_size(pFile);
 	unsigned char *program = malloc(sizeof(unsigned char)*size);
 	fread(program, sizeof(unsigned char), size, pFile);
+	fclose(pFile); pFile=NULL;
 	*/
 	bytecode test1 = {
 		nop,
@@ -1351,23 +1390,35 @@ int main(void)
 		ret		// b has been fully 'mathemized' and is stored into memory for reuse.
 	};
 	
+	bytecode hello_world = {
+		nop,
+		wrtb, 0,0,0,0, 72,	// H
+		wrtb, 1,0,0,0, 101,	// e
+		wrtb, 2,0,0,0, 108,	// l
+		wrtb, 3,0,0,0, 108,	// l
+		wrtb, 4,0,0,0, 111,	// o
+		wrtb, 5,0,0,0, 32,	// space
+		wrtb, 6,0,0,0, 87,	// W
+		wrtb, 7,0,0,0, 111,	// o
+		wrtb, 8,0,0,0, 114,	// r
+		wrtb, 9,0,0,0, 108,	// l
+		wrtb, 10,0,0,0, 100,	// d
+		halt,
+	};
+	
 	struct vm_cpu vm = (struct vm_cpu){ 0 };
-	vm_init(&vm, fibonacci);
-	//printf("size == %" PRIu32 "\n", sizeof(struct vm_cpu));
-	//vm_exec( p_vm, test1 ); vm_reset(p_vm);
-	//vm_exec( p_vm, test2 ); vm_reset(p_vm);
-	//vm_exec( p_vm, test3 ); vm_reset(p_vm);
 	vm_init(&vm, test1); vm_exec(&vm);
 	vm_init(&vm, test2); vm_exec(&vm);
 	vm_init(&vm, test3); vm_exec(&vm);
 	vm_init(&vm, fibonacci); vm_exec(&vm);
+	vm_init(&vm, hello_world); vm_exec(&vm);
+	unsigned char buffer[12];
+	vm_read_array(&vm, buffer, 12, 0x0);
+	printf("buffer == \'%s\'\n", buffer);
 	vm_debug_print_memory(&vm);
 	vm_debug_print_stack(&vm);
 	//vm_debug_print_callstack(p_vm);
 	//vm_debug_print_ptrs(p_vm);
-	/*
-	fclose(pFile); pFile=NULL;
-	free(program); program=NULL;
-	*/
+	//free(program); program=NULL;
 	return 0;
 }
