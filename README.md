@@ -23,6 +23,7 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
 * has integer and float arithmetic, (un)conditional jumps, comparisons, and stack and memory manipulations. By default, the arithmetic is always 4 bytes because in C, integers are always promoted to the largest width.
 * call stack for functions. Supports function calls from function calls! (unless you overflow the call stack...)
 * It's Turing Complete! (lol)
+* VM is little-endian.
 
 ### V2 Instruction Set.
  - nop - does nothing.
