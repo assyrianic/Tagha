@@ -13,12 +13,13 @@
  * 'b' - byte | push and pop do not take bytes
  * 'f' - float32
  * 'df' - float64
+ * 'x' - x amount of bytes, max is 255
 */
 
 #define INSTR_SET	\
 	X(halt) \
 	X(pushl) X(pushs) X(pushb) X(pushsp) X(puship) \
-	X(popl) X(pops) X(popb) \
+	X(popl) X(pops) X(popb) X(popx) \
 	X(wrtl) X(wrts) X(wrtb) \
 	X(storel) X(stores) X(storeb) \
 	X(loadl) X(loads) X(loadb) \
@@ -264,7 +265,7 @@ void vm_write_float(struct vm_cpu *restrict vm, const float val, const unsigned 
 	vm->bMemory[address+3] = conv.c[3];
 }
 
-void vm_write_array(struct vm_cpu *restrict vm, unsigned char *restrict val, const unsigned int size, const unsigned int address)
+void vm_write_bytearray(struct vm_cpu *restrict vm, unsigned char *restrict val, const unsigned int size, const unsigned int address)
 {
 #ifdef SAFEMODE
 	if( !vm )
@@ -272,7 +273,7 @@ void vm_write_array(struct vm_cpu *restrict vm, unsigned char *restrict val, con
 #endif
 	unsigned int addr = address;
 	unsigned int i = 0;
-	while( i < size ) {
+	while( i<size ) {
 #ifdef SAFEMODE
 		if( addr >= MEM_SIZE ) {
 			printf("vm_write_array reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, addr);
@@ -348,7 +349,7 @@ float vm_read_float(struct vm_cpu *restrict vm, const unsigned int address)
 	return conv.f;
 }
 
-void vm_read_array(struct vm_cpu *restrict vm, unsigned char *restrict buffer, const unsigned int size, const unsigned int address)
+void vm_read_bytearray(struct vm_cpu *restrict vm, unsigned char *restrict buffer, const unsigned int size, const unsigned int address)
 {
 #ifdef SAFEMODE
 	if( !vm )
@@ -356,7 +357,7 @@ void vm_read_array(struct vm_cpu *restrict vm, unsigned char *restrict buffer, c
 #endif
 	unsigned int addr = address;
 	unsigned int i = 0;
-	while( i < size ) {
+	while( i<size ) {
 #ifdef SAFEMODE
 		if( addr >= MEM_SIZE ) {
 			printf("vm_read_array reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, addr);
@@ -618,6 +619,18 @@ exec_popb:;		// pop a byte
 #endif
 	--vm->sp;
 	printf("popb\n");
+	DISPATCH();
+
+exec_popx:;		// pop n bytes
+	a = vm->code[++vm->ip];		// get amount of bytes to pop.
+#ifdef SAFEMODE
+	if( vm->sp-a >= STK_SIZE ) {
+		printf("exec_popx reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-a);
+		goto *dispatch[halt];
+	}
+#endif
+	vm->sp -= a;
+	printf("popx: popped %" PRIu32 " bytes.\n", a);
 	DISPATCH();
 	
 exec_wrtl:;	// writes an int to memory, First operand is the memory address as 4 byte number, second is the int of data.
@@ -1357,7 +1370,6 @@ int main(void)
 	*/
 	bytecode fibonacci = {
 		nop, // calc fibonnaci number
-		// 50+ yield correct numbers
 		wrtl, 0,0,0,0, 30,0,0,0,	// write n to address 0
 		call, 16,0,0,0,
 		halt,
@@ -1392,29 +1404,31 @@ int main(void)
 	
 	bytecode hello_world = {
 		nop,
-		wrtb, 0,0,0,0, 72,	// H
-		wrtb, 1,0,0,0, 101,	// e
-		wrtb, 2,0,0,0, 108,	// l
-		wrtb, 3,0,0,0, 108,	// l
-		wrtb, 4,0,0,0, 111,	// o
-		wrtb, 5,0,0,0, 32,	// space
-		wrtb, 6,0,0,0, 87,	// W
-		wrtb, 7,0,0,0, 111,	// o
-		wrtb, 8,0,0,0, 114,	// r
-		wrtb, 9,0,0,0, 108,	// l
-		wrtb, 10,0,0,0, 100,	// d
+		wrtb, 0,0,0,0,	72,		// H
+		wrtb, 1,0,0,0,	101,	// e
+		wrtb, 2,0,0,0,	108,	// l
+		wrtb, 3,0,0,0,	108,	// l
+		wrtb, 4,0,0,0,	111,	// o
+		wrtb, 5,0,0,0,	32,		// space
+		wrtb, 6,0,0,0,	87,		// W
+		wrtb, 7,0,0,0,	111,	// o
+		wrtb, 8,0,0,0,	114,	// r
+		wrtb, 9,0,0,0,	108,	// l
+		wrtb, 10,0,0,0,	100,	// d
 		halt,
 	};
 	
 	struct vm_cpu vm = (struct vm_cpu){ 0 };
-	vm_init(&vm, test1); vm_exec(&vm);
-	vm_init(&vm, test2); vm_exec(&vm);
-	vm_init(&vm, test3); vm_exec(&vm);
+	//vm_init(&vm, test1); vm_exec(&vm);
+	//vm_init(&vm, test2); vm_exec(&vm);
+	//vm_init(&vm, test3); vm_exec(&vm);
 	vm_init(&vm, fibonacci); vm_exec(&vm);
+	
 	vm_init(&vm, hello_world); vm_exec(&vm);
-	unsigned char buffer[12];
-	vm_read_array(&vm, buffer, 12, 0x0);
+	unsigned char buffer[12] = {0};
+	vm_read_bytearray(&vm, buffer, 12, 0x0);
 	printf("buffer == \'%s\'\n", buffer);
+	
 	vm_debug_print_memory(&vm);
 	vm_debug_print_stack(&vm);
 	//vm_debug_print_callstack(p_vm);

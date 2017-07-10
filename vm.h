@@ -73,13 +73,13 @@ void			vm_write_word(struct vm_cpu *restrict vm, const unsigned int val, const u
 void			vm_write_short(struct vm_cpu *restrict vm, const unsigned short val, const unsigned int address);
 void			vm_write_byte(struct vm_cpu *restrict vm, const unsigned char val, const unsigned int address);
 void			vm_write_float(struct vm_cpu *restrict vm, const float val, const unsigned int address);
-void			vm_write_array(struct vm_cpu *restrict vm, unsigned char *restrict val, const unsigned int size, const unsigned int address);
+void			vm_write_bytearray(struct vm_cpu *restrict vm, unsigned char *restrict val, const unsigned int size, const unsigned int address);
 
 unsigned int	vm_read_word(struct vm_cpu *restrict vm, const unsigned int address);
 unsigned short	vm_read_short(struct vm_cpu *restrict vm, const unsigned int address);
 unsigned char	vm_read_byte(struct vm_cpu *restrict vm, const unsigned int address);
 float			vm_read_float(struct vm_cpu *restrict vm, const unsigned int address);
-void			vm_read_array(struct vm_cpu *restrict vm, unsigned char *restrict buffer, const unsigned int size, const unsigned int address);
+void			vm_read_bytearray(struct vm_cpu *restrict vm, unsigned char *restrict buffer, const unsigned int size, const unsigned int address);
 
 #ifdef __cplusplus
 }
