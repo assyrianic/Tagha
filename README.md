@@ -116,6 +116,7 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  - halt - stops all execution.
 
 ## TODO list
+- [ ] remove callstack and use runtime stack for function calls.
 - [x] add call + ret instructions to support procedures.
 - [x] test call + ret for recursive functions.
 - [x] implementing a call stack and memory addressing means we would need a form of buffer overflow protection.
