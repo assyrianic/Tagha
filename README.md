@@ -31,8 +31,8 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  - pushl - push 4-byte data to top of stack (TOS).
  - pushs - push 2-byte data to TOS.
  - pushb - push a byte to TOS.
- - pushsp - pushes the current stack pointer index to TOS.
- - puship - pushes current instruction pointer index to TOS.
+ - pushsp - push current stack pointer index to TOS.
+ - puship - push current instruction pointer index to TOS.
  
  - popl - pops 4 bytes from TOS.
  - pops - pops 2 bytes from TOS.
@@ -121,4 +121,5 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
 - [x] implementing a call stack and memory addressing means we would need a form of buffer overflow protection.
 - [x] expand opcodes to take various sizes of data and sources. What I mean is make a push and pop for a byte, word (2 bytes), dword (4 bytes), and qword (8 bytes).
 - [ ] add more opcodes for the arithmetic and comparisons so we can do packed vector mathematics easier.
+- [ ] add a form of referencing and dereferencing for memory and stack.
 - [ ] add API for host applications to embed this VM.
