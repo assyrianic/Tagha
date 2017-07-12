@@ -18,7 +18,7 @@ The goal for this VM is to...
 * float (float32, not 64-bit float) support by converting integer to a float by its bits. For example, "5.0f" is '0x40a00000' or '1084227584' in terms of its bits if it were an int.
 I usually use hexadecimals but decimal numbers work just as good. The giant numbers are then transformed into floats via type-punning by a single union singleton.
 * uses computed gotos (the ones that use a void\*) which is 20%-25% faster than a switch [citation needed for this one].
-* "CPU" is "32-bit" as the word size is uint32_t. Numerical memory addresses are 4 bytes.
+* "CPU" is "32-bit" as the word size is uint32. Numerical memory addresses are 32-bits as well.
 * memory manipulation where loading copies the top of the stack into any memory address and storing pops off the top of the stack into any memory address.
 * has integer and float arithmetic, (un)conditional jumps, comparisons, and stack and memory manipulations. By default, the arithmetic is always 4 bytes because in C, integers are always promoted to the largest width.
 * call stack for functions. Supports function calls from function calls! (unless you overflow the call stack...)
@@ -104,11 +104,7 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  
  - jmp - jumps to a different instruction address.
  - jzl - jump if zero, checks if the first 4 bytes of TOS is zero and jumps to the desired address.
- - jzs - checks if first 2 bytes of TOS is zero and jumps if zero.
- - jzb - checks if first byte on TOS is zero and jumps if zero.
  - jnzl - checks if first 4 bytes of TOS is not zero then jumps to desired address if not zero.
- - jnzs - checks if first 2 bytes of TOS is not zero then jumps to desired address if not zero.
- - jnzb - checks if first byte of TOS is not zero then jumps to desired address if not zero.
  
  - call - jumps to an address of code and returns to original address if a `ret` opcode is executed.
  - ret - returns to an original instruction address after using `call` opcode for subroutines/procedures.
@@ -124,3 +120,13 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
 - [ ] add more opcodes for the arithmetic and comparisons so we can do packed vector mathematics easier.
 - [ ] add a form of referencing and dereferencing for memory and stack.
 - [ ] add API for host applications to embed this VM.
+- [ ] replace stack and callstack with an actual pointer.
+- [ ] design or think up Data, BSS, and Code format for bytecode binaries.
+- [ ] create format for libraries and headers.
+
+## End Goals list
+- [ ] complete, seamless embeddability to C (and by extension C++) programs.
+- [ ] complete as much as of the C standards are possible, including C11.
+- [ ] implement a compiler that generates the bytecode for this VM.
+- [ ] 64-bit version availability.
+- [ ] Windows compatibility/availability.
