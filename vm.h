@@ -99,7 +99,7 @@ float		vm_read_float(CVM_t *restrict vm, const uint address);
 void		vm_read_bytearray(CVM_t *restrict vm, uchar *restrict buffer, const uint size, const uint address);
 
 
-//	API to call code from C/C++ functions. Supports up to 5 params
+//	API to call C/C++ functions from scripts. Supports up to 5 params
 //	Realistically, if you require more than 5 arguments, you could just group everything into a struct and pass its pointer.
 typedef		void (*fnNative0)(CVM_t *restrict vm);
 typedef		void (*fnNative1)(CVM_t *restrict vm, void *restrict param1);
