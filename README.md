@@ -81,6 +81,7 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  - shr - bit shift right.
  - incl - increment 1.
  - decl - decrement 1.
+ - negl - negates 4 byte integer.
  
  - ltl - signed int less than comparison.
  - ultl - unsigned int less than.
