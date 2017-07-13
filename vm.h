@@ -26,24 +26,30 @@ extern "C" {
         default: "other")
 
 
-
 #define WORD_SIZE		4
-#define STK_SIZE		(512*WORD_SIZE)		// 4096 4Kb
-#define CALLSTK_SIZE	256					// 1024 bytes
-#define MEM_SIZE		(256*WORD_SIZE)		// 1024 bytes 1Kb of memory
+#define STK_SIZE		(512 * WORD_SIZE)		// 2,048 bytes or 2kb
+#define CALLSTK_SIZE	256						// 1,024 bytes
+#define MEM_SIZE		(16384 * WORD_SIZE)		// 65,536 bytes or 65kb of memory
 
 typedef		unsigned char		uchar;
-typedef		unsigned char		bytecode[];
+typedef		uchar				bytecode[];
 typedef		unsigned short		ushort;
 typedef		unsigned int		uint;
 typedef		unsigned long long	ulong;
 
+// Bytecode header to store important info for our code.
+// this will be entirely read as an unsigned char
+typedef struct {
+	uint	uiSize;		// 
+	ushort	uiMagic;	// verify bytecode ==> 0xfa 0xce
+	uint	ipstart;	// where does 'main' begin?
+} CVMHeader;
+
 typedef struct vm_cpu {
-	uchar	bStack[STK_SIZE];			// 4096 bytes
-	uint	bCallstack[CALLSTK_SIZE];	// 1024 bytes
-	uchar	bMemory[MEM_SIZE];			// 1024 bytes
-	uchar	*code;
-	uint	ip, sp, callsp, bp;	// 16 bytes
+	uint		bCallstack[CALLSTK_SIZE];	// 1024 bytes
+	CVMHeader	*pHeader;
+	uchar		*pbMemory, *pbDataStack, *pInstrStream;
+	uint		ip, sp, callsp/*, bp*/;		// 16 bytes
 } CVM_t;
 
 union conv_union {
@@ -56,12 +62,14 @@ union conv_union {
 };
 
 // Safe mode enables bounds checking.
-// this might slow down the interpreter on a smaller micro level since we're always checking
-// if pointers or memory addresses go out of bounds.
+// this might slow down the interpreter on a smaller level since we're always checking
+// if pointers or memory addresses go out of bounds but it does help.
 #define SAFEMODE	1
 
-void		vm_init(CVM_t *restrict vm, uchar *restrict program);
+void		vm_init(CVM_t *vm);
+void		vm_load_code(CVM_t *restrict vm, uchar *restrict program);
 void		vm_reset(CVM_t *vm);
+void		vm_free(CVM_t *vm);
 void		vm_exec(CVM_t *vm);
 void		vm_debug_print_ptrs(const CVM_t *vm);
 void		vm_debug_print_callstack(const CVM_t *vm);
@@ -89,6 +97,31 @@ ushort		vm_read_short(CVM_t *restrict vm, const uint address);
 uchar		vm_read_byte(CVM_t *restrict vm, const uint address);
 float		vm_read_float(CVM_t *restrict vm, const uint address);
 void		vm_read_bytearray(CVM_t *restrict vm, uchar *restrict buffer, const uint size, const uint address);
+
+
+//	API to call code from C/C++ functions. Supports up to 5 params
+//	Realistically, if you require more than 5 arguments, you could just group everything into a struct and pass its pointer.
+typedef		void (*fnNative0)(CVM_t *restrict vm);
+typedef		void (*fnNative1)(CVM_t *restrict vm, void *restrict param1);
+typedef		void (*fnNative2)(CVM_t *restrict vm, void *restrict param1, void *restrict param2);
+typedef		void (*fnNative3)(CVM_t *restrict vm, void *restrict param1, void *restrict param2, void *restrict param3);
+typedef		void (*fnNative4)(CVM_t *restrict vm, void *restrict param1, void *restrict param2, void *restrict param3, void *restrict param4);
+typedef		void (*fnNative5)(CVM_t *restrict vm, void *restrict param1, void *restrict param2, void *restrict param3, void *restrict param4, void *restrict param5);
+
+typedef struct {
+	union {
+		fnNative0	fnNoArgs;
+		fnNative1	fnOneArg;
+		fnNative2	fnTwoArgs;
+		fnNative3	fnTreArgs;
+		fnNative4	fnFourArgs;
+		fnNative5	fnPentaArgs;
+	};
+	uchar ucArgs;
+	const char	*strName;
+} NativeInfo;
+
+int		vm_register_funcs(CVM_t *restrict vm, NativeInfo *arrNatives);
 
 #ifdef __cplusplus
 }

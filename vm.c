@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <assert.h>
 #include "vm.h"
 
 
@@ -35,11 +36,12 @@
 	X(modl) X(umodl) \
 	X(andl) X(orl) X(xorl) \
 	X(notl) X(shll) X(shrl) \
-	X(incl) X(decl) \
+	X(incl) X(decl) X(negl) \
 	X(ltl) X(ultl) X(ltf) \
 	X(gtl) X(ugtl) X(gtf) \
 	X(cmpl) X(ucmpl) X(compf) \
-	X(leql) X(uleql) X(leqf) X(geql) X(ugeql) X(geqf) \
+	X(leql) X(uleql) X(leqf) \
+	X(geql) X(ugeql) X(geqf) \
 	X(jmp) X(jzl) X(jnzl) \
 	X(call) X(ret) X(reset) \
 	X(nop) \
@@ -48,109 +50,147 @@
 enum InstrSet { INSTR_SET };
 #undef X
 
-static inline uint vm_get_imm4(CVM_t *restrict vm)
-{
-#ifdef SAFEMODE
-	if( !vm )
-		return 0;
-#endif
-	union conv_union conv;
-	conv.c[0] = vm->code[++vm->ip];
-	conv.c[1] = vm->code[++vm->ip];
-	conv.c[2] = vm->code[++vm->ip];
-	conv.c[3] = vm->code[++vm->ip];
-	return conv.ui;
-}
-
-static inline ushort vm_get_imm2(CVM_t *restrict vm)
-{
-#ifdef SAFEMODE
-	if( !vm )
-		return 0;
-#endif
-	union conv_union conv;
-	conv.c[0] = vm->code[++vm->ip];
-	conv.c[1] = vm->code[++vm->ip];
-	return conv.us;
-}
-
-void vm_init(CVM_t *restrict vm, uchar *restrict program)
+void vm_init(CVM_t *restrict vm)
 {
 	if( !vm )
 		return;
-	vm_reset(vm);
-	vm->code = program;
+	
+	vm->pbMemory = NULL;
+	vm->pbDataStack = NULL;
+	
+	uint i;
+	for( i=0 ; i<CALLSTK_SIZE ; i++ )
+		vm->bCallstack[i] = 0;
+	
+	vm->ip = 0;
+	vm->sp = 0;
+	vm->callsp = 0;
+	vm->pInstrStream = NULL;
+}
+
+void vm_load_code(CVM_t *restrict vm, uchar *restrict program)
+{
+	if( !vm )
+		return;
+	
+	vm->pbDataStack = calloc(STK_SIZE, sizeof(uchar)); //&(uchar[STK_SIZE]){0};
+	assert(vm->pbDataStack);
+	vm->pbMemory = calloc(MEM_SIZE, sizeof(uchar)); //&(uchar[MEM_SIZE]){0};
+	assert(vm->pbMemory);
+	
+	vm->pInstrStream = program;
+}
+
+void vm_free(CVM_t *vm)
+{
+	if( !vm )
+		return;
+	
+	if( vm->pbDataStack )
+		free(vm->pbDataStack);
+	vm->pbDataStack = NULL;
+	
+	if( vm->pbMemory )
+		free(vm->pbMemory);
+	vm->pbMemory = NULL;
+	vm_init(vm);
+}
+
+
+void vm_reset(CVM_t *vm)
+{
+	if( !vm )
+		return;
+	uint i;
+	for( i=0 ; i<MEM_SIZE ; i++ )
+		vm->pbMemory[i] = 0;
+	for( i=0 ; i<STK_SIZE ; i++ )
+		vm->pbDataStack[i] = 0;
+	for( i=0 ; i<CALLSTK_SIZE ; i++ )
+		vm->bCallstack[i] = 0;
+	vm->ip = 0;
+	vm->sp = 0;
+	vm->callsp = 0;
+}
+
+// returns index of func ptr
+int vm_register_func(CVM_t *restrict vm, NativeInfo *arrNatives)
+{
+	if( !vm || !arrNatives )
+		return -1;
+	
+	return 0;
 }
 
 uint vm_pop_word(CVM_t *vm)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return 0;
+#ifdef SAFEMODE
 	if( (vm->sp-4) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
 		printf("vm_pop_word reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
 		exit(1);
 	}
 #endif
 	union conv_union conv;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
+	conv.c[3] = vm->pbDataStack[vm->sp--];
+	conv.c[2] = vm->pbDataStack[vm->sp--];
+	conv.c[1] = vm->pbDataStack[vm->sp--];
+	conv.c[0] = vm->pbDataStack[vm->sp--];
 	return conv.ui;
 }
 
 ushort vm_pop_short(CVM_t *vm)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return 0;
+#ifdef SAFEMODE
 	if( (vm->sp-2) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
 		printf("vm_pop_short reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-2);
 		exit(1);
 	}
 #endif
 	union conv_union conv;
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
+	conv.c[1] = vm->pbDataStack[vm->sp--];
+	conv.c[0] = vm->pbDataStack[vm->sp--];
 	return conv.us;
 }
 uchar vm_pop_byte(CVM_t *vm)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return 0;
+#ifdef SAFEMODE
 	if( (vm->sp-1) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
 		printf("vm_pop_byte reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-1);
 		exit(1);
 	}
 #endif
-	return vm->bStack[vm->sp--];
+	return vm->pbDataStack[vm->sp--];
 }
 
 float vm_pop_float32(CVM_t *vm)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return 0;
+#ifdef SAFEMODE
 	if( (vm->sp-4) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
 		printf("vm_pop_float32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
 		exit(1);
 	}
 #endif
 	union conv_union conv;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
+	conv.c[3] = vm->pbDataStack[vm->sp--];
+	conv.c[2] = vm->pbDataStack[vm->sp--];
+	conv.c[1] = vm->pbDataStack[vm->sp--];
+	conv.c[0] = vm->pbDataStack[vm->sp--];
 	return conv.f;
 }
 
 void vm_push_word(CVM_t *restrict vm, const uint val)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return;
+#ifdef SAFEMODE
 	if( (vm->sp+4) >= STK_SIZE ) {
 		printf("vm_push_word reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+4);
 		exit(1);
@@ -158,17 +198,17 @@ void vm_push_word(CVM_t *restrict vm, const uint val)
 #endif
 	union conv_union conv;
 	conv.ui = val;
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	vm->pbDataStack[++vm->sp] = conv.c[0];
+	vm->pbDataStack[++vm->sp] = conv.c[1];
+	vm->pbDataStack[++vm->sp] = conv.c[2];
+	vm->pbDataStack[++vm->sp] = conv.c[3];
 }
 
 void vm_push_short(CVM_t *restrict vm, const ushort val)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return;
+#ifdef SAFEMODE
 	if( (vm->sp+2) >= STK_SIZE ) {
 		printf("vm_push_short reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+2);
 		exit(1);
@@ -176,28 +216,28 @@ void vm_push_short(CVM_t *restrict vm, const ushort val)
 #endif
 	union conv_union conv;
 	conv.us = val;
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
+	vm->pbDataStack[++vm->sp] = conv.c[0];
+	vm->pbDataStack[++vm->sp] = conv.c[1];
 }
 
 void vm_push_byte(CVM_t *restrict vm, const uchar val)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return;
+#ifdef SAFEMODE
 	if( (vm->sp+1) >= STK_SIZE ) {
 		printf("vm_push_byte reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+1);
 		exit(1);
 	}
 #endif
-	vm->bStack[++vm->sp] = val;
+	vm->pbDataStack[++vm->sp] = val;
 }
 
 void vm_push_float(CVM_t *restrict vm, const float val)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return;
+#ifdef SAFEMODE
 	if( (vm->sp+4) >= STK_SIZE ) {
 		printf("vm_push_float reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+4);
 		exit(1);
@@ -205,17 +245,17 @@ void vm_push_float(CVM_t *restrict vm, const float val)
 #endif
 	union conv_union conv;
 	conv.f = val;
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	vm->pbDataStack[++vm->sp] = conv.c[0];
+	vm->pbDataStack[++vm->sp] = conv.c[1];
+	vm->pbDataStack[++vm->sp] = conv.c[2];
+	vm->pbDataStack[++vm->sp] = conv.c[3];
 }
 
 void vm_write_word(CVM_t *restrict vm, const uint val, const uint address)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return;
+#ifdef SAFEMODE
 	if( address+3 >= MEM_SIZE ) {
 		printf("vm_write_word reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+3);
 		exit(1);
@@ -223,17 +263,17 @@ void vm_write_word(CVM_t *restrict vm, const uint val, const uint address)
 #endif
 	union conv_union conv;
 	conv.ui = val;
-	vm->bMemory[address] = conv.c[0];
-	vm->bMemory[address+1] = conv.c[1];
-	vm->bMemory[address+2] = conv.c[2];
-	vm->bMemory[address+3] = conv.c[3];
+	vm->pbMemory[address] = conv.c[0];
+	vm->pbMemory[address+1] = conv.c[1];
+	vm->pbMemory[address+2] = conv.c[2];
+	vm->pbMemory[address+3] = conv.c[3];
 }
 
 void vm_write_short(CVM_t *restrict vm, const ushort val, const uint address)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return;
+#ifdef SAFEMODE
 	if( address+1 >= MEM_SIZE ) {
 		printf("vm_write_short reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+1);
 		exit(1);
@@ -241,28 +281,28 @@ void vm_write_short(CVM_t *restrict vm, const ushort val, const uint address)
 #endif
 	union conv_union conv;
 	conv.us = val;
-	vm->bMemory[address] = conv.c[0];
-	vm->bMemory[address+1] = conv.c[1];
+	vm->pbMemory[address] = conv.c[0];
+	vm->pbMemory[address+1] = conv.c[1];
 }
 
 void vm_write_byte(CVM_t *restrict vm, const uchar val, const uint address)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return;
+#ifdef SAFEMODE
 	if( address >= MEM_SIZE ) {
 		printf("vm_write_byte reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
 #endif
-	vm->bMemory[address] = val;
+	vm->pbMemory[address] = val;
 }
 
 void vm_write_float(CVM_t *restrict vm, const float val, const uint address)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return;
+#ifdef SAFEMODE
 	if( address+3 >= MEM_SIZE ) {
 		printf("vm_write_float reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+3);
 		exit(1);
@@ -270,18 +310,16 @@ void vm_write_float(CVM_t *restrict vm, const float val, const uint address)
 #endif
 	union conv_union conv;
 	conv.f = val;
-	vm->bMemory[address] = conv.c[0];
-	vm->bMemory[address+1] = conv.c[1];
-	vm->bMemory[address+2] = conv.c[2];
-	vm->bMemory[address+3] = conv.c[3];
+	vm->pbMemory[address] = conv.c[0];
+	vm->pbMemory[address+1] = conv.c[1];
+	vm->pbMemory[address+2] = conv.c[2];
+	vm->pbMemory[address+3] = conv.c[3];
 }
 
 void vm_write_bytearray(CVM_t *restrict vm, uchar *restrict val, const uint size, const uint address)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return;
-#endif
 	uint addr = address;
 	uint i = 0;
 	while( i<size ) {
@@ -291,81 +329,79 @@ void vm_write_bytearray(CVM_t *restrict vm, uchar *restrict val, const uint size
 			exit(1);
 		}
 #endif
-		vm->bMemory[addr++] = val[i++];
+		vm->pbMemory[addr++] = val[i++];
 	}
 }
 
 uint vm_read_word(CVM_t *restrict vm, const uint address)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return 0;
+#ifdef SAFEMODE
 	if( address+3 >= MEM_SIZE ) {
 		printf("vm_read_word reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+3);
 		exit(1);
 	}
 #endif
 	union conv_union conv;
-	conv.c[0] = vm->bMemory[address];
-	conv.c[1] = vm->bMemory[address+1];
-	conv.c[2] = vm->bMemory[address+2];
-	conv.c[3] = vm->bMemory[address+3];
+	conv.c[0] = vm->pbMemory[address];
+	conv.c[1] = vm->pbMemory[address+1];
+	conv.c[2] = vm->pbMemory[address+2];
+	conv.c[3] = vm->pbMemory[address+3];
 	return conv.ui;
 }
 
 ushort vm_read_short(CVM_t *restrict vm, const uint address)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return 0;
+#ifdef SAFEMODE
 	if( address+1 >= MEM_SIZE ) {
 		printf("vm_read_short reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+1);
 		exit(1);
 	}
 #endif
 	union conv_union conv;
-	conv.c[0] = vm->bMemory[address];
-	conv.c[1] = vm->bMemory[address+1];
+	conv.c[0] = vm->pbMemory[address];
+	conv.c[1] = vm->pbMemory[address+1];
 	return conv.f;
 }
 
 uchar vm_read_byte(CVM_t *restrict vm, const uint address)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return 0;
+#ifdef SAFEMODE
 	if( address >= MEM_SIZE ) {
 		printf("vm_read_byte reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
 #endif
-	return vm->bMemory[address];
+	return vm->pbMemory[address];
 }
 
 float vm_read_float(CVM_t *restrict vm, const uint address)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return 0;
+#ifdef SAFEMODE
 	if( address+3 >= MEM_SIZE ) {
 		printf("vm_read_float reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+3);
 		exit(1);
 	}
 #endif
 	union conv_union conv;
-	conv.c[0] = vm->bMemory[address];
-	conv.c[1] = vm->bMemory[address+1];
-	conv.c[2] = vm->bMemory[address+2];
-	conv.c[3] = vm->bMemory[address+3];
+	conv.c[0] = vm->pbMemory[address];
+	conv.c[1] = vm->pbMemory[address+1];
+	conv.c[2] = vm->pbMemory[address+2];
+	conv.c[3] = vm->pbMemory[address+3];
 	return conv.f;
 }
 
 void vm_read_bytearray(CVM_t *restrict vm, uchar *restrict buffer, const uint size, const uint address)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return;
-#endif
 	uint addr = address;
 	uint i = 0;
 	while( i<size ) {
@@ -375,7 +411,7 @@ void vm_read_bytearray(CVM_t *restrict vm, uchar *restrict buffer, const uint si
 			exit(1);
 		}
 #endif
-		buffer[i++] = vm->bMemory[addr++];
+		buffer[i++] = vm->pbMemory[addr++];
 	}
 }
 
@@ -384,22 +420,28 @@ void vm_debug_print_memory(const CVM_t *vm)
 {
 	if( !vm )
 		return;
+	if( !vm->pbMemory )
+		return;
+	
 	printf("DEBUG ...---===---... Printing Memory...\n");
 	uint i;
 	for( i=0 ; i<MEM_SIZE ; i++ )
-		if( vm->bMemory[i] )
-			printf("Memory Index: 0x%x | data: %" PRIu32 "\n", i, vm->bMemory[i]);
+		if( vm->pbMemory[i] )
+			printf("Memory Index: 0x%x | data: %" PRIu32 "\n", i, vm->pbMemory[i]);
 	printf("\n");
 }
 void vm_debug_print_stack(const CVM_t *vm)
 {
 	if( !vm )
 		return;
+	if( !vm->pbDataStack )
+		return;
+	
 	printf("DEBUG ...---===---... Printing Stack...\n");
 	uint i;
 	for( i=0 ; i<STK_SIZE ; i++ )
-		if( vm->bStack[i] )
-			printf("Stack Index: 0x%x | data: %" PRIu32 "\n", i, vm->bStack[i]);
+		if( vm->pbDataStack[i] )
+			printf("Stack Index: 0x%x | data: %" PRIu32 "\n", i, vm->pbDataStack[i]);
 	printf("\n");
 }
 void vm_debug_print_callstack(const CVM_t *vm)
@@ -417,6 +459,7 @@ void vm_debug_print_ptrs(const CVM_t *vm)
 {
 	if( !vm )
 		return;
+	
 	printf("DEBUG ...---===---... Printing Pointers...\n");
 	printf("Instruction Pointer: %" PRIu32 "\
 			\nStack Pointer: %" PRIu32 "\
@@ -425,94 +468,101 @@ void vm_debug_print_ptrs(const CVM_t *vm)
 	printf("\n");
 }
 
-void vm_reset(CVM_t *vm)
+
+
+static inline uint vm_get_imm4(CVM_t *restrict vm)
 {
-	uint i;
-	for( i=0 ; i<MEM_SIZE ; i++ )
-		vm->bMemory[i] = 0;
-	for( i=0 ; i<STK_SIZE ; i++ )
-		vm->bStack[i] = 0;
-	for( i=0 ; i<CALLSTK_SIZE ; i++ )
-		vm->bCallstack[i] = 0;
-	vm->ip = 0;
-	vm->sp = 0;
-	vm->callsp = 0;
-	vm->code = NULL;
+	if( !vm )
+		return 0;
+	union conv_union conv;
+	conv.c[0] = vm->pInstrStream[++vm->ip];
+	conv.c[1] = vm->pInstrStream[++vm->ip];
+	conv.c[2] = vm->pInstrStream[++vm->ip];
+	conv.c[3] = vm->pInstrStream[++vm->ip];
+	return conv.ui;
 }
 
-
+static inline ushort vm_get_imm2(CVM_t *restrict vm)
+{
+	if( !vm )
+		return 0;
+	union conv_union conv;
+	conv.c[0] = vm->pInstrStream[++vm->ip];
+	conv.c[1] = vm->pInstrStream[++vm->ip];
+	return conv.us;
+}
 
 static inline uint _vm_pop_word(CVM_t *vm)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return 0;
+#ifdef SAFEMODE
 	if( (vm->sp-4) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
 		printf("vm_pop_word reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
 		exit(1);
 	}
 #endif
 	union conv_union conv;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
+	conv.c[3] = vm->pbDataStack[vm->sp--];
+	conv.c[2] = vm->pbDataStack[vm->sp--];
+	conv.c[1] = vm->pbDataStack[vm->sp--];
+	conv.c[0] = vm->pbDataStack[vm->sp--];
 	return conv.ui;
 }
 
 static inline float _vm_pop_float32(CVM_t *vm)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return 0;
+#ifdef SAFEMODE
 	if( (vm->sp-4) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
 		printf("vm_pop_float32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
 		exit(1);
 	}
 #endif
 	union conv_union conv;
-	conv.c[3] = vm->bStack[vm->sp--];
-	conv.c[2] = vm->bStack[vm->sp--];
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
+	conv.c[3] = vm->pbDataStack[vm->sp--];
+	conv.c[2] = vm->pbDataStack[vm->sp--];
+	conv.c[1] = vm->pbDataStack[vm->sp--];
+	conv.c[0] = vm->pbDataStack[vm->sp--];
 	return conv.f;
 }
 
 static inline ushort _vm_pop_short(CVM_t *vm)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return 0;
+#ifdef SAFEMODE
 	if( (vm->sp-2) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
 		printf("vm_pop_word reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-2);
 		exit(1);
 	}
 #endif
 	union conv_union conv;
-	conv.c[1] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bStack[vm->sp--];
+	conv.c[1] = vm->pbDataStack[vm->sp--];
+	conv.c[0] = vm->pbDataStack[vm->sp--];
 	return conv.us;
 }
 
 static inline uchar _vm_pop_byte(CVM_t *vm)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return 0;
+#ifdef SAFEMODE
 	if( (vm->sp-1) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
 		printf("vm_pop_word reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-1);
 		exit(1);
 	}
 #endif
-	return vm->bStack[vm->sp--];
+	return vm->pbDataStack[vm->sp--];
 }
 
 
 static inline void _vm_push_word(CVM_t *restrict vm, const uint val)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return;
+#ifdef SAFEMODE
 	if( (vm->sp+4) >= STK_SIZE ) {
 		printf("vm_push_word reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+4);
 		exit(1);
@@ -520,16 +570,16 @@ static inline void _vm_push_word(CVM_t *restrict vm, const uint val)
 #endif
 	union conv_union conv;
 	conv.ui = val;
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	vm->pbDataStack[++vm->sp] = conv.c[0];
+	vm->pbDataStack[++vm->sp] = conv.c[1];
+	vm->pbDataStack[++vm->sp] = conv.c[2];
+	vm->pbDataStack[++vm->sp] = conv.c[3];
 }
 static inline void _vm_push_float(CVM_t *restrict vm, const float val)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return;
+#ifdef SAFEMODE
 	if( (vm->sp+4) >= STK_SIZE ) {
 		printf("vm_push_float reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+4);
 		exit(1);
@@ -537,17 +587,17 @@ static inline void _vm_push_float(CVM_t *restrict vm, const float val)
 #endif
 	union conv_union conv;
 	conv.f = val;
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
-	vm->bStack[++vm->sp] = conv.c[2];
-	vm->bStack[++vm->sp] = conv.c[3];
+	vm->pbDataStack[++vm->sp] = conv.c[0];
+	vm->pbDataStack[++vm->sp] = conv.c[1];
+	vm->pbDataStack[++vm->sp] = conv.c[2];
+	vm->pbDataStack[++vm->sp] = conv.c[3];
 }
 
 void _vm_push_short(CVM_t *restrict vm, const ushort val)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return;
+#ifdef SAFEMODE
 	if( (vm->sp+2) >= STK_SIZE ) {
 		printf("vm_push_short reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+2);
 		exit(1);
@@ -555,29 +605,30 @@ void _vm_push_short(CVM_t *restrict vm, const ushort val)
 #endif
 	union conv_union conv;
 	conv.us = val;
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
+	vm->pbDataStack[++vm->sp] = conv.c[0];
+	vm->pbDataStack[++vm->sp] = conv.c[1];
 }
 
 static inline void _vm_push_byte(CVM_t *restrict vm, const uchar val)
 {
-#ifdef SAFEMODE
 	if( !vm )
 		return;
+#ifdef SAFEMODE
 	if( (vm->sp+1) >= STK_SIZE ) {
 		printf("vm_push_byte reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+1);
 		exit(1);
 	}
 #endif
-	vm->bStack[++vm->sp] = val;
+	vm->pbDataStack[++vm->sp] = val;
 }
+
 
 //#include <unistd.h>	// sleep() func
 void vm_exec(CVM_t *restrict vm)
 {
 	if( !vm )
 		return;
-	else if( !vm->code )
+	else if( !vm->pInstrStream )
 		return;
 	
 	union conv_union conv;
@@ -595,18 +646,18 @@ void vm_exec(CVM_t *restrict vm)
 #undef X
 #undef INSTR_SET
 
-	if( vm->code[vm->ip] > nop) {
-		printf("illegal instruction exception! instruction == \'%" PRIu32 "\' @ %" PRIu32 "\n", vm->code[vm->ip], vm->ip);
+	if( vm->pInstrStream[vm->ip] > nop) {
+		printf("illegal instruction exception! instruction == \'%" PRIu32 "\' @ %" PRIu32 "\n", vm->pInstrStream[vm->ip], vm->ip);
 		goto *dispatch[halt];
 		return;
 	}
-	//printf( "current instruction == \"%s\" @ ip == %" PRIu32 "\n", opcode2str[vm->code[vm->ip]], vm->ip );
+	//printf( "current instruction == \"%s\" @ ip == %" PRIu32 "\n", opcode2str[vm->pInstrStream[vm->ip]], vm->ip );
 #ifdef _UNISTD_H
-	#define DISPATCH()	sleep(1); goto *dispatch[ vm->code[++vm->ip] ]
+	#define DISPATCH()	sleep(1); goto *dispatch[ vm->pInstrStream[++vm->ip] ]
 #else
-	#define DISPATCH()	goto *dispatch[ vm->code[++vm->ip] ]
+	#define DISPATCH()	goto *dispatch[ vm->pInstrStream[++vm->ip] ]
 #endif
-	goto *dispatch[ vm->code[vm->ip] ];
+	goto *dispatch[ vm->pInstrStream[vm->ip] ];
 
 exec_nop:;
 	DISPATCH();
@@ -632,8 +683,8 @@ exec_pushs:;	// push 2 bytes onto the stack
 #endif
 	//conv.c[0] = code[++vm->ip];
 	//conv.c[1] = code[++vm->ip];
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
+	vm->pbDataStack[++vm->sp] = conv.c[0];
+	vm->pbDataStack[++vm->sp] = conv.c[1];
 	printf("pushs: pushed %" PRIu32 "\n", conv.us);
 	DISPATCH();
 	
@@ -644,8 +695,8 @@ exec_pushb:;	// push a byte onto the stack
 		goto *dispatch[halt];
 	}
 #endif
-	vm->bStack[++vm->sp] = vm->code[++vm->ip];
-	printf("pushb: pushed %" PRIu32 "\n", vm->bStack[vm->sp]);
+	vm->pbDataStack[++vm->sp] = vm->pInstrStream[++vm->ip];
+	printf("pushb: pushed %" PRIu32 "\n", vm->pbDataStack[vm->sp]);
 	DISPATCH();
 	
 exec_pushsp:;	// push sp onto the stack, uses 4 bytes since 'sp' is uint32
@@ -700,7 +751,7 @@ exec_popsp:;		// pop n bytes
 		goto *dispatch[halt];
 	}
 #endif
-	vm->sp = vm->bStack[vm->sp];
+	vm->sp = vm->pbDataStack[vm->sp];
 	printf("popsp: sp is now %" PRIu32 " bytes.\n", vm->sp);
 	DISPATCH();
 	
@@ -712,14 +763,14 @@ exec_wrtl:;	// writes an int to memory, First operand is the memory address as 4
 		goto *dispatch[halt];
 	}
 #endif
-	vm->bMemory[a] = vm->code[++vm->ip];
-	vm->bMemory[a+1] = vm->code[++vm->ip];
-	vm->bMemory[a+2] = vm->code[++vm->ip];
-	vm->bMemory[a+3] = vm->code[++vm->ip];
-	conv.c[0] = vm->bMemory[a];
-	conv.c[1] = vm->bMemory[a+1];
-	conv.c[2] = vm->bMemory[a+2];
-	conv.c[3] = vm->bMemory[a+3];
+	vm->pbMemory[a] = vm->pInstrStream[++vm->ip];
+	vm->pbMemory[a+1] = vm->pInstrStream[++vm->ip];
+	vm->pbMemory[a+2] = vm->pInstrStream[++vm->ip];
+	vm->pbMemory[a+3] = vm->pInstrStream[++vm->ip];
+	conv.c[0] = vm->pbMemory[a];
+	conv.c[1] = vm->pbMemory[a+1];
+	conv.c[2] = vm->pbMemory[a+2];
+	conv.c[3] = vm->pbMemory[a+3];
 	printf("wrote int data - %" PRIu32 " @ address 0x%x\n", conv.ui, a);
 	DISPATCH();
 	
@@ -731,10 +782,10 @@ exec_wrts:;	// writes a short to memory. First operand is the memory address as 
 		goto *dispatch[halt];
 	}
 #endif
-	vm->bMemory[a] = vm->code[++vm->ip];
-	vm->bMemory[a+1] = vm->code[++vm->ip];
-	conv.c[0] = vm->bMemory[a];
-	conv.c[1] = vm->bMemory[a+1];
+	vm->pbMemory[a] = vm->pInstrStream[++vm->ip];
+	vm->pbMemory[a+1] = vm->pInstrStream[++vm->ip];
+	conv.c[0] = vm->pbMemory[a];
+	conv.c[1] = vm->pbMemory[a+1];
 	printf("wrote short data - %" PRIu32 " @ address 0x%x\n", conv.us, a);
 	DISPATCH();
 	
@@ -746,8 +797,8 @@ exec_wrtb:;	// writes a byte to memory. First operand is the memory address as 3
 		goto *dispatch[halt];
 	}
 #endif
-	vm->bMemory[conv.ui] = vm->code[++vm->ip];
-	printf("wrote byte data - %" PRIu32 " @ address 0x%x\n", vm->bMemory[conv.ui], conv.ui);
+	vm->pbMemory[conv.ui] = vm->pInstrStream[++vm->ip];
+	printf("wrote byte data - %" PRIu32 " @ address 0x%x\n", vm->pbMemory[conv.ui], conv.ui);
 	DISPATCH();
 	
 exec_storel:;	// pops 4-byte value off stack and into a memory address.
@@ -762,14 +813,14 @@ exec_storel:;	// pops 4-byte value off stack and into a memory address.
 		goto *dispatch[halt];
 	}
 #endif
-	vm->bMemory[a+3] = vm->bStack[vm->sp--];
-	vm->bMemory[a+2] = vm->bStack[vm->sp--];
-	vm->bMemory[a+1] = vm->bStack[vm->sp--];
-	vm->bMemory[a] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bMemory[a];
-	conv.c[1] = vm->bMemory[a+1];
-	conv.c[2] = vm->bMemory[a+2];
-	conv.c[3] = vm->bMemory[a+3];
+	vm->pbMemory[a+3] = vm->pbDataStack[vm->sp--];
+	vm->pbMemory[a+2] = vm->pbDataStack[vm->sp--];
+	vm->pbMemory[a+1] = vm->pbDataStack[vm->sp--];
+	vm->pbMemory[a] = vm->pbDataStack[vm->sp--];
+	conv.c[0] = vm->pbMemory[a];
+	conv.c[1] = vm->pbMemory[a+1];
+	conv.c[2] = vm->pbMemory[a+2];
+	conv.c[3] = vm->pbMemory[a+3];
 	printf("stored int data - %" PRIu32 " @ address 0x%x\n", conv.ui, a);
 	DISPATCH();
 	
@@ -785,10 +836,10 @@ exec_stores:;	// pops 2-byte value off stack and into a memory address.
 		goto *dispatch[halt];
 	}
 #endif
-	vm->bMemory[a+1] = vm->bStack[vm->sp--];
-	vm->bMemory[a] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bMemory[a];
-	conv.c[1] = vm->bMemory[a+1];
+	vm->pbMemory[a+1] = vm->pbDataStack[vm->sp--];
+	vm->pbMemory[a] = vm->pbDataStack[vm->sp--];
+	conv.c[0] = vm->pbMemory[a];
+	conv.c[1] = vm->pbMemory[a+1];
 	printf("stored short data - %" PRIu32 " @ address 0x%x\n", conv.us, a);
 	DISPATCH();
 	
@@ -804,8 +855,8 @@ exec_storeb:;	// pops byte value off stack and into a memory address.
 		goto *dispatch[halt];
 	}
 #endif
-	vm->bMemory[a] = vm->bStack[vm->sp--];
-	conv.c[0] = vm->bMemory[a];
+	vm->pbMemory[a] = vm->pbDataStack[vm->sp--];
+	conv.c[0] = vm->pbMemory[a];
 	printf("stored byte data - %" PRIu32 " @ address 0x%x\n", conv.c[0], a);
 	DISPATCH();
 	
@@ -821,14 +872,14 @@ exec_loadl:;
 		goto *dispatch[halt];
 	}
 #endif
-	vm->bStack[++vm->sp] = vm->bMemory[a];
-	vm->bStack[++vm->sp] = vm->bMemory[a+1];
-	vm->bStack[++vm->sp] = vm->bMemory[a+2];
-	vm->bStack[++vm->sp] = vm->bMemory[a+3];
-	conv.c[0] = vm->bMemory[a];
-	conv.c[1] = vm->bMemory[a+1];
-	conv.c[2] = vm->bMemory[a+2];
-	conv.c[3] = vm->bMemory[a+3];
+	vm->pbDataStack[++vm->sp] = vm->pbMemory[a];
+	vm->pbDataStack[++vm->sp] = vm->pbMemory[a+1];
+	vm->pbDataStack[++vm->sp] = vm->pbMemory[a+2];
+	vm->pbDataStack[++vm->sp] = vm->pbMemory[a+3];
+	conv.c[0] = vm->pbMemory[a];
+	conv.c[1] = vm->pbMemory[a+1];
+	conv.c[2] = vm->pbMemory[a+2];
+	conv.c[3] = vm->pbMemory[a+3];
 	printf("loaded int data to T.O.S. - %" PRIu32 " from address 0x%x\n", conv.ui, a);
 	DISPATCH();
 	
@@ -844,10 +895,10 @@ exec_loads:;
 		goto *dispatch[halt];
 	}
 #endif
-	vm->bStack[++vm->sp] = vm->bMemory[a];
-	vm->bStack[++vm->sp] = vm->bMemory[a+1];
-	conv.c[0] = vm->bMemory[a];
-	conv.c[1] = vm->bMemory[a+1];
+	vm->pbDataStack[++vm->sp] = vm->pbMemory[a];
+	vm->pbDataStack[++vm->sp] = vm->pbMemory[a+1];
+	conv.c[0] = vm->pbMemory[a];
+	conv.c[1] = vm->pbMemory[a+1];
 	printf("loaded short data to T.O.S. - %" PRIu32 " from address 0x%x\n", conv.us, a);
 	DISPATCH();
 	
@@ -863,8 +914,8 @@ exec_loadb:;
 		goto *dispatch[halt];
 	}
 #endif
-	vm->bStack[++vm->sp] = vm->bMemory[a];
-	printf("loaded byte data to T.O.S. - %" PRIu32 " from address 0x%x\n", vm->bStack[vm->sp], a);
+	vm->pbDataStack[++vm->sp] = vm->pbMemory[a];
+	printf("loaded byte data to T.O.S. - %" PRIu32 " from address 0x%x\n", vm->pbDataStack[vm->sp], a);
 	DISPATCH();
 	
 exec_copyl:;	// copy 4 bytes of top of stack and put as new top of stack.
@@ -874,10 +925,10 @@ exec_copyl:;	// copy 4 bytes of top of stack and put as new top of stack.
 		goto *dispatch[halt];
 	}
 #endif
-	conv.c[0] = vm->bStack[vm->sp-3];
-	conv.c[1] = vm->bStack[vm->sp-2];
-	conv.c[2] = vm->bStack[vm->sp-1];
-	conv.c[3] = vm->bStack[vm->sp];
+	conv.c[0] = vm->pbDataStack[vm->sp-3];
+	conv.c[1] = vm->pbDataStack[vm->sp-2];
+	conv.c[2] = vm->pbDataStack[vm->sp-1];
+	conv.c[3] = vm->pbDataStack[vm->sp];
 	printf("copied int data from T.O.S. - %" PRIu32 "\n", conv.ui);
 	_vm_push_word(vm, conv.ui);
 	DISPATCH();
@@ -889,10 +940,10 @@ exec_copys:;
 		goto *dispatch[halt];
 	}
 #endif
-	conv.c[0] = vm->bStack[vm->sp-1];
-	conv.c[1] = vm->bStack[vm->sp];
-	vm->bStack[++vm->sp] = conv.c[0];
-	vm->bStack[++vm->sp] = conv.c[1];
+	conv.c[0] = vm->pbDataStack[vm->sp-1];
+	conv.c[1] = vm->pbDataStack[vm->sp];
+	vm->pbDataStack[++vm->sp] = conv.c[0];
+	vm->pbDataStack[++vm->sp] = conv.c[1];
 	printf("copied short data from T.O.S. - %" PRIu32 "\n", conv.us);
 	DISPATCH();
 	
@@ -903,8 +954,8 @@ exec_copyb:;
 		goto *dispatch[halt];
 	}
 #endif
-	conv.c[0] = vm->bStack[vm->sp];
-	vm->bStack[++vm->sp] = conv.c[0];
+	conv.c[0] = vm->pbDataStack[vm->sp];
+	vm->pbDataStack[++vm->sp] = conv.c[0];
 	printf("copied byte data from T.O.S. - %" PRIu32 "\n", conv.c[0]);
 	DISPATCH();
 	
@@ -1100,7 +1151,14 @@ exec_decl:;
 	printf("4 byte Decrement result: %" PRIu32 "\n", conv.ui);
 	_vm_push_word(vm, conv.ui);
 	DISPATCH();
-	
+
+exec_negl:;
+	a = _vm_pop_word(vm);
+	conv.ui = -a;
+	printf("4 byte Decrement result: %" PRIu32 "\n", conv.ui);
+	_vm_push_word(vm, conv.ui);
+	DISPATCH();
+
 exec_ltl:;
 	b = _vm_pop_word(vm);
 	a = _vm_pop_word(vm);
@@ -1221,11 +1279,11 @@ exec_geqf:;
 	_vm_push_float(vm, conv.f);
 	DISPATCH();
 	
-exec_jmp:;		// addresses are 4 bytes.
+exec_jmp:;		// addresses are word sized bytes.
 	conv.ui = vm_get_imm4(vm);
 	vm->ip = conv.ui;
 	printf("jmping to instruction address: %" PRIu32 "\n", vm->ip);
-	goto *dispatch[ vm->code[vm->ip] ];
+	goto *dispatch[ vm->pInstrStream[vm->ip] ];
 	
 exec_jzl:;		// check if the first 4 bytes on stack are zero, if yes then jump it.
 #ifdef SAFEMODE
@@ -1234,15 +1292,15 @@ exec_jzl:;		// check if the first 4 bytes on stack are zero, if yes then jump it
 		goto *dispatch[halt];
 	}
 #endif
-	conv.c[3] = vm->bStack[vm->sp];
-	conv.c[2] = vm->bStack[vm->sp-1];
-	conv.c[1] = vm->bStack[vm->sp-2];
-	conv.c[0] = vm->bStack[vm->sp-3];
+	conv.c[3] = vm->pbDataStack[vm->sp];
+	conv.c[2] = vm->pbDataStack[vm->sp-1];
+	conv.c[1] = vm->pbDataStack[vm->sp-2];
+	conv.c[0] = vm->pbDataStack[vm->sp-3];
 	a = conv.ui;
 	conv.ui = vm_get_imm4(vm);
 	vm->ip = (!a) ? conv.ui : vm->ip+1 ;
-	printf("jzl'ing to instruction address: %" PRIu32 "\n", vm->ip);	//opcode2str[vm->code[vm->ip]]
-	goto *dispatch[ vm->code[vm->ip] ];
+	printf("jzl'ing to instruction address: %" PRIu32 "\n", vm->ip);	//opcode2str[vm->pInstrStream[vm->ip]]
+	goto *dispatch[ vm->pInstrStream[vm->ip] ];
 	
 exec_jnzl:;
 #ifdef SAFEMODE
@@ -1251,15 +1309,15 @@ exec_jnzl:;
 		goto *dispatch[halt];
 	}
 #endif
-	conv.c[3] = vm->bStack[vm->sp];
-	conv.c[2] = vm->bStack[vm->sp-1];
-	conv.c[1] = vm->bStack[vm->sp-2];
-	conv.c[0] = vm->bStack[vm->sp-3];
+	conv.c[3] = vm->pbDataStack[vm->sp];
+	conv.c[2] = vm->pbDataStack[vm->sp-1];
+	conv.c[1] = vm->pbDataStack[vm->sp-2];
+	conv.c[0] = vm->pbDataStack[vm->sp-3];
 	a = conv.ui;
 	conv.ui = vm_get_imm4(vm);
 	vm->ip = (a) ? conv.ui : vm->ip+1 ;
 	printf("jnzl'ing to instruction address: %" PRIu32 "\n", vm->ip);
-	goto *dispatch[ vm->code[vm->ip] ];
+	goto *dispatch[ vm->pInstrStream[vm->ip] ];
 	
 exec_call:;
 	conv.ui = vm_get_imm4(vm);
@@ -1270,11 +1328,11 @@ exec_call:;
 		goto *dispatch[halt];
 	}
 #endif
-	vm->bCallstack[++vm->callsp] = vm->ip + 1;
+	vm->bCallstack[++vm->callsp] = vm->ip+1;
 	//vm->bp = vm->callsp;
 	vm->ip = conv.ui;
 	printf("call return addr: %" PRIu32 "\n", vm->bCallstack[vm->callsp]);
-	goto *dispatch[ vm->code[vm->ip] ];
+	goto *dispatch[ vm->pInstrStream[vm->ip] ];
 	
 exec_ret:;
 	//vm->callsp = vm->bp;
@@ -1288,7 +1346,7 @@ exec_ret:;
 	vm->ip = vm->bCallstack[vm->callsp--];
 	//vm->bp = vm->callsp;
 	printf("returning to address: %" PRIu32 "\n", vm->ip);
-	goto *dispatch[ vm->code[vm->ip] ];
+	goto *dispatch[ vm->pInstrStream[vm->ip] ];
 	
 exec_reset:;
 	vm_reset(vm);
@@ -1432,29 +1490,22 @@ int main(void)
 		halt,
 	};
 	
-	bytecode pointers = {
-		nop,
-		// write to address 0xA the value of 5.
-		wrtl,	10,0,0,0,	5,0,0,0,		// int a = 5;
-		// write to address 0x4 the value of 0xA.
-		wrtl,	4,0,0,0,	10,0,0,0,		// int *b = &a;
-		halt
-	};
+	CVM_t *vm = &(CVM_t){ 0 };
+	vm_init(vm);
+	vm_load_code(vm, test1);				vm_exec(vm); vm_free(vm);
+	vm_load_code(vm, float_test);			vm_exec(vm); vm_free(vm);
+	vm_load_code(vm, nested_func_calls);	vm_exec(vm); vm_free(vm);
+	vm_load_code(vm, fibonacci);			vm_exec(vm); vm_free(vm);
 	
-	CVM_t vm = (CVM_t){ 0 };
-	vm_init(&vm, test1); vm_exec(&vm);
-	vm_init(&vm, float_test); vm_exec(&vm);
-	vm_init(&vm, nested_func_calls); vm_exec(&vm);
-	vm_init(&vm, fibonacci); vm_exec(&vm);
-	/*
-	vm_init(&vm, hello_world); vm_exec(&vm);
+	vm_load_code(vm, hello_world); vm_exec(vm);
 	uchar buffer[12] = {0};
-	vm_read_bytearray(&vm, buffer, 12, 0x0);
+	vm_read_bytearray(vm, buffer, 12, 0x0);
 	printf("buffer == \'%s\'\n", buffer);
-	*/
-	printf("instruction set size == %u\n", nop+1);
-	vm_debug_print_memory(&vm);
-	vm_debug_print_stack(&vm);
+
+	//printf("instruction set amount == %u\n", nop);
+	vm_debug_print_memory(vm);
+	vm_debug_print_stack(vm);
+	vm_free(vm);
 	//vm_debug_print_callstack(p_vm);
 	//vm_debug_print_ptrs(p_vm);
 	//free(program); program=NULL;
