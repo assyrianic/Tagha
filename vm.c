@@ -748,23 +748,23 @@ exec_popb:;		// pop a byte
 
 exec_popsp:;
 #ifdef SAFEMODE
-	if( vm->sp-1 >= STK_SIZE ) {
-		printf("exec_popsp reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-1);
+	if( vm->sp-4 >= STK_SIZE ) {
+		printf("exec_popsp reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
 		goto *dispatch[halt];
 	}
 #endif
-	vm->sp = vm->pbDataStack[vm->sp];
+	vm->sp = _vm_pop_word(vm);
 	printf("popsp: sp is now %" PRIu32 " bytes.\n", vm->sp);
 	DISPATCH();
 
 exec_popip:;
 #ifdef SAFEMODE
-	if( vm->sp-1 >= STK_SIZE ) {
-		printf("exec_popip reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-1);
+	if( vm->sp-4 >= STK_SIZE ) {
+		printf("exec_popip reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
 		goto *dispatch[halt];
 	}
 #endif
-	vm->ip = vm->pbDataStack[vm->sp--];
+	vm->ip = _vm_pop_word(vm);
 	printf("popip: ip is now %" PRIu32 " bytes.\n", vm->ip);
 	goto *dispatch[ vm->pInstrStream[vm->ip] ];
 	
