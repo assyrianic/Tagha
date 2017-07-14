@@ -20,14 +20,16 @@
 // this vm is designed to run C programs. Vastly, if not all C expressions are int32, uint32 if bigger than int
 // this is why the arithmetic and bit operations are all int32 sized.
 // there's 2 byte and single byte memory storage for the sake of dealing with structs and unions.
-
+// expressions are int or uint then truncated to a variable's byte-width.
 #define INSTR_SET	\
 	X(halt) \
 	X(pushl) X(pushs) X(pushb) X(pushsp) X(puship) \
-	X(popl) X(pops) X(popb) X(popsp) \
+	X(popl) X(pops) X(popb) X(popsp) X(popip) \
 	X(wrtl) X(wrts) X(wrtb) \
 	X(storel) X(stores) X(storeb) \
+	X(storela) X(storesa) X(storeba) \
 	X(loadl) X(loads) X(loadb) \
+	X(loadla) X(loadsa) X(loadba) \
 	X(copyl) X(copys) X(copyb) \
 	X(addl) X(uaddl) X(addf) \
 	X(subl) X(usubl) X(subf) \
@@ -256,8 +258,8 @@ void vm_write_word(CVM_t *restrict vm, const uint val, const uint address)
 	if( !vm )
 		return;
 #ifdef SAFEMODE
-	if( address+3 >= MEM_SIZE ) {
-		printf("vm_write_word reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+3);
+	if( address > MEM_SIZE-4 ) {
+		printf("vm_write_word reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
 #endif
@@ -274,8 +276,8 @@ void vm_write_short(CVM_t *restrict vm, const ushort val, const uint address)
 	if( !vm )
 		return;
 #ifdef SAFEMODE
-	if( address+1 >= MEM_SIZE ) {
-		printf("vm_write_short reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+1);
+	if( address > MEM_SIZE-2 ) {
+		printf("vm_write_short reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
 #endif
@@ -303,8 +305,8 @@ void vm_write_float(CVM_t *restrict vm, const float val, const uint address)
 	if( !vm )
 		return;
 #ifdef SAFEMODE
-	if( address+3 >= MEM_SIZE ) {
-		printf("vm_write_float reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+3);
+	if( address > MEM_SIZE-4 ) {
+		printf("vm_write_float reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
 #endif
@@ -324,7 +326,7 @@ void vm_write_bytearray(CVM_t *restrict vm, uchar *restrict val, const uint size
 	uint i = 0;
 	while( i<size ) {
 #ifdef SAFEMODE
-		if( addr >= MEM_SIZE ) {
+		if( addr >= MEM_SIZE-i ) {
 			printf("vm_write_array reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, addr);
 			exit(1);
 		}
@@ -338,8 +340,8 @@ uint vm_read_word(CVM_t *restrict vm, const uint address)
 	if( !vm )
 		return 0;
 #ifdef SAFEMODE
-	if( address+3 >= MEM_SIZE ) {
-		printf("vm_read_word reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+3);
+	if( address > MEM_SIZE-4 ) {
+		printf("vm_read_word reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
 #endif
@@ -356,8 +358,8 @@ ushort vm_read_short(CVM_t *restrict vm, const uint address)
 	if( !vm )
 		return 0;
 #ifdef SAFEMODE
-	if( address+1 >= MEM_SIZE ) {
-		printf("vm_read_short reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+1);
+	if( address > MEM_SIZE-2 ) {
+		printf("vm_read_short reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
 #endif
@@ -385,8 +387,8 @@ float vm_read_float(CVM_t *restrict vm, const uint address)
 	if( !vm )
 		return 0;
 #ifdef SAFEMODE
-	if( address+3 >= MEM_SIZE ) {
-		printf("vm_read_float reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address+3);
+	if( address > MEM_SIZE-4 ) {
+		printf("vm_read_float reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
 #endif
@@ -406,7 +408,7 @@ void vm_read_bytearray(CVM_t *restrict vm, uchar *restrict buffer, const uint si
 	uint i = 0;
 	while( i<size ) {
 #ifdef SAFEMODE
-		if( addr >= MEM_SIZE ) {
+		if( addr >= MEM_SIZE-i ) {
 			printf("vm_read_array reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, addr);
 			exit(1);
 		}
@@ -744,7 +746,7 @@ exec_popb:;		// pop a byte
 	printf("popb\n");
 	DISPATCH();
 
-exec_popsp:;		// pop n bytes
+exec_popsp:;
 #ifdef SAFEMODE
 	if( vm->sp-1 >= STK_SIZE ) {
 		printf("exec_popsp reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-1);
@@ -754,11 +756,22 @@ exec_popsp:;		// pop n bytes
 	vm->sp = vm->pbDataStack[vm->sp];
 	printf("popsp: sp is now %" PRIu32 " bytes.\n", vm->sp);
 	DISPATCH();
+
+exec_popip:;
+#ifdef SAFEMODE
+	if( vm->sp-1 >= STK_SIZE ) {
+		printf("exec_popip reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-1);
+		goto *dispatch[halt];
+	}
+#endif
+	vm->ip = vm->pbDataStack[vm->sp--];
+	printf("popip: ip is now %" PRIu32 " bytes.\n", vm->ip);
+	goto *dispatch[ vm->pInstrStream[vm->ip] ];
 	
 exec_wrtl:;	// writes an int to memory, First operand is the memory address as 4 byte number, second is the int of data.
 	a = vm_get_imm4(vm);
 #ifdef SAFEMODE
-	if( a+3 >= MEM_SIZE ) {
+	if( a > MEM_SIZE-4 ) {
 		printf("exec_wrtl reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a+3);
 		goto *dispatch[halt];
 	}
@@ -777,8 +790,8 @@ exec_wrtl:;	// writes an int to memory, First operand is the memory address as 4
 exec_wrts:;	// writes a short to memory. First operand is the memory address as 4 byte number, second is the short of data.
 	a = vm_get_imm4(vm);
 #ifdef SAFEMODE
-	if( a+1 >= MEM_SIZE ) {
-		printf("exec_wrts reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a+1);
+	if( a > MEM_SIZE-2 ) {
+		printf("exec_wrts reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
 		goto *dispatch[halt];
 	}
 #endif
@@ -804,8 +817,8 @@ exec_wrtb:;	// writes a byte to memory. First operand is the memory address as 3
 exec_storel:;	// pops 4-byte value off stack and into a memory address.
 	a = vm_get_imm4(vm);
 #ifdef SAFEMODE
-	if( a+3 >= MEM_SIZE ) {
-		printf("exec_storel reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a+3);
+	if( a >= MEM_SIZE-4 ) {
+		printf("exec_storel reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
 		goto *dispatch[halt];
 	}
 	else if( vm->sp-4 >= STK_SIZE ) {
@@ -827,8 +840,8 @@ exec_storel:;	// pops 4-byte value off stack and into a memory address.
 exec_stores:;	// pops 2-byte value off stack and into a memory address.
 	a = vm_get_imm4(vm);
 #ifdef SAFEMODE
-	if( a+1 >= MEM_SIZE ) {
-		printf("exec_stores reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a+1);
+	if( a > MEM_SIZE-2 ) {
+		printf("exec_stores reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
 		goto *dispatch[halt];
 	}
 	else if( vm->sp-2 >= STK_SIZE ) {
@@ -859,12 +872,76 @@ exec_storeb:;	// pops byte value off stack and into a memory address.
 	conv.c[0] = vm->pbMemory[a];
 	printf("stored byte data - %" PRIu32 " @ address 0x%x\n", conv.c[0], a);
 	DISPATCH();
+
+/*
+ * pushl <value to store>
+ * loadl <ptr address>
+ * storela
+*/
+exec_storela:;
+	a = _vm_pop_word(vm);
+#ifdef SAFEMODE
+	if( a > MEM_SIZE-4 ) {
+		printf("exec_storela reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
+		goto *dispatch[halt];
+	}
+	else if( vm->sp-4 >= STK_SIZE ) {
+		printf("exec_storela reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
+		goto *dispatch[halt];
+	}
+#endif
+	vm->pbMemory[a+3] = vm->pbDataStack[vm->sp--];
+	vm->pbMemory[a+2] = vm->pbDataStack[vm->sp--];
+	vm->pbMemory[a+1] = vm->pbDataStack[vm->sp--];
+	vm->pbMemory[a] = vm->pbDataStack[vm->sp--];
+	conv.c[0] = vm->pbMemory[a];
+	conv.c[1] = vm->pbMemory[a+1];
+	conv.c[2] = vm->pbMemory[a+2];
+	conv.c[3] = vm->pbMemory[a+3];
+	printf("stored 4 byte data - %" PRIu32 " from pointer address 0x%x\n", conv.ui, a);
+	DISPATCH();
+	
+exec_storesa:;
+	a = _vm_pop_word(vm);
+#ifdef SAFEMODE
+	if( a > MEM_SIZE-2 ) {
+		printf("exec_storesa reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
+		goto *dispatch[halt];
+	}
+	else if( vm->sp-2 >= STK_SIZE ) {
+		printf("exec_storesa reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-2);
+		goto *dispatch[halt];
+	}
+#endif
+	vm->pbMemory[a+1] = vm->pbDataStack[vm->sp--];
+	vm->pbMemory[a] = vm->pbDataStack[vm->sp--];
+	conv.c[0] = vm->pbMemory[a];
+	conv.c[1] = vm->pbMemory[a+1];
+	printf("stored 2 byte data - %" PRIu32 " from pointer address 0x%x\n", conv.us, a);
+	DISPATCH();
+	
+exec_storeba:;
+	a = _vm_pop_word(vm);
+#ifdef SAFEMODE
+	if( a >= MEM_SIZE ) {
+		printf("exec_storeba reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
+		goto *dispatch[halt];
+	}
+	else if( vm->sp-1 >= STK_SIZE ) {
+		printf("exec_storeba reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-1);
+		goto *dispatch[halt];
+	}
+#endif
+	vm->pbMemory[a] = vm->pbDataStack[vm->sp--];
+	conv.c[0] = vm->pbMemory[a];
+	printf("stored byte - %" PRIu32 " from pointer address 0x%x\n", conv.c[0], a);
+	DISPATCH();
 	
 exec_loadl:;
 	a = vm_get_imm4(vm);
 #ifdef SAFEMODE
-	if( a+3 >= MEM_SIZE ) {
-		printf("exec_loadl reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a+3);
+	if( a > MEM_SIZE-4 ) {
+		printf("exec_loadl reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
 		goto *dispatch[halt];
 	}
 	else if( vm->sp+4 >= STK_SIZE ) {
@@ -886,8 +963,8 @@ exec_loadl:;
 exec_loads:;
 	a = vm_get_imm4(vm);
 #ifdef SAFEMODE
-	if( a+1 >= MEM_SIZE ) {
-		printf("exec_loads reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a+1);
+	if( a > MEM_SIZE-2 ) {
+		printf("exec_loads reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
 		goto *dispatch[halt];
 	}
 	else if( vm->sp+2 >= STK_SIZE ) {
@@ -916,6 +993,65 @@ exec_loadb:;
 #endif
 	vm->pbDataStack[++vm->sp] = vm->pbMemory[a];
 	printf("loaded byte data to T.O.S. - %" PRIu32 " from address 0x%x\n", vm->pbDataStack[vm->sp], a);
+	DISPATCH();
+
+exec_loadla:;
+	a = _vm_pop_word(vm);
+#ifdef SAFEMODE
+	if( a > MEM_SIZE-4 ) {
+		printf("exec_loadla reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
+		goto *dispatch[halt];
+	}
+	else if( vm->sp+4 >= STK_SIZE ) {
+		printf("exec_loadla reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+4);
+		goto *dispatch[halt];
+	}
+#endif
+	vm->pbDataStack[++vm->sp] = vm->pbMemory[a];
+	vm->pbDataStack[++vm->sp] = vm->pbMemory[a+1];
+	vm->pbDataStack[++vm->sp] = vm->pbMemory[a+2];
+	vm->pbDataStack[++vm->sp] = vm->pbMemory[a+3];
+	conv.c[0] = vm->pbMemory[a];
+	conv.c[1] = vm->pbMemory[a+1];
+	conv.c[2] = vm->pbMemory[a+2];
+	conv.c[3] = vm->pbMemory[a+3];
+	printf("loaded 4 byte data to T.O.S. - %" PRIu32 " from pointer address 0x%x\n", conv.ui, a);
+	DISPATCH();
+	
+exec_loadsa:;
+	a = _vm_pop_word(vm);
+#ifdef SAFEMODE
+	if( a > MEM_SIZE-2 ) {
+		printf("exec_loadsa reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
+		goto *dispatch[halt];
+	}
+	else if( vm->sp+2 >= STK_SIZE ) {
+		printf("exec_loadsa reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+2);
+		goto *dispatch[halt];
+	}
+#endif
+	vm->pbDataStack[++vm->sp] = vm->pbMemory[a];
+	vm->pbDataStack[++vm->sp] = vm->pbMemory[a+1];
+	conv.c[0] = vm->pbMemory[a];
+	conv.c[1] = vm->pbMemory[a+1];
+	printf("loaded 2 byte data to T.O.S. - %" PRIu32 " from pointer address 0x%x\n", conv.us, a);
+	DISPATCH();
+	
+exec_loadba:;
+	a = _vm_pop_word(vm);
+#ifdef SAFEMODE
+	if( a > MEM_SIZE ) {
+		printf("exec_loadba reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
+		goto *dispatch[halt];
+	}
+	else if( vm->sp >= STK_SIZE ) {
+		printf("exec_loadba reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp);
+		goto *dispatch[halt];
+	}
+#endif
+	vm->pbDataStack[++vm->sp] = vm->pbMemory[a];
+	conv.c[0] = vm->pbMemory[a];
+	printf("loaded byte data to T.O.S. - %" PRIu32 " from pointer address 0x%x\n", vm->pbDataStack[vm->sp], a);
 	DISPATCH();
 	
 exec_copyl:;	// copy 4 bytes of top of stack and put as new top of stack.
@@ -1383,8 +1519,9 @@ int main(void)
 		nop,
 		//pushl, 255, 1, 0, 0x0,
 		//pushs, 0xDD, 0xDD,
-		pushb, 0xAA,
-		pushb, 0xFF,
+		//pushb, 0xAA,
+		//pushb, 0xFF,
+		wrtl, 0xff,0xff,0xff,0xff, 0,0,0,0,
 		halt
 	};
 	bytecode float_test = {
@@ -1490,13 +1627,40 @@ int main(void)
 		halt,
 	};
 	
+	bytecode pointers = {
+		nop,
+		// The way you wuold store to a pointer would be something like...
+		// pushl <value to store>
+		// loadl <ptr address>
+		// storela
+		
+		// push 170 to tos.
+		pushl,	0xAA,0,0,0,
+		// store 170 to address 255 as variable 'i'
+		// int i = 170;
+		storel,	0xff,0,0,0,
+		
+		// the way you would load from a pointer would be something like:
+		// loadl <ptr address>
+		// loadla
+		
+		// load address of 'i'
+		// int *p = &i;
+		// *p = 26;		// i == 26;
+		pushl,	0x1a,0,0,0,
+		pushl, 0xff,0,0,0,
+		storela, // pops 4 byte address, then pops 4 byte data into memory address.
+		halt
+	};
+	
 	CVM_t *vm = &(CVM_t){ 0 };
 	vm_init(vm);
 	vm_load_code(vm, test1);				vm_exec(vm); vm_free(vm);
 	vm_load_code(vm, float_test);			vm_exec(vm); vm_free(vm);
 	vm_load_code(vm, nested_func_calls);	vm_exec(vm); vm_free(vm);
 	vm_load_code(vm, fibonacci);			vm_exec(vm); vm_free(vm);
-	
+	vm_load_code(vm, pointers);				vm_exec(vm); vm_free(vm);
+
 	vm_load_code(vm, hello_world); vm_exec(vm);
 	uchar buffer[12] = {0};
 	vm_read_bytearray(vm, buffer, 12, 0x0);

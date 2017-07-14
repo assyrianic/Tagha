@@ -98,7 +98,7 @@ uchar		vm_read_byte(CVM_t *restrict vm, const uint address);
 float		vm_read_float(CVM_t *restrict vm, const uint address);
 void		vm_read_bytearray(CVM_t *restrict vm, uchar *restrict buffer, const uint size, const uint address);
 
-
+/*	NOT READY YET...
 //	API to call C/C++ functions from scripts. Supports up to 5 params
 //	Realistically, if you require more than 5 arguments, you could just group everything into a struct and pass its pointer.
 typedef		void (*fnNative0)(CVM_t *restrict vm);
@@ -122,6 +122,7 @@ typedef struct {
 } NativeInfo;
 
 int		vm_register_funcs(CVM_t *restrict vm, NativeInfo *arrNatives);
+*/
 
 #ifdef __cplusplus
 }
