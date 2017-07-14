@@ -37,6 +37,8 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  - popl - pops 4 bytes from TOS.
  - pops - pops 2 bytes from TOS.
  - popb - pops byte from TOS.
+ - popsp - pops 4 bytes from TOS and sets that as the current stack pointer.
+ - popip - pops 4 bytes from TOS and sets that as the current instruction pointer.
  
  - wrtl - writes 4 bytes to a memory address.
  - wrts - writes 2 bytes to a memory address.
@@ -45,10 +47,16 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  - storel - pops 4 bytes from TOS and stores to a memory address.
  - stores - pops 2 bytes from TOS and stores to a memory address.
  - storeb - pop a byte from TOS and stores to a memory address.
+ - storela - pops 4 bytes from TOS, uses that as memory address, then pops another 4 bytes and stores into the address.
+ - storesa - pops 4 bytes from tos as memory address, pops another 2 bytes into that address.
+ - storeba - pops 4 bytes from tos as mem address, pops a byte into that address.
  
  - loadl - puts 4 bytes from memory into TOS.
  - loads - puts 2 bytes from memory into TOS.
  - loadb - puts a byte from memory into TOS.
+ - loadla - pops 4 bytes as a memory address, pushes the 4 bytes of data from the memory address to TOS.
+ - loadsa - pops 4 bytes as memory address, pushes 2 bytes of data from address to TOS.
+ - loadba - pops 4 bytes as memory address, pushes byte from address to TOS.
  
  - copyl - copies the first 4 bytes of the TOS.
  - copys - copies the first 2 bytes of the TOS.
