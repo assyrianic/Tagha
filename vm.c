@@ -38,14 +38,14 @@
 	X(modl) X(umodl) \
 	X(andl) X(orl) X(xorl) \
 	X(notl) X(shll) X(shrl) \
-	X(incl) X(decl) X(negl) \
+	X(incl) X(decl) X(negl) X(negf) \
 	X(ltl) X(ultl) X(ltf) \
 	X(gtl) X(ugtl) X(gtf) \
 	X(cmpl) X(ucmpl) X(compf) \
 	X(leql) X(uleql) X(leqf) \
 	X(geql) X(ugeql) X(geqf) \
 	X(jmp) X(jzl) X(jnzl) \
-	X(call) X(ret) X(reset) \
+	X(call) X(calls) X(calla) X(ret) X(reset) \
 	X(nop) \
 
 #define X(x) x,
@@ -115,7 +115,7 @@ void vm_reset(CVM_t *vm)
 	vm->callsp = 0;
 }
 
-// returns index of func ptr
+/*
 int vm_register_func(CVM_t *restrict vm, NativeInfo *arrNatives)
 {
 	if( !vm || !arrNatives )
@@ -123,6 +123,7 @@ int vm_register_func(CVM_t *restrict vm, NativeInfo *arrNatives)
 	
 	return 0;
 }
+*/
 
 uint vm_pop_word(CVM_t *vm)
 {
@@ -742,7 +743,7 @@ exec_popb:;		// pop a byte
 		goto *dispatch[halt];
 	}
 #endif
-	--vm->sp;
+	vm->sp--;
 	printf("popb\n");
 	DISPATCH();
 
@@ -776,6 +777,7 @@ exec_wrtl:;	// writes an int to memory, First operand is the memory address as 4
 		goto *dispatch[halt];
 	}
 #endif
+	// TODO: replace the instr stream with vm_get_imm4(vm)
 	vm->pbMemory[a] = vm->pInstrStream[++vm->ip];
 	vm->pbMemory[a+1] = vm->pInstrStream[++vm->ip];
 	vm->pbMemory[a+2] = vm->pInstrStream[++vm->ip];
@@ -1044,8 +1046,8 @@ exec_loadba:;
 		printf("exec_loadba reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
 		goto *dispatch[halt];
 	}
-	else if( vm->sp >= STK_SIZE ) {
-		printf("exec_loadba reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp);
+	else if( vm->sp+1 >= STK_SIZE ) {
+		printf("exec_loadba reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+1);
 		goto *dispatch[halt];
 	}
 #endif
@@ -1058,6 +1060,10 @@ exec_copyl:;	// copy 4 bytes of top of stack and put as new top of stack.
 #ifdef SAFEMODE
 	if( vm->sp-3 >= STK_SIZE ) {
 		printf("exec_copyl reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-3);
+		goto *dispatch[halt];
+	}
+	else if( vm->sp+4 >= STK_SIZE ) {
+		printf("exec_copyl reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+4);
 		goto *dispatch[halt];
 	}
 #endif
@@ -1073,6 +1079,10 @@ exec_copys:;
 #ifdef SAFEMODE
 	if( vm->sp-1 >= STK_SIZE ) {
 		printf("exec_copys reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-1);
+		goto *dispatch[halt];
+	}
+	else if( vm->sp+2 >= STK_SIZE ) {
+		printf("exec_copys reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+2);
 		goto *dispatch[halt];
 	}
 #endif
@@ -1291,8 +1301,15 @@ exec_decl:;
 exec_negl:;
 	a = _vm_pop_word(vm);
 	conv.ui = -a;
-	printf("4 byte Decrement result: %" PRIu32 "\n", conv.ui);
+	printf("4 byte Negate result: %" PRIu32 "\n", conv.ui);
 	_vm_push_word(vm, conv.ui);
+	DISPATCH();
+
+exec_negf:;
+	fa = _vm_pop_float32(vm);
+	conv.f = -fa;
+	printf("float Negate result: %f\n", conv.f);
+	_vm_push_float(vm, conv.f);
 	DISPATCH();
 
 exec_ltl:;
@@ -1461,6 +1478,56 @@ exec_call:;
 #ifdef SAFEMODE
 	if( vm->callsp+1 >= CALLSTK_SIZE ) {
 		printf("exec_call reported: callstack overflow! Current instruction address: %" PRIu32 " | Call Stack index: %" PRIu32 "\n", vm->ip, vm->callsp+1);
+		goto *dispatch[halt];
+	}
+#endif
+	vm->bCallstack[++vm->callsp] = vm->ip+1;
+	//vm->bp = vm->callsp;
+	vm->ip = conv.ui;
+	printf("call return addr: %" PRIu32 "\n", vm->bCallstack[vm->callsp]);
+	goto *dispatch[ vm->pInstrStream[vm->ip] ];
+
+exec_calls:;
+#ifdef SAFEMODE
+	if( vm->sp-3 >= STK_SIZE ) {
+		printf("exec_calls reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-3);
+		goto *dispatch[halt];
+	}
+#endif
+	conv.ui = _vm_pop_word(vm);
+	printf("calling address: %" PRIu32 "\n", conv.ui);
+#ifdef SAFEMODE
+	if( vm->callsp+1 >= CALLSTK_SIZE ) {
+		printf("exec_calls reported: callstack overflow! Current instruction address: %" PRIu32 " | Call Stack index: %" PRIu32 "\n", vm->ip, vm->callsp+1);
+		goto *dispatch[halt];
+	}
+#endif
+	vm->bCallstack[++vm->callsp] = vm->ip+1;
+	//vm->bp = vm->callsp;
+	vm->ip = conv.ui;
+	printf("call return addr: %" PRIu32 "\n", vm->bCallstack[vm->callsp]);
+	goto *dispatch[ vm->pInstrStream[vm->ip] ];
+
+exec_calla:;	// same as calls but from a memory address.
+#ifdef SAFEMODE
+	if( a > MEM_SIZE-4 ) {
+		printf("exec_calla reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
+		goto *dispatch[halt];
+	}
+	if( vm->sp-3 >= STK_SIZE ) {
+		printf("exec_calla reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-3);
+		goto *dispatch[halt];
+	}
+#endif
+	a = _vm_pop_word(vm);
+	conv.c[0] = vm->pbMemory[a];
+	conv.c[1] = vm->pbMemory[a+1];
+	conv.c[2] = vm->pbMemory[a+2];
+	conv.c[3] = vm->pbMemory[a+3];
+	printf("calling address: %" PRIu32 "\n", conv.ui);
+#ifdef SAFEMODE
+	if( vm->callsp+1 >= CALLSTK_SIZE ) {
+		printf("exec_calla reported: callstack overflow! Current instruction address: %" PRIu32 " | Call Stack index: %" PRIu32 "\n", vm->ip, vm->callsp+1);
 		goto *dispatch[halt];
 	}
 #endif
