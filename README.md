@@ -89,9 +89,13 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  - notl - bitwise NOT.
  - shl - bit shift left.
  - shr - bit shift right.
- - incl - increment 1.
- - decl - decrement 1.
- - negl - negates 4 byte integer.
+ 
+ - incl - increment 4-bytes of data by 1.
+ - incf - increments 4-byte float by 1.0.
+ - decl - decrement 4-bytes of data by 1.
+ - decf - decrement 4-byte float by 1.0.
+ - negl - negates 4-byte integer.
+ - negf - negates 4-byte float.
  
  - ltl - signed int less than comparison.
  - ultl - unsigned int less than.
@@ -120,6 +124,7 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  - call - jumps to an address of code and returns to original address if a `ret` opcode is executed.
  - calls - pops 4 bytes off TOS and jumps that code address. works similar to `call` but uses stack.
  - calla - pops 4 bytes off TOS as a memory address, retrives 4-byte datum from address, and jumps to the datum as a code address. works similar to `calls` but uses a function address stored in memory.
+ 
  - ret - returns to an original instruction address after using `call` opcode for subroutines/procedures.
  - reset - halts execution of program and refreshes VM data to 0.
  - halt - stops all execution.
