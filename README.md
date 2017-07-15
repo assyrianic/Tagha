@@ -1,13 +1,15 @@
 # C Virtual Machine
-minimal but complex stack-based virtual machine, written in C.
+minimal but complex stack-based virtual machine, written in C, designed to run C.
+
 ## Purpose:
-to be an embeddable C-as-scripting-language scripting engine for C or C++ programs. The plan is to create or use a C compiler frontend to generate bytecode and run the bytecode on this vm.
+to be an embeddable C-as-scripting-language scripting engine for C or C++ programs. The plan is to ~~create or~~ use a C compiler frontend to generate and run bytecode on this vm.
+
 ## Why?:
-so far, the only C interpreters (that I currently know of) are **CINT**, **PicoC**, **TCC\*** and **Ch**:
+so far, the only C interpreters (that I currently know of) are **CINT**, **PicoC**, **TCC [1]** and **Ch**:
 - The problems with CINT is that it's old, clunky to use, outdated, and deprecated.
 - PicoC is good but its problem is that it uses old-school interpreting (just runs literal code) instead of compiling to bytecode and running much faster.
 - The problem with Ch is that, though it's embeddable and updated, it's proprietary and it's unknown how it interprets code; as the usual problem with proprietary code, you don't know what code it could contain and there's no telling what security issues that code could have.
-- \* TCC - Tiny C Compiler, it can compile and run scripts for testing but it cannot be embedded. The scripting action is more or less a **great** way to test your program! libtcc only acts as a JIT IIRC.
+- **[1]** - Tiny C Compiler, it can compile and run scripts for testing but it cannot be embedded. The scripting action is more or less a **great** way to test your program! libtcc only acts as a JIT IIRC.
 
 The goal for this VM is to...
 + 1. be a new and modernly optimized piece of software for C-as-a-scripting-language.
@@ -116,25 +118,25 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  - jnzl - checks if first 4 bytes of TOS is not zero then jumps to desired address if not zero.
  
  - call - jumps to an address of code and returns to original address if a `ret` opcode is executed.
+ - calls - pops 4 bytes off TOS and jumps that code address. works similar to `call` but uses stack.
+ - calla - pops 4 bytes off TOS as a memory address, retrives 4-byte datum from address, and jumps to the datum as a code address. works similar to `calls` but uses a function address stored in memory.
  - ret - returns to an original instruction address after using `call` opcode for subroutines/procedures.
  - reset - halts execution of program and refreshes VM data to 0.
  - halt - stops all execution.
 
 ## TODO list
-- [ ] remove callstack and use runtime stack for function calls.
 - [x] add call + ret instructions to support procedures.
 - [x] test call + ret for recursive functions.
 - [x] implementing a call stack and memory addressing means we would need a form of buffer overflow protection.
 - [x] expand opcodes to take various sizes of data and sources. What I mean is make a push and pop for a byte, word (2 bytes), dword (4 bytes), and qword (8 bytes).
-- [ ] add more opcodes for the arithmetic and comparisons so we can do packed vector mathematics easier.
-- [ ] add a form of referencing and dereferencing for memory and stack.
+- [x] add a form of referencing and dereferencing for memory and stack.
 - [ ] add API for host applications to embed this VM.
-- [ ] replace stack and callstack with an actual pointer.
+- [x] replace stack and ~~callstack~~ with an actual pointer.
 - [ ] design or think up Data, BSS, and Code format for bytecode binaries.
 - [ ] create format for libraries and headers.
 
 ## End Goals list
-- [ ] complete, seamless embeddability to C (and by extension C++) programs.
+- [ ] complete, seamless embeddability to C (and by extension C++) programs. As smooth as how Angelscript binds to C++.
 - [ ] complete as much as of the C standards are possible, including C11.
 - [ ] implement a compiler that generates the bytecode for this VM.
 - [ ] 64-bit version availability.
