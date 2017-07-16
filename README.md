@@ -53,12 +53,20 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  - storesa - pops 4 bytes from tos as memory address, pops another 2 bytes into that address.
  - storeba - pops 4 bytes from tos as mem address, pops a byte into that address.
  
+ - storespl - gets an address, pops 4 bytes from TOS into said address in the stack.
+ - storesps - gets an address, pops 2 bytes from TOS into said address in the stack.
+ - storespb - gets an address, pops a byte from TOS into said address in the stack.
+ 
  - loadl - puts 4 bytes from memory into TOS.
  - loads - puts 2 bytes from memory into TOS.
  - loadb - puts a byte from memory into TOS.
  - loadla - pops 4 bytes as a memory address, pushes the 4 bytes of data from the memory address to TOS.
  - loadsa - pops 4 bytes as memory address, pushes 2 bytes of data from address to TOS.
  - loadba - pops 4 bytes as memory address, pushes byte from address to TOS.
+ 
+ - loadspl - pushes 4 bytes of data from data stack address to TOS.
+ - loadsps - pushes 2 bytes of data from data stack addr to TOS.
+ - loadspb - pushes byte of data from data stk addr to TOS.
  
  - copyl - copies the first 4 bytes of the TOS.
  - copys - copies the first 2 bytes of the TOS.
