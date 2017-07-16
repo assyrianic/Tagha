@@ -35,19 +35,21 @@ typedef		unsigned char		uchar;
 typedef		uchar				bytecode[];
 typedef		unsigned short		ushort;
 typedef		unsigned int		uint;
-typedef		unsigned long long	ulong;
+typedef		long long int		i64;	// long longs are at minimum 64-bits as defined by C99 standard
+typedef		unsigned long long	u64;
 
 // Bytecode header to store important info for our code.
 // this will be entirely read as an unsigned char
-typedef struct {
-	uint	uiSize;		// 
-	ushort	uiMagic;	// verify bytecode ==> 0xfa 0xce
+typedef struct file_format {
+	ushort	uiMagic;	// verify bytecode ==> 0xC0DE 'code' - actual bytecode OR 0x0D11 'dll' - for library funcs
 	uint	ipstart;	// where does 'main' begin?
+	uint	uiDataSize;
+	uchar	*pData;		// store initialized and uninitialized data, assign them an address!
 } CVMHeader;
 
 typedef struct vm_cpu {
 	uint		bCallstack[CALLSTK_SIZE];	// 1024 bytes
-	CVMHeader	*pHeader;
+	CVMHeader	*pHeader;	// this is to save the header of the currently running script.
 	uchar		*pbMemory, *pbDataStack, *pInstrStream;
 	uint		ip, sp, callsp/*, bp*/;		// 16 bytes
 } CVM_t;
@@ -58,6 +60,9 @@ union conv_union {
 	float	f;
 	ushort	us;
 	short	s;
+	u64		ull;
+	i64		ll;
+	double	dbl;
 	uchar	c[WORD_SIZE];
 };
 

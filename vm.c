@@ -30,6 +30,8 @@
 	X(storela) X(storesa) X(storeba) \
 	X(loadl) X(loads) X(loadb) \
 	X(loadla) X(loadsa) X(loadba) \
+	X(loadspl) X(loadsps) X(loadspb) \
+	X(storespl) X(storesps) X(storespb) \
 	X(copyl) X(copys) X(copyb) \
 	X(addl) X(uaddl) X(addf) \
 	X(subl) X(usubl) X(subf) \
@@ -38,7 +40,7 @@
 	X(modl) X(umodl) \
 	X(andl) X(orl) X(xorl) \
 	X(notl) X(shll) X(shrl) \
-	X(incl) X(decl) X(negl) X(negf) \
+	X(incl) X(incf) X(decl) X(decf) X(negl) X(negf) \
 	X(ltl) X(ultl) X(ltf) \
 	X(gtl) X(ugtl) X(gtf) \
 	X(cmpl) X(ucmpl) X(compf) \
@@ -75,11 +77,18 @@ void vm_load_code(CVM_t *restrict vm, uchar *restrict program)
 	if( !vm )
 		return;
 	
-	vm->pbDataStack = calloc(STK_SIZE, sizeof(uchar)); //&(uchar[STK_SIZE]){0};
+	vm->pbDataStack = calloc(STK_SIZE, sizeof(uchar));	//&(uchar[STK_SIZE]){0};
 	assert(vm->pbDataStack);
-	vm->pbMemory = calloc(MEM_SIZE, sizeof(uchar)); //&(uchar[MEM_SIZE]){0};
+	vm->pbMemory = calloc(MEM_SIZE, sizeof(uchar));		//&(uchar[MEM_SIZE]){0};
 	assert(vm->pbMemory);
 	
+	uchar *verify = program;
+	// verify that this is executable code.
+	if( *(ushort *)verify == 0xC0DE ) {
+		printf("verified code!\n");
+		verify += 2;
+		vm->ip = *(uint *)verify;
+	}
 	vm->pInstrStream = program;
 }
 
@@ -578,7 +587,7 @@ static inline void _vm_push_word(CVM_t *restrict vm, const uint val)
 	vm->pbDataStack[++vm->sp] = conv.c[2];
 	vm->pbDataStack[++vm->sp] = conv.c[3];
 }
-static inline void _vm_push_float(CVM_t *restrict vm, const float val)
+static inline void _vm_push_float32(CVM_t *restrict vm, const float val)
 {
 	if( !vm )
 		return;
@@ -900,7 +909,7 @@ exec_storela:;
 	conv.c[1] = vm->pbMemory[a+1];
 	conv.c[2] = vm->pbMemory[a+2];
 	conv.c[3] = vm->pbMemory[a+3];
-	printf("stored 4 byte data - %" PRIu32 " from pointer address 0x%x\n", conv.ui, a);
+	printf("stored 4 byte data - %" PRIu32 " to pointer address 0x%x\n", conv.ui, a);
 	DISPATCH();
 	
 exec_storesa:;
@@ -919,7 +928,7 @@ exec_storesa:;
 	vm->pbMemory[a] = vm->pbDataStack[vm->sp--];
 	conv.c[0] = vm->pbMemory[a];
 	conv.c[1] = vm->pbMemory[a+1];
-	printf("stored 2 byte data - %" PRIu32 " from pointer address 0x%x\n", conv.us, a);
+	printf("stored 2 byte data - %" PRIu32 " to pointer address 0x%x\n", conv.us, a);
 	DISPATCH();
 	
 exec_storeba:;
@@ -936,7 +945,7 @@ exec_storeba:;
 #endif
 	vm->pbMemory[a] = vm->pbDataStack[vm->sp--];
 	conv.c[0] = vm->pbMemory[a];
-	printf("stored byte - %" PRIu32 " from pointer address 0x%x\n", conv.c[0], a);
+	printf("stored byte - %" PRIu32 " to pointer address 0x%x\n", conv.c[0], a);
 	DISPATCH();
 	
 exec_loadl:;
@@ -1055,6 +1064,92 @@ exec_loadba:;
 	conv.c[0] = vm->pbMemory[a];
 	printf("loaded byte data to T.O.S. - %" PRIu32 " from pointer address 0x%x\n", vm->pbDataStack[vm->sp], a);
 	DISPATCH();
+
+exec_loadspl:;
+	a = vm_get_imm4(vm);
+#ifdef SAFEMODE
+	if( a+3 >= STK_SIZE ) {
+		printf("exec_loadspl reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, a+3);
+		goto *dispatch[halt];
+	}
+#endif
+	conv.c[0] = vm->pbDataStack[a];
+	conv.c[1] = vm->pbDataStack[a+1];
+	conv.c[2] = vm->pbDataStack[a+2];
+	conv.c[3] = vm->pbDataStack[a+3];
+	_vm_push_word(vm, conv.ui);
+	printf("loaded 4-byte SP address data to T.O.S. - %" PRIu32 " from sp address 0x%x\n", conv.ui, a);
+	DISPATCH();
+	
+exec_loadsps:;
+	a = vm_get_imm4(vm);
+#ifdef SAFEMODE
+	if( a+1 >= STK_SIZE ) {
+		printf("exec_loadsps reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, a+1);
+		goto *dispatch[halt];
+	}
+#endif
+	conv.c[0] = vm->pbDataStack[a];
+	conv.c[1] = vm->pbDataStack[a+1];
+	_vm_push_short(vm, conv.us);
+	printf("loaded 2-byte SP address data to T.O.S. - %" PRIu32 " from sp address 0x%x\n", conv.us, a);
+	DISPATCH();
+
+exec_loadspb:;
+	a = vm_get_imm4(vm);
+#ifdef SAFEMODE
+	if( a >= STK_SIZE ) {
+		printf("exec_loadspb reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, a);
+		goto *dispatch[halt];
+	}
+#endif
+	conv.c[0] = vm->pbDataStack[a];
+	_vm_push_byte(vm, conv.c[0]);
+	printf("loaded byte SP address data to T.O.S. - %" PRIu32 " from sp address 0x%x\n", conv.c[0], a);
+	DISPATCH();
+
+exec_storespl:;		// store TOS into another part of the data stack.
+	a = vm_get_imm4(vm);
+#ifdef SAFEMODE
+	if( a-3 >= STK_SIZE ) {
+		printf("exec_storespl reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, a-3);
+		goto *dispatch[halt];
+	}
+#endif
+	conv.ui = _vm_pop_word(vm);
+	vm->pbDataStack[a] = conv.c[0];
+	vm->pbDataStack[a-1] = conv.c[1];
+	vm->pbDataStack[a-2] = conv.c[2];
+	vm->pbDataStack[a-3] = conv.c[3];
+	printf("stored 4-byte data from T.O.S. - %" PRIu32 " to sp address 0x%x\n", conv.ui, a);
+	DISPATCH();
+
+exec_storesps:;
+	a = vm_get_imm4(vm);
+#ifdef SAFEMODE
+	if( a-1 >= STK_SIZE ) {
+		printf("exec_storesps reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, a-1);
+		goto *dispatch[halt];
+	}
+#endif
+	conv.us = _vm_pop_short(vm);
+	vm->pbDataStack[a] = conv.c[0];
+	vm->pbDataStack[a-1] = conv.c[1];
+	printf("stored 2-byte data from T.O.S. - %" PRIu32 " to sp address 0x%x\n", conv.us, a);
+	DISPATCH();
+	
+exec_storespb:;
+	a = vm_get_imm4(vm);
+#ifdef SAFEMODE
+	if( a >= STK_SIZE ) {
+		printf("exec_storespb reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, a);
+		goto *dispatch[halt];
+	}
+#endif
+	conv.c[0] = _vm_pop_byte(vm);
+	vm->pbDataStack[a] = conv.c[0];
+	printf("stored byte data from T.O.S. - %" PRIu32 " to sp address 0x%x\n", conv.c[0], a);
+	DISPATCH();
 	
 exec_copyl:;	// copy 4 bytes of top of stack and put as new top of stack.
 #ifdef SAFEMODE
@@ -1126,7 +1221,7 @@ exec_addf:;
 	fa = _vm_pop_float32(vm);
 	conv.f = fa+fb;
 	printf("float addition result: %f == %f + %f\n", conv.f, fa,fb);
-	_vm_push_float(vm, conv.f);
+	_vm_push_float32(vm, conv.f);
 	DISPATCH();
 	
 exec_subl:;
@@ -1150,7 +1245,7 @@ exec_subf:;
 	fa = _vm_pop_float32(vm);
 	conv.f = fa-fb;
 	printf("float subtraction result: %f == %f - %f\n", conv.f, fa,fb);
-	_vm_push_float(vm, conv.f);
+	_vm_push_float32(vm, conv.f);
 	DISPATCH();
 	
 exec_mull:;
@@ -1174,7 +1269,7 @@ exec_mulf:;
 	fa = _vm_pop_float32(vm);
 	conv.f = fa*fb;
 	printf("float mul result: %f == %f * %f\n", conv.f, fa,fb);
-	_vm_push_float(vm, conv.f);
+	_vm_push_float32(vm, conv.f);
 	DISPATCH();
 	
 exec_divl:;
@@ -1210,7 +1305,7 @@ exec_divf:;
 	fa = _vm_pop_float32(vm);
 	conv.f = fa/fb;
 	printf("float division result: %f == %f / %f\n", conv.f, fa,fb);
-	_vm_push_float(vm, conv.f);
+	_vm_push_float32(vm, conv.f);
 	DISPATCH();
 	
 exec_modl:;
@@ -1232,7 +1327,7 @@ exec_umodl:;
 		goto *dispatch[halt];
 	}
 	a = _vm_pop_word(vm);
-	conv.ui = a%b;
+	conv.ui = a % b;
 	printf("unsigned 4 byte modulo result: %" PRIu32 " == %" PRIu32 " %% %" PRIu32 "\n", conv.ui, a,b);
 	_vm_push_word(vm, conv.ui);
 	DISPATCH();
@@ -1291,11 +1386,25 @@ exec_incl:;
 	_vm_push_word(vm, conv.ui);
 	DISPATCH();
 	
+exec_incf:;
+	fa = _vm_pop_float32(vm);
+	conv.f = ++fa;
+	printf("float Increment result: %f\n", conv.f);
+	_vm_push_float32(vm, conv.f);
+	DISPATCH();
+	
 exec_decl:;
 	a = _vm_pop_word(vm);
 	conv.ui = --a;
 	printf("4 byte Decrement result: %" PRIu32 "\n", conv.ui);
 	_vm_push_word(vm, conv.ui);
+	DISPATCH();
+
+exec_decf:;
+	fa = _vm_pop_float32(vm);
+	conv.f = --fa;
+	printf("float Decrement result: %f\n", conv.f);
+	_vm_push_float32(vm, conv.f);
 	DISPATCH();
 
 exec_negl:;
@@ -1309,7 +1418,7 @@ exec_negf:;
 	fa = _vm_pop_float32(vm);
 	conv.f = -fa;
 	printf("float Negate result: %f\n", conv.f);
-	_vm_push_float(vm, conv.f);
+	_vm_push_float32(vm, conv.f);
 	DISPATCH();
 
 exec_ltl:;
@@ -1333,7 +1442,7 @@ exec_ltf:;
 	fa = _vm_pop_float32(vm);
 	conv.ui = fa < fb;
 	printf("4 byte Less Than Float result: %" PRIu32 " == %f < %f\n", conv.ui, fa,fb);
-	_vm_push_float(vm, conv.f);
+	_vm_push_float32(vm, conv.f);
 	DISPATCH();
 	
 exec_gtl:;
@@ -1357,7 +1466,7 @@ exec_gtf:;
 	fa = _vm_pop_float32(vm);
 	conv.ui = fa > fb;
 	printf("4 byte Greater Than Float result: %" PRIu32 " == %f > %f\n", conv.ui, fa,fb);
-	_vm_push_float(vm, conv.f);
+	_vm_push_float32(vm, conv.f);
 	DISPATCH();
 	
 exec_cmpl:;
@@ -1381,7 +1490,7 @@ exec_compf:;
 	fa = _vm_pop_float32(vm);
 	conv.ui = fa == fb;
 	printf("4 byte Compare Float result: %" PRIu32 " == %f == %f\n", conv.ui, fa,fb);
-	_vm_push_float(vm, conv.f);
+	_vm_push_float32(vm, conv.f);
 	DISPATCH();
 	
 exec_leql:;
@@ -1405,7 +1514,7 @@ exec_leqf:;
 	fa = _vm_pop_float32(vm);
 	conv.ui = fa <= fb;
 	printf("4 byte Less Equal Float result: %" PRIu32 " == %f <= %f\n", conv.ui, fa, fb);
-	_vm_push_float(vm, conv.f);
+	_vm_push_float32(vm, conv.f);
 	DISPATCH();
 	
 exec_geql:;
@@ -1429,7 +1538,7 @@ exec_geqf:;
 	fa = _vm_pop_float32(vm);
 	conv.ui = fa >= fb;
 	printf("4 byte Greater Equal Float result: %" PRIu32 " == %f >= %f\n", conv.ui, fa, fb);
-	_vm_push_float(vm, conv.f);
+	_vm_push_float32(vm, conv.f);
 	DISPATCH();
 	
 exec_jmp:;		// addresses are word sized bytes.
@@ -1489,8 +1598,8 @@ exec_call:;
 
 exec_calls:;
 #ifdef SAFEMODE
-	if( vm->sp-3 >= STK_SIZE ) {
-		printf("exec_calls reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-3);
+	if( vm->sp-4 >= STK_SIZE ) {
+		printf("exec_calls reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
 		goto *dispatch[halt];
 	}
 #endif
@@ -1509,17 +1618,17 @@ exec_calls:;
 	goto *dispatch[ vm->pInstrStream[vm->ip] ];
 
 exec_calla:;	// same as calls but from a memory address.
+	a = _vm_pop_word(vm);
 #ifdef SAFEMODE
 	if( a > MEM_SIZE-4 ) {
 		printf("exec_calla reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
 		goto *dispatch[halt];
 	}
-	if( vm->sp-3 >= STK_SIZE ) {
-		printf("exec_calla reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-3);
+	if( vm->sp-4 >= STK_SIZE ) {
+		printf("exec_calla reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
 		goto *dispatch[halt];
 	}
 #endif
-	a = _vm_pop_word(vm);
 	conv.c[0] = vm->pbMemory[a];
 	conv.c[1] = vm->pbMemory[a+1];
 	conv.c[2] = vm->pbMemory[a+2];
@@ -1583,12 +1692,13 @@ int main(void)
 	fclose(pFile); pFile=NULL;
 	*/
 	bytecode test1 = {
+		0xDE, 0xC0, 7,0,0,0,
 		nop,
 		//pushl, 255, 1, 0, 0x0,
 		//pushs, 0xDD, 0xDD,
 		//pushb, 0xAA,
 		//pushb, 0xFF,
-		wrtl, 0xff,0xff,0xff,0xff, 0,0,0,0,
+		wrtl, 4,0,0,0, 0,0,0,0,
 		halt
 	};
 	bytecode float_test = {
@@ -1720,19 +1830,33 @@ int main(void)
 		halt
 	};
 	
+	bytecode test_loadsp_storesp={
+		nop,
+		pushl, 250,0,0,0,
+		pushl, 14,0,0,0,
+		pushl, 235,0,0,0,
+		pushl, 52,0,0,0,
+		pushl, 45,0,0,0,
+		storespl, 50,0,0,0,
+		loadspl, 1,0,0,0,
+		halt,
+	};
+	
 	CVM_t *vm = &(CVM_t){ 0 };
 	vm_init(vm);
-	vm_load_code(vm, test1);				vm_exec(vm); vm_free(vm);
+	//vm_load_code(vm, test1);				vm_exec(vm); vm_free(vm);
+	vm_load_code(vm, test_loadsp_storesp);	vm_exec(vm); vm_free(vm);
+	/*
 	vm_load_code(vm, float_test);			vm_exec(vm); vm_free(vm);
 	vm_load_code(vm, nested_func_calls);	vm_exec(vm); vm_free(vm);
 	vm_load_code(vm, fibonacci);			vm_exec(vm); vm_free(vm);
 	vm_load_code(vm, pointers);				vm_exec(vm); vm_free(vm);
-
+	
 	vm_load_code(vm, hello_world); vm_exec(vm);
 	uchar buffer[12] = {0};
 	vm_read_bytearray(vm, buffer, 12, 0x0);
 	printf("buffer == \'%s\'\n", buffer);
-
+	*/
 	//printf("instruction set amount == %u\n", nop);
 	vm_debug_print_memory(vm);
 	vm_debug_print_stack(vm);
