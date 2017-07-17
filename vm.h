@@ -43,9 +43,32 @@ typedef		unsigned long long	u64;
 typedef struct file_format {
 	ushort	uiMagic;	// verify bytecode ==> 0xC0DE 'code' - actual bytecode OR 0x0D11 'dll' - for library funcs
 	uint	ipstart;	// where does 'main' begin?
-	uint	uiDataSize;
-	uchar	*pData;		// store initialized and uninitialized data, assign them an address!
+	//uint	uiDataSize;	// how many variables we got to place directly into memory?
+	//uint	uiStkSize;	// how many variables we have to place onto the data stack?
+	//uint	uiInstrCount;	// how many instructions does the code have? This includes the arguments and operands.
 } CVMHeader;
+
+/*	normally a program's memory layout is...
++------------------+
+|    stack   |     |      high address
+|    ...     v     |
+|                  |
+|                  |
+|                  |
+|                  |
+|    ...     ^     |
+|    heap    |     |
++------------------+
+| bss  segment     |
++------------------+
+| data segment     |
++------------------+
+| text segment     |      low address
++------------------+
+* 
+* but we're gonna do something different here since the stack, callstack, and memory are separate.
+* Plugins will have a similar layout but heap is replaced with callstack.
+*/
 
 typedef struct vm_cpu {
 	uint		bCallstack[CALLSTK_SIZE];	// 1024 bytes

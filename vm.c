@@ -15,6 +15,8 @@
  * 'f' - float32
  * 'df' - float64
  * 'a' - address
+ * 'sp' - takes or uses the current stack pointer address.
+ * 'ip' - takes/uses the current instruction pointer address.
 */
 
 // this vm is designed to run C programs. Vastly, if not all C expressions are int32, uint32 if bigger than int
@@ -81,15 +83,20 @@ void vm_load_code(CVM_t *restrict vm, uchar *restrict program)
 	assert(vm->pbDataStack);
 	vm->pbMemory = calloc(MEM_SIZE, sizeof(uchar));		//&(uchar[MEM_SIZE]){0};
 	assert(vm->pbMemory);
+	vm->pInstrStream = NULL;
 	
 	uchar *verify = program;
 	// verify that this is executable code.
 	if( *(ushort *)verify == 0xC0DE ) {
-		printf("verified code!\n");
+		printf("vm_load_code :: verified code!\n");
 		verify += 2;
 		vm->ip = *(uint *)verify;
+		printf("vm_load_code :: ip starts at %u\n", *(uint *)verify);
+		vm->pInstrStream = program;
 	}
-	vm->pInstrStream = program;
+	else {
+		printf("vm_load_code :: unknown file memory format\n");
+	}
 }
 
 void vm_free(CVM_t *vm)
@@ -1702,6 +1709,7 @@ int main(void)
 		halt
 	};
 	bytecode float_test = {
+		0xDE, 0xC0, 7,0,0,0,
 		nop,
 		//jmp, 17,0,0,0,
 		// -16776961
@@ -1721,6 +1729,7 @@ int main(void)
 		halt
 	};
 	bytecode nested_func_calls = {
+		0xDE, 0xC0, 7,0,0,0,
 		nop,
 		call, 7,0,0,0,	// 1
 		halt,			// 6
@@ -1755,6 +1764,7 @@ int main(void)
 		}
 	*/
 	bytecode fibonacci = {
+		0xDE, 0xC0, 7,0,0,0,
 		nop, // calc fibonnaci number
 		wrtl, 0,0,0,0, 30,0,0,0,	// write n to address 0
 		call, 16,0,0,0,
@@ -1789,6 +1799,7 @@ int main(void)
 	};
 	
 	bytecode hello_world = {
+		0xDE, 0xC0, 7,0,0,0,
 		nop,
 		wrtb, 0,0,0,0,	72,		// H
 		wrtb, 1,0,0,0,	101,	// e
@@ -1805,6 +1816,7 @@ int main(void)
 	};
 	
 	bytecode pointers = {
+		0xDE, 0xC0, 7,0,0,0,
 		nop,
 		// The way you wuold store to a pointer would be something like...
 		// pushl <value to store>
@@ -1831,6 +1843,7 @@ int main(void)
 	};
 	
 	bytecode test_loadsp_storesp={
+		0xDE, 0xC0, 7,0,0,0,
 		nop,
 		pushl, 250,0,0,0,
 		pushl, 14,0,0,0,
@@ -1844,7 +1857,7 @@ int main(void)
 	
 	CVM_t *vm = &(CVM_t){ 0 };
 	vm_init(vm);
-	//vm_load_code(vm, test1);				vm_exec(vm); vm_free(vm);
+	vm_load_code(vm, test1);				vm_exec(vm); vm_free(vm);
 	vm_load_code(vm, test_loadsp_storesp);	vm_exec(vm); vm_free(vm);
 	/*
 	vm_load_code(vm, float_test);			vm_exec(vm); vm_free(vm);
