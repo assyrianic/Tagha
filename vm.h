@@ -26,10 +26,9 @@ extern "C" {
         default: "other")
 
 
-#define WORD_SIZE		4
-#define STK_SIZE		(512 * WORD_SIZE)		// 2,048 bytes or 2kb
-#define CALLSTK_SIZE	256						// 1,024 bytes
-#define MEM_SIZE		(16384 * WORD_SIZE)		// 65,536 bytes or 65kb of memory
+#define WORD_SIZE		8
+#define STK_SIZE		(256 * WORD_SIZE)		// 2,048 bytes or 2kb
+#define MEM_SIZE		(8192 * WORD_SIZE)		// 65,536 bytes or 65kb of memory
 
 typedef		unsigned char		uchar;
 typedef		uchar				bytecode[];
@@ -38,15 +37,27 @@ typedef		unsigned int		uint;
 typedef		long long int		i64;	// long longs are at minimum 64-bits as defined by C99 standard
 typedef		unsigned long long	u64;
 
+
 // Bytecode header to store important info for our code.
-// this will be entirely read as an unsigned char
-typedef struct file_format {
-	ushort	uiMagic;	// verify bytecode ==> 0xC0DE 'code' - actual bytecode OR 0x0D11 'dll' - for library funcs
-	uint	ipstart;	// where does 'main' begin?
-	//uint	uiDataSize;	// how many variables we got to place directly into memory?
-	//uint	uiStkSize;	// how many variables we have to place onto the data stack?
-	//uint	uiInstrCount;	// how many instructions does the code have? This includes the arguments and operands.
-} CVMHeader;
+// this will be entirely read as an unsigned char of course.
+// actual Header format:
+// magic, memsize, stksize, ipstart, instruction count
+typedef struct __script {
+	uchar		*pMemory, *pStack, *pInstrStream;
+	u64			ip, sp, bp;		// 24 bytes
+	
+	uint		uiMemSize;		// how many variables we got to place directly into memory?
+	uint		uiStkSize;		// how many variables we have to place onto the data stack?
+	uint		ipstart;		// where does 'main' begin?
+	uint		uiInstrCount;	// how many instructions does the code have? This includes the arguments and operands.
+	ushort		magic;			// verify bytecode ==> 0xC0DE 'code' - actual bytecode.
+} Script_t;
+
+// since scripts have their own memory and stack load. 
+typedef struct __libscript {	// these are dynamically loaded scripts.
+	ushort		magic;	// verify bytecode ==> 0x0D11 'dll' - for library funcs.
+} LibScript_t;
+
 
 /*	normally a program's memory layout is...
 +------------------+
@@ -70,12 +81,12 @@ typedef struct file_format {
 * Plugins will have a similar layout but heap is replaced with callstack.
 */
 
-typedef struct vm_cpu {
-	uint		bCallstack[CALLSTK_SIZE];	// 1024 bytes
-	CVMHeader	*pHeader;	// this is to save the header of the currently running script.
-	uchar		*pbMemory, *pbDataStack, *pInstrStream;
-	uint		ip, sp, callsp/*, bp*/;		// 16 bytes
-} CVM_t;
+// TODO: replace with vector so we can have multiple scripts.
+// TODO: even better, upgrade vector into a hashmap so we can look up plugins by name.
+
+typedef struct CrownVM {
+	Script_t	*pScript;
+} CrownVM_t;
 
 union conv_union {
 	uint	ui;
@@ -94,63 +105,46 @@ union conv_union {
 // if pointers or memory addresses go out of bounds but it does help.
 #define SAFEMODE	1
 
-void		vm_init(CVM_t *vm);
-void		vm_load_code(CVM_t *restrict vm, uchar *restrict program);
-void		vm_reset(CVM_t *vm);
-void		vm_free(CVM_t *vm);
-void		vm_exec(CVM_t *vm);
-void		vm_debug_print_ptrs(const CVM_t *vm);
-void		vm_debug_print_callstack(const CVM_t *vm);
-void		vm_debug_print_stack(const CVM_t *vm);
-void		vm_debug_print_memory(const CVM_t *vm);
+void		vm_init(CrownVM_t *vm);
+void		vm_load_script(CrownVM_t *restrict vm, uchar *restrict program);
+void		vm_free_script(CrownVM_t *restrict vm);
+void		script_reset(Script_t *pScript);
+//void		vm_free(CrownVM_t *vm);
+void		vm_exec(CrownVM_t *vm);
+void		scripts_debug_print_ptrs(const Script_t *pScript);
+void		scripts_debug_print_stack(const Script_t *pScript);
+void		scripts_debug_print_memory(const Script_t *pScript);
 
-uint		vm_pop_word(CVM_t *vm);
-ushort		vm_pop_short(CVM_t *vm);
-uchar		vm_pop_byte(CVM_t *vm);
-float		vm_pop_float32(CVM_t *vm);
+u64			script_pop_quad(Script_t *pScript);
+uint		script_pop_long(Script_t *pScript);
+ushort		script_pop_short(Script_t *pScript);
+uchar		script_pop_byte(Script_t *pScript);
+float		script_pop_float32(Script_t *pScript);
+double		script_pop_float64(Script_t *pScript);
 
-void		vm_push_word(CVM_t *restrict vm, const uint val);
-void		vm_push_short(CVM_t *restrict vm, const ushort val);
-void		vm_push_byte(CVM_t *restrict vm, const uchar val);
-void		vm_push_float(CVM_t *restrict vm, const float val);
+void		script_push_quad(Script_t *restrict pScript, const u64 val);
+void		script_push_long(Script_t *restrict pScript, const uint val);
+void		script_push_short(Script_t *restrict pScript, const ushort val);
+void		script_push_byte(Script_t *restrict pScript, const uchar val);
+void		script_push_float32(Script_t *restrict pScript, const float val);
+void		script_push_float64(Script_t *restrict pScript, const double val);
 
-void		vm_write_word(CVM_t *restrict vm, const uint val, const uint address);
-void		vm_write_short(CVM_t *restrict vm, const ushort val, const uint address);
-void		vm_write_byte(CVM_t *restrict vm, const uchar val, const uint address);
-void		vm_write_float(CVM_t *restrict vm, const float val, const uint address);
-void		vm_write_bytearray(CVM_t *restrict vm, uchar *restrict val, const uint size, const uint address);
+void		script_write_quad(Script_t *restrict pScript, const u64 val, const u64 address);
+void		script_write_long(Script_t *restrict pScript, const uint val, const u64 address);
+void		script_write_short(Script_t *restrict pScript, const ushort val, const u64 address);
+void		script_write_byte(Script_t *restrict pScript, const uchar val, const u64 address);
+void		script_write_float32(Script_t *restrict pScript, const float val, const u64 address);
+void		script_write_float64(Script_t *restrict pScript, const double val, const u64 address);
+void		script_write_bytearray(Script_t *restrict pScript, uchar *restrict val, const uint size, const u64 address);
 
-uint		vm_read_word(CVM_t *restrict vm, const uint address);
-ushort		vm_read_short(CVM_t *restrict vm, const uint address);
-uchar		vm_read_byte(CVM_t *restrict vm, const uint address);
-float		vm_read_float(CVM_t *restrict vm, const uint address);
-void		vm_read_bytearray(CVM_t *restrict vm, uchar *restrict buffer, const uint size, const uint address);
+u64			script_read_quad(Script_t *restrict pScript, const u64 address);
+uint		script_read_long(Script_t *restrict pScript, const u64 address);
+ushort		script_read_short(Script_t *restrict pScript, const u64 address);
+uchar		script_read_byte(Script_t *restrict pScript, const u64 address);
+float		script_read_float32(Script_t *restrict pScript, const u64 address);
+double		script_read_float64(Script_t *restrict pScript, const u64 address);
+void		script_read_bytearray(Script_t *restrict pScript, uchar *restrict buffer, const uint size, const u64 address);
 
-/*	NOT READY YET...
-//	API to call C/C++ functions from scripts. Supports up to 5 params
-//	Realistically, if you require more than 5 arguments, you could just group everything into a struct and pass its pointer.
-typedef		void (*fnNative0)(CVM_t *restrict vm);
-typedef		void (*fnNative1)(CVM_t *restrict vm, void *restrict param1);
-typedef		void (*fnNative2)(CVM_t *restrict vm, void *restrict param1, void *restrict param2);
-typedef		void (*fnNative3)(CVM_t *restrict vm, void *restrict param1, void *restrict param2, void *restrict param3);
-typedef		void (*fnNative4)(CVM_t *restrict vm, void *restrict param1, void *restrict param2, void *restrict param3, void *restrict param4);
-typedef		void (*fnNative5)(CVM_t *restrict vm, void *restrict param1, void *restrict param2, void *restrict param3, void *restrict param4, void *restrict param5);
-
-typedef struct {
-	union {
-		fnNative0	fnNoArgs;
-		fnNative1	fnOneArg;
-		fnNative2	fnTwoArgs;
-		fnNative3	fnTreArgs;
-		fnNative4	fnFourArgs;
-		fnNative5	fnPentaArgs;
-	};
-	uchar ucArgs;
-	const char	*strName;
-} NativeInfo;
-
-int		vm_register_funcs(CVM_t *restrict vm, NativeInfo *arrNatives);
-*/
 
 #ifdef __cplusplus
 }
