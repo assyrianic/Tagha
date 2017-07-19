@@ -1,5 +1,5 @@
-# C Virtual Machine
-minimal but complex stack-based virtual machine, written in C, designed to run C.
+# Crown Virtual Machine
+Crown is minimal yet complex stack-based virtual machine, written in C, designed to run C. Why is it named 'Crown'? Because C is king in the programming world :P
 
 ## Purpose:
 to be an embeddable C-as-scripting-language scripting engine for C or C++ programs. The plan is to ~~create or~~ use a C compiler frontend to generate and run bytecode on this vm.
