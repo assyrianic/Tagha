@@ -1,3 +1,5 @@
+# THIS branch is deprecated, please use `scripts` branch. This is here to show case the original VM that I advanced off from the very original. As you could see I made more improvements since the very beginning but code is gradual.
+
 # Crown Virtual Machine
 Crown is minimal yet complex stack-based virtual machine, written in C, designed to run C. Why is it named 'Crown'? Because C is king in the programming world :P
 
