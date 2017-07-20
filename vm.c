@@ -32,7 +32,7 @@
 enum InstrSet { INSTR_SET };
 #undef X
 
-void vm_init(CrownVM_t *vm)
+void crown_init(CrownVM_t *vm)
 {
 	if( !vm )
 		return;
@@ -40,7 +40,9 @@ void vm_init(CrownVM_t *vm)
 	vm->pScript = NULL;
 }
 
-void vm_load_script(CrownVM_t *restrict vm, uchar *restrict program)
+
+// TODO: change this to load a script by file if testing goes well.
+void crown_load_script(CrownVM_t *restrict vm, uchar *restrict program)
 {
 	if( !vm )
 		return;
@@ -54,34 +56,52 @@ void vm_load_script(CrownVM_t *restrict vm, uchar *restrict program)
 			verify += 2;
 			
 			code->uiMemSize = *(uint *)verify; verify += 4;
-			printf("vm_load_script :: Memory size: %u\n", code->uiMemSize);
+			printf("crown_load_script :: Memory size: %u\n", code->uiMemSize);
 			if( code->uiMemSize )
 				code->pMemory = calloc(code->uiMemSize, sizeof(uchar));
 			else code->pMemory = NULL;
 			
 			code->uiStkSize = *(uint *)verify; verify += 4;
-			printf("vm_load_script :: Stack size: %u\n", code->uiStkSize+1);
+			printf("crown_load_script :: Stack size: %u\n", code->uiStkSize+1);
 			if( code->uiStkSize )
 				code->pStack = calloc(code->uiStkSize+1, sizeof(uchar));
 			else code->pStack = NULL;
 			
 			code->ipstart = *(uint *)verify; verify += 4;
-			printf("vm_load_script :: ip starts at %u\n", code->ipstart);
+			printf("crown_load_script :: ip starts at %u\n", code->ipstart);
 			
 			code->uiInstrCount = *(uint *)verify;
 			
-			// TODO: have pInstrStream as calloc'd array and memcpy the program.
-			code->pInstrStream = program;
+			if( code->uiInstrCount ) {
+				// TODO: have pInstrStream as calloc'd array and memcpy the program.
+				code->pInstrStream = calloc(code->uiInstrCount, sizeof(uchar)); //program;
+				printf("crown_load_script :: allocated instruction count: %u\n", code->uiInstrCount);
+				if( !code->pInstrStream ) {
+					printf("crown_load_script :: failed to load script :: instruction array is NULL!\n");
+					crown_free_script(vm);
+					exit(1);
+				}
+				//verify -= 14;
+				//printf("crown_load_script :: reversed ptr success?: %u\n", *(ushort *)verify == 0xC0DE);
+				uint i=0;
+				while( i<HEADER_BYTES+code->uiInstrCount )
+					code->pInstrStream[i++] = *program++;
+			}
+			else {
+				printf("crown_load_script :: failed to load script :: script header has no instruction count!\n");
+				crown_free_script(vm);
+				exit(1);
+			}
 			script_reset(code);
 			code->ip = code->ipstart;
 		}
 		else {
-			printf("vm_load_script :: failed to load script :: unknown file format\n");
+			printf("crown_load_script :: failed to load script :: unknown file format\n");
 		}
 	}
 }
 
-void vm_free_script(CrownVM_t *restrict vm)
+void crown_free_script(CrownVM_t *restrict vm)
 {
 	if( !vm )
 		return;
@@ -113,7 +133,7 @@ void script_reset(Script_t *pScript)
 	
 	p = pScript->pStack;
 	for( i=0 ; i<pScript->uiStkSize ; i++ )
-		*p++ = 0; // pScript->pStack[i] = 0;
+		*p++ = 0; //pScript->pStack[i] = 0;
 	
 	pScript->ip = pScript->sp = pScript->bp = 0;
 }
@@ -453,7 +473,7 @@ void script_write_bytearray(Script_t *restrict pScript, uchar *restrict val, con
 	while( i<size ) {
 #ifdef SAFEMODE
 		if( addr >= MEM_SIZE-i ) {
-			printf("vm_write_array reported: Invalid Memory Access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\nInvalid Memory Address: %" PRIu64 "\n", pScript->ip, pScript->sp, addr);
+			printf("crown_write_array reported: Invalid Memory Access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\nInvalid Memory Address: %" PRIu64 "\n", pScript->ip, pScript->sp, addr);
 			exit(1);
 		}
 #endif
@@ -579,7 +599,7 @@ void script_read_bytearray(Script_t *restrict pScript, uchar *restrict buffer, c
 	while( i<size ) {
 #ifdef SAFEMODE
 		if( addr >= MEM_SIZE-i ) {
-			printf("vm_read_array reported: Invalid Memory Access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\nInvalid Memory Address: %" PRIu64 "\n", pScript->ip, pScript->sp, addr);
+			printf("crown_read_array reported: Invalid Memory Access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\nInvalid Memory Address: %" PRIu64 "\n", pScript->ip, pScript->sp, addr);
 			exit(1);
 		}
 #endif
@@ -885,16 +905,15 @@ static inline void _script_push_byte(Script_t *restrict pScript, const uchar val
 
 
 //#include <unistd.h>	// sleep() func
-void vm_exec(CrownVM_t *restrict vm)
+void crown_exec(CrownVM_t *restrict vm)
 {
 	if( !vm )
 		return;
 	
-	else if( !vm->pScript )
-		return;
-	
 	Script_t *pScr = vm->pScript;
-	if( !pScr->pInstrStream )
+	if( !pScr )
+		return;
+	else if( !pScr->pInstrStream )
 		return;
 	
 	union conv_union conv;
@@ -963,10 +982,11 @@ int main(void)
 		pushq, 255,0,0,0,0,0,0,0,
 		halt
 	};
+	
 	CrownVM_t *vm = &(CrownVM_t){0}; //malloc(sizeof(CrownVM_t));
 	printf("sizeof(Script_t) == \'%u\'\n", sizeof(Script_t));
-	vm_init(vm);
-	vm_load_script(vm, test1); vm_exec(vm); //vm_free(cvm);
+	crown_init(vm);
+	crown_load_script(vm, test1); crown_exec(vm); //crown_free(cvm);
 	scripts_debug_print_memory(vm->pScript);
 	scripts_debug_print_stack(vm->pScript);
 	
@@ -976,7 +996,7 @@ int main(void)
 	do {
 		scanf("%d", &d);
 	} while( d != 0 );
-	vm_free_script(vm);
+	crown_free_script(vm);
 	//script_write_bytearray(vm->pScript, (uchar *)"Hello World", 11, 4);
 	
 	//uchar buffer[12] = {0};

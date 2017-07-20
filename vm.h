@@ -1,6 +1,6 @@
 
-#ifndef VM_H_INCLUDED
-#define VM_H_INCLUDED
+#ifndef CROWNVM_H_INCLUDED
+#define CROWNVM_H_INCLUDED
 
 #include <stdbool.h>
 
@@ -42,12 +42,16 @@ typedef		unsigned long long	u64;
 // this will be entirely read as an unsigned char of course.
 // actual Header format:
 // magic, memsize, stksize, ipstart, instruction count
+
+// how many beginning bytes the header takes up.
+#define HEADER_BYTES	18
+
 typedef struct __script {
 	uchar		*pMemory, *pStack, *pInstrStream;
 	u64			ip, sp, bp;		// 24 bytes
 	
-	uint		uiMemSize;		// how many variables we got to place directly into memory?
-	uint		uiStkSize;		// how many variables we have to place onto the data stack?
+	uint		uiMemSize;		// how much memory does script need?
+	uint		uiStkSize;		// how large of a stack does script need?
 	uint		ipstart;		// where does 'main' begin?
 	uint		uiInstrCount;	// how many instructions does the code have? This includes the arguments and operands.
 	ushort		magic;			// verify bytecode ==> 0xC0DE 'code' - actual bytecode.
@@ -55,7 +59,7 @@ typedef struct __script {
 
 // since scripts have their own memory and stack load. 
 typedef struct __libscript {	// these are dynamically loaded scripts.
-	ushort		magic;	// verify bytecode ==> 0x0D11 'dll' - for library funcs.
+	ushort		magic;			// verify bytecode ==> 0x0D11 'dll' - for library funcs.
 } LibScript_t;
 
 
@@ -100,17 +104,30 @@ union conv_union {
 	uchar	c[WORD_SIZE];
 };
 
+enum typeflags {
+	flag_void = 0x0,
+	flag_uchar=0x01,
+	flag_char=
+};
+
+typedef void *(*ExportFunc)();
+
+typedef struct export {
+	const char *funcName;
+	ExportFunc exprtFunc;
+} Export_t;
+
 // Safe mode enables bounds checking.
 // this might slow down the interpreter on a smaller level since we're always checking
 // if pointers or memory addresses go out of bounds but it does help.
 #define SAFEMODE	1
 
-void		vm_init(CrownVM_t *vm);
-void		vm_load_script(CrownVM_t *restrict vm, uchar *restrict program);
-void		vm_free_script(CrownVM_t *restrict vm);
+void		crown_init(CrownVM_t *vm);
+void		crown_load_script(CrownVM_t *restrict vm, uchar *restrict program);
+void		crown_free_script(CrownVM_t *restrict vm);
 void		script_reset(Script_t *pScript);
-//void		vm_free(CrownVM_t *vm);
-void		vm_exec(CrownVM_t *vm);
+//void		crown_free(CrownVM_t *vm);
+void		crown_exec(CrownVM_t *vm);
 void		scripts_debug_print_ptrs(const Script_t *pScript);
 void		scripts_debug_print_stack(const Script_t *pScript);
 void		scripts_debug_print_memory(const Script_t *pScript);
@@ -145,9 +162,8 @@ float		script_read_float32(Script_t *restrict pScript, const u64 address);
 double		script_read_float64(Script_t *restrict pScript, const u64 address);
 void		script_read_bytearray(Script_t *restrict pScript, uchar *restrict buffer, const uint size, const u64 address);
 
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif	// VM_H_INCLUDED
+#endif	// CROWNVM_H_INCLUDED
