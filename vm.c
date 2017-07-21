@@ -23,10 +23,10 @@
 // this is why the arithmetic and bit operations are all int32 sized.
 // there's 2 byte and single byte memory storage for the sake of dealing with structs and unions.
 // expressions are int or uint then truncated to a variable's byte-width.
-#define INSTR_SET	\
-	X(halt) \
-	X(pushq) X(pushl) \
-	X(nop) \
+#define INSTR_SET		\
+	X(halt)				\
+	X(pushq) X(pushl)	\
+	X(nop)				\
 
 #define X(x) x,
 enum InstrSet { INSTR_SET };
@@ -47,7 +47,7 @@ void crown_load_script(CrownVM_t *restrict vm, uchar *restrict program)
 	if( !vm )
 		return;
 	
-	vm->pScript = malloc(sizeof(Script_t));
+	vm->pScript = malloc( sizeof(Script_t) );
 	if( vm->pScript ) {
 		Script_t *code = vm->pScript;
 		uchar *verify = program;
@@ -74,7 +74,7 @@ void crown_load_script(CrownVM_t *restrict vm, uchar *restrict program)
 			
 			if( code->uiInstrCount ) {
 				// TODO: have pInstrStream as calloc'd array and memcpy the program.
-				code->pInstrStream = calloc(code->uiInstrCount, sizeof(uchar)); //program;
+				code->pInstrStream = calloc(HEADER_BYTES+code->uiInstrCount, sizeof(uchar)); //program;
 				printf("crown_load_script :: allocated instruction count: %u\n", code->uiInstrCount);
 				if( !code->pInstrStream ) {
 					printf("crown_load_script :: failed to load script :: instruction array is NULL!\n");
@@ -84,7 +84,7 @@ void crown_load_script(CrownVM_t *restrict vm, uchar *restrict program)
 				//verify -= 14;
 				//printf("crown_load_script :: reversed ptr success?: %u\n", *(ushort *)verify == 0xC0DE);
 				uint i=0;
-				while( i<HEADER_BYTES+code->uiInstrCount )
+				while( i<(HEADER_BYTES + code->uiInstrCount) )
 					code->pInstrStream[i++] = *program++;
 			}
 			else {
@@ -99,6 +99,7 @@ void crown_load_script(CrownVM_t *restrict vm, uchar *restrict program)
 			printf("crown_load_script :: failed to load script :: unknown file format\n");
 		}
 	}
+	else vm->pScript=NULL;
 }
 
 void crown_free_script(CrownVM_t *restrict vm)
@@ -128,20 +129,24 @@ void script_reset(Script_t *pScript)
 	uchar *p=NULL;
 	uint i;
 	p = pScript->pMemory;
-	for( i=0 ; i<pScript->uiMemSize ; i++ )
-		*p++ = 0; //pScript->pMemory[i] = 0;
-	
+	if( p )
+		for( i=0 ; i<pScript->uiMemSize ; i++ )
+			*p++ = 0; //pScript->pMemory[i] = 0;
+
 	p = pScript->pStack;
-	for( i=0 ; i<pScript->uiStkSize ; i++ )
-		*p++ = 0; //pScript->pStack[i] = 0;
-	
+	if( p )
+		for( i=0 ; i<pScript->uiStkSize ; i++ )
+			*p++ = 0; //pScript->pStack[i] = 0;
+
 	pScript->ip = pScript->sp = pScript->bp = 0;
 }
 
 
-u64 script_pop_quad(Script_t *pScript)
+ullong script_pop_quad(Script_t *pScript)
 {
 	if( !pScript )
+		return 0;
+	else if( !pScript->pStack )
 		return 0;
 #ifdef SAFEMODE
 	if( (pScript->sp-8) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
@@ -164,6 +169,8 @@ uint script_pop_long(Script_t *pScript)
 {
 	if( !pScript )
 		return 0;
+	else if( !pScript->pStack )
+		return 0;
 #ifdef SAFEMODE
 	if( (pScript->sp-4) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
 		printf("script_pop_long reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", pScript->ip, pScript->sp-4);
@@ -181,6 +188,8 @@ ushort script_pop_short(Script_t *pScript)
 {
 	if( !pScript )
 		return 0;
+	else if( !pScript->pStack )
+		return 0;
 #ifdef SAFEMODE
 	if( (pScript->sp-2) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
 		printf("script_pop_short reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", pScript->ip, pScript->sp-2);
@@ -196,6 +205,8 @@ uchar script_pop_byte(Script_t *pScript)
 {
 	if( !pScript )
 		return 0;
+	else if( !pScript->pStack )
+		return 0;
 #ifdef SAFEMODE
 	if( (pScript->sp-1) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
 		printf("script_pop_byte reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", pScript->ip, pScript->sp-1);
@@ -208,6 +219,8 @@ uchar script_pop_byte(Script_t *pScript)
 float script_pop_float32(Script_t *pScript)
 {
 	if( !pScript )
+		return 0;
+	else if( !pScript->pStack )
 		return 0;
 #ifdef SAFEMODE
 	if( (pScript->sp-4) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
@@ -227,6 +240,8 @@ double script_pop_float64(Script_t *pScript)
 {
 	if( !pScript )
 		return 0;
+	else if( !pScript->pStack )
+		return 0;
 #ifdef SAFEMODE
 	if( (pScript->sp-8) >= STK_SIZE ) {
 		printf("script_pop_float64 reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", pScript->ip, pScript->sp-8);
@@ -245,9 +260,11 @@ double script_pop_float64(Script_t *pScript)
 	return conv.dbl;
 }
 
-void script_push_quad(Script_t *restrict pScript, const u64 val)
+void script_push_quad(Script_t *restrict pScript, const ullong val)
 {
 	if( !pScript )
+		return;
+	else if( !pScript->pStack )
 		return;
 #ifdef SAFEMODE
 	if( (pScript->sp+8) >= STK_SIZE ) {
@@ -271,6 +288,8 @@ void script_push_long(Script_t *restrict pScript, const uint val)
 {
 	if( !pScript )
 		return;
+	else if( !pScript->pStack )
+		return;
 #ifdef SAFEMODE
 	if( (pScript->sp+4) >= STK_SIZE ) {
 		printf("script_pop_long reported: stack overflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", pScript->ip, pScript->sp+4);
@@ -289,6 +308,8 @@ void script_push_short(Script_t *restrict pScript, const ushort val)
 {
 	if( !pScript )
 		return;
+	else if( !pScript->pStack )
+		return;
 #ifdef SAFEMODE
 	if( (pScript->sp+2) >= STK_SIZE ) {
 		printf("script_pop_short reported: stack overflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", pScript->ip, pScript->sp+2);
@@ -305,6 +326,8 @@ void script_push_byte(Script_t *restrict pScript, const uchar val)
 {
 	if( !pScript )
 		return;
+	else if( !pScript->pStack )
+		return;
 #ifdef SAFEMODE
 	if( (pScript->sp+1) >= STK_SIZE ) {
 		printf("script_pop_byte reported: stack overflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", pScript->ip, pScript->sp+1);
@@ -317,6 +340,8 @@ void script_push_byte(Script_t *restrict pScript, const uchar val)
 void script_push_float32(Script_t *restrict pScript, const float val)
 {
 	if( !pScript )
+		return;
+	else if( !pScript->pStack )
 		return;
 #ifdef SAFEMODE
 	if( (pScript->sp+4) >= STK_SIZE ) {
@@ -335,6 +360,8 @@ void script_push_float32(Script_t *restrict pScript, const float val)
 void script_push_float64(Script_t *restrict pScript, const double val)
 {
 	if( !pScript )
+		return;
+	else if( !pScript->pStack )
 		return;
 #ifdef SAFEMODE
 	if( (pScript->sp+8) >= STK_SIZE ) {
@@ -355,8 +382,10 @@ void script_push_float64(Script_t *restrict pScript, const double val)
 }
 
 
-void script_write_quad(Script_t *restrict pScript, const u64 val, const u64 address){
+void script_write_quad(Script_t *restrict pScript, const ullong val, const ullong address){
 	if( !pScript )
+		return;
+	else if( !pScript->pMemory )
 		return;
 #ifdef SAFEMODE
 	if( address > MEM_SIZE-8 ) {
@@ -376,9 +405,11 @@ void script_write_quad(Script_t *restrict pScript, const u64 val, const u64 addr
 	pScript->pMemory[address+7] = conv.c[0];
 }
 
-void script_write_long(Script_t *restrict pScript, const uint val, const u64 address)
+void script_write_long(Script_t *restrict pScript, const uint val, const ullong address)
 {
 	if( !pScript )
+		return;
+	else if( !pScript->pMemory )
 		return;
 #ifdef SAFEMODE
 	if( address > MEM_SIZE-4 ) {
@@ -394,9 +425,11 @@ void script_write_long(Script_t *restrict pScript, const uint val, const u64 add
 	pScript->pMemory[address+3] = conv.c[0];
 }
 
-void script_write_short(Script_t *restrict pScript, const ushort val, const u64 address)
+void script_write_short(Script_t *restrict pScript, const ushort val, const ullong address)
 {
 	if( !pScript )
+		return;
+	else if( !pScript->pMemory )
 		return;
 #ifdef SAFEMODE
 	if( address > MEM_SIZE-2 ) {
@@ -410,9 +443,11 @@ void script_write_short(Script_t *restrict pScript, const ushort val, const u64 
 	pScript->pMemory[address+1] = conv.c[0];
 }
 
-void script_write_byte(Script_t *restrict pScript, const uchar val, const u64 address)
+void script_write_byte(Script_t *restrict pScript, const uchar val, const ullong address)
 {
 	if( !pScript )
+		return;
+	else if( !pScript->pMemory )
 		return;
 #ifdef SAFEMODE
 	if( address >= MEM_SIZE ) {
@@ -423,9 +458,11 @@ void script_write_byte(Script_t *restrict pScript, const uchar val, const u64 ad
 	pScript->pMemory[address] = val;
 }
 
-void script_write_float32(Script_t *restrict pScript, const float val, const u64 address)
+void script_write_float32(Script_t *restrict pScript, const float val, const ullong address)
 {
 	if( !pScript )
+		return;
+	else if( !pScript->pMemory )
 		return;
 #ifdef SAFEMODE
 	if( address > MEM_SIZE-4 ) {
@@ -441,9 +478,11 @@ void script_write_float32(Script_t *restrict pScript, const float val, const u64
 	pScript->pMemory[address+3] = conv.c[0];
 }
 
-void script_write_float64(Script_t *restrict pScript, const double val, const u64 address)
+void script_write_float64(Script_t *restrict pScript, const double val, const ullong address)
 {
 	if( !pScript )
+		return;
+	else if( !pScript->pMemory )
 		return;
 #ifdef SAFEMODE
 	if( address > MEM_SIZE-8 ) {
@@ -464,16 +503,18 @@ void script_write_float64(Script_t *restrict pScript, const double val, const u6
 }
 
 
-void script_write_bytearray(Script_t *restrict pScript, uchar *restrict val, const uint size, const u64 address)
+void script_write_bytearray(Script_t *restrict pScript, uchar *restrict val, const uint size, const ullong address)
 {
 	if( !pScript || !val )
 		return;
-	u64 addr = address+(size-1);
+	else if( !pScript->pMemory )
+		return;
+	ullong addr = address+(size-1);
 	uint i = 0;
 	while( i<size ) {
 #ifdef SAFEMODE
 		if( addr >= MEM_SIZE-i ) {
-			printf("crown_write_array reported: Invalid Memory Access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\nInvalid Memory Address: %" PRIu64 "\n", pScript->ip, pScript->sp, addr);
+			printf("script_write_array reported: Invalid Memory Access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\nInvalid Memory Address: %" PRIu64 "\n", pScript->ip, pScript->sp, addr);
 			exit(1);
 		}
 #endif
@@ -481,9 +522,11 @@ void script_write_bytearray(Script_t *restrict pScript, uchar *restrict val, con
 	}
 }
 
-u64 script_read_quad(Script_t *restrict pScript, const u64 address)
+ullong script_read_quad(Script_t *restrict pScript, const ullong address)
 {
 	if( !pScript )
+		return 0;
+	else if( !pScript->pMemory )
 		return 0;
 #ifdef SAFEMODE
 	if( address > MEM_SIZE-8 ) {
@@ -503,9 +546,11 @@ u64 script_read_quad(Script_t *restrict pScript, const u64 address)
 	return conv.ull;
 }
 
-uint script_read_long(Script_t *restrict pScript, const u64 address)
+uint script_read_long(Script_t *restrict pScript, const ullong address)
 {
 	if( !pScript )
+		return 0;
+	else if( !pScript->pMemory )
 		return 0;
 #ifdef SAFEMODE
 	if( address > MEM_SIZE-4 ) {
@@ -521,9 +566,11 @@ uint script_read_long(Script_t *restrict pScript, const u64 address)
 	return conv.ui;
 }
 
-ushort script_read_short(Script_t *restrict pScript, const u64 address)
+ushort script_read_short(Script_t *restrict pScript, const ullong address)
 {
 	if( !pScript )
+		return 0;
+	else if( !pScript->pMemory )
 		return 0;
 #ifdef SAFEMODE
 	if( address > MEM_SIZE-2 ) {
@@ -537,9 +584,11 @@ ushort script_read_short(Script_t *restrict pScript, const u64 address)
 	return conv.us;
 }
 
-uchar script_read_byte(Script_t *restrict pScript, const u64 address)
+uchar script_read_byte(Script_t *restrict pScript, const ullong address)
 {
 	if( !pScript )
+		return 0;
+	else if( !pScript->pMemory )
 		return 0;
 #ifdef SAFEMODE
 	if( address >= MEM_SIZE ) {
@@ -550,10 +599,13 @@ uchar script_read_byte(Script_t *restrict pScript, const u64 address)
 	return pScript->pMemory[address];
 }
 
-float script_read_float32(Script_t *restrict pScript, const u64 address)
+float script_read_float32(Script_t *restrict pScript, const ullong address)
 {
 	if( !pScript )
 		return 0;
+	else if( !pScript->pMemory )
+		return 0;
+	
 #ifdef SAFEMODE
 	if( address > MEM_SIZE-4 ) {
 		printf("script_read_float32 reported: Invalid Memory Access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\nInvalid Memory Address: %" PRIu64 "\n", pScript->ip, pScript->sp, address);
@@ -568,10 +620,13 @@ float script_read_float32(Script_t *restrict pScript, const u64 address)
 	return conv.f;
 }
 
-double script_read_float64(Script_t *restrict pScript, const u64 address)
+double script_read_float64(Script_t *restrict pScript, const ullong address)
 {
 	if( !pScript )
 		return 0;
+	else if( !pScript->pMemory )
+		return 0;
+	
 #ifdef SAFEMODE
 	if( address > MEM_SIZE-8 ) {
 		printf("script_read_float64 reported: Invalid Memory Access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\nInvalid Memory Address: %" PRIu64 "\n", pScript->ip, pScript->sp, address);
@@ -590,16 +645,19 @@ double script_read_float64(Script_t *restrict pScript, const u64 address)
 	return conv.dbl;
 }
 
-void script_read_bytearray(Script_t *restrict pScript, uchar *restrict buffer, const uint size, const u64 address)
+void script_read_bytearray(Script_t *restrict pScript, uchar *restrict buffer, const uint size, const ullong address)
 {
 	if( !pScript || !buffer )
 		return;
-	u64 addr = address+(size-1);
+	else if( !pScript->pMemory )
+		return;
+	
+	ullong addr = address+(size-1);
 	uint i = 0;
 	while( i<size ) {
 #ifdef SAFEMODE
 		if( addr >= MEM_SIZE-i ) {
-			printf("crown_read_array reported: Invalid Memory Access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\nInvalid Memory Address: %" PRIu64 "\n", pScript->ip, pScript->sp, addr);
+			printf("script_read_array reported: Invalid Memory Access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\nInvalid Memory Address: %" PRIu64 "\n", pScript->ip, pScript->sp, addr);
 			exit(1);
 		}
 #endif
@@ -616,7 +674,7 @@ void scripts_debug_print_memory(const Script_t *pScript)
 		return;
 	
 	printf("DEBUG ...---===---... Printing Memory...\n");
-	u64 i;
+	ullong i;
 	for( i=0 ; i<pScript->uiMemSize ; i++ )
 		printf("Memory Index: %" PRIu64 " | data: %" PRIu8 "\n", i, pScript->pMemory[i]);
 	printf("\n");
@@ -629,7 +687,7 @@ void scripts_debug_print_stack(const Script_t *pScript)
 		return;
 	
 	printf("DEBUG ...---===---... Printing Stack...\n");
-	u64 i;
+	ullong i;
 	for( i=1 ; i<pScript->uiStkSize ; i++ )
 		printf("Stack Index: %" PRIu64 " | data: %" PRIu8 "\n", i, pScript->pStack[i]);
 	printf("\n");
@@ -649,7 +707,7 @@ void scripts_debug_print_ptrs(const Script_t *pScript)
 
 
 
-static inline u64 script_get_imm8(Script_t *restrict pScript)
+static inline ullong script_get_imm8(Script_t *restrict pScript)
 {
 	if( !pScript )
 		return 0;
@@ -687,7 +745,7 @@ static inline ushort script_get_imm2(Script_t *restrict pScript)
 }
 
 
-static inline u64 _script_pop_quad(Script_t *restrict pScript)
+static inline ullong _script_pop_quad(Script_t *restrict pScript)
 {
 	if( !pScript )
 		return 0;
@@ -796,7 +854,7 @@ static inline uchar _script_pop_byte(Script_t *restrict pScript)
 }
 
 
-static inline void _script_push_quad(Script_t *restrict pScript, const u64 val)
+static inline void _script_push_quad(Script_t *restrict pScript, const ullong val)
 {
 	if( !pScript )
 		return;
@@ -910,14 +968,14 @@ void crown_exec(CrownVM_t *restrict vm)
 	if( !vm )
 		return;
 	
-	Script_t *pScr = vm->pScript;
-	if( !pScr )
+	Script_t *pCurrScript = vm->pScript;
+	if( !pCurrScript )
 		return;
-	else if( !pScr->pInstrStream )
+	else if( !pCurrScript->pInstrStream )
 		return;
 	
 	union conv_union conv;
-	u64 qb,qa;
+	ullong qb,qa;
 	uint b,a;
 	float fb,fa;
 	ushort sb,sa;
@@ -933,18 +991,18 @@ void crown_exec(CrownVM_t *restrict vm)
 #undef X
 #undef INSTR_SET
 	
-	if( pScr->pInstrStream[pScr->ip] > nop) {
-		printf("illegal instruction exception! instruction == \'%" PRIu8 "\' @ %" PRIu64 "\n", pScr->pInstrStream[pScr->ip], pScr->ip);
+	if( pCurrScript->pInstrStream[pCurrScript->ip] > nop) {
+		printf("illegal instruction exception! instruction == \'%" PRIu8 "\' @ %" PRIu64 "\n", pCurrScript->pInstrStream[pCurrScript->ip], pCurrScript->ip);
 		goto *dispatch[halt];
 		return;
 	}
-	//printf( "current instruction == \"%s\" @ ip == %" PRIu64 "\n", opcode2str[pScr->pInstrStream[pScr->ip]], pScr->ip );
+	//printf( "current instruction == \"%s\" @ ip == %" PRIu64 "\n", opcode2str[pCurrScript->pInstrStream[pCurrScript->ip]], pCurrScript->ip );
 #ifdef _UNISTD_H
-	#define DISPATCH()	sleep(1); goto *dispatch[ pScr->pInstrStream[++pScr->ip] ]
+	#define DISPATCH()	sleep(1); goto *dispatch[ pCurrScript->pInstrStream[++pCurrScript->ip] ]
 #else
-	#define DISPATCH()	goto *dispatch[ pScr->pInstrStream[++pScr->ip] ]
+	#define DISPATCH()	goto *dispatch[ pCurrScript->pInstrStream[++pCurrScript->ip] ]
 #endif
-	goto *dispatch[ pScr->pInstrStream[pScr->ip] ];
+	goto *dispatch[ pCurrScript->pInstrStream[pCurrScript->ip] ];
 	
 	
 exec_nop:;
@@ -956,14 +1014,14 @@ exec_halt:;
 	return;
 	
 exec_pushq:;	// push 8 bytes onto the stack
-	conv.ull = script_get_imm8(pScr);
-	_script_push_quad(pScr, conv.ull);
+	conv.ull = script_get_imm8(pCurrScript);
+	_script_push_quad(pCurrScript, conv.ull);
 	printf("pushq: pushed %" PRIu64 "\n", conv.ull);
 	DISPATCH();
 	
 exec_pushl:;	// push 4 bytes onto the stack
-	conv.ui = script_get_imm4(pScr);
-	_script_push_long(pScr, conv.ui);
+	conv.ui = script_get_imm4(pCurrScript);
+	_script_push_long(pCurrScript, conv.ui);
 	printf("pushl: pushed %" PRIu32 "\n", conv.ui);
 	DISPATCH();
 	
@@ -992,10 +1050,8 @@ int main(void)
 	
 	//	this is for testing to see how much memory \
 		the program is using while consuming scripts.
-	int d;
-	do {
-		scanf("%d", &d);
-	} while( d != 0 );
+	uint d=1;
+	while( scanf("%u", &d)>0 && d != 0 );
 	crown_free_script(vm);
 	//script_write_bytearray(vm->pScript, (uchar *)"Hello World", 11, 4);
 	
