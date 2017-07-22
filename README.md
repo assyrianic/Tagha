@@ -47,3 +47,4 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
 - [ ] implement a compiler that generates the bytecode for this VM.
 - [ ] 64-bit version availability.
 - [ ] Windows compatibility/availability.
+- [ ] VM-Interpreter can host itself from bytecode!
