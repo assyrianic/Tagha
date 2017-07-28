@@ -44,16 +44,23 @@ typedef		unsigned long long	ullong;
 // magic, memsize, stksize, ipstart, instruction count
 
 // how many beginning bytes the header takes up.
-#define HEADER_BYTES	18
+#define HEADER_BYTES	34
+
+// Script structure
+// Vector of Instruction Stream
+// Vector of Memory
+// Vector of Stack
+// entry address/offset
 
 typedef struct __script {
 	uchar	*pMemory, *pStack, *pInstrStream;
 	ullong	ip, sp, bp;		// 24 bytes
 	
-	uint	uiMemSize;		// how much memory does script need?
-	uint	uiStkSize;		// how large of a stack does script need?
-	uint	ipstart;		// where does 'main' begin?
-	uint	uiInstrCount;	// how many instructions does the code have? This includes the arguments and operands.
+	// vector *pFuncTable;	// 
+	ullong	uiMemSize;		// how much memory does script need?
+	ullong	uiStkSize;		// how large of a stack does script need?
+	ullong	ipstart;		// where does 'main' begin?
+	ullong	uiInstrCount;	// how many instructions does the code have? This includes the arguments and operands.
 	ushort	magic;			// verify bytecode ==> 0xC0DE 'code' - actual bytecode.
 } Script_t;
 
@@ -113,45 +120,45 @@ typedef struct export {
 // if pointers or memory addresses go out of bounds but it does help.
 #define SAFEMODE	1
 
-void		crown_init(CrownVM_t *vm);
-void		crown_load_script(CrownVM_t *restrict vm, uchar *restrict program);
-void		crown_free_script(CrownVM_t *restrict vm);
-void		script_reset(Script_t *pScript);
-//void		crown_free(CrownVM_t *vm);
-void		crown_exec(CrownVM_t *vm);
-void		scripts_debug_print_ptrs(const Script_t *pScript);
-void		scripts_debug_print_stack(const Script_t *pScript);
-void		scripts_debug_print_memory(const Script_t *pScript);
+void	crown_init(CrownVM_t *vm);
+void	crown_load_script(CrownVM_t *restrict vm, uchar *restrict program);
+void	crown_free_script(CrownVM_t *restrict vm);
+void	script_reset(Script_t *pScript);
+//void	crown_free(CrownVM_t *vm);
+void	crown_exec(CrownVM_t *vm);
+void	scripts_debug_print_ptrs(const Script_t *pScript);
+void	scripts_debug_print_stack(const Script_t *pScript);
+void	scripts_debug_print_memory(const Script_t *pScript);
 
-ullong		script_pop_quad(Script_t *pScript);
-uint		script_pop_long(Script_t *pScript);
-ushort		script_pop_short(Script_t *pScript);
-uchar		script_pop_byte(Script_t *pScript);
-float		script_pop_float32(Script_t *pScript);
-double		script_pop_float64(Script_t *pScript);
+ullong	script_pop_quad(Script_t *pScript);
+uint	script_pop_long(Script_t *pScript);
+ushort	script_pop_short(Script_t *pScript);
+uchar	script_pop_byte(Script_t *pScript);
+float	script_pop_float32(Script_t *pScript);
+double	script_pop_float64(Script_t *pScript);
 
-void		script_push_quad(Script_t *restrict pScript, const ullong val);
-void		script_push_long(Script_t *restrict pScript, const uint val);
-void		script_push_short(Script_t *restrict pScript, const ushort val);
-void		script_push_byte(Script_t *restrict pScript, const uchar val);
-void		script_push_float32(Script_t *restrict pScript, const float val);
-void		script_push_float64(Script_t *restrict pScript, const double val);
+void	script_push_quad(Script_t *restrict pScript, const ullong val);
+void	script_push_long(Script_t *restrict pScript, const uint val);
+void	script_push_short(Script_t *restrict pScript, const ushort val);
+void	script_push_byte(Script_t *restrict pScript, const uchar val);
+void	script_push_float32(Script_t *restrict pScript, const float val);
+void	script_push_float64(Script_t *restrict pScript, const double val);
 
-void		script_write_quad(Script_t *restrict pScript, const ullong val, const ullong address);
-void		script_write_long(Script_t *restrict pScript, const uint val, const ullong address);
-void		script_write_short(Script_t *restrict pScript, const ushort val, const ullong address);
-void		script_write_byte(Script_t *restrict pScript, const uchar val, const ullong address);
-void		script_write_float32(Script_t *restrict pScript, const float val, const ullong address);
-void		script_write_float64(Script_t *restrict pScript, const double val, const ullong address);
-void		script_write_bytearray(Script_t *restrict pScript, uchar *restrict val, const uint size, const ullong address);
+void	script_write_quad(Script_t *restrict pScript, const ullong val, const ullong address);
+void	script_write_long(Script_t *restrict pScript, const uint val, const ullong address);
+void	script_write_short(Script_t *restrict pScript, const ushort val, const ullong address);
+void	script_write_byte(Script_t *restrict pScript, const uchar val, const ullong address);
+void	script_write_float32(Script_t *restrict pScript, const float val, const ullong address);
+void	script_write_float64(Script_t *restrict pScript, const double val, const ullong address);
+void	script_write_bytearray(Script_t *restrict pScript, uchar *restrict val, const uint size, const ullong address);
 
-ullong		script_read_quad(Script_t *restrict pScript, const ullong address);
-uint		script_read_long(Script_t *restrict pScript, const ullong address);
-ushort		script_read_short(Script_t *restrict pScript, const ullong address);
-uchar		script_read_byte(Script_t *restrict pScript, const ullong address);
-float		script_read_float32(Script_t *restrict pScript, const ullong address);
-double		script_read_float64(Script_t *restrict pScript, const ullong address);
-void		script_read_bytearray(Script_t *restrict pScript, uchar *restrict buffer, const uint size, const ullong address);
+ullong	script_read_quad(Script_t *restrict pScript, const ullong address);
+uint	script_read_long(Script_t *restrict pScript, const ullong address);
+ushort	script_read_short(Script_t *restrict pScript, const ullong address);
+uchar	script_read_byte(Script_t *restrict pScript, const ullong address);
+float	script_read_float32(Script_t *restrict pScript, const ullong address);
+double	script_read_float64(Script_t *restrict pScript, const ullong address);
+void	script_read_bytearray(Script_t *restrict pScript, uchar *restrict buffer, const uint size, const ullong address);
 
 #ifdef __cplusplus
 }
