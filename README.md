@@ -140,15 +140,16 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  - halt - stops all execution.
 
 ## TODO list
-- [x] add call + ret instructions to support procedures.
-- [x] test call + ret for recursive functions.
-- [x] implementing a call stack and memory addressing means we would need a form of buffer overflow protection.
-- [x] expand opcodes to take various sizes of data and sources. What I mean is make a push and pop for a byte, word (2 bytes), dword (4 bytes), and qword (8 bytes).
-- [x] add a form of referencing and dereferencing for memory and stack.
+- [x] ~~add call + ret instructions to support procedures.~~
+- [x] ~~test call + ret for recursive functions.~~
+- [x] ~~implementing a call stack and memory addressing means we would need a form of buffer overflow protection.~~
+- [x] ~~expand opcodes to take various sizes of data and sources. What I mean is make a push and pop for a byte, word (2 bytes), dword (4 bytes), and qword (8 bytes).~~
+- [ ] add `q` or 'quad' opcodes for 64-bit control.
+- [x] ~~add a form of referencing and dereferencing for memory and stack.~~
 - [ ] add API for host applications to embed this VM.
 - [x] replace stack and ~~callstack~~ with an actual pointer.
-- [ ] design or think up Data, BSS, and Code format for bytecode binaries.
 - [ ] create format for libraries and headers.
+- [ ] orient stack to be little endian (push the least significant byte first, leaving the 1st byte as top of stack byte data)
 
 ## End Goals list
 - [ ] complete, seamless embeddability to C (and by extension C++) programs. As smooth as how Angelscript binds to C++.
