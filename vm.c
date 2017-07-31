@@ -277,6 +277,7 @@ void vm_write_long(CrownVM_t *restrict vm, const uint val, const uint address)
 	vm->pbMemory[address+1] = conv.c[2];
 	vm->pbMemory[address+2] = conv.c[1];
 	vm->pbMemory[address+3] = conv.c[0];
+	//printf("wrote %" PRIu32 " to address: %" PRIu32 "\n" );
 }
 
 void vm_write_short(CrownVM_t *restrict vm, const ushort val, const uint address)
@@ -354,10 +355,10 @@ uint vm_read_long(CrownVM_t *restrict vm, const uint address)
 	}
 #endif
 	union conv_union conv;
-	conv.c[3] = vm->pbMemory[address];
-	conv.c[2] = vm->pbMemory[address+1];
-	conv.c[1] = vm->pbMemory[address+2];
-	conv.c[0] = vm->pbMemory[address+3];
+	conv.c[0] = vm->pbMemory[address];
+	conv.c[1] = vm->pbMemory[address+1];
+	conv.c[2] = vm->pbMemory[address+2];
+	conv.c[3] = vm->pbMemory[address+3];
 	return conv.ui;
 }
 
@@ -372,8 +373,8 @@ ushort vm_read_short(CrownVM_t *restrict vm, const uint address)
 	}
 #endif
 	union conv_union conv;
-	conv.c[1] = vm->pbMemory[address];
-	conv.c[0] = vm->pbMemory[address+1];
+	conv.c[0] = vm->pbMemory[address];
+	conv.c[1] = vm->pbMemory[address+1];
 	return conv.f;
 }
 
@@ -401,10 +402,10 @@ float vm_read_float32(CrownVM_t *restrict vm, const uint address)
 	}
 #endif
 	union conv_union conv;
-	conv.c[3] = vm->pbMemory[address];
-	conv.c[2] = vm->pbMemory[address+1];
-	conv.c[1] = vm->pbMemory[address+2];
-	conv.c[0] = vm->pbMemory[address+3];
+	conv.c[0] = vm->pbMemory[address];
+	conv.c[1] = vm->pbMemory[address+1];
+	conv.c[2] = vm->pbMemory[address+2];
+	conv.c[3] = vm->pbMemory[address+3];
 	return conv.f;
 }
 
@@ -839,11 +840,11 @@ void vm_exec(CrownVM_t *restrict vm)
 		}
 	#endif
 		// TODO: replace the instr stream with vm_get_imm4(vm)
-		vm->pbMemory[a] = vm->pInstrStream[++vm->ip];
-		vm->pbMemory[a+1] = vm->pInstrStream[++vm->ip];
-		vm->pbMemory[a+2] = vm->pInstrStream[++vm->ip];
 		vm->pbMemory[a+3] = vm->pInstrStream[++vm->ip];
-		conv.c[0] = vm->pbMemory[a];
+		vm->pbMemory[a+2] = vm->pInstrStream[++vm->ip];
+		vm->pbMemory[a+1] = vm->pInstrStream[++vm->ip];
+		vm->pbMemory[a+0] = vm->pInstrStream[++vm->ip];
+		conv.c[0] = vm->pbMemory[a+0];
 		conv.c[1] = vm->pbMemory[a+1];
 		conv.c[2] = vm->pbMemory[a+2];
 		conv.c[3] = vm->pbMemory[a+3];
@@ -858,9 +859,9 @@ void vm_exec(CrownVM_t *restrict vm)
 			goto *dispatch[halt];
 		}
 	#endif
-		vm->pbMemory[a] = vm->pInstrStream[++vm->ip];
 		vm->pbMemory[a+1] = vm->pInstrStream[++vm->ip];
-		conv.c[0] = vm->pbMemory[a];
+		vm->pbMemory[a+0] = vm->pInstrStream[++vm->ip];
+		conv.c[0] = vm->pbMemory[a+0];
 		conv.c[1] = vm->pbMemory[a+1];
 		printf("wrote short data - %" PRIu32 " @ address 0x%x\n", conv.us, a);
 		DISPATCH();
@@ -893,7 +894,7 @@ void vm_exec(CrownVM_t *restrict vm)
 		vm->pbMemory[a+2] = vm->pbStack[vm->sp--];
 		vm->pbMemory[a+1] = vm->pbStack[vm->sp--];
 		vm->pbMemory[a] = vm->pbStack[vm->sp--];
-		conv.c[0] = vm->pbMemory[a];
+		conv.c[0] = vm->pbMemory[a+0];
 		conv.c[1] = vm->pbMemory[a+1];
 		conv.c[2] = vm->pbMemory[a+2];
 		conv.c[3] = vm->pbMemory[a+3];
@@ -956,11 +957,11 @@ void vm_exec(CrownVM_t *restrict vm)
 		vm->pbMemory[a+3] = vm->pbStack[vm->sp--];
 		vm->pbMemory[a+2] = vm->pbStack[vm->sp--];
 		vm->pbMemory[a+1] = vm->pbStack[vm->sp--];
-		vm->pbMemory[a] = vm->pbStack[vm->sp--];
-		conv.c[0] = vm->pbMemory[a];
-		conv.c[1] = vm->pbMemory[a+1];
-		conv.c[2] = vm->pbMemory[a+2];
-		conv.c[3] = vm->pbMemory[a+3];
+		vm->pbMemory[a+0] = vm->pbStack[vm->sp--];
+		conv.c[0] = vm->pbMemory[a+3];
+		conv.c[1] = vm->pbMemory[a+2];
+		conv.c[2] = vm->pbMemory[a+1];
+		conv.c[3] = vm->pbMemory[a+0];
 		printf("stored 4 byte data - %" PRIu32 " to pointer address 0x%x\n", conv.ui, a);
 		DISPATCH();
 		
@@ -977,9 +978,9 @@ void vm_exec(CrownVM_t *restrict vm)
 		}
 	#endif
 		vm->pbMemory[a+1] = vm->pbStack[vm->sp--];
-		vm->pbMemory[a] = vm->pbStack[vm->sp--];
+		vm->pbMemory[a+0] = vm->pbStack[vm->sp--];
 		conv.c[0] = vm->pbMemory[a+1];
-		conv.c[1] = vm->pbMemory[a];
+		conv.c[1] = vm->pbMemory[a+0];
 		printf("stored 2 byte data - %" PRIu32 " to pointer address 0x%x\n", conv.us, a);
 		DISPATCH();
 		
@@ -1016,10 +1017,10 @@ void vm_exec(CrownVM_t *restrict vm)
 		vm->pbStack[++vm->sp] = vm->pbMemory[a+1];
 		vm->pbStack[++vm->sp] = vm->pbMemory[a+2];
 		vm->pbStack[++vm->sp] = vm->pbMemory[a+3];
-		conv.c[0] = vm->pbMemory[a+3];
-		conv.c[1] = vm->pbMemory[a+2];
-		conv.c[2] = vm->pbMemory[a+1];
-		conv.c[3] = vm->pbMemory[a];
+		conv.c[3] = vm->pbMemory[a+3];
+		conv.c[2] = vm->pbMemory[a+2];
+		conv.c[1] = vm->pbMemory[a+1];
+		conv.c[0] = vm->pbMemory[a+0];
 		printf("loaded int data to T.O.S. - %" PRIu32 " from address 0x%x\n", conv.ui, a);
 		DISPATCH();
 		
@@ -1037,8 +1038,8 @@ void vm_exec(CrownVM_t *restrict vm)
 	#endif
 		vm->pbStack[++vm->sp] = vm->pbMemory[a];
 		vm->pbStack[++vm->sp] = vm->pbMemory[a+1];
-		conv.c[0] = vm->pbMemory[a+1];
-		conv.c[1] = vm->pbMemory[a];
+		conv.c[1] = vm->pbMemory[a+1];
+		conv.c[0] = vm->pbMemory[a+0];
 		printf("loaded short data to T.O.S. - %" PRIu32 " from address 0x%x\n", conv.us, a);
 		DISPATCH();
 		
@@ -1782,13 +1783,13 @@ int main(void)
 	bytecode fibonacci = {
 		0xDE, 0xC0, 6,0,0,0,
 		nop, // calc fibonnaci number
-		wrtl, 0,0,0,0, 7,0,0,0,	// write n to address 0
+		wrtl, 0,0,0,0, 0,0,0,7,	// write n to address 0, remember that memory is little endian!
 		call, 22,0,0,0,
 		halt,
 		// a = 0;
 		wrtl, 4,0,0,0, 0,0,0,0,		// 16
 		// b = 1;
-		wrtl, 8,0,0,0, 1,0,0,0,		// 25
+		wrtl, 8,0,0,0, 0,0,0,1,		// 25
 		// while( n-- > 1 ) {
 		loadl, 0,0,0,0,		// load param n		// 34
 		pushl, 1,0,0,0,		// push 1
@@ -1895,7 +1896,7 @@ int main(void)
 	
 	CrownVM_t *vm = &(CrownVM_t){ 0 };
 	vm_init(vm);
-	vm_load_code(vm, local_pointers);	vm_exec(vm); //vm_free(vm);
+	vm_load_code(vm, fibonacci);	vm_exec(vm); //vm_free(vm);
 	//vm_load_code(vm, float_test);			vm_exec(vm); vm_free(vm);
 	//vm_load_code(vm, fibonacci);			vm_exec(vm); vm_free(vm);
 	//vm_load_code(vm, pointers);				vm_exec(vm); vm_free(vm);
