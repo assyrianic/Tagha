@@ -23,7 +23,7 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
 * "CPU" is "32-bit" as the word size is uint32. Numerical memory addresses are 32-bits as well.
 * memory manipulation where loading copies the top of the stack into any memory address and storing pops off the top of the stack into any memory address.
 * has integer and float arithmetic, (un)conditional jumps, comparisons, and stack and memory manipulations. By default, the arithmetic is always 4 bytes because in C, integers are always promoted to the largest width.
-* call stack for functions. Supports function calls from function calls! (unless you overflow the call stack...)
+* ~~call stack for functions. Supports function calls from function calls! (unless you overflow the call stack...)~~ Call stack has been merged into the overall Stack. When you make a call, a new stack frame is created. You can use the loadsp/storesp opcodes to load/store function argument/parameter data. Returning, of course, destroys the stack frame.
 * It's Turing Complete! (lol)
 * VM is little-endian.
 
@@ -49,17 +49,19 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  - storel - pops 4 bytes from TOS and stores to a memory address.
  - stores - pops 2 bytes from TOS and stores to a memory address.
  - storeb - pop a byte from TOS and stores to a memory address.
+ 
  - storela - pops 4 bytes from TOS, uses that as memory address, then pops another 4 bytes and stores into the address.
  - storesa - pops 4 bytes from tos as memory address, pops another 2 bytes into that address.
  - storeba - pops 4 bytes from tos as mem address, pops a byte into that address.
  
- - storespl - gets an address, pops 4 bytes from TOS into said address in the stack.
- - storesps - gets an address, pops 2 bytes from TOS into said address in the stack.
- - storespb - gets an address, pops a byte from TOS into said address in the stack.
+ - storespl - pops a stack address, then pops 4 bytes from TOS into said address in the stack.
+ - storesps - pops stack addr, then pops 2 bytes from TOS into said address in the stack.
+ - storespb - pop stack addr, then pops a byte from TOS into said address in the stack.
  
  - loadl - puts 4 bytes from memory into TOS.
  - loads - puts 2 bytes from memory into TOS.
  - loadb - puts a byte from memory into TOS.
+ 
  - loadla - pops 4 bytes as a memory address, pushes the 4 bytes of data from the memory address to TOS.
  - loadsa - pops 4 bytes as memory address, pushes 2 bytes of data from address to TOS.
  - loadba - pops 4 bytes as memory address, pushes byte from address to TOS.
