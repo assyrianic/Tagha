@@ -1,3 +1,5 @@
+# currently on hold, use 'v2' branch
+
 # Crown Virtual Machine
 Crown is minimal yet complex stack-based virtual machine, written in C, designed to run C. Why is it named 'Crown'? Because C is king in the programming world :P Crown runs compiled C bytecode as scripts. Scripts are sandboxed with their own memory and stacks.
 
