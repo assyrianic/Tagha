@@ -1,8 +1,9 @@
-# Crown Virtual Machine
-Crown is minimal yet complex stack-based virtual machine, written in C, designed to run C. Why is it named 'Crown'? Because C is king in the programming world :P
+# Tagha Virtual Machine
+"tagha" is Aramaic for "crown".
+Tagha is a minimal yet complex stack-based virtual machine, written in C, designed to run C. Why is it named "crown"? Because C is king in the programming world :P
 
 ## Purpose:
-to be an embeddable C-as-scripting-language scripting engine for C or C++ programs. The plan is to ~~create or~~ use a C compiler frontend to generate and run bytecode on this vm.
+to be an embeddable C-as-scripting-language scripting engine for C or C++ programs. The plan is to ~~create or~~ use a C compiler's backend to generate and run bytecode on this vm.
 
 ## Why?:
 so far, the only C interpreters (that I currently know of) are **CINT**, **PicoC**, **TCC [1]** and **Ch**:
@@ -11,7 +12,7 @@ so far, the only C interpreters (that I currently know of) are **CINT**, **PicoC
 - The problem with Ch is that, though it's embeddable and updated, it's proprietary and it's unknown how it interprets code; as the usual problem with proprietary code, you don't know what code it could contain and there's no telling what security issues that code could have.
 - **[1]** - Tiny C Compiler, it can compile and run scripts for testing but it cannot be embedded. The scripting action is more or less a **great** way to test your program! libtcc only acts as a JIT IIRC.
 
-The goal for this VM is to...
+The goal for TaghaVM is to...
 + 1. be a new and modernly optimized piece of software for C-as-a-scripting-language.
 + 2. have the clear execution speed advantage bytecode interpreters have over traditional interpreters.
 + 3. be open-source and open for anyone who wants to improve this 1st portion of what would become a scripting engine.
@@ -35,12 +36,14 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
  - pushb - push a byte to TOS.
  - pushsp - push current stack pointer index to TOS.
  - puship - push current instruction pointer index to TOS.
+ - pushbp - pushes the frame pointer to TOS.
  
  - popl - pops 4 bytes from TOS.
  - pops - pops 2 bytes from TOS.
  - popb - pops byte from TOS.
  - popsp - pops 4 bytes from TOS and sets that as the current stack pointer.
  - popip - pops 4 bytes from TOS and sets that as the current instruction pointer.
+ - popbp - pops 4 bytes from TOS as the new frame pointer.
  
  - wrtl - writes 4 bytes to a memory address.
  - wrts - writes 2 bytes to a memory address.
@@ -153,7 +156,7 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
 
 ## End Goals list
 - [ ] complete, seamless embeddability to C (and by extension C++) programs. As smooth as how Angelscript binds to C++.
-- [ ] complete as much as of the C standards are possible, including C11.
+- [ ] compatibility of as much of the C standards possible, including C11.
 - [ ] implement a compiler that generates the bytecode for this VM.
 - [ ] 64-bit version availability.
 - [ ] Windows compatibility/availability.
