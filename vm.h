@@ -25,12 +25,12 @@ extern "C" {
         float *: "float *",                    double *: "double *",              \
         default: "other")
 
-//#define IS_64BIT
 
 #define WORD_SIZE		4
 #define STK_SIZE		(512 * WORD_SIZE)		// 2,048 bytes or 2kb
 #define CALLSTK_SIZE	256						// 1,024 bytes
 #define MEM_SIZE		(16384 * WORD_SIZE)		// 65,536 bytes or 65kb of memory
+#define NULL_ADDRESS	0xFFFFFFFF				// all NULL pointers should have this value
 
 typedef		unsigned char		uchar;
 typedef		uchar				bytecode[];
@@ -43,26 +43,11 @@ typedef		unsigned long long	u64;
 // this will be entirely read as an unsigned char
 typedef struct Tagha_header {
 	ushort	uiMagic;	// verify bytecode ==> 0xC0DE 'code' - actual bytecode OR 0x0D11 'dll' - for library funcs
-#ifdef IS_64BIT
-	u64		ipstart;	// where does 'main' begin?
-#else
 	uint	ipstart;	// where does 'main' begin?
-#endif
-#ifdef IS_64BIT
-	u64		ulDataSize;	// how many variables we got to place directly into memory?
-#else
 	uint	uiDataSize;	// how many variables we got to place directly into memory?
-#endif
-#ifdef IS_64BIT
-	u64		ulStkSize;	// how many variables we have to place onto the data stack?
-#else
 	uint	uiStkSize;	// how many variables we have to place onto the data stack?
-#endif
-#ifdef IS_64BIT
-	u64		uiInstrCount;	// how many instructions does the code have? This includes the arguments and operands.
-#else
 	uint	uiInstrCount;	// how many instructions does the code have? This includes the arguments and operands.
-#endif
+	
 } TaghaHeader_t;
 
 /*	normally a program's memory layout is...
@@ -87,17 +72,35 @@ typedef struct Tagha_header {
 * Plugins will have a similar layout but heap is replaced with callstack.
 */
 
-typedef struct Tagha_vm {
-	uchar	*pbMemory, *pbStack, *pInstrStream;
-#ifdef IS_64BIT
-	u64		ip, sp, bp;		// 16 bytes;
-#else
-	uint	ip, sp, bp;		// 12 bytes
-#endif
-	uint	uiMaxInstrs;
-} TaghaVM_t;
+struct Tagha_vm;
+typedef struct Tagha_vm		TaghaVM_t;
 
-union conv_union {
+//	API to call C/C++ functions from scripts.
+typedef		void (*fnNative)(TaghaVM_t *restrict vm, ...);
+
+typedef struct native_info {
+	fnNative			fnpFunc;
+	const char			*strFuncName;
+	struct native_info	*pNext;
+	uchar				ucArgCount, ucArgBytes;
+} NativeInfo_t;
+
+typedef struct native_map {
+	NativeInfo_t	**arrpNatives;
+	uint			uiSize, uiCount;
+} NativeMap_t;
+
+int		Tagha_register_funcs(TaghaVM_t *restrict vm, NativeInfo_t **Natives);
+
+struct Tagha_vm {
+	uchar	*pbMemory, *pbStack, *pInstrStream;
+	NativeMap_t	**arrpNativeTable;
+	uint	ip, sp, bp;		// 12 bytes
+	uint	uiMaxInstrs;
+	bool	bSafeMode;
+};
+ 
+union conv_union {	// converter union.
 	uint	ui;
 	int		i;
 	float	f;
@@ -108,11 +111,6 @@ union conv_union {
 	double	dbl;
 	uchar	c[8];
 };
-
-// Safe mode enables bounds checking.
-// this might slow down the interpreter on a smaller level since we're always checking
-// if pointers or memory addresses go out of bounds but it does help.
-#define SAFEMODE	1
 
 void		Tagha_init(TaghaVM_t *vm);
 void		Tagha_load_code(TaghaVM_t *restrict vm, uchar *restrict program);
@@ -146,31 +144,6 @@ uchar		Tagha_read_byte(TaghaVM_t *restrict vm, const uint address);
 float		Tagha_read_float32(TaghaVM_t *restrict vm, const uint address);
 void		Tagha_read_bytearray(TaghaVM_t *restrict vm, uchar *restrict buffer, const uint size, const uint address);
 
-/*	NOT READY YET...
-//	API to call C/C++ functions from scripts. Supports up to 5 params
-//	Realistically, if you require more than 5 arguments, you could just group everything into a struct and pass its pointer.
-typedef		void (*fnNative0)(TaghaVM_t *restrict vm);
-typedef		void (*fnNative1)(TaghaVM_t *restrict vm, void *restrict param1);
-typedef		void (*fnNative2)(TaghaVM_t *restrict vm, void *restrict param1, void *restrict param2);
-typedef		void (*fnNative3)(TaghaVM_t *restrict vm, void *restrict param1, void *restrict param2, void *restrict param3);
-typedef		void (*fnNative4)(TaghaVM_t *restrict vm, void *restrict param1, void *restrict param2, void *restrict param3, void *restrict param4);
-typedef		void (*fnNative5)(TaghaVM_t *restrict vm, void *restrict param1, void *restrict param2, void *restrict param3, void *restrict param4, void *restrict param5);
-
-typedef struct {
-	union {
-		fnNative0	fnNoArgs;
-		fnNative1	fnOneArg;
-		fnNative2	fnTwoArgs;
-		fnNative3	fnTreArgs;
-		fnNative4	fnFourArgs;
-		fnNative5	fnPentaArgs;
-	};
-	uchar ucArgs;
-	const char	*strName;
-} NativeInfo;
-
-int		Tagha_register_funcs(TaghaVM_t *restrict vm, NativeInfo *arrNatives);
-*/
 
 #ifdef __cplusplus
 }
