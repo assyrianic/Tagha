@@ -39,6 +39,8 @@ typedef		unsigned int		uint;
 typedef		long long int		i64;	// long longs are at minimum 64-bits as defined by C99 standard
 typedef		unsigned long long	u64;
 
+typedef		uint				Word_t;	// word size is 32-bits
+
 // Bytecode header to store important info for our code.
 // this will be entirely read as an unsigned char
 typedef struct Tagha_header {
@@ -76,13 +78,12 @@ struct Tagha_vm;
 typedef struct Tagha_vm		TaghaVM_t;
 
 //	API to call C/C++ functions from scripts.
-typedef		void (*fnNative)(TaghaVM_t *restrict vm, ...);
+typedef		void (*fnNative)(TaghaVM_t *restrict vm, void *retVal, void **arrParams, const uint argc);
 
 typedef struct native_info {
 	fnNative			fnpFunc;
 	const char			*strFuncName;
 	struct native_info	*pNext;
-	uchar				ucArgCount, ucArgBytes;
 } NativeInfo_t;
 
 typedef struct native_map {
@@ -132,17 +133,17 @@ void		Tagha_push_short(TaghaVM_t *restrict vm, const ushort val);
 void		Tagha_push_byte(TaghaVM_t *restrict vm, const uchar val);
 void		Tagha_push_float32(TaghaVM_t *restrict vm, const float val);
 
-void		Tagha_write_long(TaghaVM_t *restrict vm, const uint val, const uint address);
-void		Tagha_write_short(TaghaVM_t *restrict vm, const ushort val, const uint address);
-void		Tagha_write_byte(TaghaVM_t *restrict vm, const uchar val, const uint address);
-void		Tagha_write_float32(TaghaVM_t *restrict vm, const float val, const uint address);
-void		Tagha_write_bytearray(TaghaVM_t *restrict vm, uchar *restrict val, const uint size, const uint address);
+void		Tagha_write_long(TaghaVM_t *restrict vm, const uint val, const Word_t address);
+void		Tagha_write_short(TaghaVM_t *restrict vm, const ushort val, const Word_t address);
+void		Tagha_write_byte(TaghaVM_t *restrict vm, const uchar val, const Word_t address);
+void		Tagha_write_float32(TaghaVM_t *restrict vm, const float val, const Word_t address);
+void		Tagha_write_bytearray(TaghaVM_t *restrict vm, uchar *restrict val, const uint size, const Word_t address);
 
-uint		Tagha_read_long(TaghaVM_t *restrict vm, const uint address);
-ushort		Tagha_read_short(TaghaVM_t *restrict vm, const uint address);
-uchar		Tagha_read_byte(TaghaVM_t *restrict vm, const uint address);
-float		Tagha_read_float32(TaghaVM_t *restrict vm, const uint address);
-void		Tagha_read_bytearray(TaghaVM_t *restrict vm, uchar *restrict buffer, const uint size, const uint address);
+uint		Tagha_read_long(TaghaVM_t *restrict vm, const Word_t address);
+ushort		Tagha_read_short(TaghaVM_t *restrict vm, const Word_t address);
+uchar		Tagha_read_byte(TaghaVM_t *restrict vm, const Word_t address);
+float		Tagha_read_float32(TaghaVM_t *restrict vm, const Word_t address);
+void		Tagha_read_bytearray(TaghaVM_t *restrict vm, uchar *restrict buffer, const uint size, const Word_t address);
 
 
 #ifdef __cplusplus

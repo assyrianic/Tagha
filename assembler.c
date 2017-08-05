@@ -5,6 +5,7 @@
 #define INSTR_SET	\
 	X(halt) \
 	X(pushl) X(pushs) X(pushb) X(pushsp) X(puship) X(pushbp) \
+	X(pushspadd) X(pushspsub) X(pushbpadd) X(pushbpsub) \
 	X(popl) X(pops) X(popb) X(popsp) X(popip) X(popbp) \
 	X(wrtl) X(wrts) X(wrtb) \
 	X(storel) X(stores) X(storeb) \
