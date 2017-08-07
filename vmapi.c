@@ -48,13 +48,9 @@ void tagha_load_code(TaghaVM_t *restrict vm, char *restrict filename)
 	
 	u64 size = get_file_size(pFile);
 	vm->pInstrStream = calloc(size, sizeof(uchar));
+	assert( vm->pInstrStream );
 	fread(vm->pInstrStream, sizeof(uchar), size, pFile);
 	fclose(pFile); pFile=NULL;
-	
-	vm->pbStack = calloc(STK_SIZE, sizeof(uchar));	//&(uchar[STK_SIZE]){0};
-	assert(vm->pbStack);
-	vm->pbMemory = calloc(MEM_SIZE, sizeof(uchar));		//&(uchar[MEM_SIZE]){0};
-	assert(vm->pbMemory);
 	
 	uchar *verify = vm->pInstrStream;
 	// verify that this is executable code.
@@ -63,8 +59,16 @@ void tagha_load_code(TaghaVM_t *restrict vm, char *restrict filename)
 		verify += 2;
 		vm->ip = *(uint *)verify;
 		printf("tagha_load_code :: ip starts at %u\n", *(uint *)verify);
+		
+		vm->pbStack = calloc(STK_SIZE, sizeof(uchar));	//&(uchar[STK_SIZE]){0};
+		assert( vm->pbStack );
+		vm->pbMemory = calloc(MEM_SIZE, sizeof(uchar));		//&(uchar[MEM_SIZE]){0};
+		assert( vm->pbMemory );
 	}
-	else printf("tagha_load_code :: unknown file memory format\n");
+	else {
+		printf("tagha_load_code :: unknown file memory format\n");
+		free(vm->pInstrStream); vm->pInstrStream=NULL;
+	}
 }
 
 void tagha_free(TaghaVM_t *vm)
@@ -98,7 +102,7 @@ void tagha_reset(TaghaVM_t *vm)
 	for( i=0 ; i<STK_SIZE ; i++ )
 		vm->pbStack[i] = 0;
 	
-	vm->ip = vm->sp = vm->bp = 0;
+	vm->sp = vm->bp = 0;
 }
 
 
@@ -423,8 +427,8 @@ void tagha_debug_print_stack(const TaghaVM_t *vm)
 	uint i;
 	for( i=1 ; i<STK_SIZE and i<=vm->sp ; i++ ) {
 		if( vm->sp == i )
-			printf("TOS Stack[0x%x] == 0x%x\n", i, vm->pbStack[i]);
-		else printf("Stack[0x%x] == 0x%x\n", i, vm->pbStack[i]);
+			printf("TOS Stack[0x%x] == %" PRIu32 "\n", i, vm->pbStack[i]);
+		else printf("Stack[0x%x] == %" PRIu32 "\n", i, vm->pbStack[i]);
 	}
 	printf("\n");
 }

@@ -952,7 +952,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			//conv.c[0] = vm->pbStack[vm->sp];
 			_tagha_push_byte(vm, vm->pbStack[vm->sp]);
 			//vm->pbStack[++vm->sp] = conv.c[0];
-			printf("copied byte data from T.O.S. - %" PRIu32 "\n", conv.c[0]);
+			//printf("copied byte data from T.O.S. - %" PRIu32 "\n", conv.c[0]);
 			DISPATCH();
 		
 		exec_addl:;		// pop 8 bytes, signed addition, and push 4 byte result to top of stack
@@ -1401,12 +1401,14 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			printf("retxurning to address: %" PRIu32 "\n", vm->ip);
 			continue;
 		}
-		exec_callnat:;	// call native
+		exec_callnat:;	// call a native
+			// pop data and arg count possibly from VM?
+			// 
 			DISPATCH();
 		
 		exec_reset:;
 			tagha_reset(vm);
-			return;
+			DISPATCH();
 	}
 	printf("tagha_exec :: max instructions reached\n");
 }

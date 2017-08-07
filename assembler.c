@@ -358,5 +358,62 @@ int main ()
 		fwrite(test_retx_func, sizeof(uint8_t), sizeof(test_retx_func), pFile);
 		fclose(pFile);
 	}
+	
+	bytecode test_recursion = {
+		0xDE, 0xC0, 6,0,0,0,	// 0
+		call,	0,0,0,12,	//6-10
+		halt,	//11
+		call,	0,0,0,12 //12-16
+	};
+	pFile = fopen("./test_recursion.tagha", "wb");
+	if( pFile ) {
+		fwrite(test_recursion, sizeof(uint8_t), sizeof(test_recursion), pFile);
+		fclose(pFile);
+	}
+	
+	/*
+	main() {
+		int n = factorial(15);
+	}
+	
+	int factorial(unsigned int i) {
+		if( i<=1 )
+			return 1;
+		return i * factorial( i-1 );
+		//	int temp = factorial( i-1 );
+		//	return i*temp;
+	}
+	*/
+	bytecode test_factorial_recurs = {
+		0xDE, 0xC0, 6,0,0,0,	// 0-5
+		pushl,	0,0,0,7,	//6-10
+		call,	0,0,0,17,	//11-15
+		halt,	//16
+		
+		pushl,	0,0,0,8,	//17-21	// [ebp+8] to get i from stack.
+		pushbpsub, loadspl,	//22-23	// load i to Top of Stack.
+		pushl,	0,0,0,1,	//24-28	// push 1
+		uleql,	//29	// i <= 1?
+		jzl,	0,0,0,45,	//30-34	// if 0, jump passed the first `retx`.
+		pushl,	0,0,0,1,	//35-39
+		retx,	0,0,0,4,	//40-44
+		
+		pushl,	0,0,0,8,	//45-49	// [ebp+8] to get i from stack.
+		pushbpsub, loadspl,	// load i to Top of Stack.
+		pushl,	0,0,0,1,
+		usubl,	// i-1
+		call,	0,0,0,17,	// get result of call, with (i-1) as arg.
+		// each call makes a new stack frame, regardless of call type opcode.
+		
+		pushl,	0,0,0,8,	// [ebp+8] to get i from stack.
+		pushbpsub, loadspl,	// load i to Top of Stack.
+		umull,
+		retx,	0,0,0,4
+	};
+	pFile = fopen("./test_factorial_recurs.tagha", "wb");
+	if( pFile ) {
+		fwrite(test_factorial_recurs, sizeof(uint8_t), sizeof(test_factorial_recurs), pFile);
+		fclose(pFile);
+	}
 	return 0;
 }
