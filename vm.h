@@ -1,6 +1,6 @@
 
-#ifndef Tagha_H_INCLUDED
-#define Tagha_H_INCLUDED
+#ifndef tagha_H_INCLUDED
+#define tagha_H_INCLUDED
 
 #include <stdbool.h>
 
@@ -43,7 +43,7 @@ typedef		uint				Word_t;	// word size is 32-bits
 
 // Bytecode header to store important info for our code.
 // this will be entirely read as an unsigned char
-typedef struct Tagha_header {
+typedef struct taghaheader {
 	ushort	uiMagic;	// verify bytecode ==> 0xC0DE 'code' - actual bytecode OR 0x0D11 'dll' - for library funcs
 	uint	ipstart;	// where does 'main' begin?
 	uint	uiDataSize;	// how many variables we got to place directly into memory?
@@ -74,8 +74,8 @@ typedef struct Tagha_header {
 * Plugins will have a similar layout but heap is replaced with callstack.
 */
 
-struct Tagha_vm;
-typedef struct Tagha_vm		TaghaVM_t;
+struct Taghavm;
+typedef struct Taghavm		TaghaVM_t;
 
 //	API to call C/C++ functions from scripts.
 typedef		void (*fnNative)(TaghaVM_t *restrict vm, void *retVal, void **arrParams, const uint argc);
@@ -91,16 +91,16 @@ typedef struct native_map {
 	uint			uiSize, uiCount;
 } NativeMap_t;
 
-int		Tagha_register_funcs(TaghaVM_t *restrict vm, NativeInfo_t **Natives);
+int		tagha_register_funcs(TaghaVM_t *restrict vm, NativeInfo_t **Natives);
 
-struct Tagha_vm {
+struct Taghavm {
 	uchar	*pbMemory, *pbStack, *pInstrStream;
 	NativeMap_t	**arrpNativeTable;
 	uint	ip, sp, bp;		// 12 bytes
 	uint	uiMaxInstrs;
 	bool	bSafeMode;
 };
- 
+
 union conv_union {	// converter union.
 	uint	ui;
 	int		i;
@@ -113,42 +113,53 @@ union conv_union {	// converter union.
 	uchar	c[8];
 };
 
-void		Tagha_init(TaghaVM_t *vm);
-void		Tagha_load_code(TaghaVM_t *restrict vm, uchar *restrict program);
-void		Tagha_reset(TaghaVM_t *vm);
-void		Tagha_free(TaghaVM_t *vm);
-void		Tagha_exec(TaghaVM_t *vm);
+void	tagha_init(TaghaVM_t *vm);
+void	tagha_load_code(TaghaVM_t *restrict vm, char *restrict filename);
+void	tagha_reset(TaghaVM_t *vm);
+void	tagha_free(TaghaVM_t *vm);
+void	tagha_exec(TaghaVM_t *vm);
 
-void		Tagha_debug_print_ptrs(const TaghaVM_t *vm);
-void		Tagha_debug_print_stack(const TaghaVM_t *vm);
-void		Tagha_debug_print_memory(const TaghaVM_t *vm);
+void	tagha_debug_print_ptrs(const TaghaVM_t *vm);
+void	tagha_debug_print_stack(const TaghaVM_t *vm);
+void	tagha_debug_print_memory(const TaghaVM_t *vm);
 
-uint		Tagha_pop_long(TaghaVM_t *vm);
-ushort		Tagha_pop_short(TaghaVM_t *vm);
-uchar		Tagha_pop_byte(TaghaVM_t *vm);
-float		Tagha_pop_float32(TaghaVM_t *vm);
+void	tagha_push_long(TaghaVM_t *restrict vm, const uint val);
+uint	tagha_pop_long(TaghaVM_t *vm);
 
-void		Tagha_push_long(TaghaVM_t *restrict vm, const uint val);
-void		Tagha_push_short(TaghaVM_t *restrict vm, const ushort val);
-void		Tagha_push_byte(TaghaVM_t *restrict vm, const uchar val);
-void		Tagha_push_float32(TaghaVM_t *restrict vm, const float val);
+void	tagha_push_float32(TaghaVM_t *restrict vm, const float val);
+float	tagha_pop_float32(TaghaVM_t *vm);
 
-void		Tagha_write_long(TaghaVM_t *restrict vm, const uint val, const Word_t address);
-void		Tagha_write_short(TaghaVM_t *restrict vm, const ushort val, const Word_t address);
-void		Tagha_write_byte(TaghaVM_t *restrict vm, const uchar val, const Word_t address);
-void		Tagha_write_float32(TaghaVM_t *restrict vm, const float val, const Word_t address);
-void		Tagha_write_bytearray(TaghaVM_t *restrict vm, uchar *restrict val, const uint size, const Word_t address);
+void	tagha_push_short(TaghaVM_t *restrict vm, const ushort val);
+ushort	tagha_pop_short(TaghaVM_t *vm);
 
-uint		Tagha_read_long(TaghaVM_t *restrict vm, const Word_t address);
-ushort		Tagha_read_short(TaghaVM_t *restrict vm, const Word_t address);
-uchar		Tagha_read_byte(TaghaVM_t *restrict vm, const Word_t address);
-float		Tagha_read_float32(TaghaVM_t *restrict vm, const Word_t address);
-void		Tagha_read_bytearray(TaghaVM_t *restrict vm, uchar *restrict buffer, const uint size, const Word_t address);
+void	tagha_push_byte(TaghaVM_t *restrict vm, const uchar val);
+uchar	tagha_pop_byte(TaghaVM_t *vm);
+
+void	tagha_push_nbytes(TaghaVM_t *restrict vm, void *restrict pItem, const uint bytesize);
+void	tagha_pop_nbytes(TaghaVM_t *restrict vm, void *restrict pBuffer, const uint bytesize);
+
+
+uint	tagha_read_long(TaghaVM_t *restrict vm, const Word_t address);
+void	tagha_write_long(TaghaVM_t *restrict vm, const uint val, const Word_t address);
+
+ushort	tagha_read_short(TaghaVM_t *restrict vm, const Word_t address);
+void	tagha_write_short(TaghaVM_t *restrict vm, const ushort val, const Word_t address);
+
+uchar	tagha_read_byte(TaghaVM_t *restrict vm, const Word_t address);
+void	tagha_write_byte(TaghaVM_t *restrict vm, const uchar val, const Word_t address);
+
+float	tagha_read_float32(TaghaVM_t *restrict vm, const Word_t address);
+void	tagha_write_float32(TaghaVM_t *restrict vm, const float val, const Word_t address);
+
+void	tagha_read_nbytes(TaghaVM_t *restrict vm, void *restrict pBuffer, const uint bytesize, const Word_t address);
+void	tagha_write_nbytes(TaghaVM_t *restrict vm, void *restrict pItem, const uint bytesize, const Word_t address);
+
+
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif	// Tagha_H_INCLUDED
+#endif	// tagha_H_INCLUDED
 

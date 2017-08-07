@@ -29,7 +29,7 @@
 	X(leql) X(uleql) X(leqf) \
 	X(geql) X(ugeql) X(geqf) \
 	X(jmp) X(jzl) X(jnzl) \
-	X(call) X(calls) X(calla) X(ret) X(reset) \
+	X(call) X(calls) X(calla) X(ret) X(retx) X(reset) \
 	X(callnat) \
 	X(nop) \
 
@@ -188,8 +188,31 @@ int main ()
 		ret,	// 22
 	};
 	
+	
+	bytecode test_call_opcodes = {
+		0xDE,	0xC0, 6,0,0,0,	// 0
+		call,	0,0,0,33,
+		pushl,	0,0,0,39,	//11
+		calls,	//16
+		
+		wrtl,	0,0,0,0,	0,0,0,45,	//17
+		pushl,	0,0,0,0,	//26
+		calla,	//31
+		halt,	//32
+		
+		pushl,	0xa,0xb,0xc,0xd,	// 33
+		ret,	//38
+		
+		pushl,	0,0,0xff,0xff,	//39
+		ret,	//44
+		
+		pushl,	0,0,0xac,0xca,	//45
+		ret	//50
+	};
+	
 	bytecode all_opcodes_test = {
 		0xDE, 0xC0, 6,0,0,0,	// 0
+		
 		// push + pop tests
 		pushl,	0xa,0xb,0xc,0xd, popl,
 		pushs,	0xff,0xaa, pops,
@@ -204,7 +227,74 @@ int main ()
 		wrtb,	0,0,0,6,	0xfa,				// direct write to address 0x6
 		
 		// store + load tests
-		halt,
+		pushl,	0xa,0xb,0xc,0xd,
+		storel,	0,0,0,0,
+		loadl,	0,0,0,0,
+		
+		pushs,	0xff,0xaa,
+		stores,	0,0,0,0,
+		loads,	0,0,0,0,
+		
+		pushb,	0xfa,
+		storeb,	0,0,0,0,
+		loadb,	0,0,0,0,
+		
+		wrtl,	0,0,0,0,	0xa,0xb,0xc,0xd,
+		pushl,	0xa,0xb,0xc,0xd,
+		pushl,	0,0,0,0,
+		storela,
+		
+		wrts,	0,0,0,0,	0xff,0xaa,
+		pushs,	0xff,0xaa,
+		pushl,	0,0,0,0,
+		storesa,
+		
+		wrtb,	0,0,0,0,	0xfa,
+		pushb,	0xfa,
+		pushl,	0,0,0,0,
+		storeba,
+		
+		wrtl,	0,0,0,0,	0xa,0xb,0xc,0xd,
+		pushl,	0,0,0,0,
+		loadla,
+		
+		wrts,	0,0,0,0,	0xff,0xaa,
+		pushl,	0,0,0,0,
+		loadsa,
+		
+		wrtb,	0,0,0,0,	0xfa,
+		pushl,	0,0,0,0,
+		loadba,
+		
+		pushl,	0xa,0xb,0xc,0xd,
+		pushl,	0,0,0,4,
+		loadspl,
+		
+		pushs,	0xff,0xaa,
+		pushl,	0,0,0,2,
+		loadsps,
+		
+		pushb,	0xfa,
+		pushl,	0,0,0,1,
+		loadspb,
+		
+		pushl,	0xa,0xb,0xc,0xd,
+		pushl,	0,0,0,4,
+		storespl,
+		
+		pushs,	0xff,0xaa,
+		pushl,	0,0,0,2,
+		storesps,
+		
+		pushb,	0xfa,
+		pushl,	0,0,0,1,
+		storespb,
+		
+		pushl,	0xa,0xb,0xc,0xd,	copyl,
+		pushs,	0xff,0xaa,	copys,
+		pushb,	0xfa,	copyb,
+		
+		halt
 	};
 	
 	pFile = fopen("./endian_test1.tagha", "wb");
@@ -237,9 +327,35 @@ int main ()
 		fwrite(test_func_call, sizeof(uint8_t), sizeof(test_func_call), pFile);
 		fclose(pFile);
 	}
+	pFile = fopen("./test_call_opcodes.tagha", "wb");
+	if( pFile ) {
+		fwrite(test_call_opcodes, sizeof(uint8_t), sizeof(test_call_opcodes), pFile);
+		fclose(pFile);
+	}
 	pFile = fopen("./all_opcodes_test.tagha", "wb");
 	if( pFile ) {
 		fwrite(all_opcodes_test, sizeof(uint8_t), sizeof(all_opcodes_test), pFile);
+		fclose(pFile);
+	}
+	
+	bytecode test_retx_func = {
+		0xDE, 0xC0, 6,0,0,0,	// 0
+		// func prototype -> int f(int);
+		pushl,	0,0,0,9,	//6-10	-push argument 1.
+		call,	0,0,0,17,	//11-15	-"f(5);"
+		halt,	//16
+		
+		// int f(int i) {
+		pushl,	0,0,0,8,	// [ebp+8] since x86 Stack grows "downward" from high to low address.
+		pushbpsub, loadspl,	// load argument i.
+		pushl,	0,0,0,6,	//17-21	-int b = 6;
+		addl,	//22
+		retx,	0,0,0,4	//23-27	-return a+b;
+		// }
+	};
+	pFile = fopen("./test_retx_func.tagha", "wb");
+	if( pFile ) {
+		fwrite(test_retx_func, sizeof(uint8_t), sizeof(test_retx_func), pFile);
 		fclose(pFile);
 	}
 	return 0;

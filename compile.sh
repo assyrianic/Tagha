@@ -1,7 +1,7 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-clang-3.5	-std=c11 vm.c -o TaghaVM_Clang
-gcc			-std=c11 vm.c -o TaghaVM_GCC
+clang-3.5	-std=c11 vmapi.c vm.c -o TaghaVM_Clang
+gcc			-std=c11 vmapi.c vm.c -o TaghaVM_GCC
 #-S for asm output, -g for debug, -Os for optimization by size		-pg profiling
 # -Wall
 
