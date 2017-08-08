@@ -20,127 +20,14 @@ The goal for TaghaVM is to...
 ### Features
 * float (float32, not 64-bit float) support by converting integer to a float by its bits. For example, "5.0f" is '0x40a00000' or '1084227584' in terms of its bits if it were an int.
 I usually use hexadecimals but decimal numbers work just as good. The giant numbers are then transformed into floats via type-punning by a single union singleton.
-* uses computed gotos (the ones that use a void\*) which is 20%-25% faster than a switch [citation needed for this one].
+* uses computed gotos (the ones that use a void\*) which is 20%-25% faster than a switch [[citation]](http://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables).
 * "CPU" is "32-bit" as the word size is uint32. Numerical memory addresses are 32-bits as well.
 * memory manipulation where loading copies the top of the stack into any memory address and storing pops off the top of the stack into any memory address.
 * has integer and float arithmetic, (un)conditional jumps, comparisons, and stack and memory manipulations. By default, the arithmetic is always 4 bytes because in C, integers are always promoted to the largest width.
-* ~~call stack for functions. Supports function calls from function calls! (unless you overflow the call stack...)~~ Call stack has been merged into the overall Stack. When you make a call, a new stack frame is created. You can use the loadsp/storesp opcodes to load/store function argument/parameter data. Returning, of course, destroys the stack frame.
+* ~~call stack for functions. Supports function calls from function calls! (unless you overflow the call stack...)~~ Call stack has been merged into the overall Stack. When you do a function call, a new stack frame is created. You can use the loadsp/storesp opcodes to load/store function argument/parameter data. Returning destroys the stack frame as usual.
 * It's Turing Complete! (lol)
 * VM is little-endian.
-
-### V2 Instruction Set.
- - nop - does nothing.
- 
- - pushl - push 4-byte data to top of stack (TOS).
- - pushs - push 2-byte data to TOS.
- - pushb - push a byte to TOS.
- - pushsp - push current stack pointer index to TOS.
- - puship - push current instruction pointer index to TOS.
- - pushbp - pushes the frame pointer to TOS.
- 
- - popl - pops 4 bytes from TOS.
- - pops - pops 2 bytes from TOS.
- - popb - pops byte from TOS.
- - popsp - pops 4 bytes from TOS and sets that as the current stack pointer.
- - popip - pops 4 bytes from TOS and sets that as the current instruction pointer.
- - popbp - pops 4 bytes from TOS as the new frame pointer.
- 
- - wrtl - writes 4 bytes to a memory address.
- - wrts - writes 2 bytes to a memory address.
- - wrtb - writes a byte to a memory address.
- 
- - storel - pops 4 bytes from TOS and stores to a memory address.
- - stores - pops 2 bytes from TOS and stores to a memory address.
- - storeb - pop a byte from TOS and stores to a memory address.
- 
- - storela - pops 4 bytes from TOS, uses that as memory address, then pops another 4 bytes and stores into the address.
- - storesa - pops 4 bytes from tos as memory address, pops another 2 bytes into that address.
- - storeba - pops 4 bytes from tos as mem address, pops a byte into that address.
- 
- - storespl - pops a stack address, then pops 4 bytes from TOS into said address in the stack.
- - storesps - pops stack addr, then pops 2 bytes from TOS into said address in the stack.
- - storespb - pop stack addr, then pops a byte from TOS into said address in the stack.
- 
- - loadl - puts 4 bytes from memory into TOS.
- - loads - puts 2 bytes from memory into TOS.
- - loadb - puts a byte from memory into TOS.
- 
- - loadla - pops 4 bytes as a memory address, pushes the 4 bytes of data from the memory address to TOS.
- - loadsa - pops 4 bytes as memory address, pushes 2 bytes of data from address to TOS.
- - loadba - pops 4 bytes as memory address, pushes byte from address to TOS.
- 
- - loadspl - pushes 4 bytes of data from data stack address to TOS.
- - loadsps - pushes 2 bytes of data from data stack addr to TOS.
- - loadspb - pushes byte of data from data stk addr to TOS.
- 
- - copyl - copies the first 4 bytes of the TOS.
- - copys - copies the first 2 bytes of the TOS.
- - copyb - copies the first byte on the TOS.
- 
- - addl - signed 4-byte integer addition.
- - uaddl - unsigned 4-byte int addition.
- - addf - float addition.
- 
- - subl - signed 4-byte int subtraction
- - usubl - unsigned int subtract.
- - subf - float subtract.
- 
- - mull - signed int multiplication.
- - umull - unsigned int mult.
- - mulf - float mult.
- 
- - divl - signed int division. divide by zero causes immediate halt of vm.
- - udivl - unsigned int division. divide by zero causes immediate halt of vm.
- - divf - float division. divide by zero causes immediate halt of vm.
- 
- - modl - signed int modulo math.
- - umodl - unsigned int modulo.
- 
- - andl - bitwise AND operation.
- - orl - bitwise OR op.
- - xorl - bitwise XOR.
- - notl - bitwise NOT.
- - shl - bit shift left.
- - shr - bit shift right.
- 
- - incl - increment 4-bytes of data by 1.
- - incf - increments 4-byte float by 1.0.
- - decl - decrement 4-bytes of data by 1.
- - decf - decrement 4-byte float by 1.0.
- - negl - negates 4-byte integer.
- - negf - negates 4-byte float.
- 
- - ltl - signed int less than comparison.
- - ultl - unsigned int less than.
- - ltf - float less than compare.
- 
- - gtl - signed int greater than.
- - ugtl - unsigned int greater than.
- - gtf - float greater than.
- 
- - cmpl - signed int equality comparison.
- - ucmpl - unsigned int equality compare.
- - cmpf - float equality comparison.
- 
- - leql - signed int less than or equal comparison.
- - uleql - unsigned int lt or equal compare.
- - leqf - float less than or equal.
- 
- - geql - signed greater than or equal comparison.
- - ugeql - unsigned greater than or equal compare.
- - geqf - float greater than or equal.
- 
- - jmp - jumps to a different instruction address.
- - jzl - jump if zero, checks if the first 4 bytes of TOS is zero and jumps to the desired address.
- - jnzl - checks if first 4 bytes of TOS is not zero then jumps to desired address if not zero.
- 
- - call - jumps to an address of code and returns to original address if a `ret` opcode is executed.
- - calls - pops 4 bytes off TOS and jumps that code address. works similar to `call` but uses stack.
- - calla - pops 4 bytes off TOS as a memory address, retrives 4-byte datum from address, and jumps to the datum as a code address. works similar to `calls` but uses a function address stored in memory.
- 
- - ret - returns to an original instruction address after using `call` opcode for subroutines/procedures.
- - reset - halts execution of program and refreshes VM data to 0.
- - halt - stops all execution.
+* 
 
 ## TODO list
 - [x] ~~add call + ret instructions to support procedures.~~
