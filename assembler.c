@@ -415,5 +415,25 @@ int main ()
 		fwrite(test_factorial_recurs, sizeof(uint8_t), sizeof(test_factorial_recurs), pFile);
 		fclose(pFile);
 	}
+	
+	/*
+	bytecode test_native_noargs_noreturn = {
+		0xDE, 0xC0, 6,0,0,0,	// 0-5
+		callnat, halt,	//6-7
+	};
+	*/
+	bytecode test_native = {
+		0xDE, 0xC0, 6,0,0,0,	// 0-5
+		pushl,	64,160,0,0,
+		pushb,	127,
+		pushs,	0xff,0xff,
+		pushl,	0,0,0,200,
+		callnat, halt,	//6-7
+	};
+	pFile = fopen("./test_native.tagha", "wb");
+	if( pFile ) {
+		fwrite(test_native, sizeof(uint8_t), sizeof(test_native), pFile);
+		fclose(pFile);
+	}
 	return 0;
 }

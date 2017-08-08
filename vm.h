@@ -78,24 +78,24 @@ struct Taghavm;
 typedef struct Taghavm		TaghaVM_t;
 
 //	API to call C/C++ functions from scripts.
-typedef		void (*fnNative)(TaghaVM_t *restrict vm, void *retVal, void **arrParams, const uint argc);
+typedef		void (*fnNative)(TaghaVM_t *restrict vm);
 
 typedef struct native_info {
 	fnNative			fnpFunc;
 	const char			*strFuncName;
 	struct native_info	*pNext;
 } NativeInfo_t;
-
+/*
 typedef struct native_map {
 	NativeInfo_t	**arrpNatives;
 	uint			uiSize, uiCount;
 } NativeMap_t;
-
-int		tagha_register_funcs(TaghaVM_t *restrict vm, NativeInfo_t **Natives);
+*/
+//int	tagha_register_funcs(TaghaVM_t *restrict vm, NativeInfo_t *Natives);
 
 struct Taghavm {
 	uchar	*pbMemory, *pbStack, *pInstrStream;
-	NativeMap_t	**arrpNativeTable;
+	fnNative	fnpNative;
 	uint	ip, sp, bp;		// 12 bytes
 	uint	uiMaxInstrs;
 	bool	bSafeMode;
@@ -118,6 +118,7 @@ void	tagha_load_code(TaghaVM_t *restrict vm, char *restrict filename);
 void	tagha_reset(TaghaVM_t *vm);
 void	tagha_free(TaghaVM_t *vm);
 void	tagha_exec(TaghaVM_t *vm);
+int		tagha_register_func(TaghaVM_t *restrict vm, fnNative pNative);
 
 void	tagha_debug_print_ptrs(const TaghaVM_t *vm);
 void	tagha_debug_print_stack(const TaghaVM_t *vm);

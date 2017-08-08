@@ -58,6 +58,42 @@
 enum InstrSet { INSTR_SET };
 #undef X
 
+/* prototype ==> void PrintHelloWorld(void); */
+static void NativePrintHelloWorld(TaghaVM_t *restrict vm)
+{
+	if( !vm )
+		return;
+	
+	printf("hello world from bytecode!\n");
+}
+
+/* prototype ==> void TestArgs(int, short, char, float); */
+static void NativeTestArgs(TaghaVM_t *restrict vm)
+{
+	if( !vm )
+		return;
+	
+	int iInt = tagha_pop_long(vm);
+	printf("NativeTestArgs Int: %i\n", iInt); 
+	ushort sShort = tagha_pop_short(vm);
+	printf("NativeTestArgs uShort: %u\n", sShort); 
+	char cChar = tagha_pop_byte(vm);
+	printf("NativeTestArgs Char: %i\n", cChar); 
+	float fFloat = tagha_pop_float32(vm);
+	printf("NativeTestArgs Float: %f\n", fFloat); 
+}
+
+/* prototype ==> float TestArgs(void); */
+static void NativeTestRet(TaghaVM_t *restrict vm)
+{
+	if( !vm )
+		return;
+	
+	float f = 100.f;
+	printf("NativeTestRet: returning %f\n", f);
+	tagha_push_float32(vm, f);
+}
+
 static inline int is_bigendian()
 {
 	const int i=1;
@@ -68,6 +104,7 @@ static inline uint _tagha_get_imm4(TaghaVM_t *restrict vm)
 {
 	if( !vm )
 		return 0;
+		
 	union conv_union conv;
 	//	0x0A,0x0B,0x0C,0x0D,
 	conv.c[3] = vm->pInstrStream[++vm->ip];
@@ -1403,7 +1440,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 		}
 		exec_callnat:;	// call a native
 			// pop data and arg count possibly from VM?
-			// 
+			vm->fnpNative(vm);
 			DISPATCH();
 		
 		exec_reset:;
@@ -1422,7 +1459,11 @@ int main(int argc, char **argv)
 	
 	TaghaVM_t *vm = &(TaghaVM_t){ 0 };
 	tagha_init(vm);
-	tagha_load_code(vm, argv[1]);		tagha_exec(vm);	//tagha_free(vm);
+	tagha_load_code(vm, argv[1]);
+	//tagha_register_func(vm, NativePrintHelloWorld);
+	//tagha_register_func(vm, NativeTestArgs);
+	tagha_register_func(vm, NativeTestRet);
+	tagha_exec(vm);	//tagha_free(vm);
 	
 	//printf("instruction set amount == %u\n", nop);
 	/*

@@ -105,7 +105,7 @@ void tagha_reset(TaghaVM_t *vm)
 	vm->sp = vm->bp = 0;
 }
 
-
+/*
 int tagha_register_funcs(TaghaVM_t *restrict vm, NativeInfo_t **Natives)
 {
 	if( !vm or !Natives )
@@ -114,7 +114,15 @@ int tagha_register_funcs(TaghaVM_t *restrict vm, NativeInfo_t **Natives)
 	
 	return 1;
 }
-
+*/
+int tagha_register_func(TaghaVM_t *restrict vm, fnNative pNative)
+{
+	if( !vm or !pNative )
+		return 0;
+	
+	vm->fnpNative = pNative;
+	return 1;
+}
 
 void tagha_push_long(TaghaVM_t *restrict vm, const uint val)
 {
