@@ -28,11 +28,12 @@ void tagha_init(TaghaVM_t *restrict vm)
 	
 	vm->pbMemory = NULL;
 	vm->pbStack = NULL;
+	vm->fnpNative = NULL;
 	vm->bSafeMode = true;
 	
 	vm->ip = vm->sp = vm->bp = 0;
 	vm->pInstrStream = NULL;
-	vm->uiMaxInstrs = 500;	// helps to stop infinite/runaway loops
+	vm->uiMaxInstrs = 200;	// helps to stop infinite/runaway loops
 }
 
 void tagha_load_code(TaghaVM_t *restrict vm, char *restrict filename)
@@ -147,7 +148,6 @@ uint tagha_pop_long(TaghaVM_t *vm)
 		printf("tagha_pop_long reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
 		exit(1);
 	}
-	
 	union conv_union conv;
 	conv.c[3] = vm->pbStack[vm->sp--];
 	conv.c[2] = vm->pbStack[vm->sp--];
@@ -179,7 +179,6 @@ float tagha_pop_float32(TaghaVM_t *vm)
 		printf("tagha_pop_float32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
 		exit(1);
 	}
-	
 	union conv_union conv;
 	conv.c[3] = vm->pbStack[vm->sp--];
 	conv.c[2] = vm->pbStack[vm->sp--];
@@ -271,12 +270,15 @@ uint tagha_read_long(TaghaVM_t *restrict vm, const Word_t address)
 		printf("tagha_read_long reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
+	return( *(uint *)(vm->pbMemory + address) );
+	/*
 	union conv_union conv;
 	conv.c[0] = vm->pbMemory[address];
 	conv.c[1] = vm->pbMemory[address+1];
 	conv.c[2] = vm->pbMemory[address+2];
 	conv.c[3] = vm->pbMemory[address+3];
 	return conv.ui;
+	*/
 }
 void tagha_write_long(TaghaVM_t *restrict vm, const uint val, const Word_t address)
 {
@@ -286,13 +288,15 @@ void tagha_write_long(TaghaVM_t *restrict vm, const uint val, const Word_t addre
 		printf("tagha_write_long reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
-	
+	/*
 	union conv_union conv;
 	conv.ui = val;
 	vm->pbMemory[address] = conv.c[0];
 	vm->pbMemory[address+1] = conv.c[1];
 	vm->pbMemory[address+2] = conv.c[2];
 	vm->pbMemory[address+3] = conv.c[3];
+	*/
+	*(uint *)(vm->pbMemory + address) = val;
 	//printf("wrote %" PRIu32 " to address: %" PRIu32 "\n" );
 }
 
@@ -304,10 +308,13 @@ void tagha_write_short(TaghaVM_t *restrict vm, const ushort val, const Word_t ad
 		printf("tagha_write_short reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
+	/*
 	union conv_union conv;
 	conv.us = val;
 	vm->pbMemory[address] = conv.c[0];
 	vm->pbMemory[address+1] = conv.c[1];
+	*/
+	*(ushort *)(vm->pbMemory + address) = val;
 }
 
 ushort tagha_read_short(TaghaVM_t *restrict vm, const Word_t address)
@@ -318,10 +325,13 @@ ushort tagha_read_short(TaghaVM_t *restrict vm, const Word_t address)
 		printf("tagha_read_short reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
+	return( *(ushort *)(vm->pbMemory + address) );
+	/*
 	union conv_union conv;
 	conv.c[0] = vm->pbMemory[address];
 	conv.c[1] = vm->pbMemory[address+1];
 	return conv.us;
+	*/
 }
 
 uchar tagha_read_byte(TaghaVM_t *restrict vm, const Word_t address)
@@ -353,12 +363,15 @@ float tagha_read_float32(TaghaVM_t *restrict vm, const Word_t address)
 		printf("tagha_read_float32 reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
+	return( *(float *)(vm->pbMemory + address) );
+	/*
 	union conv_union conv;
 	conv.c[0] = vm->pbMemory[address];
 	conv.c[1] = vm->pbMemory[address+1];
 	conv.c[2] = vm->pbMemory[address+2];
 	conv.c[3] = vm->pbMemory[address+3];
 	return conv.f;
+	*/
 }
 void tagha_write_float32(TaghaVM_t *restrict vm, const float val, const Word_t address)
 {
@@ -368,12 +381,15 @@ void tagha_write_float32(TaghaVM_t *restrict vm, const float val, const Word_t a
 		printf("tagha_write_float32 reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
+	/*
 	union conv_union conv;
 	conv.f = val;
 	vm->pbMemory[address] = conv.c[0];
 	vm->pbMemory[address+1] = conv.c[1];
 	vm->pbMemory[address+2] = conv.c[2];
 	vm->pbMemory[address+3] = conv.c[3];
+	*/
+	*(float *)(vm->pbMemory + address) = val;
 }
 
 void tagha_read_nbytes(TaghaVM_t *restrict vm, void *restrict pBuffer, const uint bytesize, const Word_t address)
@@ -410,25 +426,81 @@ void tagha_write_nbytes(TaghaVM_t *restrict vm, void *restrict pItem, const uint
 }
 
 
+uint *tagha_addr2ptr_long(TaghaVM_t *restrict vm, const Word_t address)
+{
+	if( !vm )
+		return NULL;
+	else if( !vm->pbMemory )
+		return NULL;
+	
+	if( vm->bSafeMode and address > MEM_SIZE-4 ) {
+		printf("tagha_addr2ptr_long reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
+		exit(1);
+	}
+	return (uint *)(vm->pbMemory + address);
+}
+ushort *tagha_addr2ptr_short(TaghaVM_t *restrict vm, const Word_t address)
+{
+	if( !vm )
+		return NULL;
+	else if( !vm->pbMemory )
+		return NULL;
+	
+	if( vm->bSafeMode and address > MEM_SIZE-2 ) {
+		printf("tagha_addr2ptr_short reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
+		exit(1);
+	}
+	return (ushort *)(vm->pbMemory + address);
+}
+uchar *tagha_addr2ptr_byte(TaghaVM_t *restrict vm, const Word_t address)
+{
+	if( !vm )
+		return NULL;
+	else if( !vm->pbMemory )
+		return NULL;
+	
+	if( vm->bSafeMode and address > MEM_SIZE-1 ) {
+		printf("tagha_addr2ptr_byte reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
+		exit(1);
+	}
+	return( vm->pbMemory+address );
+}
+float *tagha_addr2ptr_float32(TaghaVM_t *restrict vm, const Word_t address)
+{
+	if( !vm )
+		return NULL;
+	else if( !vm->pbMemory )
+		return NULL;
+	
+	if( vm->bSafeMode and address > MEM_SIZE-4 ) {
+		printf("tagha_addr2ptr_float32 reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
+		exit(1);
+	}
+	return (float *)(vm->pbMemory + address);
+}
+
+
+
+
 void tagha_debug_print_memory(const TaghaVM_t *vm)
 {
 	if( !vm )
 		return;
-	if( !vm->pbMemory )
+	else if( !vm->pbMemory )
 		return;
 	
 	printf("DEBUG ...---===---... Printing Memory...\n");
 	uint i;
 	for( i=0 ; i<MEM_SIZE ; i++ )
 		if( vm->pbMemory[i] )
-			printf("Memory[0x%x] == 0x%x\n", i, vm->pbMemory[i]);
+			printf("Memory[0x%x] == %" PRIu32 "\n", i, vm->pbMemory[i]);
 	printf("\n");
 }
 void tagha_debug_print_stack(const TaghaVM_t *vm)
 {
 	if( !vm )
 		return;
-	if( !vm->pbStack )
+	else if( !vm->pbStack )
 		return;
 	
 	printf("DEBUG ...---===---... Printing Stack...\n");

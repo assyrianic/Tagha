@@ -70,15 +70,13 @@ typedef struct taghaheader {
 | text segment     |      low address
 +------------------+
 * 
-* but we're gonna do something different here since the stack, callstack, and memory are separate.
-* Plugins will have a similar layout but heap is replaced with callstack.
 */
 
 struct Taghavm;
 typedef struct Taghavm		TaghaVM_t;
 
 //	API to call C/C++ functions from scripts.
-typedef		void (*fnNative)(TaghaVM_t *restrict vm);
+typedef		void (*fnNative)(TaghaVM_t *restrict vm, const uchar argc, uchar *arrParams);
 
 typedef struct native_info {
 	fnNative			fnpFunc;
@@ -101,7 +99,7 @@ struct Taghavm {
 	bool	bSafeMode;
 };
 
-union conv_union {	// converter union.
+union conv_union {	// converter union. for convenience
 	uint	ui;
 	int		i;
 	float	f;
@@ -155,7 +153,10 @@ void	tagha_write_float32(TaghaVM_t *restrict vm, const float val, const Word_t a
 void	tagha_read_nbytes(TaghaVM_t *restrict vm, void *restrict pBuffer, const uint bytesize, const Word_t address);
 void	tagha_write_nbytes(TaghaVM_t *restrict vm, void *restrict pItem, const uint bytesize, const Word_t address);
 
-
+uint	*tagha_addr2ptr_long(TaghaVM_t *restrict vm, const Word_t address);
+ushort	*tagha_addr2ptr_short(TaghaVM_t *restrict vm, const Word_t address);
+uchar	*tagha_addr2ptr_byte(TaghaVM_t *restrict vm, const Word_t address);
+float	*tagha_addr2ptr_float32(TaghaVM_t *restrict vm, const Word_t address);
 
 
 #ifdef __cplusplus

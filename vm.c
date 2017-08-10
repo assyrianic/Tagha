@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <iso646.h>
 #include <inttypes.h>
+//#include <stdarg.h>
 #include <assert.h>
 #include "vm.h"
 
@@ -58,43 +59,7 @@
 enum InstrSet { INSTR_SET };
 #undef X
 
-/* prototype ==> void PrintHelloWorld(void); */
-static void NativePrintHelloWorld(TaghaVM_t *restrict vm)
-{
-	if( !vm )
-		return;
-	
-	printf("hello world from bytecode!\n");
-}
-
-/* prototype ==> void TestArgs(int, short, char, float); */
-static void NativeTestArgs(TaghaVM_t *restrict vm)
-{
-	if( !vm )
-		return;
-	
-	int iInt = tagha_pop_long(vm);
-	printf("NativeTestArgs Int: %i\n", iInt); 
-	ushort sShort = tagha_pop_short(vm);
-	printf("NativeTestArgs uShort: %u\n", sShort); 
-	char cChar = tagha_pop_byte(vm);
-	printf("NativeTestArgs Char: %i\n", cChar); 
-	float fFloat = tagha_pop_float32(vm);
-	printf("NativeTestArgs Float: %f\n", fFloat); 
-}
-
-/* prototype ==> float TestArgs(void); */
-static void NativeTestRet(TaghaVM_t *restrict vm)
-{
-	if( !vm )
-		return;
-	
-	float f = 100.f;
-	printf("NativeTestRet: returning %f\n", f);
-	tagha_push_float32(vm, f);
-}
-
-static inline int is_bigendian()
+static int is_bigendian()
 {
 	const int i=1;
 	return( (*(char *)&i) == 0 );
@@ -104,7 +69,6 @@ static inline uint _tagha_get_imm4(TaghaVM_t *restrict vm)
 {
 	if( !vm )
 		return 0;
-		
 	union conv_union conv;
 	//	0x0A,0x0B,0x0C,0x0D,
 	conv.c[3] = vm->pInstrStream[++vm->ip];
@@ -147,7 +111,6 @@ static inline uint _tagha_pop_long(TaghaVM_t *vm)
 		printf("tagha_pop_long reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
 		exit(1);
 	}
-	
 	union conv_union conv;
 	conv.c[3] = vm->pbStack[vm->sp--];
 	conv.c[2] = vm->pbStack[vm->sp--];
@@ -179,7 +142,6 @@ static inline float _tagha_pop_float32(TaghaVM_t *vm)
 		printf("tagha_pop_float32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
 		exit(1);
 	}
-	
 	union conv_union conv;
 	conv.c[3] = vm->pbStack[vm->sp--];
 	conv.c[2] = vm->pbStack[vm->sp--];
@@ -233,7 +195,6 @@ static inline uchar _tagha_pop_byte(TaghaVM_t *vm)
 		printf("tagha_pop_byte reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-1);
 		exit(1);
 	}
-	
 	return vm->pbStack[vm->sp--];
 }
 
@@ -271,12 +232,15 @@ static inline uint _tagha_read_long(TaghaVM_t *restrict vm, const Word_t address
 		printf("tagha_read_long reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
+	/*
 	union conv_union conv;
 	conv.c[0] = vm->pbMemory[address];
 	conv.c[1] = vm->pbMemory[address+1];
 	conv.c[2] = vm->pbMemory[address+2];
 	conv.c[3] = vm->pbMemory[address+3];
 	return conv.ui;
+	*/
+	return( *(uint *)(vm->pbMemory + address) );
 }
 static inline void _tagha_write_long(TaghaVM_t *restrict vm, const uint val, const Word_t address)
 {
@@ -286,14 +250,16 @@ static inline void _tagha_write_long(TaghaVM_t *restrict vm, const uint val, con
 		printf("tagha_write_long reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
-	
+	/*
 	union conv_union conv;
 	conv.ui = val;
 	vm->pbMemory[address] = conv.c[0];
 	vm->pbMemory[address+1] = conv.c[1];
 	vm->pbMemory[address+2] = conv.c[2];
 	vm->pbMemory[address+3] = conv.c[3];
+	*/
 	//printf("wrote %" PRIu32 " to address: %" PRIu32 "\n" );
+	*(uint *)(vm->pbMemory + address) = val;
 }
 
 static inline void _tagha_write_short(TaghaVM_t *restrict vm, const ushort val, const Word_t address)
@@ -304,10 +270,13 @@ static inline void _tagha_write_short(TaghaVM_t *restrict vm, const ushort val, 
 		printf("tagha_write_short reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
+	/*
 	union conv_union conv;
 	conv.us = val;
 	vm->pbMemory[address] = conv.c[0];
 	vm->pbMemory[address+1] = conv.c[1];
+	*/
+	*(ushort *)(vm->pbMemory + address) = val;
 }
 
 static inline ushort _tagha_read_short(TaghaVM_t *restrict vm, const Word_t address)
@@ -318,10 +287,13 @@ static inline ushort _tagha_read_short(TaghaVM_t *restrict vm, const Word_t addr
 		printf("tagha_read_short reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
+	/*
 	union conv_union conv;
 	conv.c[0] = vm->pbMemory[address];
 	conv.c[1] = vm->pbMemory[address+1];
 	return conv.us;
+	*/
+	return( *(ushort *)(vm->pbMemory + address) );
 }
 
 static inline uchar _tagha_read_byte(TaghaVM_t *restrict vm, const Word_t address)
@@ -353,12 +325,15 @@ static inline float _tagha_read_float32(TaghaVM_t *restrict vm, const Word_t add
 		printf("tagha_read_float32 reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
+	/*
 	union conv_union conv;
 	conv.c[0] = vm->pbMemory[address];
 	conv.c[1] = vm->pbMemory[address+1];
 	conv.c[2] = vm->pbMemory[address+2];
 	conv.c[3] = vm->pbMemory[address+3];
 	return conv.f;
+	*/
+	return( *(float *)(vm->pbMemory + address) );
 }
 static inline void _tagha_write_float32(TaghaVM_t *restrict vm, const float val, const Word_t address)
 {
@@ -368,12 +343,15 @@ static inline void _tagha_write_float32(TaghaVM_t *restrict vm, const float val,
 		printf("tagha_write_float32 reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
+	/*
 	union conv_union conv;
 	conv.f = val;
 	vm->pbMemory[address] = conv.c[0];
 	vm->pbMemory[address+1] = conv.c[1];
 	vm->pbMemory[address+2] = conv.c[2];
 	vm->pbMemory[address+3] = conv.c[3];
+	*/
+	*(float *)(vm->pbMemory + address) = val;
 }
 
 static inline void _tagha_read_nbytes(TaghaVM_t *restrict vm, void *restrict pBuffer, const uint bytesize, const Word_t address)
@@ -408,6 +386,8 @@ static inline void _tagha_write_nbytes(TaghaVM_t *restrict vm, void *restrict pI
 		vm->pbMemory[addr++] = ((uchar *)pItem)[i++];
 	}
 }
+
+
 
 static inline uint _tagha_peek_long(TaghaVM_t *vm)
 {
@@ -1438,61 +1418,24 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			printf("retxurning to address: %" PRIu32 "\n", vm->ip);
 			continue;
 		}
-		exec_callnat:;	// call a native
+		exec_callnat:; {	// call a native
 			// pop data and arg count possibly from VM?
-			vm->fnpNative(vm);
+			if( !vm->fnpNative ) {
+				printf("exec_callnat reported: no registered native! Current instruction address: %" PRIu32 "\n", vm->ip);
+				goto *dispatch[halt];
+			}
+			// how many bytes to push to native.
+			uchar bytes = vm->pInstrStream[++vm->ip];
+			// how many arguments pushed as native args
+			uchar argcount = vm->pInstrStream[++vm->ip];
+			uchar params[bytes];
+			_tagha_pop_nbytes(vm, params, bytes);
+			vm->fnpNative(vm, argcount, params);
 			DISPATCH();
-		
+		}
 		exec_reset:;
 			tagha_reset(vm);
 			DISPATCH();
-	}
+	} /* while */
 	printf("tagha_exec :: max instructions reached\n");
 }
-
-int main(int argc, char **argv)
-{
-	if( !argv[1] ) {
-		printf("[TaghaVM Usage]: './TaghaVM' '.tagha file' \n");
-		return 1;
-	}
-	
-	TaghaVM_t *vm = &(TaghaVM_t){ 0 };
-	tagha_init(vm);
-	tagha_load_code(vm, argv[1]);
-	//tagha_register_func(vm, NativePrintHelloWorld);
-	//tagha_register_func(vm, NativeTestArgs);
-	tagha_register_func(vm, NativeTestRet);
-	tagha_exec(vm);	//tagha_free(vm);
-	
-	//printf("instruction set amount == %u\n", nop);
-	/*
-	// Hello World is approximately 12 chars if u count NULL-term
-	
-	char buffer[12];
-	tagha_write_nbytes(vm, "Hello World", 12, 0x0);
-	tagha_read_nbytes(vm, buffer, 12, 0x0);
-	printf("read/write array test == %s\n", buffer);
-	*/
-	
-	/*
-	struct kek {
-		long long int lli;
-		short shrt;
-		char ic;
-	};
-	struct kek *test = &(struct kek){500, 6436, 127};
-	
-	tagha_push_nbytes(vm, test, sizeof(struct kek));
-	struct kek test2;
-	tagha_pop_nbytes(vm, &test2, sizeof(struct kek));
-	printf("test2 data: lli:%lli , shrt: %i , ic:%i\n", test2.lli, test2.shrt, test2.ic);
-	*/
-	tagha_debug_print_memory(vm);
-	tagha_debug_print_stack(vm);
-	tagha_free(vm);
-	//tagha_debug_print_ptrs(p_vm);
-	//free(program); program=NULL;
-	return 0;
-}
-

@@ -190,7 +190,7 @@ int main ()
 	
 	
 	bytecode test_call_opcodes = {
-		0xDE,	0xC0, 6,0,0,0,	// 0
+		0xDE, 0xC0, 6,0,0,0,	// 0
 		call,	0,0,0,33,
 		pushl,	0,0,0,39,	//11
 		calls,	//16
@@ -415,20 +415,30 @@ int main ()
 		fwrite(test_factorial_recurs, sizeof(uint8_t), sizeof(test_factorial_recurs), pFile);
 		fclose(pFile);
 	}
-	
 	/*
-	bytecode test_native_noargs_noreturn = {
+	bytecode test_native = {
 		0xDE, 0xC0, 6,0,0,0,	// 0-5
-		callnat, halt,	//6-7
+		pushl,	0,0,0,5,
+		callnat,	4,1,	// #1 - bytes to push, #2 - number of args
+		halt,
 	};
 	*/
+	/*
 	bytecode test_native = {
 		0xDE, 0xC0, 6,0,0,0,	// 0-5
 		pushl,	64,160,0,0,
 		pushb,	127,
 		pushs,	0xff,0xff,
 		pushl,	0,0,0,200,
-		callnat, halt,	//6-7
+		callnat, 4, halt,	//6-7
+	};*/
+	bytecode test_native = {
+		0xDE, 0xC0, 6,0,0,0,	// 0-5
+		pushl,	0,0,0,50,	// ammo
+		pushl,	0,0,0,100,	// health
+		pushl,	67,150,0,0,	// speed
+		callnat,	12,1,	// #1 - bytes to push, #2 - number of args
+		halt,
 	};
 	pFile = fopen("./test_native.tagha", "wb");
 	if( pFile ) {
