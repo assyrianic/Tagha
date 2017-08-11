@@ -28,7 +28,6 @@ extern "C" {
 
 #define WORD_SIZE		4
 #define STK_SIZE		(512 * WORD_SIZE)		// 2,048 bytes or 2kb
-#define CALLSTK_SIZE	256						// 1,024 bytes
 #define MEM_SIZE		(16384 * WORD_SIZE)		// 65,536 bytes or 65kb of memory
 #define NULL_ADDRESS	0xFFFFFFFF				// all NULL pointers should have this value
 
@@ -76,7 +75,7 @@ struct Taghavm;
 typedef struct Taghavm		TaghaVM_t;
 
 //	API to call C/C++ functions from scripts.
-typedef		void (*fnNative)(TaghaVM_t *restrict vm, const uchar argc, uchar *arrParams);
+typedef		void (*fnNative)(TaghaVM_t *restrict vm, const uchar argc, const uint bytes, uchar *arrParams);
 
 typedef struct native_info {
 	fnNative			fnpFunc;
@@ -122,8 +121,8 @@ void	tagha_debug_print_ptrs(const TaghaVM_t *vm);
 void	tagha_debug_print_stack(const TaghaVM_t *vm);
 void	tagha_debug_print_memory(const TaghaVM_t *vm);
 
-void	tagha_push_long(TaghaVM_t *restrict vm, const uint val);
-uint	tagha_pop_long(TaghaVM_t *vm);
+void	tagha_push_int32(TaghaVM_t *restrict vm, const uint val);
+uint	tagha_pop_int32(TaghaVM_t *vm);
 
 void	tagha_push_float32(TaghaVM_t *restrict vm, const float val);
 float	tagha_pop_float32(TaghaVM_t *vm);
@@ -134,12 +133,12 @@ ushort	tagha_pop_short(TaghaVM_t *vm);
 void	tagha_push_byte(TaghaVM_t *restrict vm, const uchar val);
 uchar	tagha_pop_byte(TaghaVM_t *vm);
 
-void	tagha_push_nbytes(TaghaVM_t *restrict vm, void *restrict pItem, const uint bytesize);
-void	tagha_pop_nbytes(TaghaVM_t *restrict vm, void *restrict pBuffer, const uint bytesize);
+void	tagha_push_nbytes(TaghaVM_t *restrict vm, void *restrict pItem, const Word_t bytesize);
+void	tagha_pop_nbytes(TaghaVM_t *restrict vm, void *restrict pBuffer, const Word_t bytesize);
 
 
-uint	tagha_read_long(TaghaVM_t *restrict vm, const Word_t address);
-void	tagha_write_long(TaghaVM_t *restrict vm, const uint val, const Word_t address);
+uint	tagha_read_int32(TaghaVM_t *restrict vm, const Word_t address);
+void	tagha_write_int32(TaghaVM_t *restrict vm, const uint val, const Word_t address);
 
 ushort	tagha_read_short(TaghaVM_t *restrict vm, const Word_t address);
 void	tagha_write_short(TaghaVM_t *restrict vm, const ushort val, const Word_t address);
@@ -150,13 +149,18 @@ void	tagha_write_byte(TaghaVM_t *restrict vm, const uchar val, const Word_t addr
 float	tagha_read_float32(TaghaVM_t *restrict vm, const Word_t address);
 void	tagha_write_float32(TaghaVM_t *restrict vm, const float val, const Word_t address);
 
-void	tagha_read_nbytes(TaghaVM_t *restrict vm, void *restrict pBuffer, const uint bytesize, const Word_t address);
-void	tagha_write_nbytes(TaghaVM_t *restrict vm, void *restrict pItem, const uint bytesize, const Word_t address);
+void	tagha_read_nbytes(TaghaVM_t *restrict vm, void *restrict pBuffer, const Word_t bytesize, const Word_t address);
+void	tagha_write_nbytes(TaghaVM_t *restrict vm, void *restrict pItem, const Word_t bytesize, const Word_t address);
 
-uint	*tagha_addr2ptr_long(TaghaVM_t *restrict vm, const Word_t address);
+uint	*tagha_addr2ptr_int32(TaghaVM_t *restrict vm, const Word_t address);
 ushort	*tagha_addr2ptr_short(TaghaVM_t *restrict vm, const Word_t address);
 uchar	*tagha_addr2ptr_byte(TaghaVM_t *restrict vm, const Word_t address);
 float	*tagha_addr2ptr_float32(TaghaVM_t *restrict vm, const Word_t address);
+
+uint	*tagha_stkaddr2ptr_int32(TaghaVM_t *restrict vm, const Word_t address);
+ushort	*tagha_stkaddr2ptr_short(TaghaVM_t *restrict vm, const Word_t address);
+uchar	*tagha_stkaddr2ptr_byte(TaghaVM_t *restrict vm, const Word_t address);
+float	*tagha_stkaddr2ptr_float32(TaghaVM_t *restrict vm, const Word_t address);
 
 
 #ifdef __cplusplus

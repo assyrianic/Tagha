@@ -42,11 +42,9 @@
 	X(mull) X(umull) X(mulf) \
 	X(divl) X(udivl) X(divf) \
 	X(modl) X(umodl) \
-	X(andl) X(orl) X(xorl) \
-	X(notl) X(shll) X(shrl) \
+	X(andl) X(orl) X(xorl) X(notl) X(shll) X(shrl) \
 	X(incl) X(incf) X(decl) X(decf) X(negl) X(negf) \
-	X(ltl) X(ultl) X(ltf) \
-	X(gtl) X(ugtl) X(gtf) \
+	X(ltl) X(ultl) X(ltf) X(gtl) X(ugtl) X(gtf) \
 	X(cmpl) X(ucmpl) X(compf) \
 	X(leql) X(uleql) X(leqf) \
 	X(geql) X(ugeql) X(geqf) \
@@ -88,12 +86,12 @@ static inline ushort _tagha_get_imm2(TaghaVM_t *restrict vm)
 	return conv.us;
 }
 
-static inline void _tagha_push_long(TaghaVM_t *restrict vm, const uint val)
+static inline void _tagha_push_int32(TaghaVM_t *restrict vm, const uint val)
 {
 	if( !vm )
 		return;
 	if( vm->bSafeMode and (vm->sp+4) >= STK_SIZE ) {
-		printf("tagha_push_long reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+4);
+		printf("tagha_push_int32 reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+4);
 		exit(1);
 	}
 	union conv_union conv;
@@ -103,12 +101,12 @@ static inline void _tagha_push_long(TaghaVM_t *restrict vm, const uint val)
 	vm->pbStack[++vm->sp] = conv.c[2];
 	vm->pbStack[++vm->sp] = conv.c[3];
 }
-static inline uint _tagha_pop_long(TaghaVM_t *vm)
+static inline uint _tagha_pop_int32(TaghaVM_t *vm)
 {
 	if( !vm )
 		return 0;
 	if( vm->bSafeMode and (vm->sp-4) >= STK_SIZE ) {	// we're subtracting, did we integer underflow?
-		printf("tagha_pop_long reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
+		printf("tagha_pop_int32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
 		exit(1);
 	}
 	union conv_union conv;
@@ -198,7 +196,7 @@ static inline uchar _tagha_pop_byte(TaghaVM_t *vm)
 	return vm->pbStack[vm->sp--];
 }
 
-static inline void _tagha_push_nbytes(TaghaVM_t *restrict vm, void *restrict pItem, uint bytesize)
+static inline void _tagha_push_nbytes(TaghaVM_t *restrict vm, void *restrict pItem, const Word_t bytesize)
 {
 	if( !vm )
 		return;
@@ -206,11 +204,11 @@ static inline void _tagha_push_nbytes(TaghaVM_t *restrict vm, void *restrict pIt
 		printf("tagha_push_nbytes reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+1);
 		exit(1);
 	}
-	uint i=0;
+	Word_t i=0;
 	for( i=0 ; i<bytesize ; i++ )
 		vm->pbStack[++vm->sp] = ((uchar *)pItem)[i];
 }
-static inline void _tagha_pop_nbytes(TaghaVM_t *restrict vm, void *restrict pBuffer, const uint bytesize)
+static inline void _tagha_pop_nbytes(TaghaVM_t *restrict vm, void *restrict pBuffer, const Word_t bytesize)
 {
 	if( !vm )
 		return;
@@ -218,18 +216,18 @@ static inline void _tagha_pop_nbytes(TaghaVM_t *restrict vm, void *restrict pBuf
 		printf("tagha_pop_nbytes reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+1);
 		exit(1);
 	}
-	uint i=0;
+	Word_t i=0;
 	// should stop when the integer underflows
 	for( i=bytesize-1 ; i<bytesize ; i-- )
 		((uchar *)pBuffer)[i] = vm->pbStack[vm->sp--];
 }
 
-static inline uint _tagha_read_long(TaghaVM_t *restrict vm, const Word_t address)
+static inline uint _tagha_read_int32(TaghaVM_t *restrict vm, const Word_t address)
 {
 	if( !vm )
 		return 0;
 	if( vm->bSafeMode and address > MEM_SIZE-4 ) {
-		printf("tagha_read_long reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
+		printf("tagha_read_int32 reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
 	/*
@@ -242,12 +240,12 @@ static inline uint _tagha_read_long(TaghaVM_t *restrict vm, const Word_t address
 	*/
 	return( *(uint *)(vm->pbMemory + address) );
 }
-static inline void _tagha_write_long(TaghaVM_t *restrict vm, const uint val, const Word_t address)
+static inline void _tagha_write_int32(TaghaVM_t *restrict vm, const uint val, const Word_t address)
 {
 	if( !vm )
 		return;
 	if( vm->bSafeMode and address > MEM_SIZE-4 ) {
-		printf("tagha_write_long reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
+		printf("tagha_write_int32 reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
 	/*
@@ -354,13 +352,13 @@ static inline void _tagha_write_float32(TaghaVM_t *restrict vm, const float val,
 	*(float *)(vm->pbMemory + address) = val;
 }
 
-static inline void _tagha_read_nbytes(TaghaVM_t *restrict vm, void *restrict pBuffer, const uint bytesize, const Word_t address)
+static inline void _tagha_read_nbytes(TaghaVM_t *restrict vm, void *restrict pBuffer, const Word_t bytesize, const Word_t address)
 {
 	if( !vm )
 		return;
 	
 	Word_t	addr = address;
-	uint	i=0;
+	Word_t	i=0;
 	while( i<bytesize ) {
 		if( vm->bSafeMode and addr >= MEM_SIZE-i ) {
 			printf("tagha_read_array reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, addr);
@@ -370,13 +368,13 @@ static inline void _tagha_read_nbytes(TaghaVM_t *restrict vm, void *restrict pBu
 		//buffer[i++] = vm->pbMemory[addr++];
 	}
 }
-static inline void _tagha_write_nbytes(TaghaVM_t *restrict vm, void *restrict pItem, const uint bytesize, const Word_t address)
+static inline void _tagha_write_nbytes(TaghaVM_t *restrict vm, void *restrict pItem, const Word_t bytesize, const Word_t address)
 {
 	if( !vm )
 		return;
 	
 	Word_t	addr = address;
-	uint	i=0;
+	Word_t	i=0;
 	while( i<bytesize ) {
 		if( vm->bSafeMode and addr >= MEM_SIZE+i ) {
 			printf("tagha_write_array reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, addr);
@@ -389,12 +387,12 @@ static inline void _tagha_write_nbytes(TaghaVM_t *restrict vm, void *restrict pI
 
 
 
-static inline uint _tagha_peek_long(TaghaVM_t *vm)
+static inline uint _tagha_peek_int32(TaghaVM_t *vm)
 {
 	if( !vm )
 		return 0;
 	if( vm->bSafeMode and (vm->sp-3) >= STK_SIZE ) {
-		printf("Tagha_peek_long reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-3);
+		printf("Tagha_peek_int32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-3);
 		exit(1);
 	}
 	union conv_union conv;
@@ -456,7 +454,8 @@ void tagha_exec(TaghaVM_t *restrict vm)
 		return;
 	
 	union conv_union conv;
-	uint b,a;
+	Word_t b,a;
+	// uint ib, ia;
 	float fb,fa;
 	ushort sb,sa;
 	uchar cb,ca;
@@ -504,7 +503,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 		exec_pushl:;	// push 4 bytes onto the stack
 			conv.ui = _tagha_get_imm4(vm);
 			printf("pushl: pushed %" PRIu32 "\n", conv.ui);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_pushs:;	// push 2 bytes onto the stack
@@ -523,46 +522,46 @@ void tagha_exec(TaghaVM_t *restrict vm)
 		
 		exec_pushsp:;	// push sp onto the stack, uses 4 bytes since 'sp' is uint32
 			conv.ui = vm->sp;
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			printf("pushsp: pushed sp index: %" PRIu32 "\n", conv.ui);
 			DISPATCH();
 		
 		exec_puship:;
 			conv.ui = vm->ip;
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			printf("puship: pushed ip index: %" PRIu32 "\n", conv.ui);
 			DISPATCH();
 		
 		exec_pushbp:;
-			_tagha_push_long(vm, vm->bp);
+			_tagha_push_int32(vm, vm->bp);
 			printf("pushbp: pushed bp index: %" PRIu32 "\n", vm->bp);
 			DISPATCH();
 		
 		exec_pushspadd:;
 			a = vm->sp;
-			b = _tagha_pop_long(vm);
-			_tagha_push_long(vm, a+b);
+			b = _tagha_pop_int32(vm);
+			_tagha_push_int32(vm, a+b);
 			printf("pushspadd: added sp with %" PRIu32 ", result: %" PRIu32 "\n", b, a+b);
 			DISPATCH();
 			
 		exec_pushspsub:;
 			a = vm->sp;
-			b = _tagha_pop_long(vm);
-			_tagha_push_long(vm, a-b);
+			b = _tagha_pop_int32(vm);
+			_tagha_push_int32(vm, a-b);
 			printf("pushspsub: subbed sp with %" PRIu32 ", result: %" PRIu32 "\n", b, a-b);
 			DISPATCH();
 		
 		exec_pushbpadd:;
 			a = vm->bp;
-			b = _tagha_pop_long(vm);
-			_tagha_push_long(vm, a-b);
+			b = _tagha_pop_int32(vm);
+			_tagha_push_int32(vm, a-b);
 			printf("pushbpadd: added bp with %" PRIu32 ", result: %" PRIu32 "\n", b, a-b);
 			DISPATCH();
 		
 		exec_pushbpsub:;
 			a = vm->bp;
-			b = _tagha_pop_long(vm);
-			_tagha_push_long(vm, a-b);
+			b = _tagha_pop_int32(vm);
+			_tagha_push_int32(vm, a-b);
 			printf("pushbpsub: subbed bp with %" PRIu32 ", result: %" PRIu32 "\n", b, a-b);
 			DISPATCH();
 		
@@ -594,17 +593,17 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 			
 		exec_popsp:;
-			vm->sp = _tagha_pop_long(vm);
+			vm->sp = _tagha_pop_int32(vm);
 			printf("popsp: sp is now %" PRIu32 " bytes.\n", vm->sp);
 			DISPATCH();
 			
 		exec_popbp:;
-			vm->bp = _tagha_pop_long(vm);
+			vm->bp = _tagha_pop_int32(vm);
 			printf("popbp: bp is now %" PRIu32 " bytes.\n", vm->bp);
 			DISPATCH();
 			
 		exec_popip:;
-			vm->ip = _tagha_pop_long(vm);
+			vm->ip = _tagha_pop_int32(vm);
 			printf("popip: ip is now at address: %" PRIu32 ".\n", vm->ip);
 			continue;
 		
@@ -707,7 +706,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 		 * storela
 		*/
 		exec_storela:;
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			if( vm->bSafeMode and a > MEM_SIZE-4 ) {
 				printf("exec_storela reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
 				goto *dispatch[halt];
@@ -728,7 +727,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_storesa:;
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			if( vm->bSafeMode and a > MEM_SIZE-2 ) {
 				printf("exec_storesa reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
 				goto *dispatch[halt];
@@ -745,7 +744,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_storeba:;
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			if( vm->bSafeMode and a >= MEM_SIZE ) {
 				printf("exec_storeba reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
 				goto *dispatch[halt];
@@ -811,7 +810,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_loadla:;
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			if( vm->bSafeMode and a > MEM_SIZE-4 ) {
 				printf("exec_loadla reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
 				goto *dispatch[halt];
@@ -832,7 +831,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_loadsa:;
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			if( vm->bSafeMode and a > MEM_SIZE-2 ) {
 				printf("exec_loadsa reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
 				goto *dispatch[halt];
@@ -849,7 +848,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_loadba:;
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			if( vm->bSafeMode and a > MEM_SIZE ) {
 				printf("exec_loadba reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
 				goto *dispatch[halt];
@@ -863,7 +862,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_loadspl:;
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			if( vm->bSafeMode and (a-3) >= STK_SIZE ) {
 				printf("exec_loadspl reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, a-3);
 				goto *dispatch[halt];
@@ -872,12 +871,12 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			conv.c[2] = vm->pbStack[a-1];
 			conv.c[1] = vm->pbStack[a-2];
 			conv.c[0] = vm->pbStack[a-3];
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			printf("loaded 4-byte SP address data to T.O.S. - %" PRIu32 " from sp address 0x%x\n", conv.ui, a);
 			DISPATCH();
 		
 		exec_loadsps:;
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			if( vm->bSafeMode and (a-1) >= STK_SIZE ) {
 				printf("exec_loadsps reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, a-1);
 				goto *dispatch[halt];
@@ -889,7 +888,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_loadspb:;
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			if( vm->bSafeMode and a >= STK_SIZE ) {
 				printf("exec_loadspb reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, a);
 				goto *dispatch[halt];
@@ -900,12 +899,12 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_storespl:;		// store TOS into another part of the data stack.
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			if( vm->bSafeMode and a-3 >= STK_SIZE ) {
 				printf("exec_storespl reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, a-3);
 				goto *dispatch[halt];
 			}
-			conv.ui = _tagha_pop_long(vm);
+			conv.ui = _tagha_pop_int32(vm);
 			vm->pbStack[a] = conv.c[3];
 			vm->pbStack[a-1] = conv.c[2];
 			vm->pbStack[a-2] = conv.c[1];
@@ -914,7 +913,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_storesps:;
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			if( vm->bSafeMode and a-1 >= STK_SIZE ) {
 				printf("exec_storesps reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, a-1);
 				goto *dispatch[halt];
@@ -926,7 +925,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_storespb:;
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			if( vm->bSafeMode and a >= STK_SIZE ) {
 				printf("exec_storespb reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, a);
 				goto *dispatch[halt];
@@ -945,7 +944,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			conv.c[2] = vm->pbStack[vm->sp-1];
 			conv.c[3] = vm->pbStack[vm->sp];
 			printf("copied int data from T.O.S. - %" PRIu32 "\n", conv.ui);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_copys:;
@@ -973,19 +972,19 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_addl:;		// pop 8 bytes, signed addition, and push 4 byte result to top of stack
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.i = (int)a + (int)b;
 			printf("signed 4 byte addition result: %i == %i + %i\n", conv.i, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_uaddl:;	// In C, all integers in an expression are promoted to int32, if number is bigger then uint32 or int64
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = a+b;
 			printf("unsigned 4 byte addition result: %u == %u + %u\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_addf:;
@@ -997,19 +996,19 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_subl:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.i = (int)a - (int)b;
 			printf("signed 4 byte subtraction result: %i == %i - %i\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_usubl:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = a-b;
 			printf("unsigned 4 byte subtraction result: %" PRIu32 " == %" PRIu32 " - %" PRIu32 "\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_subf:;
@@ -1021,19 +1020,19 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_mull:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.i = (int)a * (int)b;
 			printf("signed 4 byte mult result: %i == %i * %i\n", conv.i, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_umull:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = a*b;
 			printf("unsigned 4 byte mult result: %" PRIu32 " == %" PRIu32 " * %" PRIu32 "\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_mulf:;
@@ -1045,27 +1044,27 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_divl:;
-			b = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
 			if( !b ) {
 				printf("divl: divide by 0 error.\n");
 				goto *dispatch[halt];
 			}
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			conv.i = (int)a / (int)b;
 			printf("signed 4 byte division result: %i == %i / %i\n", conv.i, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_udivl:;
-			b = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
 			if( !b ) {
 				printf("udivl: divide by 0 error.\n");
 				goto *dispatch[halt];
 			}
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = a/b;
 			printf("unsigned 4 byte division result: %" PRIu32 " == %" PRIu32 " / %" PRIu32 "\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_divf:;
@@ -1081,81 +1080,81 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_modl:;
-			b = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
 			if( !b ) {
 				printf("modl: divide by 0 error.\n");
 				goto *dispatch[halt];
 			}
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			conv.i = (int)a % (int)b;
 			printf("signed 4 byte modulo result: %i == %i %% %i\n", conv.i, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_umodl:;
-			b = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
 			if( !b ) {
 				printf("umodl: divide by 0 error.\n");
 				goto *dispatch[halt];
 			}
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = a % b;
 			printf("unsigned 4 byte modulo result: %" PRIu32 " == %" PRIu32 " %% %" PRIu32 "\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_andl:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = a & b;
 			printf("4 byte AND result: %" PRIu32 " == %u & %u\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_orl:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = a | b;
 			printf("4 byte OR result: %" PRIu32 " == %u | %u\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_xorl:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = a ^ b;
 			printf("4 byte XOR result: %" PRIu32 " == %u ^ %u\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_notl:;
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = ~a;
 			printf("4 byte NOT result: %" PRIu32 "\n", conv.ui);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_shll:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = a << b;
 			printf("4 byte Shift Left result: %" PRIu32 " == %u << %u\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_shrl:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = a >> b;
 			printf("4 byte Shift Right result: %" PRIu32 " == %u >> %u\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_incl:;
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = ++a;
 			printf("4 byte Increment result: %" PRIu32 "\n", conv.ui);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_incf:;
@@ -1166,10 +1165,10 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_decl:;
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = --a;
 			printf("4 byte Decrement result: %" PRIu32 "\n", conv.ui);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_decf:;
@@ -1180,10 +1179,10 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_negl:;
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = -a;
 			printf("4 byte Negate result: %" PRIu32 "\n", conv.ui);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 			
 		exec_negf:;
@@ -1194,19 +1193,19 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_ltl:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = (int)a < (int)b;
 			printf("4 byte Signed Less Than result: %" PRIu32 " == %i < %i\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_ultl:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = a < b;
 			printf("4 byte Unsigned Less Than result: %" PRIu32 " == %" PRIu32 " < %" PRIu32 "\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_ltf:;
@@ -1218,19 +1217,19 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_gtl:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = (int)a > (int)b;
 			printf("4 byte Signed Greater Than result: %" PRIu32 " == %i > %i\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_ugtl:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = a > b;
 			printf("4 byte Signed Greater Than result: %" PRIu32 " == %" PRIu32 " > %" PRIu32 "\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_gtf:;
@@ -1242,19 +1241,19 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_cmpl:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = (int)a == (int)b;
 			printf("4 byte Signed Compare result: %" PRIu32 " == %i == %i\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_ucmpl:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = a == b;
 			printf("4 byte Unsigned Compare result: %" PRIu32 " == %" PRIu32 " == %" PRIu32 "\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_compf:;
@@ -1266,19 +1265,19 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_leql:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = (int)a <= (int)b;
 			printf("4 byte Signed Less Equal result: %" PRIu32 " == %i <= %i\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_uleql:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = a <= b;
 			printf("4 byte Unsigned Less Equal result: %" PRIu32 " == %" PRIu32 " <= %" PRIu32 "\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_leqf:;
@@ -1290,19 +1289,19 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			DISPATCH();
 		
 		exec_geql:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = (int)a >= (int)b;
 			printf("4 byte Signed Greater Equal result: %" PRIu32 " == %i >= %i\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_ugeql:;
-			b = _tagha_pop_long(vm);
-			a = _tagha_pop_long(vm);
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
 			conv.ui = a >= b;
 			printf("4 byte Unsigned Greater Equal result: %" PRIu32 " == %" PRIu32 " >= %" PRIu32 "\n", conv.ui, a,b);
-			_tagha_push_long(vm, conv.ui);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_geqf:;
@@ -1352,32 +1351,32 @@ void tagha_exec(TaghaVM_t *restrict vm)
 		exec_call:;		// support functions
 			conv.ui = _tagha_get_imm4(vm);	// get func address
 			printf("call: calling address: %" PRIu32 "\n", conv.ui);
-			_tagha_push_long(vm, vm->ip+1);	// save return address.
-			printf("call return addr: %" PRIu32 "\n", _tagha_peek_long(vm));
-			_tagha_push_long(vm, vm->bp);	// push ebp;
+			_tagha_push_int32(vm, vm->ip+1);	// save return address.
+			printf("call return addr: %" PRIu32 "\n", _tagha_peek_int32(vm));
+			_tagha_push_int32(vm, vm->bp);	// push ebp;
 			vm->bp = vm->sp;	// mov ebp, esp;
 			vm->ip = conv.ui;	// jump to instruction
 			printf("vm->bp: %" PRIu32 "\n", vm->sp);
 			continue;
 		
 		exec_calls:;	// support local function pointers
-			conv.ui = _tagha_pop_long(vm);	// get func address
+			conv.ui = _tagha_pop_int32(vm);	// get func address
 			printf("calls: calling address: %" PRIu32 "\n", conv.ui);
-			_tagha_push_long(vm, vm->ip+1);	// save return address.
-			printf("call return addr: %" PRIu32 "\n", _tagha_peek_long(vm));
-			_tagha_push_long(vm, vm->bp);	// push ebp
+			_tagha_push_int32(vm, vm->ip+1);	// save return address.
+			printf("call return addr: %" PRIu32 "\n", _tagha_peek_int32(vm));
+			_tagha_push_int32(vm, vm->bp);	// push ebp
 			vm->bp = vm->sp;	// mov ebp, esp
 			vm->ip = conv.ui;	// jump to instruction
 			printf("vm->bp: %" PRIu32 "\n", vm->sp);
 			continue;
 		
 		exec_calla:;	// support globally allocated function pointers
-			a = _tagha_pop_long(vm);
+			a = _tagha_pop_int32(vm);
 			if( vm->bSafeMode and a > MEM_SIZE-4 ) {
 				printf("exec_calla reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
 				goto *dispatch[halt];
 			}
-			conv.ui = _tagha_read_long(vm, a);
+			conv.ui = _tagha_read_int32(vm, a);
 			/*
 			conv.c[0] = vm->pbMemory[a+0];
 			conv.c[1] = vm->pbMemory[a+1];
@@ -1385,9 +1384,9 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			conv.c[3] = vm->pbMemory[a+3];
 			*/
 			printf("calla: calling address: %" PRIu32 "\n", conv.ui);
-			_tagha_push_long(vm, vm->ip+1);	// save return address.
-			printf("call return addr: %" PRIu32 "\n", _tagha_peek_long(vm));
-			_tagha_push_long(vm, vm->bp);	// push ebp
+			_tagha_push_int32(vm, vm->ip+1);	// save return address.
+			printf("call return addr: %" PRIu32 "\n", _tagha_peek_int32(vm));
+			_tagha_push_int32(vm, vm->bp);	// push ebp
 			vm->bp = vm->sp;	// mov ebp, esp
 			vm->ip = conv.ui;	// jump to instruction
 			printf("vm->bp: %" PRIu32 "\n", vm->sp);
@@ -1396,8 +1395,8 @@ void tagha_exec(TaghaVM_t *restrict vm)
 		exec_ret:;
 			vm->sp = vm->bp;	// mov esp, ebp
 			printf("sp set to bp, sp == %" PRIu32 "\n", vm->sp);
-			vm->bp = _tagha_pop_long(vm);	// pop ebp
-			vm->ip = _tagha_pop_long(vm);	// pop return address.
+			vm->bp = _tagha_pop_int32(vm);	// pop ebp
+			vm->ip = _tagha_pop_int32(vm);	// pop return address.
 			printf("returning to address: %" PRIu32 "\n", vm->ip);
 			continue;
 		
@@ -1412,9 +1411,9 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			// do our usual return code.
 			vm->sp = vm->bp;	// mov esp, ebp
 			printf("sp set to bp, sp == %" PRIu32 "\n", vm->sp);
-			vm->bp = _tagha_pop_long(vm);	// pop ebp
-			vm->ip = _tagha_pop_long(vm);	// pop return address.
-			_tagha_push_nbytes(vm, bytebuffer, a);
+			vm->bp = _tagha_pop_int32(vm);	// pop ebp
+			vm->ip = _tagha_pop_int32(vm);	// pop return address.
+			_tagha_push_nbytes(vm, bytebuffer, a);	// push back return data!
 			printf("retxurning to address: %" PRIu32 "\n", vm->ip);
 			continue;
 		}
@@ -1425,12 +1424,12 @@ void tagha_exec(TaghaVM_t *restrict vm)
 				goto *dispatch[halt];
 			}
 			// how many bytes to push to native.
-			uchar bytes = vm->pInstrStream[++vm->ip];
+			const Word_t bytes = _tagha_get_imm4(vm);
 			// how many arguments pushed as native args
 			uchar argcount = vm->pInstrStream[++vm->ip];
 			uchar params[bytes];
 			_tagha_pop_nbytes(vm, params, bytes);
-			vm->fnpNative(vm, argcount, params);
+			vm->fnpNative(vm, argcount, bytes, params);
 			DISPATCH();
 		}
 		exec_reset:;

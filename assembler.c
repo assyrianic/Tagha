@@ -173,18 +173,18 @@ int main ()
 		halt
 	};
 	
-	// void func(int a, int b) { return a+b; }
+	// void func(int a, int b) { a+b; }
 	// func declarations are done by cdecl standard.
 	bytecode test_func_call = {
 		0xDE, 0xC0, 6,0,0,0,	// 0
-		pushl,	0,0,1,244,	// 6	push b
-		pushl,	0,0,0,2,	//		push a
-		call,	0,0,0,24,	// 16		func(int a, int b) ==> b=500 and a=2
-		popl,popl,	// clean up args a and b from stack
-		halt,			// 11
+		pushl,	0,0,1,244,	//6-10		push b
+		pushl,	0,0,0,2,	//11-15		push a
+		call,	0,0,0,24,	//16-20		func(int a, int b) ==> b=500 and a=2
+		popl,popl,	//21-22 clean up args a and b from stack
+		halt,			// 23
 		pushl,	0,0,0,8, loadspl,	// load a to TOS
 		pushl,	0,0,0,4, loadspl,	// load b to TOS
-		addl,	// return a+b;
+		addl,	// a+b;
 		ret,	// 22
 	};
 	
@@ -437,7 +437,7 @@ int main ()
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
-		callnat,	12,1,	// #1 - bytes to push, #2 - number of args
+		callnat, 0,0,0,12, 1,	// #1 - bytes to push, #2 - number of args
 		halt,
 	};
 	pFile = fopen("./test_native.tagha", "wb");
