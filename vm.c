@@ -26,9 +26,9 @@
 // expressions are int or uint then truncated to a variable's byte-width.
 #define INSTR_SET	\
 	X(halt) \
-	X(pushl) X(pushs) X(pushb) X(pushsp) X(puship) X(pushbp) \
+	X(pushq) X(pushl) X(pushs) X(pushb) X(pushsp) X(puship) X(pushbp) \
 	X(pushspadd) X(pushspsub) X(pushbpadd) X(pushbpsub) \
-	X(popl) X(pops) X(popb) X(popsp) X(popip) X(popbp) \
+	X(popq) X(popl) X(pops) X(popb) X(popsp) X(popip) X(popbp) \
 	X(wrtl) X(wrts) X(wrtb) \
 	X(storel) X(stores) X(storeb) \
 	X(storela) X(storesa) X(storeba) \
@@ -50,7 +50,7 @@
 	X(geql) X(ugeql) X(geqf) \
 	X(jmp) X(jzl) X(jnzl) \
 	X(call) X(calls) X(calla) X(ret) X(retx) X(reset) \
-	X(callnat) \
+	X(callnat) X(callnats) X(callnata) \
 	X(nop) \
 
 #define X(x) x,
@@ -61,6 +61,23 @@ static int is_bigendian()
 {
 	const int i=1;
 	return( (*(char *)&i) == 0 );
+}
+
+static inline u64 _tagha_get_imm8(TaghaVM_t *restrict vm)
+{
+	if( !vm )
+		return 0;
+	union conv_union conv;
+	//	0x0A,0x0B,0x0C,0x0D,
+	conv.c[7] = vm->pInstrStream[++vm->ip];
+	conv.c[6] = vm->pInstrStream[++vm->ip];
+	conv.c[5] = vm->pInstrStream[++vm->ip];
+	conv.c[4] = vm->pInstrStream[++vm->ip];
+	conv.c[3] = vm->pInstrStream[++vm->ip];
+	conv.c[2] = vm->pInstrStream[++vm->ip];
+	conv.c[1] = vm->pInstrStream[++vm->ip];
+	conv.c[0] = vm->pInstrStream[++vm->ip];
+	return conv.ull;
 }
 
 static inline uint _tagha_get_imm4(TaghaVM_t *restrict vm)
@@ -84,6 +101,84 @@ static inline ushort _tagha_get_imm2(TaghaVM_t *restrict vm)
 	conv.c[1] = vm->pInstrStream[++vm->ip];
 	conv.c[0] = vm->pInstrStream[++vm->ip];
 	return conv.us;
+}
+
+static inline void _tagha_push_int64(TaghaVM_t *restrict vm, const u64 val)
+{
+	if( !vm )
+		return;
+	if( vm->bSafeMode and (vm->sp+8) >= STK_SIZE ) {
+		printf("tagha_push_int64 reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+8);
+		exit(1);
+	}
+	union conv_union conv;
+	conv.ull = val;
+	vm->pbStack[++vm->sp] = conv.c[0];
+	vm->pbStack[++vm->sp] = conv.c[1];
+	vm->pbStack[++vm->sp] = conv.c[2];
+	vm->pbStack[++vm->sp] = conv.c[3];
+	vm->pbStack[++vm->sp] = conv.c[4];
+	vm->pbStack[++vm->sp] = conv.c[5];
+	vm->pbStack[++vm->sp] = conv.c[6];
+	vm->pbStack[++vm->sp] = conv.c[7];
+}
+static inline u64 _tagha_pop_int64(TaghaVM_t *vm)
+{
+	if( !vm )
+		return 0L;
+	if( vm->bSafeMode and (vm->sp-8) >= STK_SIZE ) {
+		printf("tagha_pop_int64 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-8);
+		exit(1);
+	}
+	union conv_union conv;
+	conv.c[7] = vm->pbStack[vm->sp--];
+	conv.c[6] = vm->pbStack[vm->sp--];
+	conv.c[5] = vm->pbStack[vm->sp--];
+	conv.c[4] = vm->pbStack[vm->sp--];
+	conv.c[3] = vm->pbStack[vm->sp--];
+	conv.c[2] = vm->pbStack[vm->sp--];
+	conv.c[1] = vm->pbStack[vm->sp--];
+	conv.c[0] = vm->pbStack[vm->sp--];
+	return conv.ull;
+}
+
+static inline void _tagha_push_float64(TaghaVM_t *restrict vm, const double val)
+{
+	if( !vm )
+		return;
+	if( vm->bSafeMode and (vm->sp+8) >= STK_SIZE ) {
+		printf("tagha_push_float64 reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+8);
+		exit(1);
+	}
+	union conv_union conv;
+	conv.dbl = val;
+	vm->pbStack[++vm->sp] = conv.c[0];
+	vm->pbStack[++vm->sp] = conv.c[1];
+	vm->pbStack[++vm->sp] = conv.c[2];
+	vm->pbStack[++vm->sp] = conv.c[3];
+	vm->pbStack[++vm->sp] = conv.c[4];
+	vm->pbStack[++vm->sp] = conv.c[5];
+	vm->pbStack[++vm->sp] = conv.c[6];
+	vm->pbStack[++vm->sp] = conv.c[7];
+}
+static inline double _tagha_pop_float64(TaghaVM_t *vm)
+{
+	if( !vm )
+		return 0;
+	if( vm->bSafeMode and (vm->sp-8) >= STK_SIZE ) {
+		printf("tagha_pop_float64 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-8);
+		exit(1);
+	}
+	union conv_union conv;
+	conv.c[7] = vm->pbStack[vm->sp--];
+	conv.c[6] = vm->pbStack[vm->sp--];
+	conv.c[5] = vm->pbStack[vm->sp--];
+	conv.c[4] = vm->pbStack[vm->sp--];
+	conv.c[3] = vm->pbStack[vm->sp--];
+	conv.c[2] = vm->pbStack[vm->sp--];
+	conv.c[1] = vm->pbStack[vm->sp--];
+	conv.c[0] = vm->pbStack[vm->sp--];
+	return conv.dbl;
 }
 
 static inline void _tagha_push_int32(TaghaVM_t *restrict vm, const uint val)
@@ -220,6 +315,49 @@ static inline void _tagha_pop_nbytes(TaghaVM_t *restrict vm, void *restrict pBuf
 	// should stop when the integer underflows
 	for( i=bytesize-1 ; i<bytesize ; i-- )
 		((uchar *)pBuffer)[i] = vm->pbStack[vm->sp--];
+}
+
+
+static inline u64 _tagha_read_int64(TaghaVM_t *restrict vm, const Word_t address)
+{
+	if( !vm )
+		return 0;
+	if( vm->bSafeMode and address > MEM_SIZE-8 ) {
+		printf("tagha_read_int64 reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
+		exit(1);
+	}
+	return( *(u64 *)(vm->pbMemory + address) );
+}
+static inline void _tagha_write_int64(TaghaVM_t *restrict vm, const u64 val, const Word_t address)
+{
+	if( !vm )
+		return;
+	if( vm->bSafeMode and address > MEM_SIZE-8 ) {
+		printf("tagha_write_int64 reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
+		exit(1);
+	}
+	*(u64 *)(vm->pbMemory + address) = val;
+}
+
+static inline double _tagha_read_float64(TaghaVM_t *restrict vm, const Word_t address)
+{
+	if( !vm )
+		return 0;
+	if( vm->bSafeMode and address > MEM_SIZE-8 ) {
+		printf("tagha_read_float64 reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
+		exit(1);
+	}
+	return( *(double *)(vm->pbMemory + address) );
+}
+static inline void _tagha_write_float64(TaghaVM_t *restrict vm, const double val, const Word_t address)
+{
+	if( !vm )
+		return;
+	if( vm->bSafeMode and address > MEM_SIZE-8 ) {
+		printf("tagha_write_float64 reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
+		exit(1);
+	}
+	*(double *)(vm->pbMemory + address) = val;
 }
 
 static inline uint _tagha_read_int32(TaghaVM_t *restrict vm, const Word_t address)
@@ -386,7 +524,44 @@ static inline void _tagha_write_nbytes(TaghaVM_t *restrict vm, void *restrict pI
 }
 
 
-
+static inline u64 _tagha_peek_int64(TaghaVM_t *vm)
+{
+	if( !vm )
+		return 0;
+	if( vm->bSafeMode and (vm->sp-7) >= STK_SIZE ) {
+		printf("Tagha_peek_int32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-7);
+		exit(1);
+	}
+	union conv_union conv;
+	conv.c[7] = vm->pbStack[vm->sp];
+	conv.c[6] = vm->pbStack[vm->sp-1];
+	conv.c[5] = vm->pbStack[vm->sp-2];
+	conv.c[4] = vm->pbStack[vm->sp-3];
+	conv.c[3] = vm->pbStack[vm->sp-4];
+	conv.c[2] = vm->pbStack[vm->sp-5];
+	conv.c[1] = vm->pbStack[vm->sp-6];
+	conv.c[0] = vm->pbStack[vm->sp-7];
+	return conv.ull;
+}
+static inline double _tagha_peek_float64(TaghaVM_t *vm)
+{
+	if( !vm )
+		return 0;
+	if( vm->bSafeMode and (vm->sp-7) >= STK_SIZE ) {
+		printf("Tagha_peek_int32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-7);
+		exit(1);
+	}
+	union conv_union conv;
+	conv.c[7] = vm->pbStack[vm->sp];
+	conv.c[6] = vm->pbStack[vm->sp-1];
+	conv.c[5] = vm->pbStack[vm->sp-2];
+	conv.c[4] = vm->pbStack[vm->sp-3];
+	conv.c[3] = vm->pbStack[vm->sp-4];
+	conv.c[2] = vm->pbStack[vm->sp-5];
+	conv.c[1] = vm->pbStack[vm->sp-6];
+	conv.c[0] = vm->pbStack[vm->sp-7];
+	return conv.dbl;
+}
 static inline uint _tagha_peek_int32(TaghaVM_t *vm)
 {
 	if( !vm )
@@ -499,6 +674,12 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			printf("========================= [vm done] =========================\n\n");
 			return;
 		
+		exec_pushq:;
+			conv.ull = _tagha_get_imm8(vm);
+			printf("pushl: pushed %" PRIu64 "\n", conv.ull);
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
 		// opcodes for longs
 		exec_pushl:;	// push 4 bytes onto the stack
 			conv.ui = _tagha_get_imm4(vm);
@@ -565,6 +746,15 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			printf("pushbpsub: subbed bp with %" PRIu32 ", result: %" PRIu32 "\n", b, a-b);
 			DISPATCH();
 		
+		exec_popq:;
+			if( vm->bSafeMode and (vm->sp-8) >= STK_SIZE ) {
+				printf("exec_popq reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-8);
+				goto *dispatch[halt];
+			}
+			vm->sp -= 8;
+			printf("popq\n");
+			DISPATCH();
+			
 		exec_popl:;		// pop 4 bytes to eventually be overwritten
 			if( vm->bSafeMode and (vm->sp-4) >= STK_SIZE ) {
 				printf("exec_popl reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-4);
@@ -1406,7 +1596,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			/* This opcode assumes all the data for return
 			 * is on the near top of stack. In theory, you can
 			 * use this method to return multiple pieces of data.
-			 */ 
+			 */
 			_tagha_pop_nbytes(vm, bytebuffer, a);	// store our needed data to a buffer.
 			// do our usual return code.
 			vm->sp = vm->bp;	// mov esp, ebp
@@ -1432,9 +1622,17 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			vm->fnpNative(vm, argcount, bytes, params);
 			DISPATCH();
 		}
+		/*
+		 * support calling natives via function pointers */
+		exec_callnats:;	// call native by local func ptr
+			DISPATCH();
+		
+		exec_callnata:;	// call native by global func ptr
+			DISPATCH();
+		
 		exec_reset:;
 			tagha_reset(vm);
 			DISPATCH();
-	} /* while */
+	} /* while( 1 ) */
 	printf("tagha_exec :: max instructions reached\n");
 }

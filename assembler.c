@@ -4,9 +4,9 @@
 
 #define INSTR_SET	\
 	X(halt) \
-	X(pushl) X(pushs) X(pushb) X(pushsp) X(puship) X(pushbp) \
+	X(pushq) X(pushl) X(pushs) X(pushb) X(pushsp) X(puship) X(pushbp) \
 	X(pushspadd) X(pushspsub) X(pushbpadd) X(pushbpsub) \
-	X(popl) X(pops) X(popb) X(popsp) X(popip) X(popbp) \
+	X(popq) X(popl) X(pops) X(popb) X(popsp) X(popip) X(popbp) \
 	X(wrtl) X(wrts) X(wrtb) \
 	X(storel) X(stores) X(storeb) \
 	X(storela) X(storesa) X(storeba) \
@@ -20,17 +20,15 @@
 	X(mull) X(umull) X(mulf) \
 	X(divl) X(udivl) X(divf) \
 	X(modl) X(umodl) \
-	X(andl) X(orl) X(xorl) \
-	X(notl) X(shll) X(shrl) \
+	X(andl) X(orl) X(xorl) X(notl) X(shll) X(shrl) \
 	X(incl) X(incf) X(decl) X(decf) X(negl) X(negf) \
-	X(ltl) X(ultl) X(ltf) \
-	X(gtl) X(ugtl) X(gtf) \
+	X(ltl) X(ultl) X(ltf) X(gtl) X(ugtl) X(gtf) \
 	X(cmpl) X(ucmpl) X(compf) \
 	X(leql) X(uleql) X(leqf) \
 	X(geql) X(ugeql) X(geqf) \
 	X(jmp) X(jzl) X(jnzl) \
 	X(call) X(calls) X(calla) X(ret) X(retx) X(reset) \
-	X(callnat) \
+	X(callnat) X(callnats) X(callnata) \
 	X(nop) \
 
 #define X(x) x,
@@ -214,6 +212,7 @@ int main ()
 		0xDE, 0xC0, 6,0,0,0,	// 0
 		
 		// push + pop tests
+		pushq,	0xa,0xb,0xc,0xd,0xe,0xf,0xaa,0xbb, popq,
 		pushl,	0xa,0xb,0xc,0xd, popl,
 		pushs,	0xff,0xaa, pops,
 		pushb,	0xfa, popb,
@@ -297,42 +296,42 @@ int main ()
 		halt
 	};
 	
-	pFile = fopen("./endian_test1.tagha", "wb");
+	pFile = fopen("./endian_test1.tbc", "wb");
 	if( pFile ) {
 		fwrite(endian_test1, sizeof(uint8_t), sizeof(endian_test1), pFile);
 		fclose(pFile);
 	}
-	pFile = fopen("./float_test.tagha", "wb");
+	pFile = fopen("./float_test.tbc", "wb");
 	if( pFile ) {
 		fwrite(float_test, sizeof(uint8_t), sizeof(float_test), pFile);
 		fclose(pFile);
 	}
-	pFile = fopen("./fibonacci.tagha", "wb");
+	pFile = fopen("./fibonacci.tbc", "wb");
 	if( pFile ) {
 		fwrite(fibonacci, sizeof(uint8_t), sizeof(fibonacci), pFile);
 		fclose(pFile);
 	}
-	pFile = fopen("./global_pointers.tagha", "wb");
+	pFile = fopen("./global_pointers.tbc", "wb");
 	if( pFile ) {
 		fwrite(global_pointers, sizeof(uint8_t), sizeof(global_pointers), pFile);
 		fclose(pFile);
 	}
-	pFile = fopen("./local_pointers.tagha", "wb");
+	pFile = fopen("./local_pointers.tbc", "wb");
 	if( pFile ) {
 		fwrite(local_pointers, sizeof(uint8_t), sizeof(local_pointers), pFile);
 		fclose(pFile);
 	}
-	pFile = fopen("./test_func_call.tagha", "wb");
+	pFile = fopen("./test_func_call.tbc", "wb");
 	if( pFile ) {
 		fwrite(test_func_call, sizeof(uint8_t), sizeof(test_func_call), pFile);
 		fclose(pFile);
 	}
-	pFile = fopen("./test_call_opcodes.tagha", "wb");
+	pFile = fopen("./test_call_opcodes.tbc", "wb");
 	if( pFile ) {
 		fwrite(test_call_opcodes, sizeof(uint8_t), sizeof(test_call_opcodes), pFile);
 		fclose(pFile);
 	}
-	pFile = fopen("./all_opcodes_test.tagha", "wb");
+	pFile = fopen("./all_opcodes_test.tbc", "wb");
 	if( pFile ) {
 		fwrite(all_opcodes_test, sizeof(uint8_t), sizeof(all_opcodes_test), pFile);
 		fclose(pFile);
@@ -353,7 +352,7 @@ int main ()
 		retx,	0,0,0,4	//23-27	-return a+b;
 		// }
 	};
-	pFile = fopen("./test_retx_func.tagha", "wb");
+	pFile = fopen("./test_retx_func.tbc", "wb");
 	if( pFile ) {
 		fwrite(test_retx_func, sizeof(uint8_t), sizeof(test_retx_func), pFile);
 		fclose(pFile);
@@ -365,7 +364,7 @@ int main ()
 		halt,	//11
 		call,	0,0,0,12 //12-16
 	};
-	pFile = fopen("./test_recursion.tagha", "wb");
+	pFile = fopen("./test_recursion.tbc", "wb");
 	if( pFile ) {
 		fwrite(test_recursion, sizeof(uint8_t), sizeof(test_recursion), pFile);
 		fclose(pFile);
@@ -410,7 +409,7 @@ int main ()
 		umull,
 		retx,	0,0,0,4
 	};
-	pFile = fopen("./test_factorial_recurs.tagha", "wb");
+	pFile = fopen("./test_factorial_recurs.tbc", "wb");
 	if( pFile ) {
 		fwrite(test_factorial_recurs, sizeof(uint8_t), sizeof(test_factorial_recurs), pFile);
 		fclose(pFile);
@@ -431,7 +430,8 @@ int main ()
 		pushs,	0xff,0xff,
 		pushl,	0,0,0,200,
 		callnat, 4, halt,	//6-7
-	};*/
+	};
+	*/
 	bytecode test_native = {
 		0xDE, 0xC0, 6,0,0,0,	// 0-5
 		pushl,	0,0,0,50,	// ammo
@@ -440,7 +440,7 @@ int main ()
 		callnat, 0,0,0,12, 1,	// #1 - bytes to push, #2 - number of args
 		halt,
 	};
-	pFile = fopen("./test_native.tagha", "wb");
+	pFile = fopen("./test_native.tbc", "wb");
 	if( pFile ) {
 		fwrite(test_native, sizeof(uint8_t), sizeof(test_native), pFile);
 		fclose(pFile);
