@@ -43,7 +43,7 @@ void tagha_load_code(TaghaVM_t *restrict vm, char *restrict filename)
 	
 	FILE *pFile = fopen(filename, "rb");
 	if( !pFile ) {
-		 printf("[Tagha Error]: File not found: \'%s\'\n", filename);
+		printf("[Tagha Error]: File not found: \'%s\'\n", filename);
 		return;
 	}
 	
@@ -607,7 +607,7 @@ void tagha_write_nbytes(TaghaVM_t *restrict vm, void *restrict pItem, const Word
 }
 
 
-long double *tagha_addr2ptr_longdouble(TaghaVM_t *restrict vm, const Word_t address)
+long double *tagha_addr2ptr_longfloat(TaghaVM_t *restrict vm, const Word_t address)
 {
 	if( !vm )
 		return NULL;
@@ -616,7 +616,7 @@ long double *tagha_addr2ptr_longdouble(TaghaVM_t *restrict vm, const Word_t addr
 	
 	uint ldsize = sizeof(long double);
 	if( vm->bSafeMode and address > MEM_SIZE-ldsize ) {
-		printf("tagha_addr2ptr_longdouble reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
+		printf("tagha_addr2ptr_longfloat reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, address);
 		exit(1);
 	}
 	return (long double *)(vm->pbMemory + address);
@@ -706,7 +706,7 @@ uchar *tagha_addr2ptr_byte(TaghaVM_t *restrict vm, const Word_t address)
 }
 
 
-long double *tagha_stkaddr2ptr_longdouble(TaghaVM_t *restrict vm, const Word_t address)
+long double *tagha_stkaddr2ptr_longfloat(TaghaVM_t *restrict vm, const Word_t address)
 {
 	if( !vm or address==0 )
 		return NULL;
@@ -714,7 +714,7 @@ long double *tagha_stkaddr2ptr_longdouble(TaghaVM_t *restrict vm, const Word_t a
 		return NULL;
 	uint ldsize = sizeof(long double);
 	if( vm->bSafeMode and address+(ldsize-1) > vm->sp ) {
-		printf("tagha_stkaddr2ptr_longdouble reported: invalid stack address! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, address+(ldsize-1));
+		printf("tagha_stkaddr2ptr_longfloat reported: invalid stack address! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, address+(ldsize-1));
 		exit(1);
 	}
 	return (long double *)(vm->pbStack + address);

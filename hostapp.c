@@ -6,11 +6,11 @@
 
 /*
  * Example Host application
- * shows examples on 
+ * shows examples on how host apps can embed this VM.
  */ 
 
-/* prototype ==> void PrintHelloWorld(void); */
-static void NativePrintHelloWorld(TaghaVM_t *restrict vm, const uchar argc, uchar *arrParams)
+/* void PrintHelloWorld(void); */
+static void NativePrintHelloWorld(TaghaVM_t *restrict vm, const uchar argc, const uint bytes, uchar *arrParams)
 {
 	if( !vm )
 		return;
@@ -18,13 +18,13 @@ static void NativePrintHelloWorld(TaghaVM_t *restrict vm, const uchar argc, ucha
 	printf("hello world from bytecode!\n");
 }
 
-/* prototype ==> void TestArgs(int, short, char, float); */
-static void NativeTestArgs(TaghaVM_t *restrict vm, const uchar argc, uchar *arrParams)
+/* void TestArgs(int, short, char, float); */
+static void NativeTestArgs(TaghaVM_t *restrict vm, const uchar argc, const uint bytes, uchar *arrParams)
 {
 	if( !vm )
 		return;
 	
-	int iInt = tagha_pop_long(vm);
+	int iInt = tagha_pop_int32(vm);
 	printf("NativeTestArgs Int: %i\n", iInt); 
 	ushort sShort = tagha_pop_short(vm);
 	printf("NativeTestArgs uShort: %u\n", sShort); 
@@ -34,8 +34,8 @@ static void NativeTestArgs(TaghaVM_t *restrict vm, const uchar argc, uchar *arrP
 	printf("NativeTestArgs Float: %f\n", fFloat); 
 }
 
-/* prototype ==> float TestArgs(void); */
-static void NativeTestRet(TaghaVM_t *restrict vm, const uchar argc, uchar *arrParams)
+/* float TestArgs(void); */
+static void NativeTestRet(TaghaVM_t *restrict vm, const uchar argc, const uint bytes, uchar *arrParams)
 {
 	if( !vm )
 		return;
@@ -45,7 +45,8 @@ static void NativeTestRet(TaghaVM_t *restrict vm, const uchar argc, uchar *arrPa
 	tagha_push_float32(vm, f);
 }
 
-static void NativeTestArray(TaghaVM_t *restrict vm, const uchar argc, uchar *arrParams)
+/* void Test(void); */
+static void NativeTestArray(TaghaVM_t *restrict vm, const uchar argc, const uint bytes, uchar *arrParams)
 {
 	if( !vm )
 		return;
@@ -54,9 +55,9 @@ static void NativeTestArray(TaghaVM_t *restrict vm, const uchar argc, uchar *arr
 	//tagha_push_nbytes(vm, array, sizeof(int)*10);
 	
 	struct tester {
-		float fl;
-		char *str;
-	} array2[]={
+		float	fl;
+		char	*str;
+	} array2[] = {
 		{1.f, "1.f"},
 		{2.f, "2.f"},
 		{3.f, "3.f"},
@@ -72,7 +73,8 @@ static void NativeTestArray(TaghaVM_t *restrict vm, const uchar argc, uchar *arr
 	printf("NativeTestArray: buffer[0].str == %s\n", buffer[0].str);
 }
 
-static void NativeTestPtr(TaghaVM_t *restrict vm, const uchar argc, uchar *arrParams)
+/* void Test(struct player plyr) */
+static void NativeTestPtr(TaghaVM_t *restrict vm, const uchar argc, const uint bytes, uchar *arrParams)
 {
 	if( !vm )
 		return;
@@ -95,19 +97,19 @@ static void NativeTestPtr(TaghaVM_t *restrict vm, const uchar argc, uchar *arrPa
 	tagha_pop_nbytes(vm, l, sizeof(int **));
 	printf("NativeTestPtr: int ptr ptr %i\n", **l);
 	
-	printf("%i\n", *(int *)arrParams);
+	//printf("%i\n", *(int *)arrParams);
 	*/
 	
 	struct Player {
 		uint	ammo;
 		uint	health;
 		float	speed;
-	} *player = (struct Player *)arrParams;
+	} player = *(struct Player *)arrParams;
 	//tagha_pop_nbytes(vm, &player, sizeof(struct Player));
 	
-	printf("NativeTestPtr :: ammo: %u\n", player->ammo);
-	printf("NativeTestPtr :: health: %u\n", player->health);
-	printf("NativeTestPtr :: speed: %f\n", player->speed);
+	printf("NativeTestPtr :: ammo: %u\n", player.ammo);
+	printf("NativeTestPtr :: health: %u\n", player.health);
+	printf("NativeTestPtr :: speed: %f\n", player.speed);
 }
 
 
@@ -128,7 +130,6 @@ int main(int argc, char **argv)
 	tagha_register_func(vm, NativeTestPtr);
 	tagha_exec(vm);	//tagha_free(vm);
 	
-	//printf("instruction set amount == %u\n", nop);
 	/*
 	// Hello World is approximately 12 chars if u count NULL-term
 	
@@ -137,6 +138,7 @@ int main(int argc, char **argv)
 	tagha_read_nbytes(vm, buffer, 12, 0x0);
 	printf("read/write array test == %s\n", buffer);
 	*/
+	//tagha_push_int32(vm, 256);
 	
 	/*
 	struct kek {

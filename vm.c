@@ -9,12 +9,14 @@
 #include "vm.h"
 
 /*	here's the deal ok? make an opcode for each and erry n-bytes!
- * 'q' = int64
- * 'l' - int32
+ * 'o' - int128 = "octo word"
+ * 'q' - int64 = "quad word"
+ * 'l' - int32 = "long word"
  * 's' - int16
- * 'b' - byte | push and pop do not take bytes
+ * 'b' - byte
  * 'f' - float32
- * 'df' - float64
+ * 'f64' - float64
+ * 'f80' - float80
  * 'a' - address
  * 'sp' - takes or uses the current stack pointer address.
  * 'ip' - takes/uses the current instruction pointer address.
@@ -29,28 +31,44 @@
 	X(pushq) X(pushl) X(pushs) X(pushb) X(pushsp) X(puship) X(pushbp) \
 	X(pushspadd) X(pushspsub) X(pushbpadd) X(pushbpsub) \
 	X(popq) X(popl) X(pops) X(popb) X(popsp) X(popip) X(popbp) \
-	X(wrtl) X(wrts) X(wrtb) \
-	X(storel) X(stores) X(storeb) \
-	X(storela) X(storesa) X(storeba) \
-	X(storespl) X(storesps) X(storespb) \
-	X(loadl) X(loads) X(loadb) \
-	X(loadla) X(loadsa) X(loadba) \
-	X(loadspl) X(loadsps) X(loadspb) \
-	X(copyl) X(copys) X(copyb) \
-	X(addl) X(uaddl) X(addf) \
-	X(subl) X(usubl) X(subf) \
-	X(mull) X(umull) X(mulf) \
-	X(divl) X(udivl) X(divf) \
-	X(modl) X(umodl) \
+	X(wrtq) X(wrtl) X(wrts) X(wrtb) \
+	X(storeq) X(storel) X(stores) X(storeb) \
+	X(storeqa) X(storela) X(storesa) X(storeba) \
+	X(storespq) X(storespl) X(storesps) X(storespb) \
+	X(loadq) X(loadl) X(loads) X(loadb) \
+	X(loadqa) X(loadla) X(loadsa) X(loadba) \
+	X(loadspq) X(loadspl) X(loadsps) X(loadspb) \
+	X(copyq) X(copyl) X(copys) X(copyb) \
+	X(addq) X(uaddq) X(addl) X(uaddl) X(addf) \
+	X(subq) X(usubq) X(subl) X(usubl) X(subf) \
+	X(mulq) X(umulq) X(mull) X(umull) X(mulf) \
+	X(divq) X(udivq) X(divl) X(udivl) X(divf) \
+	X(modq) X(umodq) X(modl) X(umodl) \
+	X(addf64) X(subf64) X(mulf64) X(divf64) \
 	X(andl) X(orl) X(xorl) X(notl) X(shll) X(shrl) \
-	X(incl) X(incf) X(decl) X(decf) X(negl) X(negf) \
-	X(ltl) X(ultl) X(ltf) X(gtl) X(ugtl) X(gtf) \
-	X(cmpl) X(ucmpl) X(compf) \
-	X(leql) X(uleql) X(leqf) \
-	X(geql) X(ugeql) X(geqf) \
-	X(jmp) X(jzl) X(jnzl) \
+	X(andq) X(orq) X(xorq) X(notq) X(shlq) X(shrq) \
+	X(incq) X(incl) X(incf) X(decq) X(decl) X(decf) X(negq) X(negl) X(negf) \
+	X(incf64) X(decf64) X(negf64) \
+	X(ltq) X(ltl) X(ultq) X(ultl) X(ltf) \
+	X(gtq) X(gtl) X(ugtq) X(ugtl) X(gtf) \
+	X(cmpq) X(cmpl) X(ucmpq) X(ucmpl) X(compf) \
+	X(leqq) X(uleqq) X(leql) X(uleql) X(leqf) \
+	X(geqq) X(ugeqq) X(geql) X(ugeql) X(geqf) \
+	X(ltf64) X(gtf64) X(cmpf64) X(leqf64) X(geqf64) \
+	X(neqq) X(uneqq) X(neql) X(uneql) X(neqf) X(neqf64) \
+	X(jmp) X(jzq) X(jnzq) X(jzl) X(jnzl) \
 	X(call) X(calls) X(calla) X(ret) X(retx) X(reset) \
 	X(callnat) X(callnats) X(callnata) \
+	X(mmxaddl) X(mmxuaddl) X(mmxaddf) X(mmxadds) X(mmxuadds) X(mmxaddb) X(mmxuaddb) \
+	X(mmxsubl) X(mmxusubl) X(mmxsubf) X(mmxsubs) X(mmxusubs) X(mmxsubb) X(mmxusubb) \
+	X(mmxmull) X(mmxumull) X(mmxmulf) X(mmxmuls) X(mmxumuls) X(mmxmulb) X(mmxumulb) \
+	X(mmxdivl) X(mmxudivl) X(mmxdivf) X(mmxdivs) X(mmxudivs) X(mmxdivb) X(mmxudivb) \
+	X(mmxmodl) X(mmxumodl) X(mmxmods) X(mmxumods) X(mmxmodb) X(mmxumodb) \
+	X(mmxandl) X(mmxands) X(mmxandb) X(mmxorl) X(mmxors) X(mmxorb) \
+	X(mmxxorl) X(mmxxors) X(mmxxorb) X(mmxnotl) X(mmxnots) X(mmxnotb) \
+	X(mmxshll) X(mmxshls) X(mmxshlb) X(mmxshrl) X(mmxshrs) X(mmxshrb) \
+	X(mmxincl) X(mmxincf) X(mmxincs) X(mmxincb) X(mmxdecl) X(mmxdecf) X(mmxdecs) X(mmxdecb) \
+	X(mmxnegl) X(mmxnegf) X(mmxnegs) X(mmxnegb) \
 	X(nop) \
 
 #define X(x) x,
@@ -63,12 +81,23 @@ static int is_bigendian()
 	return( (*(char *)&i) == 0 );
 }
 
+// This is strictly for long doubles
+static inline void _tagha_get_immn(TaghaVM_t *restrict vm, void *restrict pBuffer, const Word_t bytesize)
+{
+	if( !vm or !pBuffer )
+		return;
+	
+	uchar bytes[bytesize];
+	uchar i = bytesize-1;
+	while( i<bytesize )
+		((uchar *)pBuffer)[i--] = vm->pInstrStream[++vm->ip];
+}
+
 static inline u64 _tagha_get_imm8(TaghaVM_t *restrict vm)
 {
 	if( !vm )
 		return 0;
 	union conv_union conv;
-	//	0x0A,0x0B,0x0C,0x0D,
 	conv.c[7] = vm->pInstrStream[++vm->ip];
 	conv.c[6] = vm->pInstrStream[++vm->ip];
 	conv.c[5] = vm->pInstrStream[++vm->ip];
@@ -623,17 +652,21 @@ static inline uchar _tagha_peek_byte(TaghaVM_t *vm)
 //#include <unistd.h>	// sleep() func
 void tagha_exec(TaghaVM_t *restrict vm)
 {
+	printf("instruction set size == %u\n", nop);
 	if( !vm )
 		return;
 	else if( !vm->pInstrStream )
 		return;
 	
-	union conv_union conv;
-	Word_t b,a;
-	// uint ib, ia;
-	float fb,fa;
-	ushort sb,sa;
-	uchar cb,ca;
+	union conv_union conv, convb;
+	uint	b,a;
+	u64		qb, qa;
+	double	db,da;
+	float	fb,fa;
+	ushort	sb,sa;
+	uchar	cb,ca;
+	long double ldb, lda;
+	
 	
 #define X(x) #x ,
 	const char *opcode2str[] = { INSTR_SET };
@@ -797,10 +830,36 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			printf("popip: ip is now at address: %" PRIu32 ".\n", vm->ip);
 			continue;
 		
+		exec_wrtq:;
+			a = _tagha_get_imm4(vm);
+			if( vm->bSafeMode and a > MEM_SIZE-8 ) {
+				printf("exec_wrtq reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
+				goto *dispatch[halt];
+			}
+			// TODO: replace the instr stream with _tagha_get_imm4(vm)
+			vm->pbMemory[a+7] = vm->pInstrStream[++vm->ip];
+			vm->pbMemory[a+6] = vm->pInstrStream[++vm->ip];
+			vm->pbMemory[a+5] = vm->pInstrStream[++vm->ip];
+			vm->pbMemory[a+4] = vm->pInstrStream[++vm->ip];
+			vm->pbMemory[a+3] = vm->pInstrStream[++vm->ip];
+			vm->pbMemory[a+2] = vm->pInstrStream[++vm->ip];
+			vm->pbMemory[a+1] = vm->pInstrStream[++vm->ip];
+			vm->pbMemory[a+0] = vm->pInstrStream[++vm->ip];
+			conv.c[0] = vm->pbMemory[a+0];
+			conv.c[1] = vm->pbMemory[a+1];
+			conv.c[2] = vm->pbMemory[a+2];
+			conv.c[3] = vm->pbMemory[a+3];
+			conv.c[4] = vm->pbMemory[a+4];
+			conv.c[5] = vm->pbMemory[a+5];
+			conv.c[6] = vm->pbMemory[a+6];
+			conv.c[7] = vm->pbMemory[a+7];
+			printf("wrote long data - %" PRIu64 " @ address 0x%x\n", conv.ull, a);
+			DISPATCH();
+		
 		exec_wrtl:;	// writes an int to memory, First operand is the memory address as 4 byte number, second is the int of data.
 			a = _tagha_get_imm4(vm);
 			if( vm->bSafeMode and a > MEM_SIZE-4 ) {
-				printf("exec_wrtl reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a+3);
+				printf("exec_wrtl reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
 				goto *dispatch[halt];
 			}
 			// TODO: replace the instr stream with _tagha_get_imm4(vm)
@@ -836,6 +895,35 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			}
 			vm->pbMemory[conv.ui] = vm->pInstrStream[++vm->ip];
 			printf("wrote byte data - %" PRIu32 " @ address 0x%x\n", vm->pbMemory[conv.ui], conv.ui);
+			DISPATCH();
+		
+		exec_storeq:;
+			a = _tagha_get_imm4(vm);
+			if( vm->bSafeMode and a >= MEM_SIZE-8 ) {
+				printf("exec_storeq reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
+				goto *dispatch[halt];
+			}
+			else if( vm->bSafeMode and (vm->sp-8) >= STK_SIZE ) {
+				printf("exec_storeq reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-8);
+				goto *dispatch[halt];
+			}
+			vm->pbMemory[a+7] = vm->pbStack[vm->sp--];
+			vm->pbMemory[a+6] = vm->pbStack[vm->sp--];
+			vm->pbMemory[a+5] = vm->pbStack[vm->sp--];
+			vm->pbMemory[a+4] = vm->pbStack[vm->sp--];
+			vm->pbMemory[a+3] = vm->pbStack[vm->sp--];
+			vm->pbMemory[a+2] = vm->pbStack[vm->sp--];
+			vm->pbMemory[a+1] = vm->pbStack[vm->sp--];
+			vm->pbMemory[a+0] = vm->pbStack[vm->sp--];
+			conv.c[0] = vm->pbMemory[a+0];
+			conv.c[1] = vm->pbMemory[a+1];
+			conv.c[2] = vm->pbMemory[a+2];
+			conv.c[3] = vm->pbMemory[a+3];
+			conv.c[4] = vm->pbMemory[a+4];
+			conv.c[5] = vm->pbMemory[a+5];
+			conv.c[6] = vm->pbMemory[a+6];
+			conv.c[7] = vm->pbMemory[a+7];
+			printf("stored long data - %" PRIu64 " @ address 0x%x\n", conv.ull, a);
 			DISPATCH();
 		
 		exec_storel:;	// pops 4-byte value off stack and into a memory address.
@@ -890,6 +978,34 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			printf("stored byte data - %" PRIu32 " @ address 0x%x\n", vm->pbMemory[a], a);
 			DISPATCH();
 		
+		exec_storeqa:;
+			a = _tagha_pop_int32(vm);
+			if( vm->bSafeMode and a > MEM_SIZE-8 ) {
+				printf("exec_storeqa reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
+				goto *dispatch[halt];
+			}
+			else if( vm->bSafeMode and (vm->sp-8) >= STK_SIZE ) {
+				printf("exec_storeqa reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-8);
+				goto *dispatch[halt];
+			}
+			vm->pbMemory[a+7] = vm->pbStack[vm->sp--];
+			vm->pbMemory[a+6] = vm->pbStack[vm->sp--];
+			vm->pbMemory[a+5] = vm->pbStack[vm->sp--];
+			vm->pbMemory[a+4] = vm->pbStack[vm->sp--];
+			vm->pbMemory[a+3] = vm->pbStack[vm->sp--];
+			vm->pbMemory[a+2] = vm->pbStack[vm->sp--];
+			vm->pbMemory[a+1] = vm->pbStack[vm->sp--];
+			vm->pbMemory[a+0] = vm->pbStack[vm->sp--];
+			conv.c[0] = vm->pbMemory[a+0];
+			conv.c[1] = vm->pbMemory[a+1];
+			conv.c[2] = vm->pbMemory[a+2];
+			conv.c[3] = vm->pbMemory[a+3];
+			conv.c[4] = vm->pbMemory[a+4];
+			conv.c[5] = vm->pbMemory[a+5];
+			conv.c[6] = vm->pbMemory[a+6];
+			conv.c[7] = vm->pbMemory[a+7];
+			printf("stored 4 byte data - %" PRIu32 " to pointer address 0x%x\n", conv.ui, a);
+			DISPATCH();
 		/*
 		 * pushl <value to store>
 		 * loadl <ptr address>
@@ -947,6 +1063,35 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			printf("stored byte - %" PRIu32 " to pointer address 0x%x\n", vm->pbMemory[a], a);
 			DISPATCH();
 		
+		exec_loadq:;
+			a = _tagha_get_imm4(vm);
+			if( vm->bSafeMode and a > MEM_SIZE-8 ) {
+				printf("exec_loadq reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
+				goto *dispatch[halt];
+			}
+			else if( vm->bSafeMode and (vm->sp+8) >= STK_SIZE ) {
+				printf("exec_loadq reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+8);
+				goto *dispatch[halt];
+			}
+			vm->pbStack[++vm->sp] = vm->pbMemory[a+0];
+			vm->pbStack[++vm->sp] = vm->pbMemory[a+1];
+			vm->pbStack[++vm->sp] = vm->pbMemory[a+2];
+			vm->pbStack[++vm->sp] = vm->pbMemory[a+3];
+			vm->pbStack[++vm->sp] = vm->pbMemory[a+4];
+			vm->pbStack[++vm->sp] = vm->pbMemory[a+5];
+			vm->pbStack[++vm->sp] = vm->pbMemory[a+6];
+			vm->pbStack[++vm->sp] = vm->pbMemory[a+7];
+			conv.c[7] = vm->pbMemory[a+7];
+			conv.c[6] = vm->pbMemory[a+6];
+			conv.c[5] = vm->pbMemory[a+5];
+			conv.c[4] = vm->pbMemory[a+4];
+			conv.c[3] = vm->pbMemory[a+3];
+			conv.c[2] = vm->pbMemory[a+2];
+			conv.c[1] = vm->pbMemory[a+1];
+			conv.c[0] = vm->pbMemory[a+0];
+			printf("loaded long data to T.O.S. - %" PRIu64 " from address 0x%x\n", conv.ull, a);
+			DISPATCH();
+		
 		exec_loadl:;
 			a = _tagha_get_imm4(vm);
 			if( vm->bSafeMode and a > MEM_SIZE-4 ) {
@@ -997,6 +1142,35 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			}
 			vm->pbStack[++vm->sp] = vm->pbMemory[a];
 			printf("loaded byte data to T.O.S. - %" PRIu32 " from address 0x%x\n", vm->pbStack[vm->sp], a);
+			DISPATCH();
+		
+		exec_loadqa:;
+			a = _tagha_pop_int32(vm);
+			if( vm->bSafeMode and a > MEM_SIZE-8 ) {
+				printf("exec_loadqa reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", vm->ip, vm->sp, a);
+				goto *dispatch[halt];
+			}
+			else if( vm->bSafeMode and (vm->sp+8) >= STK_SIZE ) {
+				printf("exec_loadqa reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp+8);
+				goto *dispatch[halt];
+			}
+			vm->pbStack[++vm->sp] = vm->pbMemory[a+0];
+			vm->pbStack[++vm->sp] = vm->pbMemory[a+1];
+			vm->pbStack[++vm->sp] = vm->pbMemory[a+2];
+			vm->pbStack[++vm->sp] = vm->pbMemory[a+3];
+			vm->pbStack[++vm->sp] = vm->pbMemory[a+4];
+			vm->pbStack[++vm->sp] = vm->pbMemory[a+5];
+			vm->pbStack[++vm->sp] = vm->pbMemory[a+6];
+			vm->pbStack[++vm->sp] = vm->pbMemory[a+7];
+			conv.c[0] = vm->pbMemory[a+7];
+			conv.c[1] = vm->pbMemory[a+6];
+			conv.c[2] = vm->pbMemory[a+5];
+			conv.c[3] = vm->pbMemory[a+4];
+			conv.c[4] = vm->pbMemory[a+3];
+			conv.c[5] = vm->pbMemory[a+2];
+			conv.c[6] = vm->pbMemory[a+1];
+			conv.c[7] = vm->pbMemory[a+0];
+			printf("loaded 8 byte data to T.O.S. - %" PRIu64 " from pointer address 0x%x\n", conv.ull, a);
 			DISPATCH();
 		
 		exec_loadla:;
@@ -1051,6 +1225,24 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			printf("loaded byte data to T.O.S. - %" PRIu32 " from pointer address 0x%x\n", vm->pbStack[vm->sp], a);
 			DISPATCH();
 		
+		exec_loadspq:;
+			a = _tagha_pop_int32(vm);
+			if( vm->bSafeMode and (a-7) >= STK_SIZE ) {
+				printf("exec_loadspq reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, a-7);
+				goto *dispatch[halt];
+			}
+			conv.c[7] = vm->pbStack[a-0];
+			conv.c[6] = vm->pbStack[a-1];
+			conv.c[5] = vm->pbStack[a-2];
+			conv.c[4] = vm->pbStack[a-3];
+			conv.c[3] = vm->pbStack[a-4];
+			conv.c[2] = vm->pbStack[a-5];
+			conv.c[1] = vm->pbStack[a-6];
+			conv.c[0] = vm->pbStack[a-7];
+			_tagha_push_int64(vm, conv.ull);
+			printf("loaded 8-byte SP address data to T.O.S. - %" PRIu64 " from sp address 0x%x\n", conv.ull, a);
+			DISPATCH();
+		
 		exec_loadspl:;
 			a = _tagha_pop_int32(vm);
 			if( vm->bSafeMode and (a-3) >= STK_SIZE ) {
@@ -1088,6 +1280,24 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			printf("loaded byte SP address data to T.O.S. - %" PRIu32 " from sp address 0x%x\n", conv.c[0], a);
 			DISPATCH();
 		
+		exec_storespq:;
+			a = _tagha_pop_int32(vm);
+			if( vm->bSafeMode and a-7 >= STK_SIZE ) {
+				printf("exec_storespq reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, a-7);
+				goto *dispatch[halt];
+			}
+			conv.ull = _tagha_pop_int64(vm);
+			vm->pbStack[a-0] = conv.c[7];
+			vm->pbStack[a-1] = conv.c[6];
+			vm->pbStack[a-2] = conv.c[5];
+			vm->pbStack[a-3] = conv.c[4];
+			vm->pbStack[a-4] = conv.c[3];
+			vm->pbStack[a-5] = conv.c[2];
+			vm->pbStack[a-6] = conv.c[1];
+			vm->pbStack[a-7] = conv.c[0];
+			printf("stored 8-byte data from T.O.S. - %" PRIu64 " to sp address 0x%x\n", conv.ull, a);
+			DISPATCH();
+		
 		exec_storespl:;		// store TOS into another part of the data stack.
 			a = _tagha_pop_int32(vm);
 			if( vm->bSafeMode and a-3 >= STK_SIZE ) {
@@ -1122,6 +1332,23 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			}
 			vm->pbStack[a] = _tagha_pop_byte(vm);
 			printf("stored byte data from T.O.S. - %" PRIu32 " to sp address 0x%x\n", vm->pbStack[a], a);
+			DISPATCH();
+		
+		exec_copyq:;
+			if( vm->bSafeMode and vm->sp-7 >= STK_SIZE ) {
+				printf("exec_copyq reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-7);
+				goto *dispatch[halt];
+			}
+			conv.c[0] = vm->pbStack[vm->sp-7];
+			conv.c[1] = vm->pbStack[vm->sp-6];
+			conv.c[2] = vm->pbStack[vm->sp-5];
+			conv.c[3] = vm->pbStack[vm->sp-4];
+			conv.c[4] = vm->pbStack[vm->sp-3];
+			conv.c[5] = vm->pbStack[vm->sp-2];
+			conv.c[6] = vm->pbStack[vm->sp-1];
+			conv.c[7] = vm->pbStack[vm->sp-0];
+			printf("copied long data from T.O.S. - %" PRIu64 "\n", conv.ull);
+			_tagha_push_int64(vm, conv.ull);
 			DISPATCH();
 		
 		exec_copyl:;	// copy 4 bytes of top of stack and put as new top of stack.
@@ -1161,11 +1388,27 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			//printf("copied byte data from T.O.S. - %" PRIu32 "\n", conv.c[0]);
 			DISPATCH();
 		
+		exec_addq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ll = (i64)qa + (i64)qb;
+			printf("signed 8 byte addition result: %" PRIi64 " == %" PRIi64 " + %" PRIi64 "\n", conv.ll, qa,qb);
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_uaddq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ull = qa+qb;
+			printf("unsigned 8 byte addition result: %" PRIu64 " == %" PRIu64 " + %" PRIu64 "\n", conv.ull, qa,qb);
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
 		exec_addl:;		// pop 8 bytes, signed addition, and push 4 byte result to top of stack
 			b = _tagha_pop_int32(vm);
 			a = _tagha_pop_int32(vm);
 			conv.i = (int)a + (int)b;
-			printf("signed 4 byte addition result: %i == %i + %i\n", conv.i, a,b);
+			printf("signed 4 byte addition result: %" PRIi32 " == %" PRIi32 " + %" PRIi32 "\n", conv.i, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
@@ -1173,7 +1416,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			b = _tagha_pop_int32(vm);
 			a = _tagha_pop_int32(vm);
 			conv.ui = a+b;
-			printf("unsigned 4 byte addition result: %u == %u + %u\n", conv.ui, a,b);
+			printf("unsigned 4 byte addition result: %" PRIu32 " == %" PRIu32 " + %" PRIu32 "\n", conv.ui, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
@@ -1181,15 +1424,39 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			fb = _tagha_pop_float32(vm);
 			fa = _tagha_pop_float32(vm);
 			conv.f = fa+fb;
-			printf("float addition result: %f == %f + %f\n", conv.f, fa,fb);
+			printf("4-byte float addition result: %f == %f + %f\n", conv.f, fa,fb);
 			_tagha_push_float32(vm, conv.f);
+			DISPATCH();
+		
+		exec_addf64:;
+			db = _tagha_pop_float64(vm);
+			da = _tagha_pop_float64(vm);
+			conv.dbl = da+db;
+			printf("8-byte float addition result: %f == %f + %f\n", conv.dbl, da,db);
+			_tagha_push_float64(vm, conv.dbl);
+			DISPATCH();
+		
+		exec_subq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ll = (i64)qa - (i64)qb;
+			printf("signed 8 byte subtraction result: %" PRIi64 " == %" PRIi64 " - %" PRIi64 "\n", conv.ll, qa,qb);
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_usubq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ull = qa-qb;
+			printf("unsigned 8 byte subtraction result: %" PRIu64 " == %" PRIu64 " - %" PRIu64 "\n", conv.ull, qa,qb);
+			_tagha_push_int64(vm, conv.ull);
 			DISPATCH();
 		
 		exec_subl:;
 			b = _tagha_pop_int32(vm);
 			a = _tagha_pop_int32(vm);
 			conv.i = (int)a - (int)b;
-			printf("signed 4 byte subtraction result: %i == %i - %i\n", conv.ui, a,b);
+			printf("signed 4 byte subtraction result: %" PRIi32 " == %" PRIi32 " - %" PRIi32 "\n", conv.ui, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
@@ -1205,15 +1472,39 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			fb = _tagha_pop_float32(vm);
 			fa = _tagha_pop_float32(vm);
 			conv.f = fa-fb;
-			printf("float subtraction result: %f == %f - %f\n", conv.f, fa,fb);
+			printf("4-byte float subtraction result: %f == %f - %f\n", conv.f, fa,fb);
 			_tagha_push_float32(vm, conv.f);
+			DISPATCH();
+			
+		exec_subf64:;
+			db = _tagha_pop_float64(vm);
+			da = _tagha_pop_float64(vm);
+			conv.dbl = da-db;
+			printf("8-byte float subtraction result: %f == %f - %f\n", conv.dbl, da,db);
+			_tagha_push_float64(vm, conv.dbl);
+			DISPATCH();
+		
+		exec_mulq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ll = (i64)qa * (i64)qb;
+			printf("signed 8 byte mult result: %" PRIi64 " == %" PRIi64 " * %" PRIi64 "\n", conv.ll, qa,qb);
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_umulq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ull = qa*qb;
+			printf("unsigned 8 byte mult result: %" PRIu64 " == %" PRIu64 " * %" PRIu64 "\n", conv.ull, qa,qb);
+			_tagha_push_int64(vm, conv.ull);
 			DISPATCH();
 		
 		exec_mull:;
 			b = _tagha_pop_int32(vm);
 			a = _tagha_pop_int32(vm);
 			conv.i = (int)a * (int)b;
-			printf("signed 4 byte mult result: %i == %i * %i\n", conv.i, a,b);
+			printf("signed 4 byte mult result: %" PRIi32 " == %" PRIi32 " * %" PRIi32 "\n", conv.i, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
@@ -1224,13 +1515,45 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			printf("unsigned 4 byte mult result: %" PRIu32 " == %" PRIu32 " * %" PRIu32 "\n", conv.ui, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
-		
+			
 		exec_mulf:;
 			fb = _tagha_pop_float32(vm);
 			fa = _tagha_pop_float32(vm);
 			conv.f = fa*fb;
-			printf("float mul result: %f == %f * %f\n", conv.f, fa,fb);
+			printf("4-byte float mult result: %f == %f * %f\n", conv.f, fa,fb);
 			_tagha_push_float32(vm, conv.f);
+			DISPATCH();
+			
+		exec_mulf64:;
+			db = _tagha_pop_float64(vm);
+			da = _tagha_pop_float64(vm);
+			conv.dbl = da*db;
+			printf("8-byte float mult result: %f == %f * %f\n", conv.dbl, da,db);
+			_tagha_push_float64(vm, conv.dbl);
+			DISPATCH();
+			
+		exec_divq:;
+			qb = _tagha_pop_int64(vm);
+			if( !qb ) {
+				printf("divq: divide by 0 error.\n");
+				goto *dispatch[halt];
+			}
+			qa = _tagha_pop_int64(vm);
+			conv.ll = (i64)qa / (i64)qb;
+			printf("signed 8 byte division result: %" PRIi64 " == %" PRIi64 " / %" PRIi64 "\n", conv.ll, qa,qb);
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_udivq:;
+			qb = _tagha_pop_int64(vm);
+			if( !qb ) {
+				printf("udivq: divide by 0 error.\n");
+				goto *dispatch[halt];
+			}
+			qa = _tagha_pop_int64(vm);
+			conv.ull = qa/qb;
+			printf("unsigned 8 byte division result: %" PRIu64 " == %" PRIu64 " / %" PRIu64 "\n", conv.ull, qa,qb);
+			_tagha_push_int64(vm, conv.ull);
 			DISPATCH();
 		
 		exec_divl:;
@@ -1241,7 +1564,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			}
 			a = _tagha_pop_int32(vm);
 			conv.i = (int)a / (int)b;
-			printf("signed 4 byte division result: %i == %i / %i\n", conv.i, a,b);
+			printf("signed 4 byte division result: %" PRIi32 " == %" PRIi32 " / %" PRIi32 "\n", conv.i, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
@@ -1265,8 +1588,40 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			}
 			fa = _tagha_pop_float32(vm);
 			conv.f = fa/fb;
-			printf("float division result: %f == %f / %f\n", conv.f, fa,fb);
+			printf("4-byte float division result: %f == %f / %f\n", conv.f, fa,fb);
 			_tagha_push_float32(vm, conv.f);
+			DISPATCH();
+			
+		exec_divf64:;
+			db = _tagha_pop_float64(vm);
+			da = _tagha_pop_float64(vm);
+			conv.dbl = da/db;
+			printf("8-byte float division result: %f == %f / %f\n", conv.dbl, da,db);
+			_tagha_push_float64(vm, conv.dbl);
+			DISPATCH();
+		
+		exec_modq:;
+			qb = _tagha_pop_int64(vm);
+			if( !qb ) {
+				printf("divq: divide by 0 error.\n");
+				goto *dispatch[halt];
+			}
+			qa = _tagha_pop_int64(vm);
+			conv.ll = (i64)qa % (i64)qb;
+			printf("signed 8 byte modulo result: %" PRIi64 " == %" PRIi64 " %% %" PRIi64 "\n", conv.ll, qa,qb);
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_umodq:;
+			qb = _tagha_pop_int64(vm);
+			if( !qb ) {
+				printf("udivq: divide by 0 error.\n");
+				goto *dispatch[halt];
+			}
+			qa = _tagha_pop_int64(vm);
+			conv.ull = qa % qb;
+			printf("unsigned 8 byte division result: %" PRIu64 " == %" PRIu64 " %% %" PRIu64 "\n", conv.ull, qa,qb);
+			_tagha_push_int64(vm, conv.ull);
 			DISPATCH();
 		
 		exec_modl:;
@@ -1277,7 +1632,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			}
 			a = _tagha_pop_int32(vm);
 			conv.i = (int)a % (int)b;
-			printf("signed 4 byte modulo result: %i == %i %% %i\n", conv.i, a,b);
+			printf("signed 4 byte modulo result: %" PRIi32 " == %" PRIi32 " %% %" PRIi32 "\n", conv.i, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
@@ -1293,11 +1648,58 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
+		exec_andq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ull = qa & qb;
+			printf("8 byte AND result: %" PRIu64 " == %" PRIu64 " & %" PRIu64 "\n", conv.ull, qa,qb);
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_orq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ull = qa | qb;
+			printf("8 byte OR result: %" PRIu64 " == %" PRIu64 " | %" PRIu64 "\n", conv.ull, qa,qb);
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_xorq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ull = qa ^ qb;
+			printf("8 byte XOR result: %" PRIu64 " == %" PRIu64 " ^ %" PRIu64 "\n", conv.ull, qa,qb);
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_notq:;
+			qa = _tagha_pop_int64(vm);
+			conv.ull = ~qa;
+			printf("8 byte NOT result: %" PRIu64 "\n", conv.ull);
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_shlq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ull = qa << qb;
+			printf("8 byte Shift Left result: %" PRIu64 " == %" PRIu64 " << %" PRIu64 "\n", conv.ull, qa,qb);
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_shrq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ull = qa >> qb;
+			printf("8 byte Shift Right result: %" PRIu64 " == %" PRIu64 " >> %" PRIu64 "\n", conv.ull, qa,qb);
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
 		exec_andl:;
 			b = _tagha_pop_int32(vm);
 			a = _tagha_pop_int32(vm);
 			conv.ui = a & b;
-			printf("4 byte AND result: %" PRIu32 " == %u & %u\n", conv.ui, a,b);
+			printf("4 byte AND result: %" PRIu32 " == %" PRIu32 " & %" PRIu32 "\n", conv.ui, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
@@ -1305,7 +1707,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			b = _tagha_pop_int32(vm);
 			a = _tagha_pop_int32(vm);
 			conv.ui = a | b;
-			printf("4 byte OR result: %" PRIu32 " == %u | %u\n", conv.ui, a,b);
+			printf("4 byte OR result: %" PRIu32 " == %" PRIu32 " | %" PRIu32 "\n", conv.ui, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
@@ -1313,7 +1715,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			b = _tagha_pop_int32(vm);
 			a = _tagha_pop_int32(vm);
 			conv.ui = a ^ b;
-			printf("4 byte XOR result: %" PRIu32 " == %u ^ %u\n", conv.ui, a,b);
+			printf("4 byte XOR result: %" PRIu32 " == %" PRIu32 " ^ %" PRIu32 "\n", conv.ui, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
@@ -1328,7 +1730,7 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			b = _tagha_pop_int32(vm);
 			a = _tagha_pop_int32(vm);
 			conv.ui = a << b;
-			printf("4 byte Shift Left result: %" PRIu32 " == %u << %u\n", conv.ui, a,b);
+			printf("4 byte Shift Left result: %" PRIu32 " == %" PRIu32 " << %" PRIu32 "\n", conv.ui, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
@@ -1336,10 +1738,17 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			b = _tagha_pop_int32(vm);
 			a = _tagha_pop_int32(vm);
 			conv.ui = a >> b;
-			printf("4 byte Shift Right result: %" PRIu32 " == %u >> %u\n", conv.ui, a,b);
+			printf("4 byte Shift Right result: %" PRIu32 " == %" PRIu32 " >> %" PRIu32 "\n", conv.ui, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
+		exec_incq:;
+			qa = _tagha_pop_int64(vm);
+			conv.ull = ++qa;
+			printf("8 byte Increment result: %" PRIu64 "\n", conv.ull);
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
 		exec_incl:;
 			a = _tagha_pop_int32(vm);
 			conv.ui = ++a;
@@ -1350,10 +1759,24 @@ void tagha_exec(TaghaVM_t *restrict vm)
 		exec_incf:;
 			fa = _tagha_pop_float32(vm);
 			conv.f = ++fa;
-			printf("float Increment result: %f\n", conv.f);
+			printf("4-byte float Increment result: %f\n", conv.f);
 			_tagha_push_float32(vm, conv.f);
 			DISPATCH();
+			
+		exec_incf64:;
+			da = _tagha_pop_float64(vm);
+			conv.dbl = ++da;
+			printf("8-byte float Increment result: %f\n", conv.dbl);
+			_tagha_push_float64(vm, conv.dbl);
+			DISPATCH();
 		
+		exec_decq:;
+			qa = _tagha_pop_int64(vm);
+			conv.ull = --qa;
+			printf("8 byte Decrement result: %" PRIu64 "\n", conv.ull);
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
 		exec_decl:;
 			a = _tagha_pop_int32(vm);
 			conv.ui = --a;
@@ -1364,8 +1787,22 @@ void tagha_exec(TaghaVM_t *restrict vm)
 		exec_decf:;
 			fa = _tagha_pop_float32(vm);
 			conv.f = --fa;
-			printf("float Decrement result: %f\n", conv.f);
+			printf("4-byte float Decrement result: %f\n", conv.f);
 			_tagha_push_float32(vm, conv.f);
+			DISPATCH();
+		
+		exec_decf64:;
+			da = _tagha_pop_float64(vm);
+			conv.dbl = --da;
+			printf("8-byte float Decrement result: %f\n", conv.dbl);
+			_tagha_push_float64(vm, conv.dbl);
+			DISPATCH();
+		
+		exec_negq:;
+			qa = _tagha_pop_int64(vm);
+			conv.ull = -qa;
+			printf("8 byte Negate result: %" PRIu64 "\n", conv.ull);
+			_tagha_push_int64(vm, conv.ull);
 			DISPATCH();
 		
 		exec_negl:;
@@ -1378,15 +1815,38 @@ void tagha_exec(TaghaVM_t *restrict vm)
 		exec_negf:;
 			fa = _tagha_pop_float32(vm);
 			conv.f = -fa;
-			printf("float Negate result: %f\n", conv.f);
+			printf("4-byte float Negate result: %f\n", conv.f);
 			_tagha_push_float32(vm, conv.f);
+			DISPATCH();
+			
+		exec_negf64:;
+			da = _tagha_pop_float64(vm);
+			conv.dbl = -da;
+			printf("8-byte float Negate result: %f\n", conv.dbl);
+			_tagha_push_float64(vm, conv.dbl);
+			DISPATCH();
+		
+		exec_ltq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ui = (i64)qa < (i64)qb;
+			printf("signed 8 byte Less Than result: %" PRIu32 " == %" PRIi64 " < %" PRIi64 "\n", conv.ui, qa,qb);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+		
+		exec_ultq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ui = qa < qb;
+			printf("unsigned 8 byte Less Than result: %" PRIu32 " == %" PRIu64 " < %" PRIu64 "\n", conv.ui, qa,qb);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_ltl:;
 			b = _tagha_pop_int32(vm);
 			a = _tagha_pop_int32(vm);
 			conv.ui = (int)a < (int)b;
-			printf("4 byte Signed Less Than result: %" PRIu32 " == %i < %i\n", conv.ui, a,b);
+			printf("4 byte Signed Less Than result: %" PRIu32 " == %" PRIi32 " < %" PRIi32 "\n", conv.ui, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
@@ -1403,14 +1863,38 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			fa = _tagha_pop_float32(vm);
 			conv.ui = fa < fb;
 			printf("4 byte Less Than Float result: %" PRIu32 " == %f < %f\n", conv.ui, fa,fb);
-			_tagha_push_float32(vm, conv.f);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+		
+		exec_ltf64:;
+			db = _tagha_pop_float64(vm);
+			da = _tagha_pop_float64(vm);
+			conv.ui = da < db;
+			printf("8 byte Less Than Float result: %" PRIu32 " == %f < %f\n", conv.ui, da,db);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+		
+		exec_gtq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ui = (i64)qa > (i64)qb;
+			printf("signed 8 byte Greater Than result: %" PRIu32 " == %" PRIi64 " > %" PRIi64 "\n", conv.ui, qa,qb);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+			
+		exec_ugtq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ui = qa > qb;
+			printf("unsigned 8 byte Greater Than result: %" PRIu32 " == %" PRIu64 " > %" PRIu64 "\n", conv.ui, qa,qb);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_gtl:;
 			b = _tagha_pop_int32(vm);
 			a = _tagha_pop_int32(vm);
 			conv.ui = (int)a > (int)b;
-			printf("4 byte Signed Greater Than result: %" PRIu32 " == %i > %i\n", conv.ui, a,b);
+			printf("4 byte Signed Greater Than result: %" PRIu32 " == %" PRIi32 " > %" PRIi32 "\n", conv.ui, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
@@ -1427,14 +1911,38 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			fa = _tagha_pop_float32(vm);
 			conv.ui = fa > fb;
 			printf("4 byte Greater Than Float result: %" PRIu32 " == %f > %f\n", conv.ui, fa,fb);
-			_tagha_push_float32(vm, conv.f);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+		
+		exec_gtf64:;
+			db = _tagha_pop_float64(vm);
+			da = _tagha_pop_float64(vm);
+			conv.ui = da > db;
+			printf("8 byte Greater Than Float result: %" PRIu32 " == %f > %f\n", conv.ui, da,db);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+		
+		exec_cmpq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ui = (i64)qa == (i64)qb;
+			printf("signed 8 byte Compare result: %" PRIu32 " == %" PRIi64 " == %" PRIi64 "\n", conv.ui, qa,qb);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+		
+		exec_ucmpq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ui = qa == qb;
+			printf("unsigned 8 byte Compare result: %" PRIu32 " == %" PRIu64 " == %" PRIu64 "\n", conv.ui, qa,qb);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_cmpl:;
 			b = _tagha_pop_int32(vm);
 			a = _tagha_pop_int32(vm);
 			conv.ui = (int)a == (int)b;
-			printf("4 byte Signed Compare result: %" PRIu32 " == %i == %i\n", conv.ui, a,b);
+			printf("4 byte Signed Compare result: %" PRIu32 " == %" PRIi32 " == %" PRIi32 "\n", conv.ui, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
@@ -1451,14 +1959,38 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			fa = _tagha_pop_float32(vm);
 			conv.ui = fa == fb;
 			printf("4 byte Compare Float result: %" PRIu32 " == %f == %f\n", conv.ui, fa,fb);
-			_tagha_push_float32(vm, conv.f);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+		
+		exec_cmpf64:;
+			db = _tagha_pop_float64(vm);
+			da = _tagha_pop_float64(vm);
+			conv.ui = da == db;
+			printf("8 byte Compare Float result: %" PRIu32 " == %f == %f\n", conv.ui, da,db);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+		
+		exec_leqq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ui = (i64)qa <= (i64)qb;
+			printf("8 byte Signed Less Equal result: %" PRIu32 " == %" PRIi64 " <= %" PRIi64 "\n", conv.ui, qa,qb);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+		
+		exec_uleqq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ui = qa <= qb;
+			printf("8 byte Unsigned Less Equal result: %" PRIu32 " == %" PRIu64 " <= %" PRIu64 "\n", conv.ui, qa,qb);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_leql:;
 			b = _tagha_pop_int32(vm);
 			a = _tagha_pop_int32(vm);
 			conv.ui = (int)a <= (int)b;
-			printf("4 byte Signed Less Equal result: %" PRIu32 " == %i <= %i\n", conv.ui, a,b);
+			printf("4 byte Signed Less Equal result: %" PRIu32 " == %" PRIi32 " <= %" PRIi32 "\n", conv.ui, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
@@ -1475,14 +2007,38 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			fa = _tagha_pop_float32(vm);
 			conv.ui = fa <= fb;
 			printf("4 byte Less Equal Float result: %" PRIu32 " == %f <= %f\n", conv.ui, fa, fb);
-			_tagha_push_float32(vm, conv.f);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+			
+		exec_leqf64:;
+			db = _tagha_pop_float64(vm);
+			da = _tagha_pop_float64(vm);
+			conv.ui = da <= db;
+			printf("8 byte Less Equal Float result: %" PRIu32 " == %f <= %f\n", conv.ui, da,db);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+		
+		exec_geqq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ui = (i64)qa >= (i64)qb;
+			printf("8 byte Signed Greater Equal result: %" PRIu32 " == %" PRIi64 " >= %" PRIi64 "\n", conv.ui, qa,qb);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+			
+		exec_ugeqq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ui = qa >= qb;
+			printf("8 byte Unsigned Greater Equal result: %" PRIu32 " == %" PRIu64 " >= %" PRIu64 "\n", conv.ui, qa,qb);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
 		exec_geql:;
 			b = _tagha_pop_int32(vm);
 			a = _tagha_pop_int32(vm);
 			conv.ui = (int)a >= (int)b;
-			printf("4 byte Signed Greater Equal result: %" PRIu32 " == %i >= %i\n", conv.ui, a,b);
+			printf("4 byte Signed Greater Equal result: %" PRIu32 " == %" PRIi32 " >= %" PRIi32 "\n", conv.ui, a,b);
 			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
 		
@@ -1499,13 +2055,722 @@ void tagha_exec(TaghaVM_t *restrict vm)
 			fa = _tagha_pop_float32(vm);
 			conv.ui = fa >= fb;
 			printf("4 byte Greater Equal Float result: %" PRIu32 " == %f >= %f\n", conv.ui, fa, fb);
-			_tagha_push_float32(vm, conv.f);
+			_tagha_push_int32(vm, conv.ui);
 			DISPATCH();
+		
+		exec_geqf64:;
+			db = _tagha_pop_float64(vm);
+			da = _tagha_pop_float64(vm);
+			conv.ui = da >= db;
+			printf("8 byte Greater Equal Float result: %" PRIu32 " == %f >= %f\n", conv.ui, da,db);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+		
+		exec_neqq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ui = (i64)qa != (i64)qb;
+			printf("8 byte Signed Not Equal result: %" PRIu32 " == %" PRIi64 " != %" PRIi64 "\n", conv.ui, qa,qb);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+			
+		exec_uneqq:;
+			qb = _tagha_pop_int64(vm);
+			qa = _tagha_pop_int64(vm);
+			conv.ui = qa != qb;
+			printf("8 byte Unsigned Not Equal result: %" PRIu32 " == %" PRIi64 " != %" PRIi64 "\n", conv.ui, qa,qb);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+			
+		exec_neql:;
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
+			conv.ui = (int)a != (int)b;
+			printf("4 byte Signed Not Equal result: %" PRIu32 " == %" PRIi32 " != %" PRIi32 "\n", conv.ui, a,b);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+			
+		exec_uneql:;
+			b = _tagha_pop_int32(vm);
+			a = _tagha_pop_int32(vm);
+			conv.ui = a != b;
+			printf("4 byte Unsigned Not Equal result: %" PRIu32 " == %" PRIu32 " != %" PRIu32 "\n", conv.ui, a,b);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+		
+		exec_neqf:;
+			fb = _tagha_pop_float32(vm);
+			fa = _tagha_pop_float32(vm);
+			conv.ui = fa != fb;
+			printf("4 byte Not Equal Float result: %" PRIu32 " == %f != %f\n", conv.ui, fa, fb);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+		
+		exec_neqf64:;
+			db = _tagha_pop_float64(vm);
+			da = _tagha_pop_float64(vm);
+			conv.ui = da != db;
+			printf("8 byte Not Equal Float result: %" PRIu32 " == %f != %f\n", conv.ui, da,db);
+			_tagha_push_int32(vm, conv.ui);
+			DISPATCH();
+		
+		exec_mmxaddl:;	// pops two 64-bit values and adds them as 4 integers.
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_i[0] += convb.mmx_i[0];
+			conv.mmx_i[1] += convb.mmx_i[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxuaddl:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_ui[0] += convb.mmx_ui[0];
+			conv.mmx_ui[1] += convb.mmx_ui[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxaddf:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_f[0] += convb.mmx_f[0];
+			conv.mmx_f[1] += convb.mmx_f[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxadds:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_s[0] += convb.mmx_s[0]; conv.mmx_s[1] += convb.mmx_s[1];
+			conv.mmx_s[2] += convb.mmx_s[2]; conv.mmx_s[3] += convb.mmx_s[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxuadds:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_us[0] += convb.mmx_us[0]; conv.mmx_us[1] += convb.mmx_us[1];
+			conv.mmx_us[2] += convb.mmx_us[2]; conv.mmx_us[3] += convb.mmx_us[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxaddb:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_c[0] += convb.mmx_c[0]; conv.mmx_c[1] += convb.mmx_c[1];
+			conv.mmx_c[2] += convb.mmx_c[2]; conv.mmx_c[3] += convb.mmx_c[3];
+			conv.mmx_c[4] += convb.mmx_c[4]; conv.mmx_c[5] += convb.mmx_c[5];
+			conv.mmx_c[6] += convb.mmx_c[6]; conv.mmx_c[7] += convb.mmx_c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxuaddb:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.c[0] += convb.c[0]; conv.c[1] += convb.c[1];
+			conv.c[2] += convb.c[2]; conv.c[3] += convb.c[3];
+			conv.c[4] += convb.c[4]; conv.c[5] += convb.c[5];
+			conv.c[6] += convb.c[6]; conv.c[7] += convb.c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxsubl:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_i[0] -= convb.mmx_i[0];
+			conv.mmx_i[1] -= convb.mmx_i[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxusubl:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_ui[0] -= convb.mmx_ui[0];
+			conv.mmx_ui[1] -= convb.mmx_ui[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxsubf:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_f[0] -= convb.mmx_f[0];
+			conv.mmx_f[1] -= convb.mmx_f[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxsubs:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_s[0] -= convb.mmx_s[0]; conv.mmx_s[1] -= convb.mmx_s[1];
+			conv.mmx_s[2] -= convb.mmx_s[2]; conv.mmx_s[3] -= convb.mmx_s[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxusubs:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_us[0] -= convb.mmx_us[0]; conv.mmx_us[1] -= convb.mmx_us[1];
+			conv.mmx_us[2] -= convb.mmx_us[2]; conv.mmx_us[3] -= convb.mmx_us[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxsubb:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_c[0] -= convb.mmx_c[0]; conv.mmx_c[1] -= convb.mmx_c[1];
+			conv.mmx_c[2] -= convb.mmx_c[2]; conv.mmx_c[3] -= convb.mmx_c[3];
+			conv.mmx_c[4] -= convb.mmx_c[4]; conv.mmx_c[5] -= convb.mmx_c[5];
+			conv.mmx_c[6] -= convb.mmx_c[6]; conv.mmx_c[7] -= convb.mmx_c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxusubb:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.c[0] -= convb.c[0]; conv.c[1] -= convb.c[1];
+			conv.c[2] -= convb.c[2]; conv.c[3] -= convb.c[3];
+			conv.c[4] -= convb.c[4]; conv.c[5] -= convb.c[5];
+			conv.c[6] -= convb.c[6]; conv.c[7] -= convb.c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxmull:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_i[0] *= convb.mmx_i[0];
+			conv.mmx_i[1] *= convb.mmx_i[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxumull:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_ui[0] *= convb.mmx_ui[0];
+			conv.mmx_ui[1] *= convb.mmx_ui[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxmulf:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_f[0] *= convb.mmx_f[0];
+			conv.mmx_f[1] *= convb.mmx_f[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxmuls:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_s[0] *= convb.mmx_s[0]; conv.mmx_s[1] *= convb.mmx_s[1];
+			conv.mmx_s[2] *= convb.mmx_s[2]; conv.mmx_s[3] *= convb.mmx_s[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxumuls:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_us[0] *= convb.mmx_us[0]; conv.mmx_us[1] *= convb.mmx_us[1];
+			conv.mmx_us[2] *= convb.mmx_us[2]; conv.mmx_us[3] *= convb.mmx_us[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxmulb:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_c[0] *= convb.mmx_c[0]; conv.mmx_c[1] *= convb.mmx_c[1];
+			conv.mmx_c[2] *= convb.mmx_c[2]; conv.mmx_c[3] *= convb.mmx_c[3];
+			conv.mmx_c[4] *= convb.mmx_c[4]; conv.mmx_c[5] *= convb.mmx_c[5];
+			conv.mmx_c[6] *= convb.mmx_c[6]; conv.mmx_c[7] *= convb.mmx_c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxumulb:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.c[0] *= convb.c[0]; conv.c[1] *= convb.c[1];
+			conv.c[2] *= convb.c[2]; conv.c[3] *= convb.c[3];
+			conv.c[4] *= convb.c[4]; conv.c[5] *= convb.c[5];
+			conv.c[6] *= convb.c[6]; conv.c[7] *= convb.c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxdivl:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			if( !convb.mmx_i[0] or !convb.mmx_i[1] ) {
+				printf("exec_mmxdivl: divide by 0 error.\n");
+				goto *dispatch[halt];
+				//_tagha_push_int64(vm, conv.ull);
+				//_tagha_push_int64(vm, convb.ull);
+				//DISPATCH();
+			}
+			conv.mmx_i[0] /= convb.mmx_i[0];
+			conv.mmx_i[1] /= convb.mmx_i[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxudivl:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			if( !convb.mmx_ui[0] or !convb.mmx_ui[1] ) {
+				printf("exec_mmxudivl: divide by 0 error.\n");
+				goto *dispatch[halt];
+			}
+			conv.mmx_ui[0] /= convb.mmx_ui[0];
+			conv.mmx_ui[1] /= convb.mmx_ui[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxdivf:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			if( !convb.mmx_f[0] or !convb.mmx_f[1] ) {
+				printf("exec_mmxdivf: divide by 0 error.\n");
+				goto *dispatch[halt];
+			}
+			conv.mmx_f[0] /= convb.mmx_f[0];
+			conv.mmx_f[1] /= convb.mmx_f[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxdivs:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			if( !convb.mmx_s[0] or !convb.mmx_s[1] or !convb.mmx_s[2] or !convb.mmx_s[3] ) {
+				printf("exec_mmxdivs: divide by 0 error.\n");
+				goto *dispatch[halt];
+			}
+			conv.mmx_s[0] /= convb.mmx_s[0]; conv.mmx_s[1] /= convb.mmx_s[1];
+			conv.mmx_s[2] /= convb.mmx_s[2]; conv.mmx_s[3] /= convb.mmx_s[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxudivs:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			if( !convb.mmx_us[0] or !convb.mmx_us[1] or !convb.mmx_us[2] or !convb.mmx_us[3] ) {
+				printf("exec_mmxudivs: divide by 0 error.\n");
+				goto *dispatch[halt];
+			}
+			conv.mmx_us[0] /= convb.mmx_us[0]; conv.mmx_us[1] /= convb.mmx_us[1];
+			conv.mmx_us[2] /= convb.mmx_us[2]; conv.mmx_us[3] /= convb.mmx_us[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxdivb:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			if( !convb.mmx_c[0]
+					or !convb.mmx_c[1]
+					or !convb.mmx_c[2]
+					or !convb.mmx_c[3]
+					or !convb.mmx_c[4]
+					or !convb.mmx_c[5]
+					or !convb.mmx_c[6]
+					or !convb.mmx_c[7] ) {
+				printf("exec_mmxudivs: divide by 0 error.\n");
+				goto *dispatch[halt];
+			}
+			conv.mmx_c[0] /= convb.mmx_c[0]; conv.mmx_c[1] /= convb.mmx_c[1];
+			conv.mmx_c[2] /= convb.mmx_c[2]; conv.mmx_c[3] /= convb.mmx_c[3];
+			conv.mmx_c[4] /= convb.mmx_c[4]; conv.mmx_c[5] /= convb.mmx_c[5];
+			conv.mmx_c[6] /= convb.mmx_c[6]; conv.mmx_c[7] /= convb.mmx_c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxudivb:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			if( !convb.c[0]
+					or !convb.c[1]
+					or !convb.c[2]
+					or !convb.c[3]
+					or !convb.c[4]
+					or !convb.c[5]
+					or !convb.c[6]
+					or !convb.c[7] ) {
+				printf("exec_mmxudivs: divide by 0 error.\n");
+				goto *dispatch[halt];
+			}
+			conv.c[0] /= convb.c[0]; conv.c[1] /= convb.c[1];
+			conv.c[2] /= convb.c[2]; conv.c[3] /= convb.c[3];
+			conv.c[4] /= convb.c[4]; conv.c[5] /= convb.c[5];
+			conv.c[6] /= convb.c[6]; conv.c[7] /= convb.c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxmodl:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			if( !convb.mmx_i[0] or !convb.mmx_i[1] ) {
+				printf("exec_mmxmodl: divide by 0 error.\n");
+				goto *dispatch[halt];
+			}
+			conv.mmx_i[0] %= convb.mmx_i[0];
+			conv.mmx_i[1] %= convb.mmx_i[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxumodl:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			if( !convb.mmx_ui[0] or !convb.mmx_ui[1] ) {
+				printf("exec_mmxumodl: divide by 0 error.\n");
+				goto *dispatch[halt];
+			}
+			conv.mmx_ui[0] %= convb.mmx_ui[0];
+			conv.mmx_ui[1] %= convb.mmx_ui[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxmods:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			if( !convb.mmx_s[0] or !convb.mmx_s[1] or !convb.mmx_s[2] or !convb.mmx_s[3] ) {
+				printf("exec_mmxmods: divide by 0 error.\n");
+				goto *dispatch[halt];
+			}
+			conv.mmx_s[0] %= convb.mmx_s[0]; conv.mmx_s[1] %= convb.mmx_s[1];
+			conv.mmx_s[2] %= convb.mmx_s[2]; conv.mmx_s[3] %= convb.mmx_s[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxumods:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			if( !convb.mmx_us[0] or !convb.mmx_us[1] or !convb.mmx_us[2] or !convb.mmx_us[3] ) {
+				printf("exec_mmxumods: divide by 0 error.\n");
+				goto *dispatch[halt];
+			}
+			conv.mmx_us[0] %= convb.mmx_us[0]; conv.mmx_us[1] %= convb.mmx_us[1];
+			conv.mmx_us[2] %= convb.mmx_us[2]; conv.mmx_us[3] %= convb.mmx_us[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxmodb:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			if( !convb.mmx_c[0]
+					or !convb.mmx_c[1]
+					or !convb.mmx_c[2]
+					or !convb.mmx_c[3]
+					or !convb.mmx_c[4]
+					or !convb.mmx_c[5]
+					or !convb.mmx_c[6]
+					or !convb.mmx_c[7] ) {
+				printf("exec_mmxmodb: divide by 0 error.\n");
+				goto *dispatch[halt];
+			}
+			conv.mmx_c[0] %= convb.mmx_c[0]; conv.mmx_c[1] %= convb.mmx_c[1];
+			conv.mmx_c[2] %= convb.mmx_c[2]; conv.mmx_c[3] %= convb.mmx_c[3];
+			conv.mmx_c[4] %= convb.mmx_c[4]; conv.mmx_c[5] %= convb.mmx_c[5];
+			conv.mmx_c[6] %= convb.mmx_c[6]; conv.mmx_c[7] %= convb.mmx_c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxumodb:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			if( !convb.c[0]
+					or !convb.c[1]
+					or !convb.c[2]
+					or !convb.c[3]
+					or !convb.c[4]
+					or !convb.c[5]
+					or !convb.c[6]
+					or !convb.c[7] ) {
+				printf("exec_mmxumodb: divide by 0 error.\n");
+				goto *dispatch[halt];
+			}
+			conv.c[0] %= convb.c[0]; conv.c[1] %= convb.c[1];
+			conv.c[2] %= convb.c[2]; conv.c[3] %= convb.c[3];
+			conv.c[4] %= convb.c[4]; conv.c[5] %= convb.c[5];
+			conv.c[6] %= convb.c[6]; conv.c[7] %= convb.c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxandl:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_ui[0] &= convb.mmx_ui[0];
+			conv.mmx_ui[1] &= convb.mmx_ui[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxands:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_us[0] &= convb.mmx_us[0]; conv.mmx_us[1] &= convb.mmx_us[1];
+			conv.mmx_us[2] &= convb.mmx_us[2]; conv.mmx_us[3] &= convb.mmx_us[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxandb:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.c[0] &= convb.c[0]; conv.c[1] &= convb.c[1];
+			conv.c[2] &= convb.c[2]; conv.c[3] &= convb.c[3];
+			conv.c[4] &= convb.c[4]; conv.c[5] &= convb.c[5];
+			conv.c[6] &= convb.c[6]; conv.c[7] &= convb.c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxorl:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_ui[0] |= convb.mmx_ui[0];
+			conv.mmx_ui[1] |= convb.mmx_ui[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxors:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_us[0] |= convb.mmx_us[0]; conv.mmx_us[1] |= convb.mmx_us[1];
+			conv.mmx_us[2] |= convb.mmx_us[2]; conv.mmx_us[3] |= convb.mmx_us[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxorb:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.c[0] |= convb.c[0]; conv.c[1] |= convb.c[1];
+			conv.c[2] |= convb.c[2]; conv.c[3] |= convb.c[3];
+			conv.c[4] |= convb.c[4]; conv.c[5] |= convb.c[5];
+			conv.c[6] |= convb.c[6]; conv.c[7] |= convb.c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxxorl:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_ui[0] ^= convb.mmx_ui[0];
+			conv.mmx_ui[1] ^= convb.mmx_ui[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxxors:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_us[0] ^= convb.mmx_us[0]; conv.mmx_us[1] ^= convb.mmx_us[1];
+			conv.mmx_us[2] ^= convb.mmx_us[2]; conv.mmx_us[3] ^= convb.mmx_us[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxxorb:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.c[0] ^= convb.c[0]; conv.c[1] ^= convb.c[1];
+			conv.c[2] ^= convb.c[2]; conv.c[3] ^= convb.c[3];
+			conv.c[4] ^= convb.c[4]; conv.c[5] ^= convb.c[5];
+			conv.c[6] ^= convb.c[6]; conv.c[7] ^= convb.c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxnotl:;
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_ui[0] = ~conv.mmx_ui[0];
+			conv.mmx_ui[1] = ~conv.mmx_ui[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxnots:;
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_us[0] = ~conv.mmx_us[0]; conv.mmx_us[1] = ~conv.mmx_us[1];
+			conv.mmx_us[2] = ~conv.mmx_us[2]; conv.mmx_us[3] = ~conv.mmx_us[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxnotb:;
+			conv.ull = _tagha_pop_int64(vm);
+			conv.c[0] = ~conv.c[0]; conv.c[1] = ~conv.c[1];
+			conv.c[2] = ~conv.c[2]; conv.c[3] = ~conv.c[3];
+			conv.c[4] = ~conv.c[4]; conv.c[5] = ~conv.c[5];
+			conv.c[6] = ~conv.c[6]; conv.c[7] = ~conv.c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxshll:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_ui[0] <<= convb.mmx_ui[0];
+			conv.mmx_ui[1] <<= convb.mmx_ui[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxshls:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_us[0] <<= convb.mmx_us[0]; conv.mmx_us[1] <<= convb.mmx_us[1];
+			conv.mmx_us[2] <<= convb.mmx_us[2]; conv.mmx_us[3] <<= convb.mmx_us[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxshlb:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.c[0] <<= convb.c[0]; conv.c[1] <<= convb.c[1];
+			conv.c[2] <<= convb.c[2]; conv.c[3] <<= convb.c[3];
+			conv.c[4] <<= convb.c[4]; conv.c[5] <<= convb.c[5];
+			conv.c[6] <<= convb.c[6]; conv.c[7] <<= convb.c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxshrl:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_ui[0] >>= convb.mmx_ui[0];
+			conv.mmx_ui[1] >>= convb.mmx_ui[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxshrs:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_us[0] >>= convb.mmx_us[0]; conv.mmx_us[1] >>= convb.mmx_us[1];
+			conv.mmx_us[2] >>= convb.mmx_us[2]; conv.mmx_us[3] >>= convb.mmx_us[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxshrb:;
+			convb.ull = _tagha_pop_int64(vm);
+			conv.ull = _tagha_pop_int64(vm);
+			conv.c[0] >>= convb.c[0]; conv.c[1] >>= convb.c[1];
+			conv.c[2] >>= convb.c[2]; conv.c[3] >>= convb.c[3];
+			conv.c[4] >>= convb.c[4]; conv.c[5] >>= convb.c[5];
+			conv.c[6] >>= convb.c[6]; conv.c[7] >>= convb.c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxincl:;
+			conv.ull = _tagha_pop_int64(vm);
+			++conv.mmx_ui[0]; ++conv.mmx_ui[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxincf:;
+			conv.ull = _tagha_pop_int64(vm);
+			++conv.mmx_f[0]; ++conv.mmx_f[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxincs:;
+			conv.ull = _tagha_pop_int64(vm);
+			++conv.mmx_us[0]; ++conv.mmx_us[1];
+			++conv.mmx_us[2]; ++conv.mmx_us[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxincb:;
+			conv.ull = _tagha_pop_int64(vm);
+			++conv.c[0]; ++conv.c[1];
+			++conv.c[2]; ++conv.c[3];
+			++conv.c[4]; ++conv.c[5];
+			++conv.c[6]; ++conv.c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxdecl:;
+			conv.ull = _tagha_pop_int64(vm);
+			--conv.mmx_ui[0]; --conv.mmx_ui[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxdecf:;
+			conv.ull = _tagha_pop_int64(vm);
+			--conv.mmx_f[0]; --conv.mmx_f[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxdecs:;
+			conv.ull = _tagha_pop_int64(vm);
+			--conv.mmx_us[0]; --conv.mmx_us[1];
+			--conv.mmx_us[2]; --conv.mmx_us[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxdecb:;
+			conv.ull = _tagha_pop_int64(vm);
+			--conv.c[0]; --conv.c[1];
+			--conv.c[2]; --conv.c[3];
+			--conv.c[4]; --conv.c[5];
+			--conv.c[6]; --conv.c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxnegl:;
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_ui[0] = -conv.mmx_ui[0];
+			conv.mmx_ui[1] = -conv.mmx_ui[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxnegf:;
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_f[0] = -conv.mmx_f[0];
+			conv.mmx_f[1] = -conv.mmx_f[1];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
+		exec_mmxnegs:;
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_us[0] = -conv.mmx_us[0]; conv.mmx_us[1] = -conv.mmx_us[1];
+			conv.mmx_us[2] = -conv.mmx_us[2]; conv.mmx_us[3] = -conv.mmx_us[3];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+			
+		exec_mmxnegb:;
+			conv.ull = _tagha_pop_int64(vm);
+			conv.mmx_c[0] = -conv.mmx_c[0]; conv.mmx_c[1] = -conv.mmx_c[1];
+			conv.mmx_c[2] = -conv.mmx_c[2]; conv.mmx_c[3] = -conv.mmx_c[3];
+			conv.mmx_c[4] = -conv.mmx_c[4]; conv.mmx_c[5] = -conv.mmx_c[5];
+			conv.mmx_c[6] = -conv.mmx_c[6]; conv.mmx_c[7] = -conv.mmx_c[7];
+			_tagha_push_int64(vm, conv.ull);
+			DISPATCH();
+		
 		
 		exec_jmp:;		// addresses are word sized bytes.
 			conv.ui = _tagha_get_imm4(vm);
 			vm->ip = conv.ui;
 			printf("jmping to instruction address: %" PRIu32 "\n", vm->ip);
+			continue;
+		
+		exec_jzq:;
+			if( vm->bSafeMode and vm->sp-7 >= STK_SIZE ) {
+				printf("exec_jzq reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-7);
+				goto *dispatch[halt];
+			}
+			conv.c[7] = vm->pbStack[vm->sp-0];
+			conv.c[6] = vm->pbStack[vm->sp-1];
+			conv.c[5] = vm->pbStack[vm->sp-2];
+			conv.c[4] = vm->pbStack[vm->sp-3];
+			conv.c[3] = vm->pbStack[vm->sp-4];
+			conv.c[2] = vm->pbStack[vm->sp-5];
+			conv.c[1] = vm->pbStack[vm->sp-6];
+			conv.c[0] = vm->pbStack[vm->sp-7];
+			qa = conv.ull;
+			conv.ui = _tagha_get_imm4(vm);
+			vm->ip = (!qa) ? conv.ui : vm->ip+1 ;
+			printf("jzq'ing to instruction address: %" PRIu32 "\n", vm->ip);
+			continue;
+			
+		exec_jnzq:;
+			if( vm->bSafeMode and vm->sp-7 >= STK_SIZE ) {
+				printf("exec_jnzq reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", vm->ip, vm->sp-7);
+				goto *dispatch[halt];
+			}
+			conv.c[7] = vm->pbStack[vm->sp-0];
+			conv.c[6] = vm->pbStack[vm->sp-1];
+			conv.c[5] = vm->pbStack[vm->sp-2];
+			conv.c[4] = vm->pbStack[vm->sp-3];
+			conv.c[3] = vm->pbStack[vm->sp-4];
+			conv.c[2] = vm->pbStack[vm->sp-5];
+			conv.c[1] = vm->pbStack[vm->sp-6];
+			conv.c[0] = vm->pbStack[vm->sp-7];
+			qa = conv.ull;
+			conv.ui = _tagha_get_imm4(vm);
+			vm->ip = (qa) ? conv.ui : vm->ip+1 ;
+			printf("jnzq'ing to instruction address: %" PRIu32 "\n", vm->ip);
 			continue;
 		
 		exec_jzl:;		// check if the first 4 bytes on stack are zero, if yes then jump it.

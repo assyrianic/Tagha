@@ -38,7 +38,7 @@ typedef		unsigned int		uint;
 typedef		long long int		i64;	// long longs are at minimum 64-bits as defined by C99 standard
 typedef		unsigned long long	u64;
 
-typedef		uint				Word_t;	// word size is 32-bits
+typedef		uint				Word_t;	// word size is 4 bytes
 
 // Bytecode header to store important info for our code.
 // this will be entirely read as an unsigned char
@@ -90,6 +90,8 @@ typedef struct native_map {
 } NativeMap_t;
 */
 //int	tagha_register_funcs(TaghaVM_t *restrict vm, NativeInfo_t *Natives);
+
+
 struct Taghavm {
 	uchar	*pbMemory, *pbStack, *pInstrStream;
 	fnNative	fnpNative;
@@ -108,6 +110,13 @@ union conv_union {	// converter union. for convenience
 	i64		ll;
 	double	dbl;
 	uchar	c[8];
+	
+	uint	mmx_ui[2];
+	int		mmx_i[2];
+	float	mmx_f[2];
+	ushort	mmx_us[4];
+	short	mmx_s[4];
+	char	mmx_c[8];
 };
 
 void	tagha_init(TaghaVM_t *vm);
@@ -172,7 +181,7 @@ void	tagha_read_nbytes(TaghaVM_t *restrict vm, void *restrict pBuffer, const Wor
 void	tagha_write_nbytes(TaghaVM_t *restrict vm, void *restrict pItem, const Word_t bytesize, const Word_t address);
 
 
-long double	*tagha_addr2ptr_longdouble(TaghaVM_t *restrict vm, const Word_t address);
+long double	*tagha_addr2ptr_longdfloat(TaghaVM_t *restrict vm, const Word_t address);
 u64		*tagha_addr2ptr_int64(TaghaVM_t *restrict vm, const Word_t address);
 double	*tagha_addr2ptr_float64(TaghaVM_t *restrict vm, const Word_t address);
 uint	*tagha_addr2ptr_int32(TaghaVM_t *restrict vm, const Word_t address);
@@ -181,7 +190,7 @@ ushort	*tagha_addr2ptr_short(TaghaVM_t *restrict vm, const Word_t address);
 uchar	*tagha_addr2ptr_byte(TaghaVM_t *restrict vm, const Word_t address);
 
 
-long double *tagha_stkaddr2ptr_longdouble(TaghaVM_t *restrict vm, const Word_t address);
+long double *tagha_stkaddr2ptr_longfloat(TaghaVM_t *restrict vm, const Word_t address);
 u64		*tagha_stkaddr2ptr_int64(TaghaVM_t *restrict vm, const Word_t address);
 double	*tagha_stkaddr2ptr_float64(TaghaVM_t *restrict vm, const Word_t address);
 uint	*tagha_stkaddr2ptr_int32(TaghaVM_t *restrict vm, const Word_t address);

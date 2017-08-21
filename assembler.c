@@ -7,28 +7,44 @@
 	X(pushq) X(pushl) X(pushs) X(pushb) X(pushsp) X(puship) X(pushbp) \
 	X(pushspadd) X(pushspsub) X(pushbpadd) X(pushbpsub) \
 	X(popq) X(popl) X(pops) X(popb) X(popsp) X(popip) X(popbp) \
-	X(wrtl) X(wrts) X(wrtb) \
-	X(storel) X(stores) X(storeb) \
-	X(storela) X(storesa) X(storeba) \
-	X(storespl) X(storesps) X(storespb) \
-	X(loadl) X(loads) X(loadb) \
-	X(loadla) X(loadsa) X(loadba) \
-	X(loadspl) X(loadsps) X(loadspb) \
-	X(copyl) X(copys) X(copyb) \
-	X(addl) X(uaddl) X(addf) \
-	X(subl) X(usubl) X(subf) \
-	X(mull) X(umull) X(mulf) \
-	X(divl) X(udivl) X(divf) \
-	X(modl) X(umodl) \
+	X(wrtq) X(wrtl) X(wrts) X(wrtb) \
+	X(storeq) X(storel) X(stores) X(storeb) \
+	X(storeqa) X(storela) X(storesa) X(storeba) \
+	X(storespq) X(storespl) X(storesps) X(storespb) \
+	X(loadq) X(loadl) X(loads) X(loadb) \
+	X(loadqa) X(loadla) X(loadsa) X(loadba) \
+	X(loadspq) X(loadspl) X(loadsps) X(loadspb) \
+	X(copyq) X(copyl) X(copys) X(copyb) \
+	X(addq) X(uaddq) X(addl) X(uaddl) X(addf) \
+	X(subq) X(usubq) X(subl) X(usubl) X(subf) \
+	X(mulq) X(umulq) X(mull) X(umull) X(mulf) \
+	X(divq) X(udivq) X(divl) X(udivl) X(divf) \
+	X(modq) X(umodq) X(modl) X(umodl) \
+	X(addf64) X(subf64) X(mulf64) X(divf64) \
 	X(andl) X(orl) X(xorl) X(notl) X(shll) X(shrl) \
-	X(incl) X(incf) X(decl) X(decf) X(negl) X(negf) \
-	X(ltl) X(ultl) X(ltf) X(gtl) X(ugtl) X(gtf) \
-	X(cmpl) X(ucmpl) X(compf) \
-	X(leql) X(uleql) X(leqf) \
-	X(geql) X(ugeql) X(geqf) \
-	X(jmp) X(jzl) X(jnzl) \
+	X(andq) X(orq) X(xorq) X(notq) X(shlq) X(shrq) \
+	X(incq) X(incl) X(incf) X(decq) X(decl) X(decf) X(negq) X(negl) X(negf) \
+	X(incf64) X(decf64) X(negf64) \
+	X(ltq) X(ltl) X(ultq) X(ultl) X(ltf) \
+	X(gtq) X(gtl) X(ugtq) X(ugtl) X(gtf) \
+	X(cmpq) X(cmpl) X(ucmpq) X(ucmpl) X(compf) \
+	X(leqq) X(uleqq) X(leql) X(uleql) X(leqf) \
+	X(geqq) X(ugeqq) X(geql) X(ugeql) X(geqf) \
+	X(ltf64) X(gtf64) X(cmpf64) X(leqf64) X(geqf64) \
+	X(neqq) X(uneqq) X(neql) X(uneql) X(neqf) X(neqf64) \
+	X(jmp) X(jzq) X(jnzq) X(jzl) X(jnzl) \
 	X(call) X(calls) X(calla) X(ret) X(retx) X(reset) \
 	X(callnat) X(callnats) X(callnata) \
+	X(mmxaddl) X(mmxuaddl) X(mmxaddf) X(mmxadds) X(mmxuadds) X(mmxaddb) X(mmxuaddb) \
+	X(mmxsubl) X(mmxusubl) X(mmxsubf) X(mmxsubs) X(mmxusubs) X(mmxsubb) X(mmxusubb) \
+	X(mmxmull) X(mmxumull) X(mmxmulf) X(mmxmuls) X(mmxumuls) X(mmxmulb) X(mmxumulb) \
+	X(mmxdivl) X(mmxudivl) X(mmxdivf) X(mmxdivs) X(mmxudivs) X(mmxdivb) X(mmxudivb) \
+	X(mmxmodl) X(mmxumodl) X(mmxmods) X(mmxumods) X(mmxmodb) X(mmxumodb) \
+	X(mmxandl) X(mmxands) X(mmxandb) X(mmxorl) X(mmxors) X(mmxorb) \
+	X(mmxxorl) X(mmxxors) X(mmxxorb) X(mmxnotl) X(mmxnots) X(mmxnotb) \
+	X(mmxshll) X(mmxshls) X(mmxshlb) X(mmxshrl) X(mmxshrs) X(mmxshrb) \
+	X(mmxincl) X(mmxincf) X(mmxincs) X(mmxincb) X(mmxdecl) X(mmxdecf) X(mmxdecs) X(mmxdecb) \
+	X(mmxnegl) X(mmxnegf) X(mmxnegs) X(mmxnegb) \
 	X(nop) \
 
 #define X(x) x,
@@ -224,6 +240,7 @@ int main ()
 		wrtl,	0,0,0,0,	0xa,0xb,0xc,0xd,	// direct write to address 0x0
 		wrts,	0,0,0,4,	0xff,0xaa,			// direct write to address 0x4
 		wrtb,	0,0,0,6,	0xfa,				// direct write to address 0x6
+		wrtq,	0,0,0,10,	0xaa,0xab,0xac,0xad, 0xae,0xaf,0xba,0xbb,
 		
 		// store + load tests
 		pushl,	0xa,0xb,0xc,0xd,
@@ -445,5 +462,27 @@ int main ()
 		fwrite(test_native, sizeof(uint8_t), sizeof(test_native), pFile);
 		fclose(pFile);
 	}
+	
+	bytecode mmx_test={
+		0xDE, 0xC0, 6,0,0,0,	// 0-5
+		pushq,	0,0,0,255, 0,0,0,1,
+		pushq,	0,0,0,5, 0,0,0,2,
+		//mmxaddl, // treats the 64-bit values as 4 ints, added top down (2 on bottom is added to 1 at top, 5 is added to 255.)
+		mmxmuls, //mmxnegb,
+		halt
+	};
+	pFile = fopen("./mmx_test.tbc", "wb");
+	if( pFile ) {
+		fwrite(mmx_test, sizeof(uint8_t), sizeof(mmx_test), pFile);
+		fclose(pFile);
+	}
 	return 0;
 }
+
+
+
+
+
+
+
+
