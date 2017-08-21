@@ -19,8 +19,8 @@ The goal for TaghaVM is to...
 + 4. be an example of how to do a minimal scripting system.
 
 ### Features
-* float (float32, not 64-bit float yet...) support by converting integer to a float by its bits. For example, "5.0f" is '0x40a00000' or '1084227584' in terms of its bits if it were an int.
-I usually use hexadecimals but decimal numbers work just as good. The giant numbers are then transformed into floats via type-punning by a single union singleton.
+* floats and doubles supported by converting integers to floating point data by its bits. For example, "5.0f" is '0x40a00000' or '1084227584' in terms of its bits if it were a 4-byte int.
+I usually use hexadecimals but decimal numbers work just as good. The giant numbers are then transformed into floating point via type-punning by a single union singleton.
 * uses computed gotos (the ones that use a void\*) which is 20%-25% faster than a switch [[citation]](http://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables).
 * "CPU" is "32-bit" as the word size is uint32. Numerical memory and stack addresses are 32-bits as well.
 * Memory manipulation where loading data pops the top of stack into any memory address and storing pops off the top of stack into any memory address.
