@@ -30,7 +30,7 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
 * VM is little-endian.
 
 ## TODO list
-- [ ] add `q` or 'quad' opcodes for 64-bit data AND make VM completely 64-bit (32-bit will NOT be available).
+- [x] add `q` or 'quad' opcodes for 64-bit data ~~AND make VM completely 64-bit (32-bit will NOT be available)~~.
 - [x] add API for host applications to embed this VM.
 - [ ] figure out natives system.
 - [ ] create format for libraries and headers.
@@ -39,6 +39,6 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
 ## End Goals list
 - [ ] complete, seamless embeddability to C (and by extension C++) programs. As smooth as how Angelscript binds to C++.
 - [ ] compatibility of as much of the C standards possible, including C11.
-- [ ] implement a compiler that generates the bytecode for this VM. Possibility: Make GCC output Tagha bytecode using a custom GCC Backend but will take alot of effort. Maybe use Clang/LLVM backend to output Tagha bytecode.
+- [ ] implement a compiler or compiler backend that generates bytecode for this VM. Possibility: Make GCC output Tagha bytecode using a custom GCC Backend but will take alot of effort. Maybe use Clang/LLVM backend to output Tagha bytecode?
 - [ ] Windows compatibility/availability.
 - [ ] Ultimate Goal: VM can bootstrap itself! (compiled to TaghaVM bytecode and ran by TaghaVM itself).
