@@ -1,3 +1,5 @@
+# V2 is on feature frozen so as to work on Scripting engine form aka the 'script' branch.
+
 # Tagha Virtual Machine
 "tagha" is Aramaic for "crown".
 Tagha is a minimal yet complex stack-based virtual machine, written in C, designed to run compiled C scripts. Why is it named "crown"? Because C is king in the programming world :P
