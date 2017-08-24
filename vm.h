@@ -27,8 +27,6 @@ extern "C" {
 
 
 #define WORD_SIZE		4
-#define STK_SIZE		(512 * WORD_SIZE)		// 2,048 bytes or 2kb
-#define MEM_SIZE		(4096 * WORD_SIZE)		// 65,536 bytes or 65kb of memory
 #define NULL_ADDR		0xFFFFFFFF				// all NULL pointers should have this value
 
 typedef		unsigned char		uchar;
@@ -40,17 +38,6 @@ typedef		unsigned long long	u64;
 
 typedef		uint				Word_t;	// word size is 4 bytes
 
-// Bytecode header to store important info for our code.
-// this will be entirely read as an unsigned char
-typedef struct Taghaheader {
-	ushort	uiMagic;	// verify bytecode ==> 0xC0DE 'code' - actual bytecode OR 0x0D11 'dll' - for library funcs
-	uint	ipstart;	// where does 'main' begin?
-	uint	uiDataSize;	// how many variables we got to place directly into memory?
-	uint	uiStkSize;	// how many variables we have to place onto the data stack?
-	uint	uiInstrCount;	// how many instructions does the code have? This includes the arguments and operands.
-	
-} TaghaHeader_t;
-
 
 struct TaghaScript;
 struct TaghaVM; 
@@ -59,10 +46,10 @@ typedef struct TaghaVM			TaghaVM_t;
 
 //	API to call C/C++ functions from scripts.
 //	account for function pointers to natives being executed on script side.
-typedef		void (*fnNative)(Script_t *restrict script, const uchar argc, const uint bytes, uchar *arrParams);
+typedef		void (*fnNative_t)(Script_t *restrict script, const uchar argc, const uint bytes, uchar *arrParams);
 
 typedef struct native_info {
-	fnNative			fnpFunc;
+	fnNative_t			fnpFunc;
 	const char			*strFuncName;
 	struct native_info	*pNext;
 } NativeInfo_t;
@@ -77,8 +64,10 @@ typedef struct native_map {
 
 struct TaghaScript {
 	uchar	*pbMemory, *pbStack, *pInstrStream;
-	fnNative	fnpNative;
-	uint	ip, sp, bp;		// 12 bytes
+	fnNative_t	fnpNative;
+	uint	ip, sp, bp;
+	uint	uiMemsize;
+	uint	uiStksize;
 	uint	uiMaxInstrs;
 	bool	bSafeMode;
 };
@@ -111,7 +100,7 @@ void	Tagha_init(TaghaVM_t *vm);
 void	Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename);
 void	Tagha_free(TaghaVM_t *vm);
 void	Tagha_exec(TaghaVM_t *vm);
-int		Tagha_register_native(TaghaVM_t *restrict vm, fnNative pNative);
+int		Tagha_register_native(TaghaVM_t *restrict vm, fnNative_t pNative);
 
 void	TaghaScript_debug_print_ptrs(const Script_t *script);
 void	TaghaScript_debug_print_stack(const Script_t *script);

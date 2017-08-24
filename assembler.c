@@ -55,8 +55,13 @@ typedef uint8_t		bytecode[];
 int main ()
 {
 	FILE *pFile = NULL;
+	unsigned short magic = 0xC0DE;
+	
 	bytecode endian_test1 = {
-		0xDE, 0xC0, 7,0,0,0,
+		0xDE, 0xC0,	// magic
+		14,0,0,0,	// set instruction pointer entry point
+		4,0,0,0,	// set memory size.
+		5,0,0,0,	// set stack size. count up every stack item and add 1
 		nop,
 		//pushl, 255, 1, 0, 0x0,
 		//pushs, 0xDD, 0xDD,
@@ -67,7 +72,9 @@ int main ()
 		halt
 	};
 	bytecode float_test = {
-		0xDE, 0xC0, 6,0,0,0,
+		14,0,0,0,
+		0,0,0,0,	// set memory size.
+		9,0,0,0,	// set stack size.
 		//jmp, 17,0,0,0,
 		// -16776961
 		//pushl, 255,0,0,255,
@@ -95,10 +102,12 @@ int main ()
 		}
 	*/
 	bytecode fibonacci = {
-		0xDE, 0xC0, 6,0,0,0,
+		14,0,0,0,
+		20,0,0,0,	// set memory size.
+		60,0,0,0,	// set stack size.
 		nop, // calc fibonnaci number
 		wrtl,	0,0,0,0,	0,0,0,7,	// write n to address 0, remember that memory is little endian!
-		call,	0,0,0,22,
+		call,	0,0,0,30,
 		halt,
 		// a = 0;
 		wrtl,	0,0,0,4,	0,0,0,0,		// 16
@@ -111,7 +120,7 @@ int main ()
 		loadl,	0,0,0,0,		// load param n
 		decl,				// decrement address 0
 		storel,	0,0,0,0,	// store decrement result to memory address
-		jzl,	0,0,0,109,		// jmp to storing b and returning.
+		jzl,	0,0,0,117,		// jmp to storing b and returning.
 		popl,
 		// int t = a;
 		loadl,	0,0,0,4,		// load a's value.
@@ -124,13 +133,15 @@ int main ()
 		loadl,	0,0,0,8,		// load b.
 		uaddl,				// add b and t
 		storel,	0,0,0,8,	// store addition value to b's address.
-		jmp,	0,0,0,40,		// jmp back to start of loop.	// 98
+		jmp,	0,0,0,48,		// jmp back to start of loop.	// 98
 		// }
 		ret		// b has been fully 'mathemized' and is stored into memory for reuse.
 	};
 	
 	bytecode hello_world = {
-		0xDE, 0xC0, 6,0,0,0,
+		14,0,0,0,
+		12,0,0,0,	// set memory size.
+		0,0,0,0,	// set stack size.
 		nop,
 		wrtb,	0,0,0,0,	100,	// d
 		wrtb,	0,0,0,1,	108,	// l
@@ -147,7 +158,9 @@ int main ()
 	};
 	
 	bytecode global_pointers = {
-		0xDE, 0xC0, 7,0,0,0,
+		14,0,0,0,
+		255,1,0,0,	// set memory size.
+		16,0,0,0,	// set stack size.
 		nop,
 		// The way you wuold store to a pointer would be something like...
 		// pushl <value to store>
@@ -175,7 +188,9 @@ int main ()
 	
 	// example of locally (stack-allocated) made pointers and manipulating them.
 	bytecode local_pointers = {
-		0xDE, 0xC0, 7,0,0,0,
+		14,0,0,0,
+		1,0,0,0,	// set memory size.
+		16,0,0,0,	// set stack size.
 		nop,
 		// int i = 170;
 		// i's address is 4 (tos address, not beginning data address)
@@ -190,10 +205,12 @@ int main ()
 	// void func(int a, int b) { a+b; }
 	// func declarations are done by cdecl standard.
 	bytecode test_func_call = {
-		0xDE, 0xC0, 6,0,0,0,	// 0
+		14,0,0,0,
+		1,0,0,0,	// set memory size.
+		28,0,0,0,	// set stack size.
 		pushl,	0,0,1,244,	//6-10		push b
 		pushl,	0,0,0,2,	//11-15		push a
-		call,	0,0,0,24,	//16-20		func(int a, int b) ==> b=500 and a=2
+		call,	0,0,0,32,	//16-20		func(int a, int b) ==> b=500 and a=2
 		popl,popl,	//21-22 clean up args a and b from stack
 		halt,			// 23
 		pushl,	0,0,0,8, loadspl,	// load a to TOS
@@ -204,12 +221,14 @@ int main ()
 	
 	
 	bytecode test_call_opcodes = {
-		0xDE, 0xC0, 6,0,0,0,	// 0
-		call,	0,0,0,33,
-		pushl,	0,0,0,39,	//11
+		14,0,0,0,
+		5,0,0,0,	// set memory size.
+		28,0,0,0,	// set stack size.
+		call,	0,0,0,41,
+		pushl,	0,0,0,47,	//11
 		calls,	//16
 		
-		wrtl,	0,0,0,0,	0,0,0,45,	//17
+		wrtl,	0,0,0,0,	0,0,0,53,	//17
 		pushl,	0,0,0,0,	//26
 		calla,	//31
 		halt,	//32
@@ -225,7 +244,9 @@ int main ()
 	};
 	
 	bytecode all_opcodes_test = {
-		0xDE, 0xC0, 6,0,0,0,	// 0
+		14,0,0,0,
+		255,0,0,0,	// set memory size.
+		255,0,0,0,	// set stack size.
 		
 		// push + pop tests
 		pushq,	0xa,0xb,0xc,0xd,0xe,0xf,0xaa,0xbb, popq,
@@ -320,45 +341,54 @@ int main ()
 	}
 	pFile = fopen("./float_test.tbc", "wb");
 	if( pFile ) {
+		fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(float_test, sizeof(uint8_t), sizeof(float_test), pFile);
 		fclose(pFile);
 	}
 	pFile = fopen("./fibonacci.tbc", "wb");
 	if( pFile ) {
+		fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(fibonacci, sizeof(uint8_t), sizeof(fibonacci), pFile);
 		fclose(pFile);
 	}
 	pFile = fopen("./global_pointers.tbc", "wb");
 	if( pFile ) {
+		fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(global_pointers, sizeof(uint8_t), sizeof(global_pointers), pFile);
 		fclose(pFile);
 	}
 	pFile = fopen("./local_pointers.tbc", "wb");
 	if( pFile ) {
+		fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(local_pointers, sizeof(uint8_t), sizeof(local_pointers), pFile);
 		fclose(pFile);
 	}
 	pFile = fopen("./test_func_call.tbc", "wb");
 	if( pFile ) {
+		fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(test_func_call, sizeof(uint8_t), sizeof(test_func_call), pFile);
 		fclose(pFile);
 	}
 	pFile = fopen("./test_call_opcodes.tbc", "wb");
 	if( pFile ) {
+		fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(test_call_opcodes, sizeof(uint8_t), sizeof(test_call_opcodes), pFile);
 		fclose(pFile);
 	}
 	pFile = fopen("./all_opcodes_test.tbc", "wb");
 	if( pFile ) {
+		fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(all_opcodes_test, sizeof(uint8_t), sizeof(all_opcodes_test), pFile);
 		fclose(pFile);
 	}
 	
 	bytecode test_retx_func = {
-		0xDE, 0xC0, 6,0,0,0,	// 0
+		14,0,0,0,
+		0,0,0,0,	// set memory size.
+		24,0,0,0,	// set stack size.
 		// func prototype -> int f(int);
 		pushl,	0,0,0,9,	//6-10	-push argument 1.
-		call,	0,0,0,17,	//11-15	-"f(5);"
+		call,	0,0,0,25,	//11-15	-"f(5);"
 		halt,	//16
 		
 		// int f(int i) {
@@ -371,18 +401,22 @@ int main ()
 	};
 	pFile = fopen("./test_retx_func.tbc", "wb");
 	if( pFile ) {
+		fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(test_retx_func, sizeof(uint8_t), sizeof(test_retx_func), pFile);
 		fclose(pFile);
 	}
 	
 	bytecode test_recursion = {
-		0xDE, 0xC0, 6,0,0,0,	// 0
-		call,	0,0,0,12,	//6-10
+		14,0,0,0,	// 2-5
+		0,0,0,0,	// set memory size.
+		255,0,0,0,	// set stack size.
+		call,	0,0,0,20,	//6-10
 		halt,	//11
-		call,	0,0,0,12 //12-16
+		call,	0,0,0,20 //12-16
 	};
 	pFile = fopen("./test_recursion.tbc", "wb");
 	if( pFile ) {
+		fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(test_recursion, sizeof(uint8_t), sizeof(test_recursion), pFile);
 		fclose(pFile);
 	}
@@ -401,16 +435,18 @@ int main ()
 	}
 	*/
 	bytecode test_factorial_recurs = {
-		0xDE, 0xC0, 6,0,0,0,	// 0-5
-		pushl,	0,0,0,7,	//6-10
-		call,	0,0,0,17,	//11-15
+		14,0,0,0,	// 2-5
+		0,0,0,0,	// set memory size.
+		255,0,0,0,	// set stack size.
+		pushl,	0,0,0,7,	//14-18
+		call,	0,0,0,25,	//19-15
 		halt,	//16
 		
 		pushl,	0,0,0,8,	//17-21	// [ebp+8] to get i from stack.
 		pushbpsub, loadspl,	//22-23	// load i to Top of Stack.
 		pushl,	0,0,0,1,	//24-28	// push 1
 		uleql,	//29	// i <= 1?
-		jzl,	0,0,0,45,	//30-34	// if 0, jump passed the first `retx`.
+		jzl,	0,0,0,53,	//30-34	// if 0, jump passed the first `retx`.
 		pushl,	0,0,0,1,	//35-39
 		retx,	0,0,0,4,	//40-44
 		
@@ -418,7 +454,7 @@ int main ()
 		pushbpsub, loadspl,	// load i to Top of Stack.
 		pushl,	0,0,0,1,
 		usubl,	// i-1
-		call,	0,0,0,17,	// get result of call, with (i-1) as arg.
+		call,	0,0,0,25,	// get result of call, with (i-1) as arg.
 		// each call makes a new stack frame, regardless of call type opcode.
 		
 		pushl,	0,0,0,8,	// [ebp+8] to get i from stack.
@@ -428,6 +464,7 @@ int main ()
 	};
 	pFile = fopen("./test_factorial_recurs.tbc", "wb");
 	if( pFile ) {
+		fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(test_factorial_recurs, sizeof(uint8_t), sizeof(test_factorial_recurs), pFile);
 		fclose(pFile);
 	}
@@ -450,7 +487,9 @@ int main ()
 	};
 	*/
 	bytecode test_native = {
-		0xDE, 0xC0, 6,0,0,0,	// 0-5
+		14,0,0,0,	// 2-5
+		0,0,0,0,	// set memory size.
+		16,0,0,0,	// set stack size.
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
@@ -459,12 +498,15 @@ int main ()
 	};
 	pFile = fopen("./test_native.tbc", "wb");
 	if( pFile ) {
+		fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(test_native, sizeof(uint8_t), sizeof(test_native), pFile);
 		fclose(pFile);
 	}
 	
 	bytecode mmx_test={
-		0xDE, 0xC0, 6,0,0,0,	// 0-5
+		14,0,0,0,	// 2-5
+		0,0,0,0,	// set memory size.
+		20,0,0,0,	// set stack size.
 		pushq,	0,0,0,255, 0,0,0,1,
 		pushq,	0,0,0,5, 0,0,0,2,
 		//mmxaddl, // treats the 64-bit values as 4 ints, added top down (2 on bottom is added to 1 at top, 5 is added to 255.)
@@ -473,13 +515,16 @@ int main ()
 	};
 	pFile = fopen("./mmx_test.tbc", "wb");
 	if( pFile ) {
+		fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(mmx_test, sizeof(uint8_t), sizeof(mmx_test), pFile);
 		fclose(pFile);
 	}
 	
 	bytecode test_local_native_funcptr = {
-		0xDE, 0xC0, 6,0,0,0,	// 0-5
-		pushnataddr,	// push native's function ptr
+		14,0,0,0,	// 2-5
+		1,0,0,0,	// set memory size.
+		24,0,0,0,	// set stack size.
+		pushnataddr,	// push native's function ptr, assume it pushes 8 bytes
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
@@ -488,9 +533,11 @@ int main ()
 	};
 	pFile = fopen("./test_local_native_funcptr.tbc", "wb");
 	if( pFile ) {
+		fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(test_local_native_funcptr, sizeof(uint8_t), sizeof(test_local_native_funcptr), pFile);
 		fclose(pFile);
 	}
+	pFile = NULL;
 	return 0;
 }
 

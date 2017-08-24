@@ -120,17 +120,17 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	
-	TaghaVM_t *vm = &(TaghaVM_t){ 0 };
+	TaghaVM_t vm = (TaghaVM_t){ 0 };
 	//vm->pScript = &(Script_t){ 0 };
 	//Script_t *script = &(Script_t){ 0 };
-	Tagha_init(vm);
-	Tagha_load_script(vm, argv[1]);
+	Tagha_init(&vm);
+	Tagha_load_script(&vm, argv[1]);
 	//Tagha_register_native(script, NativePrintHelloWorld);
 	//Tagha_register_native(script, NativeTestArgs);
 	//Tagha_register_native(script, NativeTestRet);
 	//Tagha_register_native(script, NativeTestArray);
-	Tagha_register_native(vm, NativeTestPtr);
-	Tagha_exec(vm);	//Tagha_free(script);
+	Tagha_register_native(&vm, NativeTestPtr);
+	Tagha_exec(&vm);	//Tagha_free(script);
 	
 	/*
 	// Hello World is approximately 12 chars if u count NULL-term
@@ -155,9 +155,9 @@ int main(int argc, char **argv)
 	TaghaScript_pop_nbytes(script, &test2, sizeof(struct kek));
 	printf("test2 data: lli:%lli , shrt: %i , ic:%i\n", test2.lli, test2.shrt, test2.ic);
 	*/
-	TaghaScript_debug_print_memory(vm->pScript);
-	TaghaScript_debug_print_stack(vm->pScript);
-	Tagha_free(vm);
+	TaghaScript_debug_print_memory(vm.pScript);
+	TaghaScript_debug_print_stack(vm.pScript);
+	Tagha_free(&vm);
 	//TaghaScript_debug_print_ptrs(p_script);
 	//free(program); program=NULL;
 	return 0;
