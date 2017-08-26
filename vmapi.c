@@ -27,6 +27,10 @@ void Tagha_init(TaghaVM_t *restrict vm)
 		return;
 	
 	vm->pScript = NULL;
+	vm->pmapNatives = malloc(sizeof(dict));
+	if( !vm->pmapNatives )
+		printf("[Tagha Error]: **** Unable to initialize Native Map ****\n");
+	else dict_init(vm->pmapNatives);
 }
 
 void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
@@ -63,9 +67,8 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 		if( *(ushort *)verify == 0xC0DE ) {
 			printf("Tagha_load_script :: verified code!\n");
 			verify += 2;
-			script->ip = *(uint *)verify;
-			printf("Tagha_load_script :: ip starts at %" PRIu32 "\n", *(uint *)verify);
-			verify += 4;
+			script->ip = *(uint *)verify; verify += 4;
+			printf("Tagha_load_script :: ip starts at %" PRIu32 "\n", script->ip);
 			
 			script->uiMemsize = *(uint *)verify; verify += 4;
 			printf("Tagha_load_script :: Memory Size: %" PRIu32 "\n", script->uiMemsize);
@@ -74,12 +77,27 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 			else script->pbMemory = calloc(32, sizeof(uchar));	// have a default size of 32 bytes for memory.
 			assert( script->pbMemory );
 			
-			script->uiStksize = *(uint *)verify;
+			script->uiStksize = *(uint *)verify; verify += 4;
 			printf("Tagha_load_script :: Stack Size: %" PRIu32 "\n", script->uiStksize);
 			if( script->uiStksize )
 				script->pbStack = calloc(script->uiStksize, sizeof(uchar));
 			else script->pbStack = calloc(32, sizeof(uchar));	// have a default size of 32 bytes for stack.
 			assert( script->pbStack );
+			
+			script->uiNatives = *(uint *)verify; verify += 4;
+			if( script->uiNatives ) {
+				script->ppstrNatives = calloc(script->uiNatives, sizeof(char *));
+				uint i;
+				for( i=0 ; i<script->uiNatives ; i++ ) {
+					uint size = *(uint *)verify; verify += 4;
+					char buffer[size];
+					script->ppstrNatives[i] = calloc(size, sizeof(char));
+					uint n = 0;
+					while( *(char *)verify != 0 )
+						script->ppstrNatives[i][n++] = *(char *)verify++;
+					script->ppstrNatives[i][size-1] = *(char *)verify++;
+				}
+			} else script->ppstrNatives = NULL;
 			
 			script->bSafeMode = true;
 			script->sp = script->bp = 0;
@@ -99,27 +117,30 @@ void Tagha_free(TaghaVM_t *vm)
 {
 	if( !vm )
 		return;
-	else if( !vm->pScript )
-		return;
+	if( vm->pScript ) {
+		Script_t *script = vm->pScript;
 	
-	Script_t *script = vm->pScript;
-	
-	if( script->pbStack )
-		free(script->pbStack);
-	script->pbStack = NULL;
-	
-	if( script->pbMemory )
-		free(script->pbMemory);
-	script->pbMemory = NULL;
-	
-	if( script->pInstrStream )
-		free(script->pInstrStream);
-	script->pInstrStream = NULL;
-	
-	free(vm->pScript);
-	vm->pScript = NULL;
-	script = NULL;
-	Tagha_init(vm);
+		if( script->pbStack )
+			free(script->pbStack);
+		script->pbStack = NULL;
+		
+		if( script->pbMemory )
+			free(script->pbMemory);
+		script->pbMemory = NULL;
+		
+		if( script->pInstrStream )
+			free(script->pInstrStream);
+		script->pInstrStream = NULL;
+		
+		free(vm->pScript);
+		vm->pScript = NULL;
+		script = NULL;
+	}
+	if( vm->pmapNatives ) {
+		dict_free(vm->pmapNatives, false);
+		free(vm->pmapNatives);
+		vm->pmapNatives = NULL;
+	}
 }
 
 
@@ -137,23 +158,17 @@ void TaghaScript_reset(Script_t *script)
 	script->sp = script->bp = 0;
 }
 
-/*
-int Tagha_register_natives(Script_t *restrict script, NativeInfo_t **Natives)
+
+int Tagha_register_natives(TaghaVM_t *restrict vm, NativeInfo_t *arrNatives)
 {
-	if( !script or !Natives )
+	if( !vm or !arrNatives )
+		return 0;
+	else if( !vm->pmapNatives )
 		return 0;
 	
-	return 1;
-}
-*/
-int Tagha_register_native(TaghaVM_t *restrict vm, fnNative_t pNative)
-{
-	if( !vm or !pNative )
-		return 0;
-	else if( !vm->pScript )
-		return 0;
-	
-	vm->pScript->fnpNative = pNative;
+	Word_t i;
+	for( i=0 ; arrNatives[i].pFunc != NULL ; i++ )
+		dict_insert(vm->pmapNatives, arrNatives[i].strName, (void *)arrNatives[i].pFunc);
 	return 1;
 }
 

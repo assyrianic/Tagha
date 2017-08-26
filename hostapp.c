@@ -10,7 +10,7 @@
  */ 
 
 /* void PrintHelloWorld(void); */
-static void NativePrintHelloWorld(Script_t *restrict script, const uchar argc, const uint bytes, uchar *arrParams)
+static void NativePrintHelloWorld(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
 {
 	if( !script )
 		return;
@@ -19,7 +19,7 @@ static void NativePrintHelloWorld(Script_t *restrict script, const uchar argc, c
 }
 
 /* void TestArgs(int, short, char, float); */
-static void NativeTestArgs(Script_t *restrict script, const uchar argc, const uint bytes, uchar *arrParams)
+static void NativeTestArgs(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
 {
 	if( !script )
 		return;
@@ -35,7 +35,7 @@ static void NativeTestArgs(Script_t *restrict script, const uchar argc, const ui
 }
 
 /* float TestArgs(void); */
-static void NativeTestRet(Script_t *restrict script, const uchar argc, const uint bytes, uchar *arrParams)
+static void NativeTestRet(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
 {
 	if( !script )
 		return;
@@ -46,7 +46,7 @@ static void NativeTestRet(Script_t *restrict script, const uchar argc, const uin
 }
 
 /* void Test(void); */
-static void NativeTestArray(Script_t *restrict script, const uchar argc, const uint bytes, uchar *arrParams)
+static void NativeTestArray(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
 {
 	if( !script )
 		return;
@@ -74,7 +74,7 @@ static void NativeTestArray(Script_t *restrict script, const uchar argc, const u
 }
 
 /* void Test(struct player plyr) */
-static void NativeTestPtr(Script_t *restrict script, const uchar argc, const uint bytes, uchar *arrParams)
+static void NativeTestPtr(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
 {
 	if( !script )
 		return;
@@ -129,7 +129,13 @@ int main(int argc, char **argv)
 	//Tagha_register_native(script, NativeTestArgs);
 	//Tagha_register_native(script, NativeTestRet);
 	//Tagha_register_native(script, NativeTestArray);
-	Tagha_register_native(&vm, NativeTestPtr);
+	
+	NativeInfo_t Hostnatives[] = {
+		{"test", NativeTestPtr},
+		{"printHW", NativePrintHelloWorld},
+		{NULL,NULL}
+	};
+	Tagha_register_natives(&vm, Hostnatives);
 	Tagha_exec(&vm);	//Tagha_free(script);
 	
 	/*

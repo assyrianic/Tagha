@@ -2,7 +2,7 @@
 #ifndef TaghaScript_H_INCLUDED
 #define TaghaScript_H_INCLUDED
 
-#include <stdbool.h>
+#include "hashmap.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,35 +46,39 @@ typedef struct TaghaVM			TaghaVM_t;
 
 //	API to call C/C++ functions from scripts.
 //	account for function pointers to natives being executed on script side.
-typedef		void (*fnNative_t)(Script_t *restrict script, const uchar argc, const uint bytes, uchar *arrParams);
+typedef		void (*fnNative_t)(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams);
 
-typedef struct native_info {
-	fnNative_t			fnpFunc;
-	const char			*strFuncName;
-	struct native_info	*pNext;
+typedef struct nativeinfo {
+	const char	*strName;
+	fnNative_t	pFunc;
 } NativeInfo_t;
-/*
-typedef struct native_map {
-	NativeInfo_t	**arrpNatives;
-	uint			uiSize, uiCount;
-} NativeMap_t;
-*/
-//int	Tagha_register_natives(Script_t *restrict script, NativeInfo_t *Natives);
 
+int	Tagha_register_natives(TaghaVM_t *restrict vm, NativeInfo_t *arrNatives);
+
+/* Script File Structure.
+ * magic verifier
+ * Memory Vector
+ * Stack Vector
+ * NativeTable Vector
+ */
 
 struct TaghaScript {
 	uchar	*pbMemory, *pbStack, *pInstrStream;
-	fnNative_t	fnpNative;
-	uint	ip, sp, bp;
+	char	**ppstrNatives;	// natives table as stored strings.
+	Word_t	ip, sp, bp;
 	uint	uiMemsize;
 	uint	uiStksize;
 	uint	uiMaxInstrs;
+	uint	uiNatives;		// count how many natives script uses.
 	bool	bSafeMode;
 };
 
 struct TaghaVM {
 	// vector *Scripts;
 	Script_t *pScript;
+	// Natives should be GLOBALLY available to all scripts on a per-header-basis...
+	// meaning that a script can only use a native if the header has it.
+	dict	*pmapNatives;
 };
 
 union conv_union {	// converter union. for convenience
@@ -100,7 +104,6 @@ void	Tagha_init(TaghaVM_t *vm);
 void	Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename);
 void	Tagha_free(TaghaVM_t *vm);
 void	Tagha_exec(TaghaVM_t *vm);
-int		Tagha_register_native(TaghaVM_t *restrict vm, fnNative_t pNative);
 
 void	TaghaScript_debug_print_ptrs(const Script_t *script);
 void	TaghaScript_debug_print_stack(const Script_t *script);

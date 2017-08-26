@@ -675,7 +675,7 @@ void Tagha_exec(TaghaVM_t *vm)
 	ushort	sb,sa;
 	uchar	cb,ca;
 	long double	ldb, lda;
-	
+	fnNative_t pfNative;
 	
 #define X(x) #x ,
 	const char *opcode2str[] = { INSTR_SET };
@@ -2892,56 +2892,87 @@ void Tagha_exec(TaghaVM_t *vm)
 		}
 		
 		exec_wrtnataddr:;
-			a = _TaghaScript_get_imm4(script);
-			// TODO: change the func ptr field to access a natives map
-			if( script->bSafeMode and !script->fnpNative ) {
-				printf("exec_wrtnataddr reported: no registered native! Current instruction address: %" PRIu32 "\n", script->ip);
+			if( script->bSafeMode and !script->ppstrNatives ) {
+				printf("exec_wrtnataddr reported: native table is NULL! Current instruction address: %" PRIu32 "\n", script->ip);
 				goto *dispatch[halt];
 			}
-			_TaghaScript_write_int64(script, (uintptr_t)script->fnpNative, a);
+			a = _TaghaScript_get_imm4(script);
+			if( script->bSafeMode and a >= script->uiNatives  ) {
+				printf("exec_wrtnataddr reported: native index \'%" PRIu32 "\' is out of bounds! Current instruction address: %" PRIu32 "\n", a, script->ip);
+				goto *dispatch[halt];
+			}
+			pfNative = (fnNative_t) dict_find(vm->pmapNatives, script->ppstrNatives[a]);
+			if( script->bSafeMode and !pfNative ) {
+				printf("exec_wrtnataddr reported: native \'%s\' not registered! Current instruction address: %" PRIu32 "\n", script->ppstrNatives[a], script->ip);
+				goto *dispatch[halt];
+			}
+			b = _TaghaScript_get_imm4(script);
+			_TaghaScript_write_int64(script, (uintptr_t)pfNative, b);
 			DISPATCH();
-			
+		
 		exec_pushnataddr:;
-			if( script->bSafeMode and !script->fnpNative ) {
-				printf("exec_pushnataddr reported: no registered native! Current instruction address: %" PRIu32 "\n", script->ip);
+			if( script->bSafeMode and !script->ppstrNatives ) {
+				printf("exec_pushnataddr reported: native table is NULL! Current instruction address: %" PRIu32 "\n", script->ip);
+				goto *dispatch[halt];
+			}
+			// match native name to get an index.
+			a = _TaghaScript_get_imm4(script);
+			if( script->bSafeMode and a >= script->uiNatives  ) {
+				printf("exec_pushnataddr reported: native index \'%" PRIu32 "\' is out of bounds! Current instruction address: %" PRIu32 "\n", a, script->ip);
+				goto *dispatch[halt];
+			}
+			pfNative = (fnNative_t) dict_find(vm->pmapNatives, script->ppstrNatives[a]);
+			if( script->bSafeMode and !pfNative ) {
+				printf("exec_pushnataddr reported: native \'%s\' not registered! Current instruction address: %" PRIu32 "\n", script->ppstrNatives[a], script->ip);
 				goto *dispatch[halt];
 			}
 			// tried using 'push nbytes' but retrieving caused segfaults.
-			_TaghaScript_push_int64(script, (uintptr_t)script->fnpNative);
+			_TaghaScript_push_int64(script, (uintptr_t)pfNative);
 			DISPATCH();
-			
+		
 		exec_callnat:; {	// call a native
-			// pop data and arg count possibly from VM?
-			if( script->bSafeMode and !script->fnpNative ) {
-				printf("exec_callnat reported: no registered native! Current instruction address: %" PRIu32 "\n", script->ip);
+			if( script->bSafeMode and !script->ppstrNatives ) {
+				printf("exec_callnat reported: native table is NULL! Current instruction address: %" PRIu32 "\n", script->ip);
+				goto *dispatch[halt];
+			}
+			a = _TaghaScript_get_imm4(script);
+			if( script->bSafeMode and a >= script->uiNatives  ) {
+				printf("exec_callnat reported: native index \'%" PRIu32 "\' is out of bounds! Current instruction address: %" PRIu32 "\n", a, script->ip);
+				goto *dispatch[halt];
+			}
+			
+			pfNative = (fnNative_t) dict_find(vm->pmapNatives, script->ppstrNatives[a]);
+			if( script->bSafeMode and !pfNative ) {
+				printf("exec_callnat reported: native \'%s\' not registered! Current instruction address: %" PRIu32 "\n", script->ppstrNatives[a], script->ip);
 				goto *dispatch[halt];
 			}
 			// how many bytes to push to native.
 			const Word_t bytes = _TaghaScript_get_imm4(script);
 			// how many arguments pushed as native args
-			uchar argcount = script->pInstrStream[++script->ip];
+			const Word_t argcount = _TaghaScript_get_imm4(script);
 			uchar params[bytes];
 			_TaghaScript_pop_nbytes(script, params, bytes);
-			(*script->fnpNative)(script, argcount, bytes, params);
+			(*pfNative)(script, argcount, bytes, params);
 			DISPATCH();
 		}
 		/* support calling natives via function pointers */
 		exec_callnats:; {	// call native by func ptr allocated on stack
 			const Word_t bytes = _TaghaScript_get_imm4(script);
-			uchar argcount = script->pInstrStream[++script->ip];
+			const Word_t argcount = _TaghaScript_get_imm4(script);
 			uchar params[bytes];
 			_TaghaScript_pop_nbytes(script, params, bytes);
-			fnNative_t nativecall = (fnNative_t)(uintptr_t) _TaghaScript_pop_int64(script);
-			(*nativecall)(script, argcount, bytes, params);
+			pfNative = (fnNative_t)(uintptr_t) _TaghaScript_pop_int64(script);
+			(*pfNative)(script, argcount, bytes, params);
 			DISPATCH();
 		}
 		exec_callnata:; {	// call native by func ptr allocated to global memory
 			a = _TaghaScript_get_imm4(script);
 			const Word_t bytes = _TaghaScript_get_imm4(script);
-			uchar argcount = script->pInstrStream[++script->ip];
+			const Word_t argcount = _TaghaScript_get_imm4(script);
 			uchar params[bytes];
-			fnNative_t nativecall = (fnNative_t)(uintptr_t) _TaghaScript_read_int64(script, a);
-			(*nativecall)(script, argcount, bytes, params);
+			_TaghaScript_pop_nbytes(script, params, bytes);
+			pfNative = (fnNative_t)(uintptr_t) _TaghaScript_read_int64(script, a);
+			(*pfNative)(script, argcount, bytes, params);
 			DISPATCH();
 		}
 		exec_reset:;

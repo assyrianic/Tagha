@@ -59,9 +59,10 @@ int main ()
 	
 	bytecode endian_test1 = {
 		0xDE, 0xC0,	// magic
-		14,0,0,0,	// set instruction pointer entry point
+		18,0,0,0,	// set instruction pointer entry point
 		4,0,0,0,	// set memory size.
 		5,0,0,0,	// set stack size. count up every stack item and add 1
+		0,0,0,0,	// set amount of natives!
 		nop,
 		//pushl, 255, 1, 0, 0x0,
 		//pushs, 0xDD, 0xDD,
@@ -72,9 +73,10 @@ int main ()
 		halt
 	};
 	bytecode float_test = {
-		14,0,0,0,
+		18,0,0,0,
 		0,0,0,0,	// set memory size.
 		9,0,0,0,	// set stack size.
+		0,0,0,0,	// set amount of natives!
 		//jmp, 17,0,0,0,
 		// -16776961
 		//pushl, 255,0,0,255,
@@ -102,12 +104,13 @@ int main ()
 		}
 	*/
 	bytecode fibonacci = {
-		14,0,0,0,
+		18,0,0,0,
 		20,0,0,0,	// set memory size.
 		60,0,0,0,	// set stack size.
+		0,0,0,0,	// set amount of natives!
 		nop, // calc fibonnaci number
 		wrtl,	0,0,0,0,	0,0,0,7,	// write n to address 0, remember that memory is little endian!
-		call,	0,0,0,30,
+		call,	0,0,0,34,
 		halt,
 		// a = 0;
 		wrtl,	0,0,0,4,	0,0,0,0,		// 16
@@ -120,7 +123,7 @@ int main ()
 		loadl,	0,0,0,0,		// load param n
 		decl,				// decrement address 0
 		storel,	0,0,0,0,	// store decrement result to memory address
-		jzl,	0,0,0,117,		// jmp to storing b and returning.
+		jzl,	0,0,0,121,		// jmp to storing b and returning.
 		popl,
 		// int t = a;
 		loadl,	0,0,0,4,		// load a's value.
@@ -133,15 +136,16 @@ int main ()
 		loadl,	0,0,0,8,		// load b.
 		uaddl,				// add b and t
 		storel,	0,0,0,8,	// store addition value to b's address.
-		jmp,	0,0,0,48,		// jmp back to start of loop.	// 98
+		jmp,	0,0,0,52,		// jmp back to start of loop.	// 98
 		// }
 		ret		// b has been fully 'mathemized' and is stored into memory for reuse.
 	};
 	
 	bytecode hello_world = {
-		14,0,0,0,
+		18,0,0,0,
 		12,0,0,0,	// set memory size.
 		0,0,0,0,	// set stack size.
+		0,0,0,0,	// set amount of natives!
 		nop,
 		wrtb,	0,0,0,0,	100,	// d
 		wrtb,	0,0,0,1,	108,	// l
@@ -154,13 +158,14 @@ int main ()
 		wrtb,	0,0,0,8,	108,	// l
 		wrtb,	0,0,0,9,	101,	// e
 		wrtb,	0,0,0,10,	72,		// H
-		halt,
+		halt
 	};
 	
 	bytecode global_pointers = {
-		14,0,0,0,
+		18,0,0,0,
 		255,1,0,0,	// set memory size.
 		16,0,0,0,	// set stack size.
+		0,0,0,0,	// set amount of natives!
 		nop,
 		// The way you wuold store to a pointer would be something like...
 		// pushl <value to store>
@@ -188,9 +193,10 @@ int main ()
 	
 	// example of locally (stack-allocated) made pointers and manipulating them.
 	bytecode local_pointers = {
-		14,0,0,0,
+		18,0,0,0,
 		1,0,0,0,	// set memory size.
 		16,0,0,0,	// set stack size.
+		0,0,0,0,	// set amount of natives!
 		nop,
 		// int i = 170;
 		// i's address is 4 (tos address, not beginning data address)
@@ -205,30 +211,32 @@ int main ()
 	// void func(int a, int b) { a+b; }
 	// func declarations are done by cdecl standard.
 	bytecode test_func_call = {
-		14,0,0,0,
+		18,0,0,0,
 		1,0,0,0,	// set memory size.
 		28,0,0,0,	// set stack size.
+		0,0,0,0,	// set amount of natives!
 		pushl,	0,0,1,244,	//6-10		push b
 		pushl,	0,0,0,2,	//11-15		push a
-		call,	0,0,0,32,	//16-20		func(int a, int b) ==> b=500 and a=2
+		call,	0,0,0,36,	//16-20		func(int a, int b) ==> b=500 and a=2
 		popl,popl,	//21-22 clean up args a and b from stack
 		halt,			// 23
 		pushl,	0,0,0,8, loadspl,	// load a to TOS
 		pushl,	0,0,0,4, loadspl,	// load b to TOS
 		addl,	// a+b;
-		ret,	// 22
+		ret		// 22
 	};
 	
 	
 	bytecode test_call_opcodes = {
-		14,0,0,0,
+		18,0,0,0,
 		5,0,0,0,	// set memory size.
 		28,0,0,0,	// set stack size.
-		call,	0,0,0,41,
-		pushl,	0,0,0,47,	//11
+		0,0,0,0,	// set amount of natives!
+		call,	0,0,0,45,
+		pushl,	0,0,0,51,	//11
 		calls,	//16
 		
-		wrtl,	0,0,0,0,	0,0,0,53,	//17
+		wrtl,	0,0,0,0,	0,0,0,57,	//17
 		pushl,	0,0,0,0,	//26
 		calla,	//31
 		halt,	//32
@@ -244,9 +252,10 @@ int main ()
 	};
 	
 	bytecode all_opcodes_test = {
-		14,0,0,0,
+		18,0,0,0,
 		255,0,0,0,	// set memory size.
 		255,0,0,0,	// set stack size.
+		0,0,0,0,	// set amount of natives!
 		
 		// push + pop tests
 		pushq,	0xa,0xb,0xc,0xd,0xe,0xf,0xaa,0xbb, popq,
@@ -383,12 +392,13 @@ int main ()
 	}
 	
 	bytecode test_retx_func = {
-		14,0,0,0,
+		18,0,0,0,
 		0,0,0,0,	// set memory size.
 		24,0,0,0,	// set stack size.
+		0,0,0,0,	// set amount of natives!
 		// func prototype -> int f(int);
 		pushl,	0,0,0,9,	//6-10	-push argument 1.
-		call,	0,0,0,25,	//11-15	-"f(5);"
+		call,	0,0,0,29,	//11-15	-"f(5);"
 		halt,	//16
 		
 		// int f(int i) {
@@ -407,12 +417,13 @@ int main ()
 	}
 	
 	bytecode test_recursion = {
-		14,0,0,0,	// 2-5
+		18,0,0,0,	// 2-5
 		0,0,0,0,	// set memory size.
 		255,0,0,0,	// set stack size.
-		call,	0,0,0,20,	//6-10
+		0,0,0,0,	// set amount of natives!
+		call,	0,0,0,24,	//6-10
 		halt,	//11
-		call,	0,0,0,20 //12-16
+		call,	0,0,0,24 //12-16
 	};
 	pFile = fopen("./test_recursion.tbc", "wb");
 	if( pFile ) {
@@ -435,30 +446,34 @@ int main ()
 	}
 	*/
 	bytecode test_factorial_recurs = {
-		14,0,0,0,	// 2-5
+		18,0,0,0,	// 2-5
 		0,0,0,0,	// set memory size.
 		255,0,0,0,	// set stack size.
+		0,0,0,0,	// set amount of natives!
 		pushl,	0,0,0,7,	//14-18
-		call,	0,0,0,25,	//19-15
+		call,	0,0,0,29,	//19-15
 		halt,	//16
 		
 		pushl,	0,0,0,8,	//17-21	// [ebp+8] to get i from stack.
-		pushbpsub, loadspl,	//22-23	// load i to Top of Stack.
+		pushbpsub,
+		loadspl,	//22-23	// load i to Top of Stack.
 		pushl,	0,0,0,1,	//24-28	// push 1
 		uleql,	//29	// i <= 1?
-		jzl,	0,0,0,53,	//30-34	// if 0, jump passed the first `retx`.
+		jzl,	0,0,0,57,	//30-34	// if 0, jump passed the first `retx`.
 		pushl,	0,0,0,1,	//35-39
 		retx,	0,0,0,4,	//40-44
 		
 		pushl,	0,0,0,8,	//45-49	// [ebp+8] to get i from stack.
-		pushbpsub, loadspl,	// load i to Top of Stack.
+		pushbpsub,
+		loadspl,	// load i to Top of Stack.
 		pushl,	0,0,0,1,
 		usubl,	// i-1
-		call,	0,0,0,25,	// get result of call, with (i-1) as arg.
+		call,	0,0,0,29,	// get result of call, with (i-1) as arg.
 		// each call makes a new stack frame, regardless of call type opcode.
 		
 		pushl,	0,0,0,8,	// [ebp+8] to get i from stack.
-		pushbpsub, loadspl,	// load i to Top of Stack.
+		pushbpsub,
+		loadspl,	// load i to Top of Stack.
 		umull,
 		retx,	0,0,0,4
 	};
@@ -466,6 +481,8 @@ int main ()
 	if( pFile ) {
 		fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(test_factorial_recurs, sizeof(uint8_t), sizeof(test_factorial_recurs), pFile);
+		unsigned funcs = 1;
+		fwrite(&funcs, sizeof(unsigned), 1, pFile);
 		fclose(pFile);
 	}
 	/*
@@ -487,14 +504,16 @@ int main ()
 	};
 	*/
 	bytecode test_native = {
-		14,0,0,0,	// 2-5
+		27,0,0,0,	// 2-5
 		0,0,0,0,	// set memory size.
 		16,0,0,0,	// set stack size.
+		1,0,0,0,	// set amount of natives!
+		5,0,0,0,	't','e','s','t',0,	// string size of 1st native
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
-		callnat, 0,0,0,12, 1,	// #1 - bytes to push, #2 - number of args
-		halt,
+		callnat, 0,0,0,0, 0,0,0,12, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
+		halt
 	};
 	pFile = fopen("./test_native.tbc", "wb");
 	if( pFile ) {
@@ -504,9 +523,10 @@ int main ()
 	}
 	
 	bytecode mmx_test={
-		14,0,0,0,	// 2-5
+		18,0,0,0,	// 2-5
 		0,0,0,0,	// set memory size.
 		20,0,0,0,	// set stack size.
+		0,0,0,0,	// set amount of natives!
 		pushq,	0,0,0,255, 0,0,0,1,
 		pushq,	0,0,0,5, 0,0,0,2,
 		//mmxaddl, // treats the 64-bit values as 4 ints, added top down (2 on bottom is added to 1 at top, 5 is added to 255.)
@@ -521,20 +541,64 @@ int main ()
 	}
 	
 	bytecode test_local_native_funcptr = {
-		14,0,0,0,	// 2-5
+		0xDE, 0xC0,	// magic
+		27,0,0,0,	// set entry point, remember to account for natives.
 		1,0,0,0,	// set memory size.
 		24,0,0,0,	// set stack size.
-		pushnataddr,	// push native's function ptr, assume it pushes 8 bytes
+		1,0,0,0,	// set amount of natives!
+		5,0,0,0,	't','e','s','t',0,	// string size of 1st native
+		pushnataddr,	0,0,0,0,// push native's function ptr, assume it pushes 8 bytes
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
-		callnats, 0,0,0,12, 1,	// #1 - bytes to push, #2 - number of args
-		halt,
+		callnats, 0,0,0,12, 0,0,0,1,	// #1 - bytes to push, #2 - number of args
+		halt
 	};
 	pFile = fopen("./test_local_native_funcptr.tbc", "wb");
 	if( pFile ) {
-		fwrite(&magic, sizeof(unsigned short), 1, pFile);
+		//fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(test_local_native_funcptr, sizeof(uint8_t), sizeof(test_local_native_funcptr), pFile);
+		fclose(pFile);
+	}
+	bytecode test_global_native_funcptr = {
+		0xDE, 0xC0,	// magic
+		27,0,0,0,	// set entry point, remember to account for natives.
+		1,0,0,0,	// set memory size.
+		24,0,0,0,	// set stack size.
+		1,0,0,0,	// set amount of natives!
+		5,0,0,0,	't','e','s','t',0,	// string size of 1st native
+		wrtnataddr,	0,0,0,0,	0,0,0,0,	// #1 - native name index, #2 - memory address to write to.
+		pushl,	0,0,0,50,	// ammo
+		pushl,	0,0,0,100,	// health
+		pushl,	67,150,0,0,	// speed "300.f"
+		callnata, 0,0,0,0, 0,0,0,12, 0,0,0,1,	// #1 - mem address, #2 - bytes to push, #3 - number of args
+		halt
+	};
+	pFile = fopen("./test_global_native_funcptr.tbc", "wb");
+	if( pFile ) {
+		fwrite(test_global_native_funcptr, sizeof(uint8_t), sizeof(test_global_native_funcptr), pFile);
+		fclose(pFile);
+	}
+	bytecode test_multiple_natives = {
+		0xDE, 0xC0,	// magic
+		39,0,0,0,	// 2-5
+		0,0,0,0,	// 6-9 set memory size.
+		16,0,0,0,	// 10-13 set stack size.
+		2,0,0,0,	// 14-17 set amount of natives!
+		5,0,0,0,	// 18-21
+		't','e','s','t',0,	// 22-26 string size of 1st native
+		8,0,0,0,	// 27-30
+		'p','r','i','n','t','H','W',0,	// 31-38
+		pushl,	0,0,0,50,	// ammo
+		pushl,	0,0,0,100,	// health
+		pushl,	67,150,0,0,	// speed
+		callnat, 0,0,0,1, 0,0,0,0, 0,0,0,0,	// #1 - get native name, #2 - bytes to push, #3 - number of args
+		callnat, 0,0,0,0, 0,0,0,12, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
+		halt
+	};
+	pFile = fopen("./test_multiple_natives.tbc", "wb");
+	if( pFile ) {
+		fwrite(test_multiple_natives, sizeof(uint8_t), sizeof(test_multiple_natives), pFile);
 		fclose(pFile);
 	}
 	pFile = NULL;
