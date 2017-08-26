@@ -32,9 +32,10 @@ I usually use hexadecimals but decimal numbers work just as good. The giant numb
 ## TODO list
 - [x] add `q` or 'quad' opcodes for 64-bit data ~~AND make VM completely 64-bit (32-bit will NOT be available)~~.
 - [x] add API for host applications to embed this VM.
-- [ ] figure out natives system.
-- [ ] create format for libraries and headers.
-- [ ] figure out system for communication between Tagha C scripts.
+- [x] figure out natives system.
+- [x] create format for libraries and headers.
+- [ ] figure out how to share types between host and scripts.
+- [ ] figure out system of communication between Tagha C scripts.
 
 ## End Goals list
 - [ ] complete, seamless embeddability to C (and by extension C++) programs. As smooth as how Angelscript binds to C++.
