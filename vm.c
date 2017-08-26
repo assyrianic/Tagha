@@ -657,7 +657,7 @@ static inline uchar _TaghaScript_peek_byte(Script_t *script)
 //#include <unistd.h>	// sleep() func
 void Tagha_exec(TaghaVM_t *vm)
 {
-	printf("instruction set size == %" PRIu32 "\n", nop);
+	printf("instruction set size == %" PRIu32 "\n", nop+1);
 	if( !vm )
 		return;
 	else if( !vm->pScript )

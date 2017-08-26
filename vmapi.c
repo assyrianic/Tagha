@@ -67,8 +67,6 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 		if( *(ushort *)verify == 0xC0DE ) {
 			printf("Tagha_load_script :: verified code!\n");
 			verify += 2;
-			script->ip = *(uint *)verify; verify += 4;
-			printf("Tagha_load_script :: ip starts at %" PRIu32 "\n", script->ip);
 			
 			script->uiMemsize = *(uint *)verify; verify += 4;
 			printf("Tagha_load_script :: Memory Size: %" PRIu32 "\n", script->uiMemsize);
@@ -95,12 +93,16 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 					while( *(char *)verify != 0 )
 						script->ppstrNatives[i][n++] = *(char *)verify++;
 					script->ppstrNatives[i][size-1] = *(char *)verify++;
+					printf("Tagha_load_script :: copied native name %s\n", script->ppstrNatives[i]);
 				}
 			} else script->ppstrNatives = NULL;
 			
+			script->ip = *(uint *)verify; verify += 4;
+			printf("Tagha_load_script :: ip starts at %" PRIu32 "\n", script->ip);
+			
 			script->bSafeMode = true;
 			script->sp = script->bp = 0;
-			script->uiMaxInstrs = 200;	// helps to stop infinite/runaway loops
+			script->uiMaxInstrs = 0xfffff;	// helps to stop infinite/runaway loops
 			script = NULL;
 		}
 		else {	// invalid script, kill the reference and the script itself.

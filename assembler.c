@@ -1,6 +1,8 @@
 /* fwrite example : write buffer */
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
+#include <stdarg.h>
 
 #define INSTR_SET	\
 	X(halt) \
@@ -52,17 +54,49 @@ enum InstrSet { INSTR_SET };
 #undef X
 typedef uint8_t		bytecode[];
 
-int main ()
+
+void wrt_tbc_headers(FILE *f, const unsigned memsize, const unsigned stksize)
+{
+	if( !f )
+		return;
+	
+	short magic = 0xC0DE;
+	fwrite(&magic, sizeof(unsigned short), 1, f);
+	fwrite(&memsize, sizeof(unsigned), 1, f);
+	fwrite(&stksize, sizeof(unsigned), 1, f);
+}
+
+void wrt_natives_to_header(FILE *f, const unsigned numnats, ...)
+{
+	if( !f )
+		return;
+	
+	fwrite(&numnats, sizeof(unsigned), 1, f);
+	if( numnats ) {
+		char *buffer;
+		va_list varnatives;
+		va_start(varnatives, numnats);
+		unsigned i=0;
+		for( i=0 ; i<numnats ; i++ ) {
+			buffer = va_arg(varnatives, char*);
+			unsigned strsize = strlen(buffer)+1;	// copy null terminator too!
+			fwrite(&strsize, sizeof(unsigned), 1, f);
+			fwrite(buffer, sizeof(char), strsize, f);
+		}
+	}
+}
+
+int main()
 {
 	FILE *pFile = NULL;
 	unsigned short magic = 0xC0DE;
 	
 	bytecode endian_test1 = {
-		0xDE, 0xC0,	// magic
+		//0xDE, 0xC0,	// magic
+		//4,0,0,0,	// set memory size.
+		//5,0,0,0,	// set stack size. count up every stack item and add 1
+		//0,0,0,0,	// set amount of natives!
 		18,0,0,0,	// set instruction pointer entry point
-		4,0,0,0,	// set memory size.
-		5,0,0,0,	// set stack size. count up every stack item and add 1
-		0,0,0,0,	// set amount of natives!
 		nop,
 		//pushl, 255, 1, 0, 0x0,
 		//pushs, 0xDD, 0xDD,
@@ -72,11 +106,19 @@ int main ()
 		pushl,	0xA,0xB,0xC,0xD,
 		halt
 	};
+	pFile = fopen("./endian_test1.tbc", "wb");
+	if( pFile ) {
+		wrt_tbc_headers(pFile, 4, 5);
+		wrt_natives_to_header(pFile, 0);
+		fwrite(endian_test1, sizeof(uint8_t), sizeof(endian_test1), pFile);
+		fclose(pFile);
+	}
+	
 	bytecode float_test = {
-		18,0,0,0,
 		0,0,0,0,	// set memory size.
 		9,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
+		18,0,0,0,	// set instruction pointer entry point
 		//jmp, 17,0,0,0,
 		// -16776961
 		//pushl, 255,0,0,255,
@@ -104,10 +146,10 @@ int main ()
 		}
 	*/
 	bytecode fibonacci = {
-		18,0,0,0,
 		20,0,0,0,	// set memory size.
 		60,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
+		18,0,0,0,	// set instruction pointer entry point
 		nop, // calc fibonnaci number
 		wrtl,	0,0,0,0,	0,0,0,7,	// write n to address 0, remember that memory is little endian!
 		call,	0,0,0,34,
@@ -142,10 +184,10 @@ int main ()
 	};
 	
 	bytecode hello_world = {
-		18,0,0,0,
 		12,0,0,0,	// set memory size.
 		0,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
+		18,0,0,0,	// set instruction pointer entry point
 		nop,
 		wrtb,	0,0,0,0,	100,	// d
 		wrtb,	0,0,0,1,	108,	// l
@@ -162,10 +204,10 @@ int main ()
 	};
 	
 	bytecode global_pointers = {
-		18,0,0,0,
 		255,1,0,0,	// set memory size.
 		16,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
+		18,0,0,0,
 		nop,
 		// The way you wuold store to a pointer would be something like...
 		// pushl <value to store>
@@ -193,10 +235,10 @@ int main ()
 	
 	// example of locally (stack-allocated) made pointers and manipulating them.
 	bytecode local_pointers = {
-		18,0,0,0,
 		1,0,0,0,	// set memory size.
 		16,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
+		18,0,0,0,
 		nop,
 		// int i = 170;
 		// i's address is 4 (tos address, not beginning data address)
@@ -211,10 +253,10 @@ int main ()
 	// void func(int a, int b) { a+b; }
 	// func declarations are done by cdecl standard.
 	bytecode test_func_call = {
-		18,0,0,0,
 		1,0,0,0,	// set memory size.
 		28,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
+		18,0,0,0,
 		pushl,	0,0,1,244,	//6-10		push b
 		pushl,	0,0,0,2,	//11-15		push a
 		call,	0,0,0,36,	//16-20		func(int a, int b) ==> b=500 and a=2
@@ -228,10 +270,10 @@ int main ()
 	
 	
 	bytecode test_call_opcodes = {
-		18,0,0,0,
 		5,0,0,0,	// set memory size.
 		28,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
+		18,0,0,0,
 		call,	0,0,0,45,
 		pushl,	0,0,0,51,	//11
 		calls,	//16
@@ -252,10 +294,10 @@ int main ()
 	};
 	
 	bytecode all_opcodes_test = {
-		18,0,0,0,
 		255,0,0,0,	// set memory size.
 		255,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
+		18,0,0,0,
 		
 		// push + pop tests
 		pushq,	0xa,0xb,0xc,0xd,0xe,0xf,0xaa,0xbb, popq,
@@ -343,11 +385,6 @@ int main ()
 		halt
 	};
 	
-	pFile = fopen("./endian_test1.tbc", "wb");
-	if( pFile ) {
-		fwrite(endian_test1, sizeof(uint8_t), sizeof(endian_test1), pFile);
-		fclose(pFile);
-	}
 	pFile = fopen("./float_test.tbc", "wb");
 	if( pFile ) {
 		fwrite(&magic, sizeof(unsigned short), 1, pFile);
@@ -392,10 +429,10 @@ int main ()
 	}
 	
 	bytecode test_retx_func = {
-		18,0,0,0,
 		0,0,0,0,	// set memory size.
 		24,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
+		18,0,0,0,
 		// func prototype -> int f(int);
 		pushl,	0,0,0,9,	//6-10	-push argument 1.
 		call,	0,0,0,29,	//11-15	-"f(5);"
@@ -417,10 +454,10 @@ int main ()
 	}
 	
 	bytecode test_recursion = {
-		18,0,0,0,	// 2-5
 		0,0,0,0,	// set memory size.
-		255,0,0,0,	// set stack size.
+		255,255,255,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
+		18,0,0,0,
 		call,	0,0,0,24,	//6-10
 		halt,	//11
 		call,	0,0,0,24 //12-16
@@ -446,10 +483,10 @@ int main ()
 	}
 	*/
 	bytecode test_factorial_recurs = {
-		18,0,0,0,	// 2-5
 		0,0,0,0,	// set memory size.
 		255,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
+		18,0,0,0,
 		pushl,	0,0,0,7,	//14-18
 		call,	0,0,0,29,	//19-15
 		halt,	//16
@@ -504,11 +541,11 @@ int main ()
 	};
 	*/
 	bytecode test_native = {
-		27,0,0,0,	// 2-5
 		0,0,0,0,	// set memory size.
 		16,0,0,0,	// set stack size.
 		1,0,0,0,	// set amount of natives!
 		5,0,0,0,	't','e','s','t',0,	// string size of 1st native
+		27,0,0,0,
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
@@ -523,10 +560,11 @@ int main ()
 	}
 	
 	bytecode mmx_test={
-		18,0,0,0,	// 2-5
+		0xDE, 0xC0,	// magic
 		0,0,0,0,	// set memory size.
 		20,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
+		18,0,0,0,
 		pushq,	0,0,0,255, 0,0,0,1,
 		pushq,	0,0,0,5, 0,0,0,2,
 		//mmxaddl, // treats the 64-bit values as 4 ints, added top down (2 on bottom is added to 1 at top, 5 is added to 255.)
@@ -535,18 +573,17 @@ int main ()
 	};
 	pFile = fopen("./mmx_test.tbc", "wb");
 	if( pFile ) {
-		fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(mmx_test, sizeof(uint8_t), sizeof(mmx_test), pFile);
 		fclose(pFile);
 	}
 	
 	bytecode test_local_native_funcptr = {
 		0xDE, 0xC0,	// magic
-		27,0,0,0,	// set entry point, remember to account for natives.
 		1,0,0,0,	// set memory size.
 		24,0,0,0,	// set stack size.
 		1,0,0,0,	// set amount of natives!
 		5,0,0,0,	't','e','s','t',0,	// string size of 1st native
+		27,0,0,0,	// set entry point, remember to account for natives.
 		pushnataddr,	0,0,0,0,// push native's function ptr, assume it pushes 8 bytes
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
@@ -562,11 +599,11 @@ int main ()
 	}
 	bytecode test_global_native_funcptr = {
 		0xDE, 0xC0,	// magic
-		27,0,0,0,	// set entry point, remember to account for natives.
 		1,0,0,0,	// set memory size.
 		24,0,0,0,	// set stack size.
 		1,0,0,0,	// set amount of natives!
 		5,0,0,0,	't','e','s','t',0,	// string size of 1st native
+		27,0,0,0,	// set entry point, remember to account for natives.
 		wrtnataddr,	0,0,0,0,	0,0,0,0,	// #1 - native name index, #2 - memory address to write to.
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
@@ -580,15 +617,15 @@ int main ()
 		fclose(pFile);
 	}
 	bytecode test_multiple_natives = {
-		0xDE, 0xC0,	// magic
-		39,0,0,0,	// 2-5
-		0,0,0,0,	// 6-9 set memory size.
-		16,0,0,0,	// 10-13 set stack size.
-		2,0,0,0,	// 14-17 set amount of natives!
-		5,0,0,0,	// 18-21
-		't','e','s','t',0,	// 22-26 string size of 1st native
-		8,0,0,0,	// 27-30
-		'p','r','i','n','t','H','W',0,	// 31-38
+		//0xDE, 0xC0,	// magic
+		//0,0,0,0,	// 6-9 set memory size.
+		//16,0,0,0,	// 10-13 set stack size.
+		//2,0,0,0,	// 14-17 set amount of natives!
+		//5,0,0,0,	// 18-21
+		//'t','e','s','t',0,	// 22-26 string size of 1st native
+		//8,0,0,0,	// 27-30
+		//'p','r','i','n','t','H','W',0,	// 31-38
+		39,0,0,0,	// set entry point, remember to account for natives written.
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
@@ -598,6 +635,8 @@ int main ()
 	};
 	pFile = fopen("./test_multiple_natives.tbc", "wb");
 	if( pFile ) {
+		wrt_tbc_headers(pFile, 0, 16);
+		wrt_natives_to_header(pFile, 2, "test", "printHW");
 		fwrite(test_multiple_natives, sizeof(uint8_t), sizeof(test_multiple_natives), pFile);
 		fclose(pFile);
 	}
