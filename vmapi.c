@@ -90,7 +90,6 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 				uint i;
 				for( i=0 ; i<script->uiNatives ; i++ ) {
 					uint size = *(uint *)verify; verify += 4;
-					char buffer[size];
 					script->ppstrNatives[i] = calloc(size, sizeof(char));
 					uint n = 0;
 					while( *(char *)verify != 0 )
@@ -132,6 +131,16 @@ void Tagha_free(TaghaVM_t *vm)
 			free(script->pInstrStream);
 		script->pInstrStream = NULL;
 		
+		if( script->ppstrNatives ) {
+			uint i;
+			for( i=0 ; i<script->uiNatives ; i++ ) {
+				if( script->ppstrNatives[i] )
+					free(script->ppstrNatives[i]);
+				script->ppstrNatives[i] = NULL;
+			}
+			free(script->ppstrNatives);
+			script->ppstrNatives = NULL;
+		}
 		free(vm->pScript);
 		vm->pScript = NULL;
 		script = NULL;
