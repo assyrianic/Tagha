@@ -274,23 +274,22 @@ int main()
 		28,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
 		18,0,0,0,
-		call,	0,0,0,45,
-		pushl,	0,0,0,51,	//11
-		calls,	//16
+		call,	0,0,0,44,	// 18-22
+		pushl,	0,0,0,50,	// 23-27
+		calls,	// 28
 		
-		wrtl,	0,0,0,0,	0,0,0,57,	//17
-		pushl,	0,0,0,0,	//26
-		calla,	//31
-		halt,	//32
+		wrtl,	0,0,0,0,	0,0,0,56,	//29-37
+		calla,	0,0,0,0, //38-42
+		halt,	//43
 		
-		pushl,	0xa,0xb,0xc,0xd,	// 33
-		ret,	//38
+		pushl,	0xa,0xb,0xc,0xd,	// 44-48
+		ret,	//49
 		
-		pushl,	0,0,0xff,0xff,	//39
-		ret,	//44
+		pushl,	0,0,0xff,0xff,	//50-54
+		ret,	//55
 		
-		pushl,	0,0,0xac,0xca,	//45
-		ret	//50
+		pushl,	0,0,0xac,0xca,	//56-60
+		ret	//61
 	};
 	
 	bytecode all_opcodes_test = {

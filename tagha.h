@@ -109,7 +109,6 @@ void	TaghaScript_debug_print_ptrs(const Script_t *script);
 void	TaghaScript_debug_print_stack(const Script_t *script);
 void	TaghaScript_debug_print_memory(const Script_t *script);
 
-
 void	TaghaScript_reset(Script_t *script);
 void	TaghaScript_push_longfloat(Script_t *restrict script, const long double val);
 long double	TaghaScript_pop_longfloat(Script_t *script);

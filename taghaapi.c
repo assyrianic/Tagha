@@ -51,6 +51,11 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 		// Instruction stream should be exclusively that, the instruction stream, not instructions + header data.
 		// 
 		Script_t *script = vm->pScript;
+		script->pInstrStream = NULL;
+		script->pbMemory = NULL;
+		script->pbStack = NULL;
+		script->ppstrNatives = NULL;
+		
 		u64 size = get_file_size(pFile);
 		script->pInstrStream = calloc(size, sizeof(uchar));
 		if( !script->pInstrStream ) {
@@ -73,14 +78,23 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 			if( script->uiMemsize )
 				script->pbMemory = calloc(script->uiMemsize, sizeof(uchar));
 			else script->pbMemory = calloc(32, sizeof(uchar));	// have a default size of 32 bytes for memory.
-			assert( script->pbMemory );
+			if( !script->pbMemory ) {
+				printf("Tagha_load_script :: Failed to allocate global memory for script\n");
+				Tagha_free(vm);
+				script = NULL;
+			}
 			
 			script->uiStksize = *(uint *)verify; verify += 4;
 			printf("Tagha_load_script :: Stack Size: %" PRIu32 "\n", script->uiStksize);
 			if( script->uiStksize )
 				script->pbStack = calloc(script->uiStksize, sizeof(uchar));
 			else script->pbStack = calloc(32, sizeof(uchar));	// have a default size of 32 bytes for stack.
-			assert( script->pbStack );
+
+			if( !script->pbStack ) {
+				printf("Tagha_load_script :: Failed to allocate stack for script\n");
+				Tagha_free(vm);
+				script = NULL;
+			}
 			
 			script->uiNatives = *(uint *)verify; verify += 4;
 			if( script->uiNatives ) {

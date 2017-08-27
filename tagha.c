@@ -2844,7 +2844,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			continue;
 		
 		exec_calla:;	// support globally allocated function pointers
-			a = _TaghaScript_pop_int32(script);
+			a = _TaghaScript_get_imm4(script);
 			if( script->bSafeMode and a > script->uiMemsize-4 ) {
 				printf("exec_calla reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
 				goto *dispatch[halt];
