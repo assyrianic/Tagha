@@ -1,16 +1,22 @@
 # Tagha Virtual Machine
 "tagha" is Aramaic for "crown".
-Tagha is a minimal yet complex stack-based virtual machine, written in C, designed to run compiled C scripts. Why is it named "crown"? Because C is king in the programming world :P
+Tagha is a **WIP** minimal yet complex stack-based virtual machine and scripting engine, written in C, designed to run compiled C scripts. Why is it named "crown"? Because C is king in the programming world :P
+
+[See the Wiki for API references, Opcodes reference, Tutorials, and more](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki)
 
 ## Purpose:
-To be an embeddable scripting engine for C or C++ programs that uses unmodified C as a scripting language. Though C is fairly low level to be used for scripting, Tagha is a good alternative to running a C plugin architecture via dynamically loaded .so/.dll's, especially being able to run C code without having to recompile the .so/.dll for different OSs. The plan is to use a C compiler's backend to generate and run bytecode on this VM.
+To be an embeddable scripting engine for C or C++ programs that uses unmodified C as a compiled scripting language. Though C is fairly low level to be used for scripting, Tagha is to be a good alternative to running a C plugin architecture via dynamically loaded .so/.dll's, especially with the advantage of being able to run C code without having to recompile the .so/.dll for different OSs. The plan is to use a C compiler's backend to generate and run bytecode on this VM.
 
 ## Why?:
-so far, the only C interpreters (that I currently know of) are **CINT**, **PicoC**, **TCC [1]** and **Ch**:
+Reason 1: so far, the only C interpreters (that I currently know of) are **CINT**, **PicoC**, **TCC [1]** and **Ch**:
 - The problems with CINT is that it's old, clunky to use, outdated, and deprecated.
 - PicoC is good but its problem is that it uses old-school interpreting (just runs literal code) instead of compiling to bytecode which would allow it to execute faster.
 - The problem with Ch is that, though it's embeddable and updated, it's proprietary and it's unknown how it interprets code; as the usual problem with proprietary code, you don't know what code it could contain and there's no telling what security issues Ch could possibly have; not to mention that proprietary code shuts out enthusiastic individuals or groups from contributing to the software.
 - **[1]** - Tiny C Compiler, it can compile and run scripts for testing but it can't be embedded the same way a scripting system can be. The scripting action is more or less a **great** way to test your program.
+
+Reason 2: I've always wanted to create a useful, open-source piece of software for many to use and one of my particular interests happens to be computer languages, so why not make a scripting engine?
+
+Reason 3: To learn from making a scripting engine from scratch. If I polish Tagha to a good amount, hopefully it'll be used in education to teach about virtual machines, scripting engines, or embedding for educational use!
 
 The goal for TaghaVM is to...
 + 1. be a new and modernly optimized piece of software.
