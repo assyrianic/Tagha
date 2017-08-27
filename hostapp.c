@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iso646.h>
-#include "vm.h"
+#include "tagha.h"
 
 /*
  * Example Host application
