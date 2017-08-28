@@ -56,24 +56,17 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 		script->pbStack = NULL;
 		script->ppstrNatives = NULL;
 		
-		u64 size = get_file_size(pFile);
-		script->pInstrStream = calloc(size, sizeof(uchar));
-		if( !script->pInstrStream ) {
-			printf("Tagha_load_script :: ERROR! Could not allocate Instruction Stream!\n");
-			Tagha_free(vm);
-			script = NULL;
-			return;
-		}
-		fread(script->pInstrStream, sizeof(uchar), size, pFile);
-		fclose(pFile); pFile=NULL;
-		
-		uchar *verify = script->pInstrStream;
+		//fclose(pFile); pFile=NULL;
+		u64 filesize = get_file_size(pFile);
+		uint bytecount = 0;
+		ushort verify;
+		fread(&verify, sizeof(ushort), 1, pFile);
 		// verify that this is executable code.
-		if( *(ushort *)verify == 0xC0DE ) {
+		if( verify == 0xC0DE ) {
 			printf("Tagha_load_script :: verified code!\n");
-			verify += 2;
+			bytecount += 2;
 			
-			script->uiMemsize = *(uint *)verify; verify += 4;
+			fread(&script->uiMemsize, sizeof(uint), 1, pFile);
 			printf("Tagha_load_script :: Memory Size: %" PRIu32 "\n", script->uiMemsize);
 			if( script->uiMemsize )
 				script->pbMemory = calloc(script->uiMemsize, sizeof(uchar));
@@ -82,9 +75,11 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 				printf("Tagha_load_script :: Failed to allocate global memory for script\n");
 				Tagha_free(vm);
 				script = NULL;
+				goto error;
 			}
+			bytecount += 4;
 			
-			script->uiStksize = *(uint *)verify; verify += 4;
+			fread(&script->uiStksize, sizeof(uint), 1, pFile);
 			printf("Tagha_load_script :: Stack Size: %" PRIu32 "\n", script->uiStksize);
 			if( script->uiStksize )
 				script->pbStack = calloc(script->uiStksize, sizeof(uchar));
@@ -94,29 +89,50 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 				printf("Tagha_load_script :: Failed to allocate stack for script\n");
 				Tagha_free(vm);
 				script = NULL;
+				goto error;
 			}
+			bytecount += 4;
 			
-			script->uiNatives = *(uint *)verify; verify += 4;
+			fread(&script->uiNatives, sizeof(uint), 1, pFile);
+			bytecount += 4;
 			if( script->uiNatives ) {
 				script->ppstrNatives = calloc(script->uiNatives, sizeof(char *));
 				uint i;
 				for( i=0 ; i<script->uiNatives ; i++ ) {
-					uint size = *(uint *)verify; verify += 4;
-					script->ppstrNatives[i] = calloc(size, sizeof(char));
+					uint str_size;
+					fread(&str_size, sizeof(uint), 1, pFile);
+					bytecount += 4;
+					script->ppstrNatives[i] = calloc(str_size, sizeof(char));
 					uint n = 0;
-					while( *(char *)verify != 0 )
-						script->ppstrNatives[i][n++] = *(char *)verify++;
-					script->ppstrNatives[i][size-1] = *(char *)verify++;
+					char c;
+					while( n<str_size ) {
+						fread(&c, sizeof(char), 1, pFile);
+						script->ppstrNatives[i][n++] = c;
+						++bytecount;
+					}
 					printf("Tagha_load_script :: copied native name %s\n", script->ppstrNatives[i]);
 				}
 			} else script->ppstrNatives = NULL;
 			
-			script->ip = *(uint *)verify; verify += 4;
+			fread(&script->ip, sizeof(uint), 1, pFile);
 			printf("Tagha_load_script :: ip starts at %" PRIu32 "\n", script->ip);
+			bytecount += 4;
 			
 			script->bSafeMode = true;
 			script->sp = script->bp = 0;
 			script->uiMaxInstrs = 0xfffff;	// helps to stop infinite/runaway loops
+			
+			printf("Tagha_load_script :: header bytecount at %" PRIu32 "\n", bytecount);
+			script->uiInstrSize = filesize - bytecount;
+			printf("Tagha_load_script :: instr_size at %" PRIu32 "\n", script->uiInstrSize);
+			script->pInstrStream = calloc(script->uiInstrSize, sizeof(uchar));
+			if( !script->pInstrStream ) {
+				printf("Tagha_load_script :: ERROR! Could not allocate Instruction Stream!\n");
+				Tagha_free(vm);
+				script = NULL;
+				goto error;
+			}
+			fread(script->pInstrStream, sizeof(uchar), script->uiInstrSize, pFile);
 			script = NULL;
 		}
 		else {	// invalid script, kill the reference and the script itself.
@@ -126,6 +142,8 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 		}
 	}
 	else vm->pScript = NULL;
+error:;
+	fclose(pFile); pFile=NULL;
 }
 
 void Tagha_free(TaghaVM_t *vm)
@@ -915,5 +933,29 @@ void TaghaScript_debug_print_ptrs(const Script_t *script)
 			\nStack Frame Pointer: %" PRIu32 "\n", script->ip, script->sp, script->bp);
 	printf("\n");
 }
+void TaghaScript_debug_print_instrs(const Script_t *script)
+{
+	if( !script )
+		return;
+	
+	uint i;
+	for( i=0 ; i<script->uiInstrSize ; i++ )
+		printf("Instr[%"PRIu32"] == %"PRIu32"\n", i, script->pInstrStream[i]);
+	printf("\n");
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

@@ -47,7 +47,7 @@ def wrt_opcode(f, opcode:int):
 with open('test_native.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 0, 16);
 	wrt_hdr_natives(tbc, 'test');
-	tbc.write(0x1b.to_bytes(4, byteorder='little'));
+	tbc.write(0x0.to_bytes(4, byteorder='little'));
 	wrt_opcode(tbc, opcodes.pushl);
 	tbc.write(0x32.to_bytes(4, byteorder='big'));
 	wrt_opcode(tbc, opcodes.pushl);
@@ -64,7 +64,7 @@ with open('test_native.tbc', 'wb+') as tbc:
 with open('test_multiple_natives.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 0, 16);
 	wrt_hdr_natives(tbc, 'test', 'printHW');
-	tbc.write(0x27.to_bytes(4, byteorder='little'));
+	tbc.write(0x0.to_bytes(4, byteorder='little'));
 	wrt_opcode(tbc, opcodes.pushl);
 	tbc.write(0x32.to_bytes(4, byteorder='big'));
 	wrt_opcode(tbc, opcodes.pushl);

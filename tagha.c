@@ -657,7 +657,7 @@ static inline uchar _TaghaScript_peek_byte(Script_t *script)
 //#include <unistd.h>	// sleep() func
 void Tagha_exec(TaghaVM_t *vm)
 {
-	printf("instruction set size == %" PRIu32 "\n", nop+1);
+	//printf("instruction set size == %" PRIu32 "\n", nop+1);
 	if( !vm )
 		return;
 	else if( !vm->pScript )
@@ -702,9 +702,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		if( !script->uiMaxInstrs )
 			break;
 		
-		if( script->pInstrStream[script->ip] > nop) {
-			printf("illegal instruction exception! instruction == \'%" PRIu32 "\' @ %" PRIu32 "\n", script->pInstrStream[script->ip], script->ip);
-			goto *dispatch[halt];
+		if( script->bSafeMode ) {
+			if( script->ip >= script->uiInstrSize ) {
+				printf("instruction address out of bounds! instruction == \'%" PRIu32 "\'\n", script->ip);
+				goto *dispatch[halt];
+			}
+			else if( script->pInstrStream[script->ip] > nop) {
+				printf("illegal instruction exception! instruction == \'%" PRIu32 "\' @ %" PRIu32 "\n", script->pInstrStream[script->ip], script->ip);
+				goto *dispatch[halt];
+			}
 		}
 		//printf( "current instruction == \"%s\" @ ip == %" PRIu32 "\n", opcode2str[script->pInstrStream[script->ip]], script->ip );
 		goto *dispatch[ script->pInstrStream[script->ip] ];

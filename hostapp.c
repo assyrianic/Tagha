@@ -161,8 +161,8 @@ int main(int argc, char **argv)
 	TaghaScript_pop_nbytes(script, &test2, sizeof(struct kek));
 	printf("test2 data: lli:%lli , shrt: %i , ic:%i\n", test2.lli, test2.shrt, test2.ic);
 	*/
-	//TaghaScript_debug_print_memory(vm.pScript);
-	//TaghaScript_debug_print_stack(vm.pScript);
+	TaghaScript_debug_print_memory(vm.pScript);
+	TaghaScript_debug_print_stack(vm.pScript);
 	/*
 	int x;
 	do {

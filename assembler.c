@@ -76,7 +76,7 @@ void wrt_natives_to_header(FILE *f, const unsigned numnats, ...)
 		char *buffer;
 		va_list varnatives;
 		va_start(varnatives, numnats);
-		unsigned i=0;
+		unsigned i;
 		for( i=0 ; i<numnats ; i++ ) {
 			buffer = va_arg(varnatives, char*);
 			unsigned strsize = strlen(buffer)+1;	// copy null terminator too!
@@ -96,7 +96,7 @@ int main()
 		//4,0,0,0,	// set memory size.
 		//5,0,0,0,	// set stack size. count up every stack item and add 1
 		//0,0,0,0,	// set amount of natives!
-		18,0,0,0,	// set instruction pointer entry point
+		0,0,0,0,	// set instruction pointer entry point
 		nop,
 		//pushl, 255, 1, 0, 0x0,
 		//pushs, 0xDD, 0xDD,
@@ -118,7 +118,7 @@ int main()
 		0,0,0,0,	// set memory size.
 		9,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
-		18,0,0,0,	// set instruction pointer entry point
+		0,0,0,0,	// set instruction pointer entry point
 		//jmp, 17,0,0,0,
 		// -16776961
 		//pushl, 255,0,0,255,
@@ -149,10 +149,10 @@ int main()
 		20,0,0,0,	// set memory size.
 		60,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
-		18,0,0,0,	// set instruction pointer entry point
+		0,0,0,0,	// set instruction pointer entry point
 		nop, // calc fibonnaci number
 		wrtl,	0,0,0,0,	0,0,0,7,	// write n to address 0, remember that memory is little endian!
-		call,	0,0,0,34,
+		call,	0,0,0,16,
 		halt,
 		// a = 0;
 		wrtl,	0,0,0,4,	0,0,0,0,		// 16
@@ -165,7 +165,7 @@ int main()
 		loadl,	0,0,0,0,		// load param n
 		decl,				// decrement address 0
 		storel,	0,0,0,0,	// store decrement result to memory address
-		jzl,	0,0,0,121,		// jmp to storing b and returning.
+		jzl,	0,0,0,103,		// jmp to storing b and returning.
 		popl,
 		// int t = a;
 		loadl,	0,0,0,4,		// load a's value.
@@ -178,7 +178,7 @@ int main()
 		loadl,	0,0,0,8,		// load b.
 		uaddl,				// add b and t
 		storel,	0,0,0,8,	// store addition value to b's address.
-		jmp,	0,0,0,52,		// jmp back to start of loop.	// 98
+		jmp,	0,0,0,34,		// jmp back to start of loop.	// 98
 		// }
 		ret		// b has been fully 'mathemized' and is stored into memory for reuse.
 	};
@@ -187,7 +187,7 @@ int main()
 		12,0,0,0,	// set memory size.
 		0,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
-		18,0,0,0,	// set instruction pointer entry point
+		0,0,0,0,	// set instruction pointer entry point
 		nop,
 		wrtb,	0,0,0,0,	100,	// d
 		wrtb,	0,0,0,1,	108,	// l
@@ -207,7 +207,7 @@ int main()
 		255,1,0,0,	// set memory size.
 		16,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
-		18,0,0,0,
+		0,0,0,0,
 		nop,
 		// The way you wuold store to a pointer would be something like...
 		// pushl <value to store>
@@ -238,7 +238,7 @@ int main()
 		1,0,0,0,	// set memory size.
 		16,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
-		18,0,0,0,
+		0,0,0,0,
 		nop,
 		// int i = 170;
 		// i's address is 4 (tos address, not beginning data address)
@@ -256,10 +256,10 @@ int main()
 		1,0,0,0,	// set memory size.
 		28,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
-		18,0,0,0,
+		0,0,0,0,
 		pushl,	0,0,1,244,	//6-10		push b
 		pushl,	0,0,0,2,	//11-15		push a
-		call,	0,0,0,36,	//16-20		func(int a, int b) ==> b=500 and a=2
+		call,	0,0,0,18,	//16-20		func(int a, int b) ==> b=500 and a=2
 		popl,popl,	//21-22 clean up args a and b from stack
 		halt,			// 23
 		pushl,	0,0,0,8, loadspl,	// load a to TOS
@@ -273,12 +273,12 @@ int main()
 		5,0,0,0,	// set memory size.
 		28,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
-		18,0,0,0,
-		call,	0,0,0,44,	// 18-22
-		pushl,	0,0,0,50,	// 23-27
+		0,0,0,0,
+		call,	0,0,0,26,	// 18-22
+		pushl,	0,0,0,32,	// 23-27
 		calls,	// 28
 		
-		wrtl,	0,0,0,0,	0,0,0,56,	//29-37
+		wrtl,	0,0,0,0,	0,0,0,38,	//29-37
 		calla,	0,0,0,0, //38-42
 		halt,	//43
 		
@@ -296,7 +296,7 @@ int main()
 		255,0,0,0,	// set memory size.
 		255,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
-		18,0,0,0,
+		0,0,0,0,
 		
 		// push + pop tests
 		pushq,	0xa,0xb,0xc,0xd,0xe,0xf,0xaa,0xbb, popq,
@@ -431,10 +431,10 @@ int main()
 		0,0,0,0,	// set memory size.
 		24,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
-		18,0,0,0,
+		0,0,0,0,
 		// func prototype -> int f(int);
 		pushl,	0,0,0,9,	//6-10	-push argument 1.
-		call,	0,0,0,29,	//11-15	-"f(5);"
+		call,	0,0,0,11,	//11-15	-"f(5);"
 		halt,	//16
 		
 		// int f(int i) {
@@ -456,10 +456,10 @@ int main()
 		0,0,0,0,	// set memory size.
 		255,255,255,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
-		18,0,0,0,
-		call,	0,0,0,24,	//6-10
+		0,0,0,0,
+		call,	0,0,0,6,	//6-10
 		halt,	//11
-		call,	0,0,0,24 //12-16
+		call,	0,0,0,6 //12-16
 	};
 	pFile = fopen("./test_recursion.tbc", "wb");
 	if( pFile ) {
@@ -485,9 +485,9 @@ int main()
 		0,0,0,0,	// set memory size.
 		255,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
-		18,0,0,0,
+		0,0,0,0,
 		pushl,	0,0,0,7,	//14-18
-		call,	0,0,0,29,	//19-15
+		call,	0,0,0,11,	//19-15
 		halt,	//16
 		
 		pushl,	0,0,0,8,	//17-21	// [ebp+8] to get i from stack.
@@ -495,7 +495,7 @@ int main()
 		loadspl,	//22-23	// load i to Top of Stack.
 		pushl,	0,0,0,1,	//24-28	// push 1
 		uleql,	//29	// i <= 1?
-		jzl,	0,0,0,57,	//30-34	// if 0, jump passed the first `retx`.
+		jzl,	0,0,0,39,	//30-34	// if 0, jump passed the first `retx`.
 		pushl,	0,0,0,1,	//35-39
 		retx,	0,0,0,4,	//40-44
 		
@@ -504,7 +504,7 @@ int main()
 		loadspl,	// load i to Top of Stack.
 		pushl,	0,0,0,1,
 		usubl,	// i-1
-		call,	0,0,0,29,	// get result of call, with (i-1) as arg.
+		call,	0,0,0,11,	// get result of call, with (i-1) as arg.
 		// each call makes a new stack frame, regardless of call type opcode.
 		
 		pushl,	0,0,0,8,	// [ebp+8] to get i from stack.
@@ -544,7 +544,7 @@ int main()
 		16,0,0,0,	// set stack size.
 		1,0,0,0,	// set amount of natives!
 		5,0,0,0,	't','e','s','t',0,	// string size of 1st native
-		27,0,0,0,
+		0,0,0,0,
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
@@ -563,7 +563,7 @@ int main()
 		0,0,0,0,	// set memory size.
 		20,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
-		18,0,0,0,
+		0,0,0,0,
 		pushq,	0,0,0,255, 0,0,0,1,
 		pushq,	0,0,0,5, 0,0,0,2,
 		//mmxaddl, // treats the 64-bit values as 4 ints, added top down (2 on bottom is added to 1 at top, 5 is added to 255.)
@@ -582,7 +582,7 @@ int main()
 		24,0,0,0,	// set stack size.
 		1,0,0,0,	// set amount of natives!
 		5,0,0,0,	't','e','s','t',0,	// string size of 1st native
-		27,0,0,0,	// set entry point, remember to account for natives.
+		0,0,0,0,	// set entry point, remember to account for natives.
 		pushnataddr,	0,0,0,0,// push native's function ptr, assume it pushes 8 bytes
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
@@ -602,7 +602,7 @@ int main()
 		24,0,0,0,	// set stack size.
 		1,0,0,0,	// set amount of natives!
 		5,0,0,0,	't','e','s','t',0,	// string size of 1st native
-		27,0,0,0,	// set entry point, remember to account for natives.
+		0,0,0,0,	// set entry point, remember to account for natives.
 		wrtnataddr,	0,0,0,0,	0,0,0,0,	// #1 - native name index, #2 - memory address to write to.
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
@@ -624,7 +624,7 @@ int main()
 		//'t','e','s','t',0,	// 22-26 string size of 1st native
 		//8,0,0,0,	// 27-30
 		//'p','r','i','n','t','H','W',0,	// 31-38
-		39,0,0,0,	// set entry point, remember to account for natives written.
+		0,0,0,0,	// set entry point, remember to account for natives written.
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed

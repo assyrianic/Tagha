@@ -25,7 +25,7 @@ extern "C" {
         float *: "float *",                    double *: "double *",              \
         default: "other")
 
-
+#define TAGHA_VERSION_STR		"0.0.6a"
 #define WORD_SIZE		4
 #define NULL_ADDR		0xFFFFFFFF				// all NULL pointers should have this value
 
@@ -68,6 +68,7 @@ struct TaghaScript {
 	Word_t	ip, sp, bp;
 	uint	uiMemsize;
 	uint	uiStksize;
+	uint	uiInstrSize;
 	uint	uiMaxInstrs;
 	uint	uiNatives;		// count how many natives script uses.
 	bool	bSafeMode;
@@ -108,6 +109,7 @@ void	Tagha_exec(TaghaVM_t *vm);
 void	TaghaScript_debug_print_ptrs(const Script_t *script);
 void	TaghaScript_debug_print_stack(const Script_t *script);
 void	TaghaScript_debug_print_memory(const Script_t *script);
+void	TaghaScript_debug_print_instrs(const Script_t *script);
 
 void	TaghaScript_reset(Script_t *script);
 void	TaghaScript_push_longfloat(Script_t *restrict script, const long double val);
