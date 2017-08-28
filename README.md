@@ -6,12 +6,14 @@ Tagha is a **WIP** minimal yet complex stack-based virtual machine and scripting
 
 
 ## TODO list
-- [x] add `q` or 'quad' opcodes for 64-bit data ~~AND make VM completely 64-bit (32-bit will NOT be available)~~.
+- [x] add `q` or 'quad' opcodes for 64-bit data.
 - [x] add API for host applications to embed this VM.
 - [x] figure out natives system.
 - [x] create format for libraries and headers.
+- [ ] have host apps able to call functions on script side? (would require header changes put entry point and function name as a whole function table).
 - [ ] figure out how to share types between host and scripts.
 - [ ] figure out system of communication between Tagha C scripts.
+- [ ] upgrade SIMD opcodes to use 32 bytes instead of 16 bytes (allows us to do math with four 4-byte data at once).
 
 ## End Goals list
 - [ ] complete, seamless embeddability to C (and by extension C++) programs. As smooth as how Angelscript binds to C++.
