@@ -6,3 +6,6 @@ Tagha is a **WIP** minimal yet complex stack-based virtual machine and scripting
 
 ## Installation/Building
 download files and edit the compile.sh as needed then run the build script. 
+
+## Pull Requests
+Pull requests are always welcome and will be reviewed!
