@@ -915,13 +915,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		
 		exec_storeq:;
 			a = _TaghaScript_get_imm4(script);
-			if( script->bSafeMode and a >= script->uiMemsize-8 ) {
-				printf("exec_storeq reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and (script->sp-8) >= script->uiStksize ) {
-				printf("exec_storeq reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-8);
-				goto *dispatch[halt];
+			if( script->bSafeMode ) {
+				if( a >= script->uiMemsize-8 ) {
+					printf("exec_storeq reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
+					goto *dispatch[halt];
+				}
+				else if( (script->sp-8) >= script->uiStksize ) {
+					printf("exec_storeq reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-8);
+					goto *dispatch[halt];
+				}
 			}
 			script->pbMemory[a+7] = script->pbStack[script->sp--];
 			script->pbMemory[a+6] = script->pbStack[script->sp--];
@@ -944,13 +946,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		
 		exec_storel:;	// pops 4-byte value off stack and into a memory address.
 			a = _TaghaScript_get_imm4(script);
-			if( script->bSafeMode and a >= script->uiMemsize-4 ) {
-				printf("exec_storel reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and (script->sp-4) >= script->uiStksize ) {
-				printf("exec_storel reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-4);
-				goto *dispatch[halt];
+			if( script->bSafeMode ) {
+				if( a >= script->uiMemsize-4 ) {
+					printf("exec_storel reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
+					goto *dispatch[halt];
+				}
+				else if( (script->sp-4) >= script->uiStksize ) {
+					printf("exec_storel reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-4);
+					goto *dispatch[halt];
+				}
 			}
 			script->pbMemory[a+3] = script->pbStack[script->sp--];
 			script->pbMemory[a+2] = script->pbStack[script->sp--];
@@ -965,13 +969,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		
 		exec_stores:;	// pops 2-byte value off stack and into a memory address.
 			a = _TaghaScript_get_imm4(script);
-			if( script->bSafeMode and a > script->uiMemsize-2 ) {
-				printf("exec_stores reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and (script->sp-2) >= script->uiStksize ) {
-				printf("exec_stores reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-2);
-				goto *dispatch[halt];
+			if( script->bSafeMode ) {
+				if( a > script->uiMemsize-2 ) {
+					printf("exec_stores reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
+					goto *dispatch[halt];
+				}
+				else if( (script->sp-2) >= script->uiStksize ) {
+					printf("exec_stores reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-2);
+					goto *dispatch[halt];
+				}
 			}
 			script->pbMemory[a+1] = script->pbStack[script->sp--];
 			script->pbMemory[a+0] = script->pbStack[script->sp--];
@@ -982,13 +988,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		
 		exec_storeb:;	// pops byte value off stack and into a memory address.
 			a = _TaghaScript_get_imm4(script);
-			if( script->bSafeMode and a > script->uiMemsize-1 ) {
-				printf("exec_storeb reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and (script->sp-1) >= script->uiStksize ) {
-				printf("exec_storeb reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-1);
-				goto *dispatch[halt];
+			if( script->bSafeMode ) {
+				if( a > script->uiMemsize-1 ) {
+					printf("exec_storeb reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
+					goto *dispatch[halt];
+				}
+				else if( (script->sp-1) >= script->uiStksize ) {
+					printf("exec_storeb reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-1);
+					goto *dispatch[halt];
+				}
 			}
 			script->pbMemory[a] = script->pbStack[script->sp--];
 			printf("stored byte data - %" PRIu32 " @ address 0x%x\n", script->pbMemory[a], a);
@@ -996,13 +1004,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		
 		exec_storeqa:;
 			a = _TaghaScript_pop_int32(script);
-			if( script->bSafeMode and a > script->uiMemsize-8 ) {
-				printf("exec_storeqa reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and (script->sp-8) >= script->uiStksize ) {
-				printf("exec_storeqa reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-8);
-				goto *dispatch[halt];
+			if( script->bSafeMode ) {
+				if( a > script->uiMemsize-8 ) {
+					printf("exec_storeqa reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
+					goto *dispatch[halt];
+				}
+				else if( (script->sp-8) >= script->uiStksize ) {
+					printf("exec_storeqa reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-8);
+					goto *dispatch[halt];
+				}
 			}
 			script->pbMemory[a+7] = script->pbStack[script->sp--];
 			script->pbMemory[a+6] = script->pbStack[script->sp--];
@@ -1029,13 +1039,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		*/
 		exec_storela:;
 			a = _TaghaScript_pop_int32(script);
-			if( script->bSafeMode and a > script->uiMemsize-4 ) {
-				printf("exec_storela reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and (script->sp-4) >= script->uiStksize ) {
-				printf("exec_storela reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-4);
-				goto *dispatch[halt];
+			if( script->bSafeMode ) {
+				if( a > script->uiMemsize-4 ) {
+					printf("exec_storela reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
+					goto *dispatch[halt];
+				}
+				else if( (script->sp-4) >= script->uiStksize ) {
+					printf("exec_storela reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-4);
+					goto *dispatch[halt];
+				}
 			}
 			script->pbMemory[a+3] = script->pbStack[script->sp--];
 			script->pbMemory[a+2] = script->pbStack[script->sp--];
@@ -1050,13 +1062,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		
 		exec_storesa:;
 			a = _TaghaScript_pop_int32(script);
-			if( script->bSafeMode and a > script->uiMemsize-2 ) {
-				printf("exec_storesa reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and (script->sp-2) >= script->uiStksize ) {
-				printf("exec_storesa reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-2);
-				goto *dispatch[halt];
+			if( script->bSafeMode ) {
+				if( a > script->uiMemsize-2 ) {
+					printf("exec_storesa reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
+					goto *dispatch[halt];
+				}
+				else if( (script->sp-2) >= script->uiStksize ) {
+					printf("exec_storesa reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-2);
+					goto *dispatch[halt];
+				}
 			}
 			script->pbMemory[a+1] = script->pbStack[script->sp--];
 			script->pbMemory[a+0] = script->pbStack[script->sp--];
@@ -1067,13 +1081,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		
 		exec_storeba:;
 			a = _TaghaScript_pop_int32(script);
-			if( script->bSafeMode and a > script->uiMemsize-1 ) {
-				printf("exec_storeba reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and (script->sp-1) >= script->uiStksize ) {
-				printf("exec_storeba reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-1);
-				goto *dispatch[halt];
+			if( script->bSafeMode ) {
+				if( a > script->uiMemsize-1 ) {
+					printf("exec_storeba reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
+					goto *dispatch[halt];
+				}
+				else if( (script->sp-1) >= script->uiStksize ) {
+					printf("exec_storeba reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-1);
+					goto *dispatch[halt];
+				}
 			}
 			script->pbMemory[a] = script->pbStack[script->sp--];
 			printf("stored byte data - %" PRIu32 " to pointer address 0x%x\n", script->pbMemory[a], a);
@@ -1081,13 +1097,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		
 		exec_loadq:;
 			a = _TaghaScript_get_imm4(script);
-			if( script->bSafeMode and a > script->uiMemsize-8 ) {
-				printf("exec_loadq reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and (script->sp+8) >= script->uiStksize ) {
-				printf("exec_loadq reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+8);
-				goto *dispatch[halt];
+			if( script->bSafeMode ) {
+				if( a > script->uiMemsize-8 ) {
+					printf("exec_loadq reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
+					goto *dispatch[halt];
+				}
+				else if( (script->sp+8) >= script->uiStksize ) {
+					printf("exec_loadq reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+8);
+					goto *dispatch[halt];
+				}
 			}
 			script->pbStack[++script->sp] = script->pbMemory[a+0];
 			script->pbStack[++script->sp] = script->pbMemory[a+1];
@@ -1110,13 +1128,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		
 		exec_loadl:;
 			a = _TaghaScript_get_imm4(script);
-			if( script->bSafeMode and a > script->uiMemsize-4 ) {
-				printf("exec_loadl reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and (script->sp+4) >= script->uiStksize ) {
-				printf("exec_loadl reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+4);
-				goto *dispatch[halt];
+			if( script->bSafeMode ) {
+				if( a > script->uiMemsize-4 ) {
+					printf("exec_loadl reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
+					goto *dispatch[halt];
+				}
+				else if( (script->sp+4) >= script->uiStksize ) {
+					printf("exec_loadl reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+4);
+					goto *dispatch[halt];
+				}
 			}
 			script->pbStack[++script->sp] = script->pbMemory[a+0];
 			script->pbStack[++script->sp] = script->pbMemory[a+1];
@@ -1131,13 +1151,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		
 		exec_loads:;
 			a = _TaghaScript_get_imm4(script);
-			if( script->bSafeMode and a > script->uiMemsize-2 ) {
-				printf("exec_loads reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and (script->sp+2) >= script->uiStksize ) {
-				printf("exec_loads reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+2);
-				goto *dispatch[halt];
+			if( script->bSafeMode ) {
+				if( a > script->uiMemsize-2 ) {
+					printf("exec_loads reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
+					goto *dispatch[halt];
+				}
+				else if( (script->sp+2) >= script->uiStksize ) {
+					printf("exec_loads reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+2);
+					goto *dispatch[halt];
+				}
 			}
 			script->pbStack[++script->sp] = script->pbMemory[a+0];
 			script->pbStack[++script->sp] = script->pbMemory[a+1];
@@ -1148,13 +1170,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		
 		exec_loadb:;
 			a = _TaghaScript_get_imm4(script);
-			if( script->bSafeMode and a > script->uiMemsize-1 ) {
-				printf("exec_loadb reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and (script->sp+1) >= script->uiStksize ) {
-				printf("exec_loadb reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+1);
-				goto *dispatch[halt];
+			if( script->bSafeMode ) {
+				if( a > script->uiMemsize-1 ) {
+					printf("exec_loadb reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
+					goto *dispatch[halt];
+				}
+				else if( (script->sp+1) >= script->uiStksize ) {
+					printf("exec_loadb reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+1);
+					goto *dispatch[halt];
+				}
 			}
 			script->pbStack[++script->sp] = script->pbMemory[a];
 			printf("loaded byte data to T.O.S. - %" PRIu32 " from address 0x%x\n", script->pbStack[script->sp], a);
@@ -1162,13 +1186,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		
 		exec_loadqa:;
 			a = _TaghaScript_pop_int32(script);
-			if( script->bSafeMode and a > script->uiMemsize-8 ) {
-				printf("exec_loadqa reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and (script->sp+8) >= script->uiStksize ) {
-				printf("exec_loadqa reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+8);
-				goto *dispatch[halt];
+			if( script->bSafeMode ) {
+				if( a > script->uiMemsize-8 ) {
+					printf("exec_loadqa reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
+					goto *dispatch[halt];
+				}
+				else if( (script->sp+8) >= script->uiStksize ) {
+					printf("exec_loadqa reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+8);
+					goto *dispatch[halt];
+				}
 			}
 			script->pbStack[++script->sp] = script->pbMemory[a+0];
 			script->pbStack[++script->sp] = script->pbMemory[a+1];
@@ -1191,13 +1217,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		
 		exec_loadla:;
 			a = _TaghaScript_pop_int32(script);
-			if( script->bSafeMode and a > script->uiMemsize-4 ) {
-				printf("exec_loadla reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and (script->sp+4) >= script->uiStksize ) {
-				printf("exec_loadla reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+4);
-				goto *dispatch[halt];
+			if( script->bSafeMode ) {
+				if( a > script->uiMemsize-4 ) {
+					printf("exec_loadla reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
+					goto *dispatch[halt];
+				}
+				else if( (script->sp+4) >= script->uiStksize ) {
+					printf("exec_loadla reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+4);
+					goto *dispatch[halt];
+				}
 			}
 			script->pbStack[++script->sp] = script->pbMemory[a+0];
 			script->pbStack[++script->sp] = script->pbMemory[a+1];
@@ -1212,13 +1240,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		
 		exec_loadsa:;
 			a = _TaghaScript_pop_int32(script);
-			if( script->bSafeMode and a > script->uiMemsize-2 ) {
-				printf("exec_loadsa reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and (script->sp+2) >= script->uiStksize ) {
-				printf("exec_loadsa reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+2);
-				goto *dispatch[halt];
+			if( script->bSafeMode ) {
+				if( a > script->uiMemsize-2 ) {
+					printf("exec_loadsa reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
+					goto *dispatch[halt];
+				}
+				else if( (script->sp+2) >= script->uiStksize ) {
+					printf("exec_loadsa reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+2);
+					goto *dispatch[halt];
+				}
 			}
 			script->pbStack[++script->sp] = script->pbMemory[a+0];
 			script->pbStack[++script->sp] = script->pbMemory[a+1];
@@ -1229,13 +1259,15 @@ void Tagha_exec(TaghaVM_t *vm)
 		
 		exec_loadba:;
 			a = _TaghaScript_pop_int32(script);
-			if( script->bSafeMode and a > script->uiMemsize-1 ) {
-				printf("exec_loadba reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and (script->sp+1) >= script->uiStksize ) {
-				printf("exec_loadba reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+1);
-				goto *dispatch[halt];
+			if( script->bSafeMode ) {
+				if( a > script->uiMemsize-1 ) {
+					printf("exec_loadba reported: Invalid Memory Access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\nInvalid Memory Address: %" PRIu32 "\n", script->ip, script->sp, a);
+					goto *dispatch[halt];
+				}
+				else if( (script->sp+1) >= script->uiStksize ) {
+					printf("exec_loadba reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+1);
+					goto *dispatch[halt];
+				}
 			}
 			script->pbStack[++script->sp] = script->pbMemory[a];
 			printf("loaded byte data to T.O.S. - %" PRIu32 " from pointer address 0x%x\n", script->pbStack[script->sp], a);
@@ -1383,10 +1415,6 @@ void Tagha_exec(TaghaVM_t *vm)
 		exec_copys:;
 			if( script->bSafeMode and script->sp-1 >= script->uiStksize ) {
 				printf("exec_copys reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-1);
-				goto *dispatch[halt];
-			}
-			else if( script->bSafeMode and script->sp+2 >= script->uiStksize ) {
-				printf("exec_copys reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+2);
 				goto *dispatch[halt];
 			}
 			conv.c[0] = script->pbStack[script->sp-1];
@@ -1552,7 +1580,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			qb = _TaghaScript_pop_int64(script);
 			if( !qb ) {
 				printf("divq: divide by 0 error.\n");
-				goto *dispatch[halt];
+				qb = 1;
 			}
 			qa = _TaghaScript_pop_int64(script);
 			conv.ll = (i64)qa / (i64)qb;
@@ -1564,7 +1592,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			qb = _TaghaScript_pop_int64(script);
 			if( !qb ) {
 				printf("udivq: divide by 0 error.\n");
-				goto *dispatch[halt];
+				qb = 1;
 			}
 			qa = _TaghaScript_pop_int64(script);
 			conv.ull = qa/qb;
@@ -1576,7 +1604,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			b = _TaghaScript_pop_int32(script);
 			if( !b ) {
 				printf("divl: divide by 0 error.\n");
-				goto *dispatch[halt];
+				b=1;
 			}
 			a = _TaghaScript_pop_int32(script);
 			conv.i = (int)a / (int)b;
@@ -1588,7 +1616,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			b = _TaghaScript_pop_int32(script);
 			if( !b ) {
 				printf("udivl: divide by 0 error.\n");
-				goto *dispatch[halt];
+				b=1;
 			}
 			a = _TaghaScript_pop_int32(script);
 			conv.ui = a/b;
@@ -1600,7 +1628,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			fb = _TaghaScript_pop_float32(script);
 			if( !fb ) {
 				printf("divf: divide by 0.0 error.\n");
-				goto *dispatch[halt];
+				fb = 1.f;
 			}
 			fa = _TaghaScript_pop_float32(script);
 			conv.f = fa/fb;
@@ -1612,7 +1640,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			db = _TaghaScript_pop_float64(script);
 			if( !db ) {
 				printf("divf64: divide by 0.0 error.\n");
-				goto *dispatch[halt];
+				db=1.0;
 			}
 			da = _TaghaScript_pop_float64(script);
 			conv.dbl = da/db;
@@ -1624,7 +1652,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			qb = _TaghaScript_pop_int64(script);
 			if( !qb ) {
 				printf("modq: divide by 0 error.\n");
-				goto *dispatch[halt];
+				qb = 1;
 			}
 			qa = _TaghaScript_pop_int64(script);
 			conv.ll = (i64)qa % (i64)qb;
@@ -1636,7 +1664,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			qb = _TaghaScript_pop_int64(script);
 			if( !qb ) {
 				printf("umodq: divide by 0 error.\n");
-				goto *dispatch[halt];
+				qb = 1;
 			}
 			qa = _TaghaScript_pop_int64(script);
 			conv.ull = qa % qb;
@@ -1648,7 +1676,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			b = _TaghaScript_pop_int32(script);
 			if( !b ) {
 				printf("modl: divide by 0 error.\n");
-				goto *dispatch[halt];
+				b=1;
 			}
 			a = _TaghaScript_pop_int32(script);
 			conv.i = (int)a % (int)b;
@@ -1660,7 +1688,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			b = _TaghaScript_pop_int32(script);
 			if( !b ) {
 				printf("umodl: divide by 0 error.\n");
-				goto *dispatch[halt];
+				b=1;
 			}
 			a = _TaghaScript_pop_int32(script);
 			conv.ui = a % b;
@@ -2319,10 +2347,9 @@ void Tagha_exec(TaghaVM_t *vm)
 			conv.ull = _TaghaScript_pop_int64(script);
 			if( !convb.mmx_i[0] or !convb.mmx_i[1] ) {
 				printf("exec_mmxdivl: divide by 0 error.\n");
-				goto *dispatch[halt];
+				convb.mmx_i[0] = convb.mmx_i[1] = 1;
 				//_TaghaScript_push_int64(script, conv.ull);
 				//_TaghaScript_push_int64(script, convb.ull);
-				//DISPATCH();
 			}
 			conv.mmx_i[0] /= convb.mmx_i[0];
 			conv.mmx_i[1] /= convb.mmx_i[1];
@@ -2334,7 +2361,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			conv.ull = _TaghaScript_pop_int64(script);
 			if( !convb.mmx_ui[0] or !convb.mmx_ui[1] ) {
 				printf("exec_mmxudivl: divide by 0 error.\n");
-				goto *dispatch[halt];
+				convb.mmx_ui[0]=convb.mmx_ui[1]=1;
 			}
 			conv.mmx_ui[0] /= convb.mmx_ui[0];
 			conv.mmx_ui[1] /= convb.mmx_ui[1];
@@ -2346,7 +2373,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			conv.ull = _TaghaScript_pop_int64(script);
 			if( !convb.mmx_f[0] or !convb.mmx_f[1] ) {
 				printf("exec_mmxdivf: divide by 0 error.\n");
-				goto *dispatch[halt];
+				convb.mmx_f[0] = convb.mmx_f[1] = 1.f;
 			}
 			conv.mmx_f[0] /= convb.mmx_f[0];
 			conv.mmx_f[1] /= convb.mmx_f[1];
@@ -2358,7 +2385,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			conv.ull = _TaghaScript_pop_int64(script);
 			if( !convb.mmx_s[0] or !convb.mmx_s[1] or !convb.mmx_s[2] or !convb.mmx_s[3] ) {
 				printf("exec_mmxdivs: divide by 0 error.\n");
-				goto *dispatch[halt];
+				convb.mmx_s[0] = convb.mmx_s[1] = convb.mmx_s[2] = convb.mmx_s[3] = 1;
 			}
 			conv.mmx_s[0] /= convb.mmx_s[0]; conv.mmx_s[1] /= convb.mmx_s[1];
 			conv.mmx_s[2] /= convb.mmx_s[2]; conv.mmx_s[3] /= convb.mmx_s[3];
@@ -2370,7 +2397,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			conv.ull = _TaghaScript_pop_int64(script);
 			if( !convb.mmx_us[0] or !convb.mmx_us[1] or !convb.mmx_us[2] or !convb.mmx_us[3] ) {
 				printf("exec_mmxudivs: divide by 0 error.\n");
-				goto *dispatch[halt];
+				convb.mmx_us[0] = convb.mmx_us[1] = convb.mmx_us[2] = convb.mmx_us[3] = 1;
 			}
 			conv.mmx_us[0] /= convb.mmx_us[0]; conv.mmx_us[1] /= convb.mmx_us[1];
 			conv.mmx_us[2] /= convb.mmx_us[2]; conv.mmx_us[3] /= convb.mmx_us[3];
@@ -2389,7 +2416,8 @@ void Tagha_exec(TaghaVM_t *vm)
 					or !convb.mmx_c[6]
 					or !convb.mmx_c[7] ) {
 				printf("exec_mmxdivb: divide by 0 error.\n");
-				goto *dispatch[halt];
+				convb.mmx_c[0] = convb.mmx_c[1] = convb.mmx_c[2] = convb.mmx_c[3] = 1;
+				convb.mmx_c[4] = convb.mmx_c[5] = convb.mmx_c[6] = convb.mmx_c[7] = 1;
 			}
 			conv.mmx_c[0] /= convb.mmx_c[0]; conv.mmx_c[1] /= convb.mmx_c[1];
 			conv.mmx_c[2] /= convb.mmx_c[2]; conv.mmx_c[3] /= convb.mmx_c[3];
@@ -2410,7 +2438,8 @@ void Tagha_exec(TaghaVM_t *vm)
 					or !convb.c[6]
 					or !convb.c[7] ) {
 				printf("exec_mmxudivb: divide by 0 error.\n");
-				goto *dispatch[halt];
+				convb.c[0] = convb.c[1] = convb.c[2] = convb.c[3] = 1;
+				convb.c[4] = convb.c[5] = convb.c[6] = convb.c[7] = 1;
 			}
 			conv.c[0] /= convb.c[0]; conv.c[1] /= convb.c[1];
 			conv.c[2] /= convb.c[2]; conv.c[3] /= convb.c[3];
@@ -2424,7 +2453,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			conv.ull = _TaghaScript_pop_int64(script);
 			if( !convb.mmx_i[0] or !convb.mmx_i[1] ) {
 				printf("exec_mmxmodl: divide by 0 error.\n");
-				goto *dispatch[halt];
+				convb.mmx_i[0] = convb.mmx_i[1] = 1;
 			}
 			conv.mmx_i[0] %= convb.mmx_i[0];
 			conv.mmx_i[1] %= convb.mmx_i[1];
@@ -2436,7 +2465,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			conv.ull = _TaghaScript_pop_int64(script);
 			if( !convb.mmx_ui[0] or !convb.mmx_ui[1] ) {
 				printf("exec_mmxumodl: divide by 0 error.\n");
-				goto *dispatch[halt];
+				convb.mmx_ui[0] = convb.mmx_ui[1] = 1;
 			}
 			conv.mmx_ui[0] %= convb.mmx_ui[0];
 			conv.mmx_ui[1] %= convb.mmx_ui[1];
@@ -2448,7 +2477,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			conv.ull = _TaghaScript_pop_int64(script);
 			if( !convb.mmx_s[0] or !convb.mmx_s[1] or !convb.mmx_s[2] or !convb.mmx_s[3] ) {
 				printf("exec_mmxmods: divide by 0 error.\n");
-				goto *dispatch[halt];
+				convb.mmx_s[0] = convb.mmx_s[1] = convb.mmx_s[2] = convb.mmx_s[3] = 1;
 			}
 			conv.mmx_s[0] %= convb.mmx_s[0]; conv.mmx_s[1] %= convb.mmx_s[1];
 			conv.mmx_s[2] %= convb.mmx_s[2]; conv.mmx_s[3] %= convb.mmx_s[3];
@@ -2460,7 +2489,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			conv.ull = _TaghaScript_pop_int64(script);
 			if( !convb.mmx_us[0] or !convb.mmx_us[1] or !convb.mmx_us[2] or !convb.mmx_us[3] ) {
 				printf("exec_mmxumods: divide by 0 error.\n");
-				goto *dispatch[halt];
+				convb.mmx_us[0] = convb.mmx_us[1] = convb.mmx_us[2] = convb.mmx_us[3] = 1;
 			}
 			conv.mmx_us[0] %= convb.mmx_us[0]; conv.mmx_us[1] %= convb.mmx_us[1];
 			conv.mmx_us[2] %= convb.mmx_us[2]; conv.mmx_us[3] %= convb.mmx_us[3];
@@ -2479,7 +2508,8 @@ void Tagha_exec(TaghaVM_t *vm)
 					or !convb.mmx_c[6]
 					or !convb.mmx_c[7] ) {
 				printf("exec_mmxmodb: divide by 0 error.\n");
-				goto *dispatch[halt];
+				convb.mmx_c[0] = convb.mmx_c[1] = convb.mmx_c[2] = convb.mmx_c[3] = 1;
+				convb.mmx_c[4] = convb.mmx_c[5] = convb.mmx_c[6] = convb.mmx_c[7] = 1;
 			}
 			conv.mmx_c[0] %= convb.mmx_c[0]; conv.mmx_c[1] %= convb.mmx_c[1];
 			conv.mmx_c[2] %= convb.mmx_c[2]; conv.mmx_c[3] %= convb.mmx_c[3];
@@ -2500,7 +2530,8 @@ void Tagha_exec(TaghaVM_t *vm)
 					or !convb.c[6]
 					or !convb.c[7] ) {
 				printf("exec_mmxumodb: divide by 0 error.\n");
-				goto *dispatch[halt];
+				convb.c[0] = convb.c[1] = convb.c[2] = convb.c[3] = 1;
+				convb.c[4] = convb.c[5] = convb.c[6] = convb.c[7] = 1;
 			}
 			conv.c[0] %= convb.c[0]; conv.c[1] %= convb.c[1];
 			conv.c[2] %= convb.c[2]; conv.c[3] %= convb.c[3];

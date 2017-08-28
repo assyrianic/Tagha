@@ -46,10 +46,6 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 	
 	vm->pScript = malloc(sizeof(Script_t));
 	if( vm->pScript ) {
-		// TODO:
-		// improve this code so that we only retrieve the instruction stream and not header data.
-		// Instruction stream should be exclusively that, the instruction stream, not instructions + header data.
-		// 
 		Script_t *script = vm->pScript;
 		script->pInstrStream = NULL;
 		script->pbMemory = NULL;
@@ -84,7 +80,7 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 			if( script->uiStksize )
 				script->pbStack = calloc(script->uiStksize, sizeof(uchar));
 			else script->pbStack = calloc(32, sizeof(uchar));	// have a default size of 32 bytes for stack.
-
+			
 			if( !script->pbStack ) {
 				printf("Tagha_load_script :: Failed to allocate stack for script\n");
 				Tagha_free(vm);
