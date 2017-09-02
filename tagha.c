@@ -325,7 +325,7 @@ static inline void _TaghaScript_push_nbytes(Script_t *restrict script, void *res
 	if( !script )
 		return;
 	if( script->bSafeMode and (script->sp+bytesize) >= script->uiStksize ) {
-		printf("TaghaScript_push_nbytes reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+1);
+		printf("TaghaScript_push_nbytes reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+bytesize);
 		exit(1);
 	}
 	Word_t i=0;
@@ -337,7 +337,7 @@ static inline void _TaghaScript_pop_nbytes(Script_t *restrict script, void *rest
 	if( !script )
 		return;
 	if( script->bSafeMode and (script->sp-bytesize) >= script->uiStksize ) {
-		printf("TaghaScript_pop_nbytes reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+1);
+		printf("TaghaScript_pop_nbytes reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-bytesize);
 		exit(1);
 	}
 	Word_t i=0;
