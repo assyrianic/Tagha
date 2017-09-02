@@ -1,20 +1,16 @@
-/* fwrite example : write buffer */
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
-#include <string.h>
 #include <stdarg.h>
+#include <string.h>
+#include <iso646.h>
 
 #define INSTR_SET	\
 	X(halt) \
 	X(pushq) X(pushl) X(pushs) X(pushb) X(pushsp) X(puship) X(pushbp) \
 	X(pushspadd) X(pushspsub) X(pushbpadd) X(pushbpsub) \
 	X(popq) X(popl) X(pops) X(popb) X(popsp) X(popip) X(popbp) \
-	X(wrtq) X(wrtl) X(wrts) X(wrtb) \
-	X(storeq) X(storel) X(stores) X(storeb) \
-	X(storeqa) X(storela) X(storesa) X(storeba) \
 	X(storespq) X(storespl) X(storesps) X(storespb) \
-	X(loadq) X(loadl) X(loads) X(loadb) \
-	X(loadqa) X(loadla) X(loadsa) X(loadba) \
 	X(loadspq) X(loadspl) X(loadsps) X(loadspb) \
 	X(copyq) X(copyl) X(copys) X(copyb) \
 	X(addq) X(uaddq) X(addl) X(uaddl) X(addf) \
@@ -35,18 +31,8 @@
 	X(ltf64) X(gtf64) X(cmpf64) X(leqf64) X(geqf64) \
 	X(neqq) X(uneqq) X(neql) X(uneql) X(neqf) X(neqf64) \
 	X(jmp) X(jzq) X(jnzq) X(jzl) X(jnzl) \
-	X(call) X(calls) X(calla) X(ret) X(retx) X(reset) \
-	X(wrtnataddr) X(pushnataddr) X(callnat) X(callnats) X(callnata) \
-	X(mmxaddl) X(mmxuaddl) X(mmxaddf) X(mmxadds) X(mmxuadds) X(mmxaddb) X(mmxuaddb) \
-	X(mmxsubl) X(mmxusubl) X(mmxsubf) X(mmxsubs) X(mmxusubs) X(mmxsubb) X(mmxusubb) \
-	X(mmxmull) X(mmxumull) X(mmxmulf) X(mmxmuls) X(mmxumuls) X(mmxmulb) X(mmxumulb) \
-	X(mmxdivl) X(mmxudivl) X(mmxdivf) X(mmxdivs) X(mmxudivs) X(mmxdivb) X(mmxudivb) \
-	X(mmxmodl) X(mmxumodl) X(mmxmods) X(mmxumods) X(mmxmodb) X(mmxumodb) \
-	X(mmxandl) X(mmxands) X(mmxandb) X(mmxorl) X(mmxors) X(mmxorb) \
-	X(mmxxorl) X(mmxxors) X(mmxxorb) X(mmxnotl) X(mmxnots) X(mmxnotb) \
-	X(mmxshll) X(mmxshls) X(mmxshlb) X(mmxshrl) X(mmxshrs) X(mmxshrb) \
-	X(mmxincl) X(mmxincf) X(mmxincs) X(mmxincb) X(mmxdecl) X(mmxdecf) X(mmxdecs) X(mmxdecb) \
-	X(mmxnegl) X(mmxnegf) X(mmxnegs) X(mmxnegb) \
+	X(call) X(calls) X(ret) X(retx) X(reset) \
+	X(pushnataddr) X(callnat) X(callnats) \
 	X(nop) \
 
 #define X(x) x,
@@ -55,7 +41,7 @@ enum InstrSet { INSTR_SET };
 typedef uint8_t		bytecode[];
 
 
-void wrt_tbc_headers(FILE *f, const unsigned memsize, const unsigned stksize)
+void wrt_tbc_headers(FILE *f, const unsigned memsize)
 {
 	if( !f )
 		return;
@@ -63,7 +49,6 @@ void wrt_tbc_headers(FILE *f, const unsigned memsize, const unsigned stksize)
 	short magic = 0xC0DE;
 	fwrite(&magic, sizeof(unsigned short), 1, f);
 	fwrite(&memsize, sizeof(unsigned), 1, f);
-	fwrite(&stksize, sizeof(unsigned), 1, f);
 }
 
 void wrt_natives_to_header(FILE *f, const unsigned numnats, ...)
@@ -86,10 +71,46 @@ void wrt_natives_to_header(FILE *f, const unsigned numnats, ...)
 	}
 }
 
-int main()
+int main(int argc, char **argv)
 {
 	FILE *pFile = NULL;
 	unsigned short magic = 0xC0DE;
+	
+	/*
+	linkedlist *list = prep_file(argv[1]);
+	if( !list ) {
+		printf("Tagha ASM: ERROR **** file \'%s\' can't be found. ****\n", argv[1]);
+		goto error;
+	}
+	dict_init(&g_mapOpcodes);
+	dict_init(&g_mapSymTable);
+
+#define X(x) #x,
+	{
+		uint8_t i;
+		const char *opcode2str[] = { INSTR_SET };
+#undef X
+		for( i=0 ; i<nop+1 ; i++ )
+			dict_insert(&g_mapOpcodes, opcode2str[i], i);
+	}
+	strip_comments(list);
+	linkedlist *tokens = lex_lines(list);
+	list = NULL;
+	
+	
+	listnode *pNode = tokens->pHead;
+	uint64_t i, c;
+	for( i=0L ; i<tokens->ulCount ; i++ ) {
+		char *pstrLine = string_cstr(listnode_getstr(pNode));
+		printf("Tagha ASMPRINT: tokens:: \'%s\'\n", pstrLine);
+		pNode = pNode->pNext;
+		if( !pNode )
+			break;
+	}
+	free(tokens), tokens = NULL;
+	*/
+	
+	//unsigned short magic = 0xC0DE;
 	
 	bytecode endian_test1 = {
 		//0xDE, 0xC0,	// magic
@@ -102,20 +123,18 @@ int main()
 		//pushs, 0xDD, 0xDD,
 		//pushb, 0xAA,
 		//pushb, 0xFF,
-		wrtl,	0,0,0,0,	0xA,0xB,0xC,0xD,
 		pushl,	0xA,0xB,0xC,0xD,
 		halt
 	};
 	pFile = fopen("./endian_test1.tbc", "wb");
 	if( pFile ) {
-		wrt_tbc_headers(pFile, 4, 5);
+		wrt_tbc_headers(pFile, 5);
 		wrt_natives_to_header(pFile, 0);
 		fwrite(endian_test1, sizeof(uint8_t), sizeof(endian_test1), pFile);
 		fclose(pFile);
 	}
 	
 	bytecode float_test = {
-		0,0,0,0,	// set memory size.
 		9,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
 		0,0,0,0,	// set instruction pointer entry point
@@ -133,109 +152,39 @@ int main()
 		halt
 	};
 	
-	// Fibonnaci sequence to test performance!
-	/*	int fib(int n)
-		{
-			int a=0, b=1;
-			while (n-- > 1) {
-				int t = a;
-				a = b;
-				b += t;
-			}
-			return b;
-		}
-	*/
-	bytecode fibonacci = {
-		20,0,0,0,	// set memory size.
-		60,0,0,0,	// set stack size.
-		0,0,0,0,	// set amount of natives!
+	bytecode hello_world_char_ptr = {
 		0,0,0,0,	// set instruction pointer entry point
-		nop, // calc fibonnaci number
-		wrtl,	0,0,0,0,	0,0,0,7,	// write n to address 0, remember that memory is little endian!
-		call,	0,0,0,16,
+		pushb,	72,		// H
+		pushb,	101,	// e
+		pushb,	108,	// l
+		pushb,	108,	// l
+		pushb,	111,	// o
+		pushb,	32,		// space
+		pushb,	87,		// W
+		pushb,	111,	// o
+		pushb,	114,	// r
+		pushb,	108,	// l
+		pushb,	100,	// d
+		pushb,	10,		// newline char
+		pushb,	0,
+		call,	0,0,0,32,	// call main
 		halt,
-		// a = 0;
-		wrtl,	0,0,0,4,	0,0,0,0,		// 16
-		// b = 1;
-		wrtl,	0,0,0,8,	0,0,0,1,		// 25
-		// while( n-- > 1 ) {
-		loadl,	0,0,0,0,		// load param n		// 34
-		pushl,	0,0,0,1,		// push 1
-		gtl,
-		loadl,	0,0,0,0,		// load param n
-		decl,				// decrement address 0
-		storel,	0,0,0,0,	// store decrement result to memory address
-		jzl,	0,0,0,103,		// jmp to storing b and returning.
-		popl,
-		// int t = a;
-		loadl,	0,0,0,4,		// load a's value.
-		storel,	0,0,0,12,	// store a's value into another address as 't'
-		// a = b;
-		loadl,	0,0,0,8,		// load b.
-		storel,	0,0,0,4,	// store b's value into a's address.
-		// b += t;
-		loadl,	0,0,0,12,	// load t.
-		loadl,	0,0,0,8,		// load b.
-		uaddl,				// add b and t
-		storel,	0,0,0,8,	// store addition value to b's address.
-		jmp,	0,0,0,34,		// jmp back to start of loop.	// 98
-		// }
-		ret		// b has been fully 'mathemized' and is stored into memory for reuse.
+		// we pushed 13 bytes worth of chars, let's push as pointer!
+		pushl, 0,0,0,1,	// address of first byte is at 0x1
+		callnat, 0,0,0,0, 0,0,0,4, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
+		// realistically, we can push all 13 bytes to the native but this is to demonstrate arrays as pointers.
+		ret
 	};
-	
-	bytecode hello_world = {
-		12,0,0,0,	// set memory size.
-		0,0,0,0,	// set stack size.
-		0,0,0,0,	// set amount of natives!
-		0,0,0,0,	// set instruction pointer entry point
-		nop,
-		wrtb,	0,0,0,0,	100,	// d
-		wrtb,	0,0,0,1,	108,	// l
-		wrtb,	0,0,0,2,	114,	// r
-		wrtb,	0,0,0,3,	111,	// o
-		wrtb,	0,0,0,4,	87,		// W
-		wrtb,	0,0,0,5,	32,		// space
-		wrtb,	0,0,0,6,	111,	// o
-		wrtb,	0,0,0,7,	108,	// l
-		wrtb,	0,0,0,8,	108,	// l
-		wrtb,	0,0,0,9,	101,	// e
-		wrtb,	0,0,0,10,	72,		// H
-		halt
-	};
-	
-	bytecode global_pointers = {
-		255,1,0,0,	// set memory size.
-		16,0,0,0,	// set stack size.
-		0,0,0,0,	// set amount of natives!
-		0,0,0,0,
-		nop,
-		// The way you wuold store to a pointer would be something like...
-		// pushl <value to store>
-		// loadl <ptr address>
-		// storela
-		
-		// push 170 to tos.
-		pushl,	0,0,0,0xAA,
-		// store 170 to address 255 as variable 'i'
-		// int i = 170;
-		storel,	0,0,0,0xff,
-		
-		// the way you would load from a pointer would be something like:
-		// loadl <ptr address>
-		// loadla
-		
-		// load address of 'i'
-		// int *p = &i;
-		// *p = 26;		// i == 26;
-		pushl,	0,0,0,0x1a,
-		pushl, 0,0,0,0xff,
-		storela, // pops 4 byte address, then pops 4 byte data into memory address.
-		halt
-	};
+	pFile = fopen("./hello_world.tbc", "wb");
+	if( pFile ) {
+		wrt_tbc_headers(pFile, 32);
+		wrt_natives_to_header(pFile, 1, "puts");
+		fwrite(hello_world_char_ptr, sizeof(uint8_t), sizeof(hello_world_char_ptr), pFile);
+		fclose(pFile);
+	}
 	
 	// example of locally (stack-allocated) made pointers and manipulating them.
-	bytecode local_pointers = {
-		1,0,0,0,	// set memory size.
+	bytecode pointers = {
 		16,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
 		0,0,0,0,
@@ -253,15 +202,14 @@ int main()
 	// void func(int a, int b) { a+b; }
 	// func declarations are done by cdecl standard.
 	bytecode test_func_call = {
-		1,0,0,0,	// set memory size.
 		28,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
 		0,0,0,0,
-		pushl,	0,0,1,244,	//6-10		push b
-		pushl,	0,0,0,2,	//11-15		push a
-		call,	0,0,0,18,	//16-20		func(int a, int b) ==> b=500 and a=2
-		popl,popl,	//21-22 clean up args a and b from stack
-		halt,			// 23
+		pushl,	0,0,1,244,	//0-4		push b
+		pushl,	0,0,0,2,	//5-9		push a
+		call,	0,0,0,18,	//10-14		func(int a, int b) ==> b=500 and a=2
+		popl,popl,	//15-16 clean up args a and b from stack
+		halt,			// 17
 		pushl,	0,0,0,8, loadspl,	// load a to TOS
 		pushl,	0,0,0,4, loadspl,	// load b to TOS
 		addl,	// a+b;
@@ -270,34 +218,24 @@ int main()
 	
 	
 	bytecode test_call_opcodes = {
-		5,0,0,0,	// set memory size.
 		28,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
 		0,0,0,0,
-		call,	0,0,0,26,	// 18-22
-		pushl,	0,0,0,32,	// 23-27
-		calls,	// 28
+		call,	0,0,0,12,	// 0-4
+		pushl,	0,0,0,18,	// 5-9
+		calls,	// 10
 		
-		wrtl,	0,0,0,0,	0,0,0,38,	//29-37
-		calla,	0,0,0,0, //38-42
-		halt,	//43
+		halt,	//11
 		
-		pushl,	0xa,0xb,0xc,0xd,	// 44-48
-		ret,	//49
+		pushl,	0xa,0xb,0xc,0xd,	// 12-16
+		ret,	//17
 		
-		pushl,	0,0,0xff,0xff,	//50-54
-		ret,	//55
-		
-		pushl,	0,0,0xac,0xca,	//56-60
-		ret	//61
+		pushl,	0,0,0xff,0xff,	//18-22
+		ret,	//23
 	};
 	
 	bytecode all_opcodes_test = {
-		255,0,0,0,	// set memory size.
-		255,0,0,0,	// set stack size.
-		0,0,0,0,	// set amount of natives!
 		0,0,0,0,
-		
 		// push + pop tests
 		pushq,	0xa,0xb,0xc,0xd,0xe,0xf,0xaa,0xbb, popq,
 		pushl,	0xa,0xb,0xc,0xd, popl,
@@ -307,51 +245,6 @@ int main()
 		//puship,	popip,	// it works, trust me lol
 		pushbp, popbp,
 		
-		// write to memory tests
-		wrtl,	0,0,0,0,	0xa,0xb,0xc,0xd,	// direct write to address 0x0
-		wrts,	0,0,0,4,	0xff,0xaa,			// direct write to address 0x4
-		wrtb,	0,0,0,6,	0xfa,				// direct write to address 0x6
-		wrtq,	0,0,0,10,	0xaa,0xab,0xac,0xad, 0xae,0xaf,0xba,0xbb,
-		
-		// store + load tests
-		pushl,	0xa,0xb,0xc,0xd,
-		storel,	0,0,0,0,
-		loadl,	0,0,0,0,
-		
-		pushs,	0xff,0xaa,
-		stores,	0,0,0,0,
-		loads,	0,0,0,0,
-		
-		pushb,	0xfa,
-		storeb,	0,0,0,0,
-		loadb,	0,0,0,0,
-		
-		wrtl,	0,0,0,0,	0xa,0xb,0xc,0xd,
-		pushl,	0xa,0xb,0xc,0xd,
-		pushl,	0,0,0,0,
-		storela,
-		
-		wrts,	0,0,0,0,	0xff,0xaa,
-		pushs,	0xff,0xaa,
-		pushl,	0,0,0,0,
-		storesa,
-		
-		wrtb,	0,0,0,0,	0xfa,
-		pushb,	0xfa,
-		pushl,	0,0,0,0,
-		storeba,
-		
-		wrtl,	0,0,0,0,	0xa,0xb,0xc,0xd,
-		pushl,	0,0,0,0,
-		loadla,
-		
-		wrts,	0,0,0,0,	0xff,0xaa,
-		pushl,	0,0,0,0,
-		loadsa,
-		
-		wrtb,	0,0,0,0,	0xfa,
-		pushl,	0,0,0,0,
-		loadba,
 		
 		pushl,	0xa,0xb,0xc,0xd,
 		pushl,	0,0,0,4,
@@ -390,22 +283,10 @@ int main()
 		fwrite(float_test, sizeof(uint8_t), sizeof(float_test), pFile);
 		fclose(pFile);
 	}
-	pFile = fopen("./fibonacci.tbc", "wb");
+	pFile = fopen("./pointers.tbc", "wb");
 	if( pFile ) {
 		fwrite(&magic, sizeof(unsigned short), 1, pFile);
-		fwrite(fibonacci, sizeof(uint8_t), sizeof(fibonacci), pFile);
-		fclose(pFile);
-	}
-	pFile = fopen("./global_pointers.tbc", "wb");
-	if( pFile ) {
-		fwrite(&magic, sizeof(unsigned short), 1, pFile);
-		fwrite(global_pointers, sizeof(uint8_t), sizeof(global_pointers), pFile);
-		fclose(pFile);
-	}
-	pFile = fopen("./local_pointers.tbc", "wb");
-	if( pFile ) {
-		fwrite(&magic, sizeof(unsigned short), 1, pFile);
-		fwrite(local_pointers, sizeof(uint8_t), sizeof(local_pointers), pFile);
+		fwrite(pointers, sizeof(uint8_t), sizeof(pointers), pFile);
 		fclose(pFile);
 	}
 	pFile = fopen("./test_func_call.tbc", "wb");
@@ -422,13 +303,13 @@ int main()
 	}
 	pFile = fopen("./all_opcodes_test.tbc", "wb");
 	if( pFile ) {
-		fwrite(&magic, sizeof(unsigned short), 1, pFile);
+		wrt_tbc_headers(pFile, 255);
+		wrt_natives_to_header(pFile, 0);
 		fwrite(all_opcodes_test, sizeof(uint8_t), sizeof(all_opcodes_test), pFile);
 		fclose(pFile);
 	}
 	
 	bytecode test_retx_func = {
-		0,0,0,0,	// set memory size.
 		24,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
 		0,0,0,0,
@@ -453,7 +334,6 @@ int main()
 	}
 	
 	bytecode test_recursion = {
-		0,0,0,0,	// set memory size.
 		255,255,255,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
 		0,0,0,0,
@@ -468,21 +348,18 @@ int main()
 		fclose(pFile);
 	}
 	
-	/*
-	main() {
-		int n = factorial(15);
-	}
-	
-	int factorial(unsigned int i) {
-		if( i<=1 )
-			return 1;
-		return i * factorial( i-1 );
-		//	int temp = factorial( i-1 );
-		//	return i*temp;
-	}
-	*/
+	//main() {
+	//	int n = factorial(15);
+	//}
+	//
+	//int factorial(unsigned int i) {
+	//	if( i<=1 )
+	//		return 1;
+	//	return i * factorial( i-1 );
+	//	//	int temp = factorial( i-1 );
+	//	//	return i*temp;
+	//}
 	bytecode test_factorial_recurs = {
-		0,0,0,0,	// set memory size.
 		255,0,0,0,	// set stack size.
 		0,0,0,0,	// set amount of natives!
 		0,0,0,0,
@@ -517,8 +394,8 @@ int main()
 	if( pFile ) {
 		fwrite(&magic, sizeof(unsigned short), 1, pFile);
 		fwrite(test_factorial_recurs, sizeof(uint8_t), sizeof(test_factorial_recurs), pFile);
-		unsigned funcs = 1;
-		fwrite(&funcs, sizeof(unsigned), 1, pFile);
+		//unsigned funcs = 1;
+		//fwrite(&funcs, sizeof(unsigned), 1, pFile);
 		fclose(pFile);
 	}
 	/*
@@ -528,8 +405,6 @@ int main()
 		callnat,	4,1,	// #1 - bytes to push, #2 - number of args
 		halt,
 	};
-	*/
-	/*
 	bytecode test_native = {
 		0xDE, 0xC0, 6,0,0,0,	// 0-5
 		pushl,	64,160,0,0,
@@ -539,16 +414,17 @@ int main()
 		callnat, 4, halt,	//6-7
 	};
 	*/
+	
 	bytecode test_native = {
-		0,0,0,0,	// set memory size.
-		16,0,0,0,	// set stack size.
+		32,0,0,0,	// set stack size.
 		1,0,0,0,	// set amount of natives!
 		5,0,0,0,	't','e','s','t',0,	// string size of 1st native
 		0,0,0,0,
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
-		callnat, 0,0,0,0, 0,0,0,12, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
+		pushl,	0,0,0,1,	// address of our struct data
+		callnat, 0,0,0,0, 0,0,0,4, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
 		halt
 	};
 	pFile = fopen("./test_native.tbc", "wb");
@@ -558,36 +434,18 @@ int main()
 		fclose(pFile);
 	}
 	
-	bytecode mmx_test={
-		0xDE, 0xC0,	// magic
-		0,0,0,0,	// set memory size.
-		20,0,0,0,	// set stack size.
-		0,0,0,0,	// set amount of natives!
-		0,0,0,0,
-		pushq,	0,0,0,255, 0,0,0,1,
-		pushq,	0,0,0,5, 0,0,0,2,
-		//mmxaddl, // treats the 64-bit values as 4 ints, added top down (2 on bottom is added to 1 at top, 5 is added to 255.)
-		mmxmuls, //mmxnegb,
-		halt
-	};
-	pFile = fopen("./mmx_test.tbc", "wb");
-	if( pFile ) {
-		fwrite(mmx_test, sizeof(uint8_t), sizeof(mmx_test), pFile);
-		fclose(pFile);
-	}
-	
 	bytecode test_local_native_funcptr = {
 		0xDE, 0xC0,	// magic
-		1,0,0,0,	// set memory size.
-		24,0,0,0,	// set stack size.
+		32,0,0,0,	// set stack size.
 		1,0,0,0,	// set amount of natives!
 		5,0,0,0,	't','e','s','t',0,	// string size of 1st native
 		0,0,0,0,	// set entry point, remember to account for natives.
-		pushnataddr,	0,0,0,0,// push native's function ptr, assume it pushes 8 bytes
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
-		callnats, 0,0,0,12, 0,0,0,1,	// #1 - bytes to push, #2 - number of args
+		pushl,	0,0,0,1,	// address of our struct data
+		pushnataddr,	0,0,0,0,// push native's function ptr, assume it pushes 8 bytes
+		callnats, 0,0,0,4, 0,0,0,1,	// #1 - bytes to push, #2 - number of args
 		halt
 	};
 	pFile = fopen("./test_local_native_funcptr.tbc", "wb");
@@ -596,25 +454,7 @@ int main()
 		fwrite(test_local_native_funcptr, sizeof(uint8_t), sizeof(test_local_native_funcptr), pFile);
 		fclose(pFile);
 	}
-	bytecode test_global_native_funcptr = {
-		0xDE, 0xC0,	// magic
-		1,0,0,0,	// set memory size.
-		24,0,0,0,	// set stack size.
-		1,0,0,0,	// set amount of natives!
-		5,0,0,0,	't','e','s','t',0,	// string size of 1st native
-		0,0,0,0,	// set entry point, remember to account for natives.
-		wrtnataddr,	0,0,0,0,	0,0,0,0,	// #1 - native name index, #2 - memory address to write to.
-		pushl,	0,0,0,50,	// ammo
-		pushl,	0,0,0,100,	// health
-		pushl,	67,150,0,0,	// speed "300.f"
-		callnata, 0,0,0,0, 0,0,0,12, 0,0,0,1,	// #1 - mem address, #2 - bytes to push, #3 - number of args
-		halt
-	};
-	pFile = fopen("./test_global_native_funcptr.tbc", "wb");
-	if( pFile ) {
-		fwrite(test_global_native_funcptr, sizeof(uint8_t), sizeof(test_global_native_funcptr), pFile);
-		fclose(pFile);
-	}
+	
 	bytecode test_multiple_natives = {
 		//0xDE, 0xC0,	// magic
 		//0,0,0,0,	// 6-9 set memory size.
@@ -628,17 +468,20 @@ int main()
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
+		pushl,	0,0,0,1,	// address of our struct data
 		callnat, 0,0,0,1, 0,0,0,0, 0,0,0,0,	// #1 - get native name, #2 - bytes to push, #3 - number of args
-		callnat, 0,0,0,0, 0,0,0,12, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
+		callnat, 0,0,0,0, 0,0,0,4, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
 		halt
 	};
 	pFile = fopen("./test_multiple_natives.tbc", "wb");
 	if( pFile ) {
-		wrt_tbc_headers(pFile, 0, 16);
+		wrt_tbc_headers(pFile, 32);
 		wrt_natives_to_header(pFile, 2, "test", "printHW");
 		fwrite(test_multiple_natives, sizeof(uint8_t), sizeof(test_multiple_natives), pFile);
 		fclose(pFile);
 	}
+	
+error:;
 	pFile = NULL;
 	return 0;
 }

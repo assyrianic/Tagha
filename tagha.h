@@ -27,7 +27,7 @@ extern "C" {
 
 #define TAGHA_VERSION_STR		"0.0.6a"
 #define WORD_SIZE		4
-#define NULL_ADDR		0xFFFFFFFF				// all NULL pointers should have this value
+#define NULL_ADDR		0				// all NULL pointers should have this value
 
 typedef		unsigned char		uchar;
 typedef		uchar				bytecode[];
@@ -57,17 +57,15 @@ int	Tagha_register_natives(TaghaVM_t *restrict vm, NativeInfo_t *arrNatives);
 
 /* Script File Structure.
  * magic verifier
- * Memory Vector
  * Stack Vector
  * NativeTable Vector
  */
-
+ 
 struct TaghaScript {
-	uchar	*pbMemory, *pbStack, *pInstrStream;
+	uchar	*pbMemory, *pInstrStream;
 	char	**ppstrNatives;	// natives table as stored strings.
 	Word_t	ip, sp, bp;
 	uint	uiMemsize;
-	uint	uiStksize;
 	uint	uiInstrSize;
 	uint	uiMaxInstrs;
 	uint	uiNatives;		// count how many natives script uses.
@@ -107,11 +105,10 @@ void	Tagha_free(TaghaVM_t *vm);
 void	Tagha_exec(TaghaVM_t *vm);
 
 void	TaghaScript_debug_print_ptrs(const Script_t *script);
-void	TaghaScript_debug_print_stack(const Script_t *script);
 void	TaghaScript_debug_print_memory(const Script_t *script);
 void	TaghaScript_debug_print_instrs(const Script_t *script);
-
 void	TaghaScript_reset(Script_t *script);
+
 void	TaghaScript_push_longfloat(Script_t *restrict script, const long double val);
 long double	TaghaScript_pop_longfloat(Script_t *script);
 
@@ -136,49 +133,7 @@ uchar	TaghaScript_pop_byte(Script_t *script);
 void	TaghaScript_push_nbytes(Script_t *restrict script, void *restrict pItem, const Word_t bytesize);
 void	TaghaScript_pop_nbytes(Script_t *restrict script, void *restrict pBuffer, const Word_t bytesize);
 
-
-long double	TaghaScript_read_longfloat(Script_t *restrict script, const Word_t address);
-void	TaghaScript_write_longfloat(Script_t *restrict script, const long double val, const Word_t address);
-
-u64		TaghaScript_read_int64(Script_t *restrict script, const Word_t address);
-void	TaghaScript_write_int64(Script_t *restrict script, const u64 val, const Word_t address);
-
-double	TaghaScript_read_float64(Script_t *restrict script, const Word_t address);
-void	TaghaScript_write_float64(Script_t *restrict script, const double val, const Word_t address);
-
-uint	TaghaScript_read_int32(Script_t *restrict script, const Word_t address);
-void	TaghaScript_write_int32(Script_t *restrict script, const uint val, const Word_t address);
-
-float	TaghaScript_read_float32(Script_t *restrict script, const Word_t address);
-void	TaghaScript_write_float32(Script_t *restrict script, const float val, const Word_t address);
-
-ushort	TaghaScript_read_short(Script_t *restrict script, const Word_t address);
-void	TaghaScript_write_short(Script_t *restrict script, const ushort val, const Word_t address);
-
-uchar	TaghaScript_read_byte(Script_t *restrict script, const Word_t address);
-void	TaghaScript_write_byte(Script_t *restrict script, const uchar val, const Word_t address);
-
-void	TaghaScript_read_nbytes(Script_t *restrict script, void *restrict pBuffer, const Word_t bytesize, const Word_t address);
-void	TaghaScript_write_nbytes(Script_t *restrict script, void *restrict pItem, const Word_t bytesize, const Word_t address);
-
-
-long double	*TaghaScript_addr2ptr_longfloat(Script_t *restrict script, const Word_t address);
-u64		*TaghaScript_addr2ptr_int64(Script_t *restrict script, const Word_t address);
-double	*TaghaScript_addr2ptr_float64(Script_t *restrict script, const Word_t address);
-uint	*TaghaScript_addr2ptr_int32(Script_t *restrict script, const Word_t address);
-float	*TaghaScript_addr2ptr_float32(Script_t *restrict script, const Word_t address);
-ushort	*TaghaScript_addr2ptr_short(Script_t *restrict script, const Word_t address);
-uchar	*TaghaScript_addr2ptr_byte(Script_t *restrict script, const Word_t address);
-
-
-long double *TaghaScript_stkaddr2ptr_longfloat(Script_t *restrict script, const Word_t address);
-u64		*TaghaScript_stkaddr2ptr_int64(Script_t *restrict script, const Word_t address);
-double	*TaghaScript_stkaddr2ptr_float64(Script_t *restrict script, const Word_t address);
-uint	*TaghaScript_stkaddr2ptr_int32(Script_t *restrict script, const Word_t address);
-float	*TaghaScript_stkaddr2ptr_float32(Script_t *restrict script, const Word_t address);
-ushort	*TaghaScript_stkaddr2ptr_short(Script_t *restrict script, const Word_t address);
-uchar	*TaghaScript_stkaddr2ptr_byte(Script_t *restrict script, const Word_t address);
-
+uchar	*TaghaScript_addr2ptr(Script_t *restrict script, const Word_t stk_address);
 
 #ifdef __cplusplus
 }
