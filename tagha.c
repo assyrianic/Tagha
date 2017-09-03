@@ -629,7 +629,7 @@ void Tagha_exec(TaghaVM_t *vm)
 				printf("exec_loadspl reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a-3);
 				goto *dispatch[halt];
 			}
-			conv.c[3] = script->pbMemory[a];
+			conv.c[3] = script->pbMemory[a-0];
 			conv.c[2] = script->pbMemory[a-1];
 			conv.c[1] = script->pbMemory[a-2];
 			conv.c[0] = script->pbMemory[a-3];
@@ -643,7 +643,7 @@ void Tagha_exec(TaghaVM_t *vm)
 				printf("exec_loadsps reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a-1);
 				goto *dispatch[halt];
 			}
-			conv.c[1] = script->pbMemory[a];
+			conv.c[1] = script->pbMemory[a-0];
 			conv.c[0] = script->pbMemory[a-1];
 			_TaghaScript_push_short(script, conv.us);
 			printf("loaded 2-byte SP address data to T.O.S. - %" PRIu32 " from sp address 0x%x\n", conv.us, a);
@@ -685,7 +685,7 @@ void Tagha_exec(TaghaVM_t *vm)
 				goto *dispatch[halt];
 			}
 			conv.ui = _TaghaScript_pop_int32(script);
-			script->pbMemory[a] = conv.c[3];
+			script->pbMemory[a-0] = conv.c[3];
 			script->pbMemory[a-1] = conv.c[2];
 			script->pbMemory[a-2] = conv.c[1];
 			script->pbMemory[a-3] = conv.c[0];
@@ -699,7 +699,7 @@ void Tagha_exec(TaghaVM_t *vm)
 				goto *dispatch[halt];
 			}
 			conv.us = _TaghaScript_pop_short(script);
-			script->pbMemory[a] = conv.c[1];
+			script->pbMemory[a-0] = conv.c[1];
 			script->pbMemory[a-1] = conv.c[0];
 			printf("stored 2-byte data from T.O.S. - %" PRIu32 " to sp address 0x%x\n", conv.us, a);
 			DISPATCH();

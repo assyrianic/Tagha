@@ -439,14 +439,14 @@ void TaghaScript_pop_nbytes(Script_t *restrict script, void *restrict pBuffer, c
 		((uchar *)pBuffer)[i] = script->pbMemory[script->sp--];
 }
 
-uchar *TaghaScript_addr2ptr(Script_t *restrict script, const Word_t stk_address)
+uchar *TaghaScript_addr2ptr(Script_t *restrict script, const Word_t byteoffset, const Word_t stk_address)
 {
 	if( !script )
 		return NULL;
 	else if( !script->pbMemory )
 		return NULL;
-		
-	return( script->pbMemory + stk_address );
+	
+	return( script->pbMemory + (stk_address-(byteoffset-1)) );
 }
 
 

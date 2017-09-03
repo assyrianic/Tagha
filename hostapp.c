@@ -24,28 +24,33 @@ static void native_puts(Script_t *restrict script, const uint argc, const uint b
 		return;
 	
 	Word_t addr = *(Word_t *)arrParams;
-	char *s = (char *)TaghaScript_addr2ptr(script, addr);
+	// using addr for both byte size and address as addr is the size of the string.
+	char *s = (char *)TaghaScript_addr2ptr(script, addr, addr);
 	printf(s);
 }
 
-/* void test_ptr(struct player *plyr) */
+/* void test_ptr(struct player *p) */
 static void native_test_ptr(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
 {
 	if( !script )
 		return;
 	
-	// passing the struct data by pointer, get the address as a 4-
-	Word_t addr = *(Word_t *)arrParams;
 	struct Player {
 		uint	ammo;
 		uint	health;
 		float	speed;
-	}
+	} *player=NULL;
 	// old code for when we passed the struct data copy by-value instead of by-reference
 	//player = *(struct Player *)arrParams;
+	Word_t addr = *(Word_t *)arrParams;
 	
-	// compiler should have aligned the structure correctly so we can perform this.
-	*player = (struct Player *)TaghaScript_addr2ptr(script, addr);
+	// Since the stack addresses are viewed from top of stack perspective, to get
+	// the real address of our struct data, get the top most rather than bottom most address.
+	// then we subtract it with the size of the data - 1. the Player struct's size is 12 bytes
+	// so the address would be subtracted by 11. If the struct data is the first 12 bytes pushed
+	// to the stack, then the final pointer address would be 12 - 11 aka 0x1.
+	// after casting our final pointer to a struct Player*, we can deref-> our data correctly.
+	player = (struct Player *)TaghaScript_addr2ptr(script, sizeof(struct Player), addr);
 	//TaghaScript_pop_nbytes(script, &player, sizeof(struct Player));
 	
 	printf("native_test_ptr :: ammo: %u\n", player->ammo);

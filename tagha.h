@@ -25,7 +25,7 @@ extern "C" {
         float *: "float *",                    double *: "double *",              \
         default: "other")
 
-#define TAGHA_VERSION_STR		"0.0.6a"
+#define TAGHA_VERSION_STR		"0.0.8a"
 #define WORD_SIZE		4
 #define NULL_ADDR		0				// all NULL pointers should have this value
 
@@ -133,7 +133,7 @@ uchar	TaghaScript_pop_byte(Script_t *script);
 void	TaghaScript_push_nbytes(Script_t *restrict script, void *restrict pItem, const Word_t bytesize);
 void	TaghaScript_pop_nbytes(Script_t *restrict script, void *restrict pBuffer, const Word_t bytesize);
 
-uchar	*TaghaScript_addr2ptr(Script_t *restrict script, const Word_t stk_address);
+uchar	*TaghaScript_addr2ptr(Script_t *restrict script, const Word_t byteoffset, const Word_t stk_address);
 
 #ifdef __cplusplus
 }

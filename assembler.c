@@ -170,7 +170,7 @@ int main(int argc, char **argv)
 		call,	0,0,0,32,	// call main
 		halt,
 		// we pushed 13 bytes worth of chars, let's push as pointer!
-		pushl, 0,0,0,1,	// address of first byte is at 0x1
+		pushl, 0,0,0,13,	// address of first byte is at 0x1
 		callnat, 0,0,0,0, 0,0,0,4, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
 		// realistically, we can push all 13 bytes to the native but this is to demonstrate arrays as pointers.
 		ret
@@ -194,7 +194,7 @@ int main(int argc, char **argv)
 		pushl,	0,0,0,0xaa,
 		
 		// int *p = &i;
-		pushl,	0,0,0,0xff,	// going to overwrite &i with 255.
+		pushl,	0,0,0,0xaf,	// going to overwrite &i with 255.
 		pushl,	0,0,0,4, storespl,	// stack index of i aka &i
 		halt
 	};
@@ -210,8 +210,8 @@ int main(int argc, char **argv)
 		call,	0,0,0,18,	//10-14		func(int a, int b) ==> b=500 and a=2
 		popl,popl,	//15-16 clean up args a and b from stack
 		halt,			// 17
-		pushl,	0,0,0,8, loadspl,	// load a to TOS
-		pushl,	0,0,0,4, loadspl,	// load b to TOS
+		pushl,	0,0,0,1, loadspl,	// load a to TOS
+		pushl,	0,0,0,5, loadspl,	// load b to TOS
 		addl,	// a+b;
 		ret		// 22
 	};
@@ -247,27 +247,27 @@ int main(int argc, char **argv)
 		
 		
 		pushl,	0xa,0xb,0xc,0xd,
-		pushl,	0,0,0,4,
+		pushl,	0,0,0,1,
 		loadspl,
 		
 		pushs,	0xff,0xaa,
-		pushl,	0,0,0,2,
+		pushl,	0,0,0,5,
 		loadsps,
 		
 		pushb,	0xfa,
-		pushl,	0,0,0,1,
+		pushl,	0,0,0,7,
 		loadspb,
 		
 		pushl,	0xa,0xb,0xc,0xd,
-		pushl,	0,0,0,4,
+		pushl,	0,0,0,1,
 		storespl,
 		
 		pushs,	0xff,0xaa,
-		pushl,	0,0,0,2,
+		pushl,	0,0,0,5,
 		storesps,
 		
 		pushb,	0xfa,
-		pushl,	0,0,0,1,
+		pushl,	0,0,0,7,
 		storespb,
 		
 		pushl,	0xa,0xb,0xc,0xd,	copyl,
@@ -319,7 +319,7 @@ int main(int argc, char **argv)
 		halt,	//16
 		
 		// int f(int i) {
-		pushl,	0,0,0,8,	// [ebp+8] since x86 Stack grows "downward" from high to low address.
+		pushl,	0,0,0,8,	// [bp-8] retrieve 9 since it's "global" (pushed before main)
 		pushbpsub, loadspl,	// load argument i.
 		pushl,	0,0,0,6,	//17-21	-int b = 6;
 		addl,	//22
@@ -367,7 +367,7 @@ int main(int argc, char **argv)
 		call,	0,0,0,11,	//19-15
 		halt,	//16
 		
-		pushl,	0,0,0,8,	//17-21	// [ebp+8] to get i from stack.
+		pushl,	0,0,0,8,	//17-21	// [bp-8] to get i from stack.
 		pushbpsub,
 		loadspl,	//22-23	// load i to Top of Stack.
 		pushl,	0,0,0,1,	//24-28	// push 1
@@ -376,15 +376,15 @@ int main(int argc, char **argv)
 		pushl,	0,0,0,1,	//35-39
 		retx,	0,0,0,4,	//40-44
 		
-		pushl,	0,0,0,8,	//45-49	// [ebp+8] to get i from stack.
-		pushbpsub,
+		pushl,	0,0,0,8,	//45-49	// [bp-8] to get i from stack.
+		pushbpsub,	// 
 		loadspl,	// load i to Top of Stack.
 		pushl,	0,0,0,1,
 		usubl,	// i-1
 		call,	0,0,0,11,	// get result of call, with (i-1) as arg.
 		// each call makes a new stack frame, regardless of call type opcode.
 		
-		pushl,	0,0,0,8,	// [ebp+8] to get i from stack.
+		pushl,	0,0,0,8,	// [bp-8] to get i from stack.
 		pushbpsub,
 		loadspl,	// load i to Top of Stack.
 		umull,
@@ -423,7 +423,7 @@ int main(int argc, char **argv)
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
-		pushl,	0,0,0,1,	// address of our struct data
+		pushl,	0,0,0,12,	// address of our struct data
 		callnat, 0,0,0,0, 0,0,0,4, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
 		halt
 	};
@@ -443,7 +443,7 @@ int main(int argc, char **argv)
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
-		pushl,	0,0,0,1,	// address of our struct data
+		pushl,	0,0,0,12,	// address of our struct data
 		pushnataddr,	0,0,0,0,// push native's function ptr, assume it pushes 8 bytes
 		callnats, 0,0,0,4, 0,0,0,1,	// #1 - bytes to push, #2 - number of args
 		halt
@@ -468,7 +468,7 @@ int main(int argc, char **argv)
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
-		pushl,	0,0,0,1,	// address of our struct data
+		pushl,	0,0,0,12,	// address of our struct data
 		callnat, 0,0,0,1, 0,0,0,0, 0,0,0,0,	// #1 - get native name, #2 - bytes to push, #3 - number of args
 		callnat, 0,0,0,0, 0,0,0,4, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
 		halt
