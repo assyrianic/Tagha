@@ -26,7 +26,11 @@ void Tagha_init(TaghaVM_t *restrict vm)
 	if( !vm )
 		return;
 	
-	vm->pScript = NULL;
+	vm->pvecScripts = malloc(sizeof(vector));;
+	if( !vm->pvecScripts )
+		printf("[Tagha Error]: **** Unable to initialize Script Vector ****\n");
+	else vector_init(vm->pvecScripts);
+	
 	vm->pmapNatives = malloc(sizeof(dict));
 	if( !vm->pmapNatives )
 		printf("[Tagha Error]: **** Unable to initialize Native Map ****\n");
@@ -44,9 +48,8 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 		return;
 	}
 	
-	vm->pScript = malloc(sizeof(Script_t));
-	if( vm->pScript ) {
-		Script_t *script = vm->pScript;
+	Script_t *script = malloc(sizeof(Script_t));
+	if( script ) {
 		script->pInstrStream = NULL;
 		script->pbMemory = NULL;
 		script->ppstrNatives = NULL;
@@ -99,8 +102,8 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 			printf("Tagha_load_script :: ip starts at %" PRIu32 "\n", script->ip);
 			bytecount += 4;
 			
-			script->bSafeMode = true;
-			script->sp = script->bp = 0;
+			script->bSafeMode = script->bDebugMode = true;
+			script->sp = script->bp = script->uiMemsize-1;
 			script->uiMaxInstrs = 0xfffff;	// helps to stop infinite/runaway loops
 			
 			printf("Tagha_load_script :: header bytecount at %" PRIu32 "\n", bytecount);
@@ -114,7 +117,10 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 				goto error;
 			}
 			fread(script->pInstrStream, sizeof(uchar), script->uiInstrSize, pFile);
+			// transfer script address to the vector.
+			vector_add(vm->pvecScripts, script);
 			script = NULL;
+			printf("\n");
 		}
 		else {	// invalid script, kill the reference and the script itself.
 			printf("Tagha_load_script :: unknown file memory format\n");
@@ -122,7 +128,7 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 			script = NULL;
 		}
 	}
-	else vm->pScript = NULL;
+	else script = NULL;
 error:;
 	fclose(pFile); pFile=NULL;
 }
@@ -131,30 +137,43 @@ void Tagha_free(TaghaVM_t *vm)
 {
 	if( !vm )
 		return;
-	if( vm->pScript ) {
-		Script_t *script = vm->pScript;
-		
-		if( script->pbMemory )
-			free(script->pbMemory);
-		script->pbMemory = NULL;
-		
-		if( script->pInstrStream )
-			free(script->pInstrStream);
-		script->pInstrStream = NULL;
-		
-		if( script->ppstrNatives ) {
-			uint i;
-			for( i=0 ; i<script->uiNatives ; i++ ) {
-				if( script->ppstrNatives[i] )
-					free(script->ppstrNatives[i]);
-				script->ppstrNatives[i] = NULL;
+	if( vm->pvecScripts ) {
+		uint n=0;
+		uint nScripts = vector_count(vm->pvecScripts);
+		Script_t *script;
+		vector *buffer=vm->pvecScripts;
+		for( n=0 ; n<nScripts ; n++ ) {
+			script = vector_get(buffer, n);
+			if( !script )
+				continue;
+			
+			if( script->pbMemory )
+				free(script->pbMemory);
+			script->pbMemory = NULL;
+			
+			if( script->pInstrStream )
+				free(script->pInstrStream);
+			script->pInstrStream = NULL;
+			
+			if( script->ppstrNatives ) {
+				uint i;
+				for( i=0 ; i<script->uiNatives ; i++ ) {
+					if( script->ppstrNatives[i] )
+						free(script->ppstrNatives[i]);
+					script->ppstrNatives[i] = NULL;
+				}
+				free(script->ppstrNatives);
+				script->ppstrNatives = NULL;
 			}
-			free(script->ppstrNatives);
-			script->ppstrNatives = NULL;
+			free(script);
+			script = NULL;
+			// after freeing scripts, replace their data with NULL.
+			vector_set(buffer, n, NULL);
 		}
-		free(vm->pScript);
-		vm->pScript = NULL;
-		script = NULL;
+		vector_free(vm->pvecScripts);
+		free(vm->pvecScripts);
+		vm->pvecScripts = NULL;
+		buffer = NULL;
 	}
 	if( vm->pmapNatives ) {
 		dict_free(vm->pmapNatives, false);
@@ -173,7 +192,7 @@ void TaghaScript_reset(Script_t *script)
 	for( i=0 ; i<script->uiMemsize ; i++ )
 		script->pbMemory[i] = 0;
 	
-	script->sp = script->bp = 0;
+	script->sp = script->bp = script->uiMemsize - 1;
 }
 
 
@@ -199,14 +218,14 @@ void TaghaScript_push_longfloat(Script_t *restrict script, const long double val
 	
 	// long doubles are usually 12 or 16 bytes, adjust for both.
 	uint ldsize = sizeof(long double);
-	if( script->bSafeMode and (script->sp+ldsize) >= script->uiMemsize ) {
-		printf("TaghaScript_push_longfloat reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+ldsize);
+	if( script->bSafeMode and (script->sp-ldsize) >= script->uiMemsize ) {
+		printf("TaghaScript_push_longfloat reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-ldsize);
 		exit(1);
 	}
 	long double longdbl = val;
 	uint i = 0;
 	while( i<ldsize )
-		script->pbMemory[++script->sp] = ((uchar *)&longdbl)[i++];
+		script->pbMemory[script->sp--] = ((uchar *)&longdbl)[i++];
 }
 
 long double TaghaScript_pop_longfloat(Script_t *script)
@@ -221,7 +240,7 @@ long double TaghaScript_pop_longfloat(Script_t *script)
 	long double longdbl;
 	uint i = ldsize-1;
 	while( i<ldsize )
-		((uchar *)&longdbl)[i--] = script->pbMemory[script->sp--];
+		((uchar *)&longdbl)[i--] = script->pbMemory[++script->sp];
 	return longdbl;
 }
 
@@ -229,224 +248,183 @@ void TaghaScript_push_int64(Script_t *restrict script, const u64 val)
 {
 	if( !script )
 		return;
-	if( script->bSafeMode and (script->sp+8) >= script->uiMemsize ) {
-		printf("TaghaScript_push_int64 reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+8);
-		exit(1);
+	if( script->bSafeMode and (script->sp-8) >= script->uiMemsize ) {
+		printf("TaghaScript_push_int64 reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-8);
+		return;
 	}
-	union conv_union conv;
-	conv.ull = val;
-	script->pbMemory[++script->sp] = conv.c[0];
-	script->pbMemory[++script->sp] = conv.c[1];
-	script->pbMemory[++script->sp] = conv.c[2];
-	script->pbMemory[++script->sp] = conv.c[3];
-	script->pbMemory[++script->sp] = conv.c[4];
-	script->pbMemory[++script->sp] = conv.c[5];
-	script->pbMemory[++script->sp] = conv.c[6];
-	script->pbMemory[++script->sp] = conv.c[7];
+	script->sp -= 8;
+	*(u64 *)(script->pbMemory + script->sp) = val;
 }
 u64 TaghaScript_pop_int64(Script_t *script)
 {
 	if( !script )
 		return 0L;
-	if( script->bSafeMode and (script->sp-8) >= script->uiMemsize ) {
-		printf("TaghaScript_pop_int64 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-8);
-		exit(1);
+	if( script->bSafeMode and (script->sp+8) >= script->uiMemsize ) {
+		printf("TaghaScript_pop_int64 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+8);
+		return 0L;
 	}
-	union conv_union conv;
-	conv.c[7] = script->pbMemory[script->sp--];
-	conv.c[6] = script->pbMemory[script->sp--];
-	conv.c[5] = script->pbMemory[script->sp--];
-	conv.c[4] = script->pbMemory[script->sp--];
-	conv.c[3] = script->pbMemory[script->sp--];
-	conv.c[2] = script->pbMemory[script->sp--];
-	conv.c[1] = script->pbMemory[script->sp--];
-	conv.c[0] = script->pbMemory[script->sp--];
-	return conv.ull;
+	u64 val = *(u64 *)(script->pbMemory + script->sp);
+	script->sp += 8;
+	return val;
 }
 
 void TaghaScript_push_float64(Script_t *restrict script, const double val)
 {
 	if( !script )
 		return;
-	if( script->bSafeMode and (script->sp+8) >= script->uiMemsize ) {
-		printf("TaghaScript_push_float64 reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+8);
-		exit(1);
+	if( script->bSafeMode and (script->sp-8) >= script->uiMemsize ) {
+		printf("TaghaScript_push_float64 reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-8);
+		return;
 	}
-	union conv_union conv;
-	conv.dbl = val;
-	script->pbMemory[++script->sp] = conv.c[0];
-	script->pbMemory[++script->sp] = conv.c[1];
-	script->pbMemory[++script->sp] = conv.c[2];
-	script->pbMemory[++script->sp] = conv.c[3];
-	script->pbMemory[++script->sp] = conv.c[4];
-	script->pbMemory[++script->sp] = conv.c[5];
-	script->pbMemory[++script->sp] = conv.c[6];
-	script->pbMemory[++script->sp] = conv.c[7];
+	script->sp -= 8;
+	*(double *)(script->pbMemory + script->sp) = val;
 }
 double TaghaScript_pop_float64(Script_t *script)
 {
 	if( !script )
 		return 0;
-	if( script->bSafeMode and (script->sp-8) >= script->uiMemsize ) {
-		printf("TaghaScript_pop_float64 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-8);
-		exit(1);
+	if( script->bSafeMode and (script->sp+8) >= script->uiMemsize ) {
+		printf("TaghaScript_pop_float64 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+8);
+		return 0;
 	}
-	union conv_union conv;
-	conv.c[7] = script->pbMemory[script->sp--];
-	conv.c[6] = script->pbMemory[script->sp--];
-	conv.c[5] = script->pbMemory[script->sp--];
-	conv.c[4] = script->pbMemory[script->sp--];
-	conv.c[3] = script->pbMemory[script->sp--];
-	conv.c[2] = script->pbMemory[script->sp--];
-	conv.c[1] = script->pbMemory[script->sp--];
-	conv.c[0] = script->pbMemory[script->sp--];
-	return conv.dbl;
+	double val = *(double *)(script->pbMemory + script->sp);
+	script->sp += 8;
+	return val;
 }
 
 void TaghaScript_push_int32(Script_t *restrict script, const uint val)
 {
 	if( !script )
 		return;
-	if( script->bSafeMode and (script->sp+4) >= script->uiMemsize ) {
-		printf("TaghaScript_push_int32 reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+4);
-		exit(1);
+	if( script->bSafeMode and (script->sp-4) >= script->uiMemsize ) {
+		printf("TaghaScript_push_int32 reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-4);
+		return;
 	}
-	union conv_union conv;
-	conv.ui = val;
-	script->pbMemory[++script->sp] = conv.c[0];
-	script->pbMemory[++script->sp] = conv.c[1];
-	script->pbMemory[++script->sp] = conv.c[2];
-	script->pbMemory[++script->sp] = conv.c[3];
+	script->sp -= 4;
+	*(uint *)(script->pbMemory + script->sp) = val;
 }
 uint TaghaScript_pop_int32(Script_t *script)
 {
 	if( !script )
 		return 0;
-	if( script->bSafeMode and (script->sp-4) >= script->uiMemsize ) {	// we're subtracting, did we integer underflow?
-		printf("TaghaScript_pop_int32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-4);
-		exit(1);
+	if( script->bSafeMode and (script->sp+4) >= script->uiMemsize ) {	// we're subtracting, did we integer underflow?
+		printf("TaghaScript_pop_int32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+4);
+		return 0;
 	}
-	union conv_union conv;
-	conv.c[3] = script->pbMemory[script->sp--];
-	conv.c[2] = script->pbMemory[script->sp--];
-	conv.c[1] = script->pbMemory[script->sp--];
-	conv.c[0] = script->pbMemory[script->sp--];
-	return conv.ui;
+	uint val = *(uint *)(script->pbMemory + script->sp);
+	script->sp += 4;
+	return val;
 }
 
 void TaghaScript_push_float32(Script_t *restrict script, const float val)
 {
 	if( !script )
 		return;
-	if( script->bSafeMode and (script->sp+4) >= script->uiMemsize ) {
-		printf("TaghaScript_push_float32 reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+4);
-		exit(1);
+	if( script->bSafeMode and (script->sp-4) >= script->uiMemsize ) {
+		printf("TaghaScript_push_float32 reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-4);
+		return;
 	}
-	union conv_union conv;
-	conv.f = val;
-	script->pbMemory[++script->sp] = conv.c[0];
-	script->pbMemory[++script->sp] = conv.c[1];
-	script->pbMemory[++script->sp] = conv.c[2];
-	script->pbMemory[++script->sp] = conv.c[3];
+	script->sp -= 4;
+	*(float *)(script->pbMemory + script->sp) = val;
 }
 float TaghaScript_pop_float32(Script_t *script)
 {
 	if( !script )
 		return 0;
-	if( script->bSafeMode and (script->sp-4) >= script->uiMemsize ) {
-		printf("TaghaScript_pop_float32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-4);
-		exit(1);
+	if( script->bSafeMode and (script->sp+4) >= script->uiMemsize ) {
+		printf("TaghaScript_pop_float32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+4);
+		return 0;
 	}
-	union conv_union conv;
-	conv.c[3] = script->pbMemory[script->sp--];
-	conv.c[2] = script->pbMemory[script->sp--];
-	conv.c[1] = script->pbMemory[script->sp--];
-	conv.c[0] = script->pbMemory[script->sp--];
-	return conv.f;
+	float val = *(float *)(script->pbMemory + script->sp);
+	script->sp += 4;
+	return val;
 }
 
 void TaghaScript_push_short(Script_t *restrict script, const ushort val)
 {
 	if( !script )
 		return;
-	if( script->bSafeMode and (script->sp+2) >= script->uiMemsize ) {
-		printf("TaghaScript_push_short reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+2);
-		exit(1);
+	if( script->bSafeMode and (script->sp-2) >= script->uiMemsize ) {
+		printf("TaghaScript_push_short reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-2);
+		return;
 	}
-	union conv_union conv;
-	conv.us = val;
-	script->pbMemory[++script->sp] = conv.c[0];
-	script->pbMemory[++script->sp] = conv.c[1];
+	script->sp -= 2;
+	*(ushort *)(script->pbMemory + script->sp) = val;
 }
 ushort TaghaScript_pop_short(Script_t *script)
 {
 	if( !script )
 		return 0;
-	if( script->bSafeMode and (script->sp-2) >= script->uiMemsize ) {
-		printf("TaghaScript_pop_short reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-2);
-		exit(1);
+	if( script->bSafeMode and (script->sp+2) >= script->uiMemsize ) {
+		printf("TaghaScript_pop_short reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+2);
+		return 0;
 	}
-	union conv_union conv;
-	conv.c[1] = script->pbMemory[script->sp--];
-	conv.c[0] = script->pbMemory[script->sp--];
-	return conv.us;
+	ushort val = *(ushort *)(script->pbMemory + script->sp);
+	script->sp += 2;
+	return val;
 }
 
 void TaghaScript_push_byte(Script_t *restrict script, const uchar val)
 {
 	if( !script )
 		return;
-	if( script->bSafeMode and (script->sp+1) >= script->uiMemsize ) {
-		printf("TaghaScript_push_byte reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+1);
-		exit(1);
+	if( script->bSafeMode and (script->sp-1) >= script->uiMemsize ) {
+		printf("TaghaScript_push_byte reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-1);
+		return;
 	}
-	script->pbMemory[++script->sp] = val;
+	script->sp--;
+	script->pbMemory[script->sp] = val;
 }
 uchar TaghaScript_pop_byte(Script_t *script)
 {
 	if( !script )
 		return 0;
-	if( script->bSafeMode and (script->sp-1) >= script->uiMemsize ) {
-		printf("TaghaScript_pop_byte reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-1);
-		exit(1);
+	if( script->bSafeMode and (script->sp+1) >= script->uiMemsize ) {
+		printf("TaghaScript_pop_byte reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+1);
+		return 0;
 	}
-	return script->pbMemory[script->sp--];
+	uchar val = script->pbMemory[script->sp];
+	script->sp++;
+	return val;
 }
 
 void TaghaScript_push_nbytes(Script_t *restrict script, void *restrict pItem, const Word_t bytesize)
 {
 	if( !script )
 		return;
-	if( script->bSafeMode and (script->sp+bytesize) >= script->uiMemsize ) {
-		printf("TaghaScript_push_nbytes reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+1);
-		exit(1);
+	if( script->bSafeMode and (script->sp-bytesize) >= script->uiMemsize ) {
+		printf("TaghaScript_push_nbytes reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-bytesize);
+		return;
 	}
 	Word_t i=0;
-	for( i=0 ; i<bytesize ; i++ )
-		script->pbMemory[++script->sp] = ((uchar *)pItem)[i];
+	//for( i=0 ; i<bytesize ; i++ )
+	for( i=bytesize-1 ; i<bytesize ; i-- )
+		script->pbMemory[--script->sp] = ((uchar *)pItem)[i];
 }
 void TaghaScript_pop_nbytes(Script_t *restrict script, void *restrict pBuffer, const Word_t bytesize)
 {
 	if( !script )
 		return;
-	if( script->bSafeMode and (script->sp-bytesize) >= script->uiMemsize ) {
-		printf("TaghaScript_pop_nbytes reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+1);
-		exit(1);
+	if( script->bSafeMode and (script->sp+bytesize) >= script->uiMemsize ) {
+		printf("TaghaScript_pop_nbytes reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+bytesize);
+		return;
 	}
 	Word_t i=0;
 	// should stop when the integer underflows
-	for( i=bytesize-1 ; i<bytesize ; i-- )
-		((uchar *)pBuffer)[i] = script->pbMemory[script->sp--];
+	//for( i=bytesize-1 ; i<bytesize ; i-- )
+	for( i=0 ; i<bytesize ; i++ )
+		((uchar *)pBuffer)[i] = script->pbMemory[script->sp++];
 }
 
-uchar *TaghaScript_addr2ptr(Script_t *restrict script, const Word_t byteoffset, const Word_t stk_address)
+uchar *TaghaScript_addr2ptr(Script_t *restrict script, const Word_t stk_address)
 {
 	if( !script )
 		return NULL;
 	else if( !script->pbMemory )
 		return NULL;
-	
-	return( script->pbMemory + (stk_address-(byteoffset-1)) );
+	else if( stk_address >= script->uiMemsize )
+		return NULL;
+	return( script->pbMemory + stk_address );
 }
 
 
@@ -459,7 +437,8 @@ void TaghaScript_debug_print_memory(const Script_t *script)
 	
 	printf("DEBUG ...---===---... Printing Memory...\n");
 	uint i;
-	for( i=0 ; i<script->uiMemsize ; i++ )
+	uint size = script->uiMemsize;
+	for( i=0 ; i<size ; i++ )
 		if( script->sp == i )
 			printf("T.O.S. : Memory[0x%x] == %" PRIu32 "\n", i, script->pbMemory[i]);
 		else printf("Memory[0x%x] == %" PRIu32 "\n", i, script->pbMemory[i]);

@@ -2,11 +2,13 @@
 #ifndef TAGHA_H_INCLUDED
 #define TAGHA_H_INCLUDED
 
-#include "hashmap.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include "hashmap.h"
+#include "vector.h"
 
 //#define SIZE(x)		sizeof((x)) / sizeof((x)[0]);
 
@@ -70,11 +72,12 @@ struct TaghaScript {
 	uint	uiMaxInstrs;
 	uint	uiNatives;		// count how many natives script uses.
 	bool	bSafeMode;
+	bool	bDebugMode;
 };
 
 struct TaghaVM {
-	// vector *Scripts;
-	Script_t *pScript;
+	vector *pvecScripts;
+	//Script_t *pScript;
 	// Natives should be GLOBALLY available to all scripts on a per-header-basis...
 	// meaning that a script can only use a native if the header has it.
 	dict	*pmapNatives;
@@ -133,7 +136,7 @@ uchar	TaghaScript_pop_byte(Script_t *script);
 void	TaghaScript_push_nbytes(Script_t *restrict script, void *restrict pItem, const Word_t bytesize);
 void	TaghaScript_pop_nbytes(Script_t *restrict script, void *restrict pBuffer, const Word_t bytesize);
 
-uchar	*TaghaScript_addr2ptr(Script_t *restrict script, const Word_t byteoffset, const Word_t stk_address);
+uchar	*TaghaScript_addr2ptr(Script_t *restrict script, const Word_t stk_address);
 
 #ifdef __cplusplus
 }

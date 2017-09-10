@@ -95,7 +95,7 @@ with open('test_native.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.pushl);
 	tbc.write(0x43960000.to_bytes(4, byteorder='big'));
 	wrt_opcode(tbc, opcodes.pushl);
-	tbc.write(0xc.to_bytes(4, byteorder='big'));
+	tbc.write(0x13.to_bytes(4, byteorder='big'));
 	wrt_opcode(tbc, opcodes.callnat);
 	tbc.write(0x0.to_bytes(4, byteorder='big'));
 	tbc.write(0x4.to_bytes(4, byteorder='big'));
@@ -114,7 +114,7 @@ with open('test_multiple_natives.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.pushl);
 	tbc.write(0x43960000.to_bytes(4, byteorder='big'));
 	wrt_opcode(tbc, opcodes.pushl);
-	tbc.write(0xc.to_bytes(4, byteorder='big'));
+	tbc.write(0x13.to_bytes(4, byteorder='big'));
 	
 	wrt_opcode(tbc, opcodes.callnat);
 	tbc.write(0x1.to_bytes(4, byteorder='big'));

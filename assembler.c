@@ -154,23 +154,23 @@ int main(int argc, char **argv)
 	
 	bytecode hello_world_char_ptr = {
 		0,0,0,0,	// set instruction pointer entry point
-		pushb,	72,		// H
-		pushb,	101,	// e
-		pushb,	108,	// l
-		pushb,	108,	// l
-		pushb,	111,	// o
-		pushb,	32,		// space
-		pushb,	87,		// W
-		pushb,	111,	// o
-		pushb,	114,	// r
-		pushb,	108,	// l
-		pushb,	100,	// d
-		pushb,	10,		// newline char
 		pushb,	0,
+		pushb,	10,		// newline char
+		pushb,	100,	// d
+		pushb,	108,	// l
+		pushb,	114,	// r
+		pushb,	111,	// o
+		pushb,	87,		// W
+		pushb,	32,		// space
+		pushb,	111,	// o
+		pushb,	108,	// l
+		pushb,	108,	// l
+		pushb,	101,	// e
+		pushb,	72,		// H
 		call,	0,0,0,32,	// call main
 		halt,
 		// we pushed 13 bytes worth of chars, let's push as pointer!
-		pushl, 0,0,0,13,	// address of first byte is at 0x1
+		pushl, 0,0,0,18,	// address of first byte is at 0x1
 		callnat, 0,0,0,0, 0,0,0,4, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
 		// realistically, we can push all 13 bytes to the native but this is to demonstrate arrays as pointers.
 		ret
@@ -190,12 +190,12 @@ int main(int argc, char **argv)
 		0,0,0,0,
 		nop,
 		// int i = 170;
-		// i's address is 4 (tos address, not beginning data address)
-		pushl,	0,0,0,0xaa,
+		// i's address is 11 (tos address, not beginning data address)
+		pushl,	0,0,0,34,
 		
 		// int *p = &i;
-		pushl,	0,0,0,0xaf,	// going to overwrite &i with 255.
-		pushl,	0,0,0,4, storespl,	// stack index of i aka &i
+		pushl,	0,0,2,0xaf,	// going to overwrite &i with 255.
+		pushl,	0,0,0,11,	storespl,	// stack index of i aka &i
 		halt
 	};
 	
@@ -210,8 +210,8 @@ int main(int argc, char **argv)
 		call,	0,0,0,18,	//10-14		func(int a, int b) ==> b=500 and a=2
 		popl,popl,	//15-16 clean up args a and b from stack
 		halt,			// 17
-		pushl,	0,0,0,1, loadspl,	// load a to TOS
-		pushl,	0,0,0,5, loadspl,	// load b to TOS
+		pushl,	0,0,0,19, loadspl,	// load a to TOS
+		pushl,	0,0,0,23, loadspl,	// load b to TOS
 		addl,	// a+b;
 		ret		// 22
 	};
@@ -319,8 +319,8 @@ int main(int argc, char **argv)
 		halt,	//16
 		
 		// int f(int i) {
-		pushl,	0,0,0,8,	// [bp-8] retrieve 9 since it's "global" (pushed before main)
-		pushbpsub, loadspl,	// load argument i.
+		pushl,	0,0,0,8,	// [bp+8] retrieve 9 since it's "global" (pushed before main)
+		pushbpadd, loadspl,	// load argument i.
 		pushl,	0,0,0,6,	//17-21	-int b = 6;
 		addl,	//22
 		retx,	0,0,0,4	//23-27	-return a+b;
@@ -349,7 +349,7 @@ int main(int argc, char **argv)
 	}
 	
 	//main() {
-	//	int n = factorial(15);
+	//	int n = factorial(7);
 	//}
 	//
 	//int factorial(unsigned int i) {
@@ -367,8 +367,8 @@ int main(int argc, char **argv)
 		call,	0,0,0,11,	//19-15
 		halt,	//16
 		
-		pushl,	0,0,0,8,	//17-21	// [bp-8] to get i from stack.
-		pushbpsub,
+		pushl,	0,0,0,8,	//17-21	// [bp+8] to get i from stack.
+		pushbpadd,
 		loadspl,	//22-23	// load i to Top of Stack.
 		pushl,	0,0,0,1,	//24-28	// push 1
 		uleql,	//29	// i <= 1?
@@ -376,16 +376,16 @@ int main(int argc, char **argv)
 		pushl,	0,0,0,1,	//35-39
 		retx,	0,0,0,4,	//40-44
 		
-		pushl,	0,0,0,8,	//45-49	// [bp-8] to get i from stack.
-		pushbpsub,	// 
+		pushl,	0,0,0,8,	//45-49	// [bp+8] to get i from stack.
+		pushbpadd,	// 
 		loadspl,	// load i to Top of Stack.
 		pushl,	0,0,0,1,
 		usubl,	// i-1
 		call,	0,0,0,11,	// get result of call, with (i-1) as arg.
 		// each call makes a new stack frame, regardless of call type opcode.
 		
-		pushl,	0,0,0,8,	// [bp-8] to get i from stack.
-		pushbpsub,
+		pushl,	0,0,0,8,	// [bp+8] to get i from stack.
+		pushbpadd,
 		loadspl,	// load i to Top of Stack.
 		umull,
 		retx,	0,0,0,4
@@ -423,7 +423,7 @@ int main(int argc, char **argv)
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
-		pushl,	0,0,0,12,	// address of our struct data
+		pushl,	0,0,0,19,	// address of our struct data
 		callnat, 0,0,0,0, 0,0,0,4, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
 		halt
 	};
@@ -443,7 +443,7 @@ int main(int argc, char **argv)
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
-		pushl,	0,0,0,12,	// address of our struct data
+		pushl,	0,0,0,19,	// address of our struct data
 		pushnataddr,	0,0,0,0,// push native's function ptr, assume it pushes 8 bytes
 		callnats, 0,0,0,4, 0,0,0,1,	// #1 - bytes to push, #2 - number of args
 		halt
@@ -468,7 +468,7 @@ int main(int argc, char **argv)
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
 		pushl,	67,150,0,0,	// speed
-		pushl,	0,0,0,12,	// address of our struct data
+		pushl,	0,0,0,19,	// address of our struct data
 		callnat, 0,0,0,1, 0,0,0,0, 0,0,0,0,	// #1 - get native name, #2 - bytes to push, #3 - number of args
 		callnat, 0,0,0,0, 0,0,0,4, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
 		halt
@@ -478,6 +478,59 @@ int main(int argc, char **argv)
 		wrt_tbc_headers(pFile, 32);
 		wrt_natives_to_header(pFile, 2, "test", "printHW");
 		fwrite(test_multiple_natives, sizeof(uint8_t), sizeof(test_multiple_natives), pFile);
+		fclose(pFile);
+	}
+	
+	bytecode test_int2chr = {
+		0,0,0,0,	// set entry point, remember to account for natives written.
+		call,	0,0,0,6,
+		halt,
+		
+		pushl,	0,0,5,42,
+		pushl,	0,0,0,4,
+		pushbpsub,
+		loadspb,
+		ret
+	};
+	pFile = fopen("./test_int2chr.tbc", "wb");
+	if( pFile ) {
+		wrt_tbc_headers(pFile, 32);
+		wrt_natives_to_header(pFile, 0);
+		fwrite(test_int2chr, sizeof(uint8_t), sizeof(test_int2chr), pFile);
+		fclose(pFile);
+	}
+	
+	bytecode test_printf = {
+		0,0,0,0,	// set instruction pointer entry point
+		pushb,	0,
+		pushb,	'\n',		// newline char
+		pushb,	'f',
+		pushb,	'%',
+		pushb,	' ',
+		pushb,	'i',		// W
+		pushb,	'%',		// space
+		pushb,	'=',	// o
+		pushb,	'=',	// o
+		pushb,	'm',	// l
+		pushb,	'u',	// e
+		pushb,	'n',		// H
+		pushb,	'\n',		// newline char
+		call,	0,0,0,32,	// call main
+		halt,
+		// we pushed 13 bytes worth of chars, let's push as pointer!
+		
+		pushq, 64,114,192,0, 0,0,0,0,	// 300.0, printf only accepts 8-byte float constants.
+		pushl, 0,0,1,24,
+		pushl, 0,0,0,8,
+		pushbpadd,
+		callnat, 0,0,0,0, 0,0,0,16, 0,0,0,3,	// #1 - get native name, #2 - bytes to push, #3 - number of args
+		ret
+	};
+	pFile = fopen("./test_printf.tbc", "wb");
+	if( pFile ) {
+		wrt_tbc_headers(pFile, 64);
+		wrt_natives_to_header(pFile, 1, "printf");
+		fwrite(test_printf, sizeof(uint8_t), sizeof(test_printf), pFile);
 		fclose(pFile);
 	}
 	
