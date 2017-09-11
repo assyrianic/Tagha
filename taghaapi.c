@@ -26,7 +26,7 @@ void Tagha_init(TaghaVM_t *restrict vm)
 	if( !vm )
 		return;
 	
-	vm->pvecScripts = malloc(sizeof(vector));;
+	vm->pvecScripts = malloc(sizeof(vector));
 	if( !vm->pvecScripts )
 		printf("[Tagha Error]: **** Unable to initialize Script Vector ****\n");
 	else vector_init(vm->pvecScripts);

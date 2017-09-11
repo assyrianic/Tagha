@@ -534,6 +534,66 @@ int main(int argc, char **argv)
 		fclose(pFile);
 	}
 	
+	bytecode test_fopen = {
+		0,0,0,0,	// set instruction pointer entry point
+		pushb,	0,
+		pushb,	'c',
+		pushb,	'b',
+		pushb,	't',
+		pushb,	'.',
+		pushb,	'1',
+		pushb,	't',
+		pushb,	's', //15
+		pushb,	'e',
+		pushb,	't',
+		pushb,	'_',
+		pushb,	'n',
+		pushb,	'a',
+		pushb,	'i',
+		pushb,	'd',
+		pushb,	'n',
+		pushb,	'e',
+		pushb,	'/',
+		pushb,	'.',	// addr 44
+		pushb,	0,
+		pushb,	'b',
+		pushb,	'r',	// addr 41
+		call,	0,0,0,50,	// call main
+		halt,
+		
+		pushl, 0,0,0,8,	// gets mode string
+		pushbpadd,
+		pushl, 0,0,0,11,	// gets filename string.
+		pushbpadd,
+		callnat, 0,0,0,0, 0,0,0,8, 0,0,0,2,	// #1 - get native name, #2 - bytes to push, #3 - number of args
+		ret
+	};
+	pFile = fopen("./test_fopen.tbc", "wb");
+	if( pFile ) {
+		wrt_tbc_headers(pFile, 64);
+		wrt_natives_to_header(pFile, 1, "fopen");
+		fwrite(test_fopen, sizeof(uint8_t), sizeof(test_fopen), pFile);
+		fclose(pFile);
+	}
+	
+	bytecode test_malloc = {
+		0,0,0,0,	// set instruction pointer entry point
+		call,	0,0,0,6,	// call main
+		halt,
+		pushl,		0,0,0,4,
+		callnat,	0,0,0,0, 0,0,0,4, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
+		pushsp,	// we just pushed the pointer. Let's get it back as a virtual address.
+		callnat,	0,0,0,1, 0,0,0,4, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
+		ret
+	};
+	pFile = fopen("./test_malloc.tbc", "wb");
+	if( pFile ) {
+		wrt_tbc_headers(pFile, 32);
+		wrt_natives_to_header(pFile, 2, "malloc", "free");
+		fwrite(test_malloc, sizeof(uint8_t), sizeof(test_malloc), pFile);
+		fclose(pFile);
+	}
+	
 error:;
 	pFile = NULL;
 	return 0;

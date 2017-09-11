@@ -4,38 +4,17 @@
 #include <iso646.h>
 #include <stddef.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include "tagha.h"
 
-/*
- * Example Host application
- * shows examples on how host apps can embed this VM.
- */ 
- 
- /*
-  * void func (int a, ...)
- { 
-   // va_start
-   char *p = (char *) &a + sizeof a;
 
-   // va_arg
-   int i1 = *((int *)p);
-   p += sizeof (int);
-
-   // va_arg
-   int i2 = *((int *)p);
-   p += sizeof (int);
-
-   // va_arg
-   long i2 = *((long *)p);
-   p += sizeof (long);
- }
-  */ 
 
 /* void print_helloworld(void); */
 static void native_print_helloworld(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
 {
 	if( !script )
 		return;
+	
 	printf("native_print_helloworld :: hello world from bytecode!\n");
 }
 
@@ -45,12 +24,13 @@ static void native_puts(Script_t *restrict script, const uint argc, const uint b
 	if( !script )
 		return;
 	
+	// get our first argument which is a pointer to char.
 	Word_t addr = *(Word_t *)arrParams;
-	//Word_t addr = TaghaScript_pop_int32(script);
-
-	// using addr for both byte size and address as addr is the size of the string.
-	//printf("native_puts :: script->sp == %u\n", script->sp);
+	
+	// using addr to retrieve the physical pointer of the string.
 	const char *str = (const char *)TaghaScript_addr2ptr(script, addr);
+	
+	// push back the value of the return val of puts.
 	TaghaScript_push_int32(script, puts(str));
 }
 
@@ -61,11 +41,15 @@ static void native_printf(Script_t *restrict script, const uint argc, const uint
 		return;
 	
 	// get first arg which is the string's memory address.
-	// using pop_nbytes because Word_t can be modified into any size.
 	Word_t addr = *(Word_t *)arrParams;
-	// using addr for both byte size and address as addr is the size of the string.
+	
+	// using addr to retrieve the physical pointer of the string.
 	const char *str = (const char *)TaghaScript_addr2ptr(script, addr);
-	arrParams += 4;
+	
+	// ptr arithmetic our params straight to our args.
+	arrParams += sizeof(Word_t);
+	
+	// execute (v)printf and push its return value which is a 4-byte int.
 	TaghaScript_push_int32(script, vprintf(str, (char *)arrParams));
 }
 
@@ -80,12 +64,9 @@ static void native_test_ptr(Script_t *restrict script, const uint argc, const ui
 		uint	health;
 		uint	ammo;
 	} *player=NULL;
-	// old code for when we passed the struct data copy by-value instead of by-reference
-	//player = *(struct Player *)arrParams;
 	
 	// get first arg which is the memory address to our data.
 	Word_t addr = *(Word_t *)arrParams;
-	//Word_t addr; TaghaScript_pop_nbytes(script, &addr, sizeof(Word_t));
 	
 	/*
 	 * Notice the way our struct is formatted.
@@ -94,13 +75,93 @@ static void native_test_ptr(Script_t *restrict script, const uint argc, const ui
 	 * then we get the value from the stack and cast it to our struct!
 	*/
 	player = (struct Player *)TaghaScript_addr2ptr(script, addr);
-	//TaghaScript_pop_nbytes(script, &player, sizeof(struct Player));
 	
+	// debug print to see if our data is accurate.
 	printf("native_test_ptr :: ammo: %u\n", player->ammo);
 	printf("native_test_ptr :: health: %u\n", player->health);
 	printf("native_test_ptr :: speed: %f\n", player->speed);
 }
 
+/* FILE *fopen(const char *filename, const char *modes); */
+static void native_fopen(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+{
+	if( !script )
+		return;
+	
+	Word_t filename_addr = *(Word_t *)arrParams;
+	arrParams += sizeof(Word_t);
+	Word_t modes_addr = *(Word_t *)arrParams;
+	
+	
+	const char *filename = (const char *)TaghaScript_addr2ptr(script, filename_addr);
+	const char *mode = (const char *)TaghaScript_addr2ptr(script, modes_addr);
+	
+	const unsigned ptrsize = sizeof(FILE *);
+	FILE *pFile = fopen(filename, mode);
+	if( pFile ) {
+		if( ptrsize==4 )
+			TaghaScript_push_int32(script, (uintptr_t)pFile);
+		else TaghaScript_push_int64(script, (uintptr_t)pFile);
+		fclose(pFile), pFile=NULL;
+	}
+	else {
+		printf("failed to get filename: %s\n", filename);
+		if( ptrsize==4 )
+			TaghaScript_push_int32(script, 0);
+		else TaghaScript_push_int64(script, 0L);
+	}
+}
+
+/* int fclose(FILE *stream); */
+static void native_fclose(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+{
+	if( !script )
+		return;
+	
+	Word_t addr = *(Word_t *)arrParams;
+	FILE *pf = (FILE *) *(uintptr_t *)TaghaScript_addr2ptr(script, addr);
+	if( pf ) {
+		TaghaScript_push_int32(script, fclose(pf));
+		pf=NULL;
+	}
+}
+
+/* void *malloc(size_t size); */
+static void native_malloc(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+{
+	if( !script )
+		return;
+	
+	const Word_t ptrsize = *(Word_t *)arrParams;
+	const unsigned size = sizeof(void *);
+	
+	void *p = malloc(ptrsize);
+	if( p ) {
+		if( size==4 )
+			TaghaScript_push_int32(script, (uintptr_t)p);
+		else TaghaScript_push_int64(script, (uintptr_t)p);
+	}
+	else {
+		if( size==4 )
+			TaghaScript_push_int32(script, 0);
+		else TaghaScript_push_int64(script, 0L);
+	}
+}
+
+/* void free(void *ptr); */
+static void native_free(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+{
+	if( !script )
+		return;
+	
+	// arrParams holds the virtual address as usual.
+	// get physical ptr then cast to an int that's big enough to hold a pointer
+	// then cast to void pointer.
+	Word_t addr = *(Word_t *)arrParams;
+	void *ptr = (void *) *(uintptr_t *)TaghaScript_addr2ptr(script, addr);
+	if( ptr )
+		free(ptr), ptr=NULL;
+}
 
 int main(int argc, char **argv)
 {
@@ -112,14 +173,18 @@ int main(int argc, char **argv)
 	TaghaVM_t vm;
 	Tagha_init(&vm);
 	
-	NativeInfo_t Hostnatives[] = {
+	NativeInfo_t host_natives[] = {
 		{"test", native_test_ptr},
 		{"printHW", native_print_helloworld},
 		{"puts", native_puts},
 		{"printf", native_printf},
-		{NULL,NULL}
+		{"fopen", native_fopen},
+		{"fclose", native_fclose},
+		{"malloc", native_malloc},
+		{"free", native_free},
+		{NULL, NULL}
 	};
-	Tagha_register_natives(&vm, Hostnatives);
+	Tagha_register_natives(&vm, host_natives);
 	
 	uint i;
 	for( i=argc-1 ; i ; i-- )

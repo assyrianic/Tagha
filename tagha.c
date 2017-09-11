@@ -274,19 +274,6 @@ static inline u64 _TaghaScript_peek_int64(Script_t *script)
 		printf("Tagha_peek_int32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+7);
 		return 0;
 	}
-	/*
-	union conv_union conv;
-	const Word_t stkptr = script->sp;
-	conv.c[7] = script->pbMemory[stkptr+0];
-	conv.c[6] = script->pbMemory[stkptr-1];
-	conv.c[5] = script->pbMemory[stkptr-2];
-	conv.c[4] = script->pbMemory[stkptr-3];
-	conv.c[3] = script->pbMemory[stkptr-4];
-	conv.c[2] = script->pbMemory[stkptr-5];
-	conv.c[1] = script->pbMemory[stkptr-6];
-	conv.c[0] = script->pbMemory[stkptr-7];
-	return conv.ull;
-	*/
 	return *(u64 *)( script->pbMemory + script->sp );
 }
 static inline double _TaghaScript_peek_float64(Script_t *script)
@@ -297,19 +284,6 @@ static inline double _TaghaScript_peek_float64(Script_t *script)
 		printf("Tagha_peek_int32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+7);
 		return 0;
 	}
-	/*
-	union conv_union conv;
-	const Word_t stkptr = script->sp;
-	conv.c[7] = script->pbMemory[stkptr-0];
-	conv.c[6] = script->pbMemory[stkptr-1];
-	conv.c[5] = script->pbMemory[stkptr-2];
-	conv.c[4] = script->pbMemory[stkptr-3];
-	conv.c[3] = script->pbMemory[stkptr-4];
-	conv.c[2] = script->pbMemory[stkptr-5];
-	conv.c[1] = script->pbMemory[stkptr-6];
-	conv.c[0] = script->pbMemory[stkptr-7];
-	return conv.dbl;
-	*/
 	return *(double *)( script->pbMemory + script->sp );
 }
 static inline uint _TaghaScript_peek_int32(Script_t *script)
@@ -320,15 +294,6 @@ static inline uint _TaghaScript_peek_int32(Script_t *script)
 		printf("Tagha_peek_int32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+3);
 		return 0;
 	}
-	/*
-	union conv_union conv;
-	const Word_t stkptr = script->sp;
-	conv.c[3] = script->pbMemory[stkptr-0];
-	conv.c[2] = script->pbMemory[stkptr-1];
-	conv.c[1] = script->pbMemory[stkptr-2];
-	conv.c[0] = script->pbMemory[stkptr-3];
-	return conv.ui;
-	*/
 	return *(uint *)( script->pbMemory + script->sp );
 }
 
@@ -340,15 +305,6 @@ static inline float _TaghaScript_peek_float32(Script_t *script)
 		printf("Tagha_peek_float32 reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+3);
 		return 0;
 	}
-	/*
-	union conv_union conv;
-	const Word_t stkptr = script->sp;
-	conv.c[3] = script->pbMemory[stkptr-0];
-	conv.c[2] = script->pbMemory[stkptr-1];
-	conv.c[1] = script->pbMemory[stkptr-2];
-	conv.c[0] = script->pbMemory[stkptr-3];
-	return conv.f;
-	*/
 	return *(float *)( script->pbMemory + script->sp );
 }
 
@@ -360,13 +316,6 @@ static inline ushort _TaghaScript_peek_short(Script_t *script)
 		printf("Tagha_peek_short reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+1);
 		return 0;
 	}
-	/*
-	union conv_union conv;
-	const Word_t stkptr = script->sp;
-	conv.c[1] = script->pbMemory[stkptr-0];
-	conv.c[0] = script->pbMemory[stkptr-1];
-	return conv.us;
-	*/
 	return *(ushort *)( script->pbMemory + script->sp );
 }
 
@@ -1544,7 +1493,6 @@ void Tagha_exec(TaghaVM_t *vm)
 					printf("exec_pushnataddr reported: native \'%s\' not registered! Current instruction address: %" PRIu32 "\n", script->ppstrNatives[a], script->ip);
 					goto *dispatch[halt];
 				}
-				// tried using 'push nbytes' but retrieving caused segfaults.
 				_TaghaScript_push_int64(script, (uintptr_t)pfNative);
 				DISPATCH();
 			

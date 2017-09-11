@@ -76,8 +76,7 @@ struct TaghaScript {
 };
 
 struct TaghaVM {
-	vector *pvecScripts;
-	//Script_t *pScript;
+	vector	*pvecScripts;
 	// Natives should be GLOBALLY available to all scripts on a per-header-basis...
 	// meaning that a script can only use a native if the header has it.
 	dict	*pmapNatives;
