@@ -8,7 +8,10 @@
 #include <dlfcn.h>
 #include "tagha.h"
 
-
+void	*pLibTagha = NULL;
+uchar	*(*taghascript_getptr)(Script_t *, const Word_t);
+void	(*taghascript_pushint)(Script_t *, const uint);
+void	(*taghascript_pushlong)(Script_t *, const u64);
 
 /* void print_helloworld(void); */
 static void native_print_helloworld(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
@@ -29,16 +32,16 @@ static void native_puts(Script_t *restrict script, const uint argc, const uint b
 	Word_t addr = *(Word_t *)arrParams;
 	
 	// using addr to retrieve the physical pointer of the string.
-	uchar *stkptr = TaghaScript_addr2ptr(script, addr);
+	uchar *stkptr = (*taghascript_getptr)(script, addr);
 	if( !stkptr ) {
-		TaghaScript_push_int32(script, -1);
+		(*taghascript_pushint)(script, -1);
 		return;
 	}
 	// cast the physical pointer to char* string.
 	const char *str = (const char *)stkptr;
 	
 	// push back the value of the return val of puts.
-	TaghaScript_push_int32(script, puts(str));
+	(*taghascript_pushint)(script, puts(str));
 }
 
 /* int printf(const char *fmt, ...); */
@@ -51,9 +54,9 @@ static void native_printf(Script_t *restrict script, const uint argc, const uint
 	Word_t addr = *(Word_t *)arrParams;
 	
 	// using addr to retrieve the physical pointer of the string.
-	uchar *stkptr = TaghaScript_addr2ptr(script, addr);
+	uchar *stkptr = (*taghascript_getptr)(script, addr);
 	if( !stkptr ) {
-		TaghaScript_push_int32(script, -1);
+		(*taghascript_pushint)(script, -1);
 		return;
 	}
 	// cast the physical pointer to char* string.
@@ -63,7 +66,7 @@ static void native_printf(Script_t *restrict script, const uint argc, const uint
 	arrParams += sizeof(Word_t);
 	
 	// execute (v)printf and push its return value which is a 4-byte int.
-	TaghaScript_push_int32(script, vprintf(str, (char *)arrParams));
+	(*taghascript_pushint)(script, vprintf(str, (char *)arrParams));
 }
 
 /* void test_ptr(struct player *p); */
@@ -87,7 +90,7 @@ static void native_test_ptr(Script_t *restrict script, const uint argc, const ui
 	 * ammo is pushed first, then health, then finally the speed float.
 	 * then we get the value from the stack and cast it to our struct!
 	*/
-	uchar *stkptr = TaghaScript_addr2ptr(script, addr);
+	uchar *stkptr = (*taghascript_getptr)(script, addr);
 	if( !stkptr )
 		return;
 	player = (struct Player *)stkptr;
@@ -108,14 +111,14 @@ static void native_fopen(Script_t *restrict script, const uint argc, const uint 
 	arrParams += sizeof(Word_t);
 	Word_t modes_addr = *(Word_t *)arrParams;
 	
-	uchar *stkptr_filestr = TaghaScript_addr2ptr(script, filename_addr);
+	uchar *stkptr_filestr = (*taghascript_getptr)(script, filename_addr);
 	if( !stkptr_filestr ) {
-		TaghaScript_push_int32(script, 0);
+		(*taghascript_pushint)(script, 0);
 		return;
 	}
-	uchar *stkptr_modes = TaghaScript_addr2ptr(script, modes_addr);
+	uchar *stkptr_modes = (*taghascript_getptr)(script, modes_addr);
 	if( !stkptr_modes ) {
-		TaghaScript_push_int32(script, 0);
+		(*taghascript_pushint)(script, 0);
 		return;
 	}
 	
@@ -127,16 +130,16 @@ static void native_fopen(Script_t *restrict script, const uint argc, const uint 
 	if( pFile ) {
 		printf("native_fopen:: opening file \'%s\' with mode: \'%s\'\n", filename, mode);
 		if( ptrsize==4 )
-			TaghaScript_push_int32(script, (uintptr_t)pFile);
-		else TaghaScript_push_int64(script, (uintptr_t)pFile);
-		TaghaScript_push_int32(script, script->sp);
+			(*taghascript_pushint)(script, (uintptr_t)pFile);
+		else (*taghascript_pushlong)(script, (uintptr_t)pFile);
+		(*taghascript_pushint)(script, script->sp);
 	}
 	else {
 		printf("failed to get filename: \'%s\'\n", filename);
 		if( ptrsize==4 )
-			TaghaScript_push_int32(script, 0);
-		else TaghaScript_push_int64(script, 0L);
-		TaghaScript_push_int32(script, 0);
+			(*taghascript_pushint)(script, 0);
+		else (*taghascript_pushlong)(script, 0L);
+		(*taghascript_pushint)(script, 0);
 	}
 }
 
@@ -147,15 +150,15 @@ static void native_fclose(Script_t *restrict script, const uint argc, const uint
 		return;
 	
 	Word_t addr = *(Word_t *)arrParams;
-	uchar *stkptr = TaghaScript_addr2ptr(script, addr);
+	uchar *stkptr = (*taghascript_getptr)(script, addr);
 	if( !stkptr ) {
-		TaghaScript_push_int32(script, -1);
+		(*taghascript_pushint)(script, -1);
 		return;
 	}
 	FILE *pFile = (FILE *) *(uintptr_t *)stkptr;
 	if( pFile ) {
 		printf("native_fclose:: closing FILE*\n");
-		TaghaScript_push_int32(script, fclose(pFile));
+		(*taghascript_pushint)(script, fclose(pFile));
 		pFile=NULL;
 	}
 	else printf("native_fclose:: FILE* is NULL\n");
@@ -175,15 +178,15 @@ static void native_malloc(Script_t *restrict script, const uint argc, const uint
 	if( p ) {
 		printf("native_malloc:: pointer is VALID.\n");
 		if( size==4 )
-			TaghaScript_push_int32(script, (uintptr_t)p);
-		else TaghaScript_push_int64(script, (uintptr_t)p);
-		TaghaScript_push_int32(script, script->sp);
+			(*taghascript_pushint)(script, (uintptr_t)p);
+		else (*taghascript_pushlong)(script, (uintptr_t)p);
+		(*taghascript_pushint)(script, script->sp);
 	}
 	else {
 		if( size==4 )
-			TaghaScript_push_int32(script, 0);
-		else TaghaScript_push_int64(script, 0L);
-		TaghaScript_push_int32(script, 0);
+			(*taghascript_pushint)(script, 0);
+		else (*taghascript_pushlong)(script, 0L);
+		(*taghascript_pushint)(script, 0);
 	}
 }
 
@@ -197,7 +200,7 @@ static void native_free(Script_t *restrict script, const uint argc, const uint b
 	// get physical ptr then cast to an int that's big enough to hold a pointer
 	// then cast to void pointer.
 	Word_t addr = *(Word_t *)arrParams;
-	uchar *stkptr = TaghaScript_addr2ptr(script, addr);
+	uchar *stkptr = (*taghascript_getptr)(script, addr);
 	if( !stkptr )
 		return;
 	
@@ -212,9 +215,19 @@ int main(int argc, char **argv)
 		printf("[TaghaVM Usage]: './TaghaVM' '.tagha file' \n");
 		return 1;
 	}
+	pLibTagha = dlopen("./libtagha_gcc.so.1.0.0", RTLD_LAZY|RTLD_GLOBAL);
+	if( !pLibTagha ) {
+		printf("pLibTagha is NULL\n");
+		return 1;
+	}
+	
+	taghascript_getptr = dlsym(pLibTagha, "TaghaScript_addr2ptr");
+	taghascript_pushint = dlsym(pLibTagha, "TaghaScript_push_int32");
+	taghascript_pushlong = dlsym(pLibTagha, "TaghaScript_push_int64");
 	
 	TaghaVM_t vm;
-	Tagha_init(&vm);
+	void (*taghaInit)(TaghaVM_t *) = dlsym(pLibTagha, "Tagha_init");
+	(*taghaInit)(&vm);
 	
 	NativeInfo_t host_natives[] = {
 		{"test", native_test_ptr},
@@ -227,12 +240,16 @@ int main(int argc, char **argv)
 		{"free", native_free},
 		{NULL, NULL}
 	};
-	Tagha_register_natives(&vm, host_natives);
+	void (*taghaReg)(TaghaVM_t *, NativeInfo_t *) = dlsym(pLibTagha, "Tagha_register_natives");
+	(*taghaReg)(&vm, host_natives);
 	
+	void (*taghaLoad)(TaghaVM_t *, char *) = dlsym(pLibTagha, "Tagha_load_script");
 	uint i;
 	for( i=argc-1 ; i ; i-- )
-		Tagha_load_script(&vm, argv[i]);
-	Tagha_exec(&vm);	//Tagha_free(script);
+		(*taghaLoad)(&vm, argv[i]);
+		
+	void (*taghaExec)(TaghaVM_t *) = dlsym(pLibTagha, "Tagha_exec");
+	(*taghaExec)(&vm);	//Tagha_free(script);
 	/*
 	int x;
 	do {
@@ -241,6 +258,7 @@ int main(int argc, char **argv)
 	}
 	while( x>0 );
 	*/
-	Tagha_free(&vm);
-	return 0;
+	void (*taghaFree)(TaghaVM_t *) = dlsym(pLibTagha, "Tagha_free");
+	(*taghaFree)(&vm);
+	dlclose(pLibTagha), pLibTagha=NULL;
 }
