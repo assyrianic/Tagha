@@ -566,12 +566,13 @@ int main(int argc, char **argv)
 		pushl, 0,0,0,11,	// gets filename string.
 		pushbpadd,
 		callnat, 0,0,0,0, 0,0,0,8, 0,0,0,2,	// #1 - get native name, #2 - bytes to push, #3 - number of args
+		callnat, 0,0,0,1, 0,0,0,4, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
 		ret
 	};
 	pFile = fopen("./test_fopen.tbc", "wb");
 	if( pFile ) {
 		wrt_tbc_headers(pFile, 64);
-		wrt_natives_to_header(pFile, 1, "fopen");
+		wrt_natives_to_header(pFile, 2, "fopen", "fclose");
 		fwrite(test_fopen, sizeof(uint8_t), sizeof(test_fopen), pFile);
 		fclose(pFile);
 	}
@@ -582,7 +583,6 @@ int main(int argc, char **argv)
 		halt,
 		pushl,		0,0,0,4,
 		callnat,	0,0,0,0, 0,0,0,4, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
-		pushsp,	// we just pushed the pointer. Let's get it back as a virtual address.
 		callnat,	0,0,0,1, 0,0,0,4, 0,0,0,1,	// #1 - get native name, #2 - bytes to push, #3 - number of args
 		ret
 	};

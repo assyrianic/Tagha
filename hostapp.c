@@ -28,7 +28,13 @@ static void native_puts(Script_t *restrict script, const uint argc, const uint b
 	Word_t addr = *(Word_t *)arrParams;
 	
 	// using addr to retrieve the physical pointer of the string.
-	const char *str = (const char *)TaghaScript_addr2ptr(script, addr);
+	uchar *stkptr = TaghaScript_addr2ptr(script, addr);
+	if( !stkptr ) {
+		TaghaScript_push_int32(script, -1);
+		return;
+	}
+	// cast the physical pointer to char* string.
+	const char *str = (const char *)stkptr;
 	
 	// push back the value of the return val of puts.
 	TaghaScript_push_int32(script, puts(str));
@@ -44,7 +50,13 @@ static void native_printf(Script_t *restrict script, const uint argc, const uint
 	Word_t addr = *(Word_t *)arrParams;
 	
 	// using addr to retrieve the physical pointer of the string.
-	const char *str = (const char *)TaghaScript_addr2ptr(script, addr);
+	uchar *stkptr = TaghaScript_addr2ptr(script, addr);
+	if( !stkptr ) {
+		TaghaScript_push_int32(script, -1);
+		return;
+	}
+	// cast the physical pointer to char* string.
+	const char *str = (const char *)stkptr;
 	
 	// ptr arithmetic our params straight to our args.
 	arrParams += sizeof(Word_t);
@@ -74,7 +86,10 @@ static void native_test_ptr(Script_t *restrict script, const uint argc, const ui
 	 * ammo is pushed first, then health, then finally the speed float.
 	 * then we get the value from the stack and cast it to our struct!
 	*/
-	player = (struct Player *)TaghaScript_addr2ptr(script, addr);
+	uchar *stkptr = TaghaScript_addr2ptr(script, addr);
+	if( !stkptr )
+		return;
+	player = (struct Player *)stkptr;
 	
 	// debug print to see if our data is accurate.
 	printf("native_test_ptr :: ammo: %u\n", player->ammo);
@@ -92,23 +107,35 @@ static void native_fopen(Script_t *restrict script, const uint argc, const uint 
 	arrParams += sizeof(Word_t);
 	Word_t modes_addr = *(Word_t *)arrParams;
 	
+	uchar *stkptr_filestr = TaghaScript_addr2ptr(script, filename_addr);
+	if( !stkptr_filestr ) {
+		TaghaScript_push_int32(script, 0);
+		return;
+	}
+	uchar *stkptr_modes = TaghaScript_addr2ptr(script, modes_addr);
+	if( !stkptr_modes ) {
+		TaghaScript_push_int32(script, 0);
+		return;
+	}
 	
-	const char *filename = (const char *)TaghaScript_addr2ptr(script, filename_addr);
-	const char *mode = (const char *)TaghaScript_addr2ptr(script, modes_addr);
+	const char *filename = (const char *)stkptr_filestr;
+	const char *mode = (const char *)stkptr_modes;
 	
 	const unsigned ptrsize = sizeof(FILE *);
 	FILE *pFile = fopen(filename, mode);
 	if( pFile ) {
+		printf("native_fopen:: opening file \'%s\' with mode: \'%s\'\n", filename, mode);
 		if( ptrsize==4 )
 			TaghaScript_push_int32(script, (uintptr_t)pFile);
 		else TaghaScript_push_int64(script, (uintptr_t)pFile);
-		fclose(pFile), pFile=NULL;
+		TaghaScript_push_int32(script, script->sp);
 	}
 	else {
-		printf("failed to get filename: %s\n", filename);
+		printf("failed to get filename: \'%s\'\n", filename);
 		if( ptrsize==4 )
 			TaghaScript_push_int32(script, 0);
 		else TaghaScript_push_int64(script, 0L);
+		TaghaScript_push_int32(script, 0);
 	}
 }
 
@@ -119,11 +146,18 @@ static void native_fclose(Script_t *restrict script, const uint argc, const uint
 		return;
 	
 	Word_t addr = *(Word_t *)arrParams;
-	FILE *pf = (FILE *) *(uintptr_t *)TaghaScript_addr2ptr(script, addr);
-	if( pf ) {
-		TaghaScript_push_int32(script, fclose(pf));
-		pf=NULL;
+	uchar *stkptr = TaghaScript_addr2ptr(script, addr);
+	if( !stkptr ) {
+		TaghaScript_push_int32(script, -1);
+		return;
 	}
+	FILE *pFile = (FILE *) *(uintptr_t *)stkptr;
+	if( pFile ) {
+		printf("native_fclose:: closing FILE*\n");
+		TaghaScript_push_int32(script, fclose(pFile));
+		pFile=NULL;
+	}
+	else printf("native_fclose:: FILE* is NULL\n");
 }
 
 /* void *malloc(size_t size); */
@@ -133,18 +167,22 @@ static void native_malloc(Script_t *restrict script, const uint argc, const uint
 		return;
 	
 	const Word_t ptrsize = *(Word_t *)arrParams;
-	const unsigned size = sizeof(void *);
+	const unsigned size = sizeof(uintptr_t);
 	
+	printf("native_malloc:: allocating size: %u\n", ptrsize);
 	void *p = malloc(ptrsize);
 	if( p ) {
+		printf("native_malloc:: pointer is VALID.\n");
 		if( size==4 )
 			TaghaScript_push_int32(script, (uintptr_t)p);
 		else TaghaScript_push_int64(script, (uintptr_t)p);
+		TaghaScript_push_int32(script, script->sp);
 	}
 	else {
 		if( size==4 )
 			TaghaScript_push_int32(script, 0);
 		else TaghaScript_push_int64(script, 0L);
+		TaghaScript_push_int32(script, 0);
 	}
 }
 
@@ -158,7 +196,11 @@ static void native_free(Script_t *restrict script, const uint argc, const uint b
 	// get physical ptr then cast to an int that's big enough to hold a pointer
 	// then cast to void pointer.
 	Word_t addr = *(Word_t *)arrParams;
-	void *ptr = (void *) *(uintptr_t *)TaghaScript_addr2ptr(script, addr);
+	uchar *stkptr = TaghaScript_addr2ptr(script, addr);
+	if( !stkptr )
+		return;
+	
+	void *ptr = (void *) *(uintptr_t *)stkptr;
 	if( ptr )
 		free(ptr), ptr=NULL;
 }

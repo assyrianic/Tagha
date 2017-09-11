@@ -27,9 +27,7 @@ extern "C" {
         float *: "float *",                    double *: "double *",              \
         default: "other")
 
-#define TAGHA_VERSION_STR		"0.0.8a"
-#define WORD_SIZE		4
-#define NULL_ADDR		0				// all NULL pointers should have this value
+#define TAGHA_VERSION_STR	"0.0.8a"
 
 typedef		unsigned char		uchar;
 typedef		uchar				bytecode[];
