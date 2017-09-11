@@ -5,7 +5,6 @@
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdint.h>
-#include <dlfcn.h>
 #include "tagha.h"
 
 
