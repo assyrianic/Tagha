@@ -12,7 +12,7 @@ extern "C" {
 
 //#define SIZE(x)		sizeof((x)) / sizeof((x)[0]);
 
-//#define typename(x) _Generic((x),        /* Get the name of a type */           \
+#define typename(x) _Generic((x),        /* Get the name of a type */           \
         _Bool: "_Bool",                    unsigned char: "unsigned char",        \
         char: "char",                      short: "short",                        \
         unsigned short: "unsigned short",  int: "int",                            \
@@ -46,7 +46,7 @@ typedef struct TaghaVM			TaghaVM_t;
 
 //	API to call C/C++ functions from scripts.
 //	account for function pointers to natives being executed on script side.
-typedef		void (*fnNative_t)(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams);
+typedef		void (*fnNative_t)(Script_t *restrict script, const uint argc, const uint bytes/*, uchar *arrParams*/);
 
 typedef struct nativeinfo {
 	const char	*strName;

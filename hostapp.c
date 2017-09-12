@@ -10,30 +10,30 @@
 
 
 /* void print_helloworld(void); */
-static void native_print_helloworld(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+static void native_print_helloworld(Script_t *restrict script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
 	
-	printf("native_print_helloworld :: hello world from bytecode!\n");
+	puts("native_print_helloworld :: hello world from bytecode!\n");
 }
 
 /* int puts(const char *s); */
-static void native_puts(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+static void native_puts(Script_t *restrict script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
 	
-	// get our first argument which is a pointer to char.
-	Word_t addr = *(Word_t *)arrParams;
+	// get our first parameter which is a virtual address to our string.
+	Word_t addr = TaghaScript_pop_int32(script);
 	
-	// using addr to retrieve the physical pointer of the string.
+	// use the virtual address to get the physical pointer of the string.
 	uchar *stkptr = TaghaScript_addr2ptr(script, addr);
 	if( !stkptr ) {
 		TaghaScript_push_int32(script, -1);
 		return;
 	}
-	// cast the physical pointer to char* string.
+	// cast the physical pointer to char*.
 	const char *str = (const char *)stkptr;
 	
 	// push back the value of the return val of puts.
@@ -41,32 +41,102 @@ static void native_puts(Script_t *restrict script, const uint argc, const uint b
 }
 
 /* int printf(const char *fmt, ...); */
-static void native_printf(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+static void native_printf(Script_t *restrict script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
 	
-	// get first arg which is the string's memory address.
-	Word_t addr = *(Word_t *)arrParams;
+	// get our first parameter which is a virtual address to our string.
+	Word_t addr = TaghaScript_pop_int32(script);
 	
-	// using addr to retrieve the physical pointer of the string.
+	// use the virtual address to get the physical pointer of the string.
 	uchar *stkptr = TaghaScript_addr2ptr(script, addr);
 	if( !stkptr ) {
 		TaghaScript_push_int32(script, -1);
 		return;
 	}
-	// cast the physical pointer to char* string.
+	// cast the physical pointer to char*.
 	const char *str = (const char *)stkptr;
 	
-	// ptr arithmetic our params straight to our args.
-	arrParams += sizeof(Word_t);
 	
-	// execute (v)printf and push its return value which is a 4-byte int.
-	TaghaScript_push_int32(script, vprintf(str, (char *)arrParams));
+	char *iter=(char *)str;
+	int chrs=0;
+	
+	while( *iter ) {
+		if( *iter=='%' ) {
+			iter++;
+			char data_buffer[1024];
+			switch( *iter ) {
+				case '%':
+					printf("%%");
+					chrs++;
+					break;
+				
+				case 'f':
+				case 'F':
+					chrs += sprintf(data_buffer, "%f", TaghaScript_pop_float64(script));
+					printf(data_buffer);
+					break;
+				
+				case 'e':
+				case 'E':
+					chrs += sprintf(data_buffer, "%e", TaghaScript_pop_float64(script));
+					printf(data_buffer);
+					break;
+					
+				case 'a':
+				case 'A':
+					chrs += sprintf(data_buffer, "%a", TaghaScript_pop_float64(script));
+					printf(data_buffer);
+					break;
+					
+				case 'i':
+				case 'd':
+					chrs += sprintf(data_buffer, "%i", (int)TaghaScript_pop_int32(script));
+					printf(data_buffer);
+					break;
+					
+				case 'u':
+					chrs += sprintf(data_buffer, "%u", TaghaScript_pop_int32(script));
+					printf(data_buffer);
+					break;
+					
+				case 'x':
+				case 'X':
+					chrs += sprintf(data_buffer, "%x", TaghaScript_pop_int32(script));
+					printf(data_buffer);
+					break;
+				
+				case 'o':
+					chrs += sprintf(data_buffer, "%o", TaghaScript_pop_int32(script));
+					printf(data_buffer);
+					break;
+				
+				case 'c':
+					chrs += sprintf(data_buffer, "%c", TaghaScript_pop_byte(script));
+					printf(data_buffer);
+					break;
+				
+				case 'p':
+					chrs += sprintf(data_buffer, "%p", (void *) TaghaScript_pop_int32(script));
+					printf(data_buffer);
+					break;
+				
+				default:
+					printf("invalid format\n");
+					TaghaScript_push_int32(script, -1);
+					return;
+			} /* switch( *iter ) */
+		} /* if( *iter=='%' ) */
+		else putchar(*iter);
+		chrs++, iter++;
+	} /* while( *iter ) */
+	iter = NULL;
+	TaghaScript_push_int32(script, (uint)chrs);
 }
 
 /* void test_ptr(struct player *p); */
-static void native_test_ptr(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+static void native_test_ptr(Script_t *restrict script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
@@ -77,11 +147,11 @@ static void native_test_ptr(Script_t *restrict script, const uint argc, const ui
 		uint	ammo;
 	} *player=NULL;
 	
-	// get first arg which is the memory address to our data.
-	Word_t addr = *(Word_t *)arrParams;
+	// get first arg which is the virtual address to our data.
+	Word_t addr = TaghaScript_pop_int32(script);
 	
 	/*
-	 * Notice the way our struct is formatted.
+	 * Notice the order of the struct's data.
 	 * we pushed the struct data from last to first.
 	 * ammo is pushed first, then health, then finally the speed float.
 	 * then we get the value from the stack and cast it to our struct!
@@ -98,14 +168,13 @@ static void native_test_ptr(Script_t *restrict script, const uint argc, const ui
 }
 
 /* FILE *fopen(const char *filename, const char *modes); */
-static void native_fopen(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+static void native_fopen(Script_t *restrict script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
 	
-	Word_t filename_addr = *(Word_t *)arrParams;
-	arrParams += sizeof(Word_t);
-	Word_t modes_addr = *(Word_t *)arrParams;
+	Word_t filename_addr = TaghaScript_pop_int32(script);
+	Word_t modes_addr = TaghaScript_pop_int32(script);
 	
 	uchar *stkptr_filestr = TaghaScript_addr2ptr(script, filename_addr);
 	if( !stkptr_filestr ) {
@@ -140,12 +209,12 @@ static void native_fopen(Script_t *restrict script, const uint argc, const uint 
 }
 
 /* int fclose(FILE *stream); */
-static void native_fclose(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+static void native_fclose(Script_t *restrict script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
 	
-	Word_t addr = *(Word_t *)arrParams;
+	Word_t addr = TaghaScript_pop_int32(script);
 	uchar *stkptr = TaghaScript_addr2ptr(script, addr);
 	if( !stkptr ) {
 		TaghaScript_push_int32(script, -1);
@@ -161,12 +230,12 @@ static void native_fclose(Script_t *restrict script, const uint argc, const uint
 }
 
 /* void *malloc(size_t size); */
-static void native_malloc(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+static void native_malloc(Script_t *restrict script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
 	
-	const Word_t ptrsize = *(Word_t *)arrParams;
+	const Word_t ptrsize = TaghaScript_pop_int32(script);
 	const unsigned size = sizeof(uintptr_t);
 	
 	printf("native_malloc:: allocating size: %u\n", ptrsize);
@@ -187,7 +256,7 @@ static void native_malloc(Script_t *restrict script, const uint argc, const uint
 }
 
 /* void free(void *ptr); */
-static void native_free(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+static void native_free(Script_t *restrict script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
@@ -195,14 +264,14 @@ static void native_free(Script_t *restrict script, const uint argc, const uint b
 	// arrParams holds the virtual address as usual.
 	// get physical ptr then cast to an int that's big enough to hold a pointer
 	// then cast to void pointer.
-	Word_t addr = *(Word_t *)arrParams;
+	Word_t addr = TaghaScript_pop_int32(script);
 	uchar *stkptr = TaghaScript_addr2ptr(script, addr);
 	if( !stkptr )
 		return;
 	
 	void *ptr = (void *) *(uintptr_t *)stkptr;
 	if( ptr )
-		free(ptr), ptr=NULL;
+		printf("ptr is VALID, freeing...\n"), free(ptr), ptr=NULL;
 }
 
 int main(int argc, char **argv)
@@ -232,14 +301,14 @@ int main(int argc, char **argv)
 	for( i=argc-1 ; i ; i-- )
 		Tagha_load_script(&vm, argv[i]);
 	Tagha_exec(&vm);	//Tagha_free(script);
-	/*
+	
 	int x;
 	do {
 		printf("0 or less to exit.\n");
 		scanf("%i", &x);
 	}
 	while( x>0 );
-	*/
+	
 	Tagha_free(&vm);
 	return 0;
 }

@@ -49,7 +49,7 @@ static inline void _TaghaScript_get_immn(Script_t *restrict script, void *restri
 		return;
 	
 	uchar bytes[bytesize];
-	uchar i = bytesize-1;
+	Word_t i = bytesize-1;
 	while( i<bytesize )
 		((uchar *)pBuffer)[i--] = script->pInstrStream[++script->ip];
 }
@@ -335,7 +335,7 @@ static inline uchar _TaghaScript_peek_byte(Script_t *script)
 //#include <unistd.h>	// sleep() func
 void Tagha_exec(TaghaVM_t *vm)
 {
-	//printf("instruction set size == %" PRIu32 "\n", nop+1);
+	//printf("instruction set size == %" PRIu32 "\n", nop);
 	if( !vm )
 		return;
 	else if( !vm->pvecScripts )
@@ -408,7 +408,6 @@ void Tagha_exec(TaghaVM_t *vm)
 				if( script->bDebugMode )
 					TaghaScript_debug_print_memory(script);
 				break;
-				//return;
 			
 			exec_pushq:;
 				conv.ull = _TaghaScript_get_imm8(script);
@@ -1516,9 +1515,9 @@ void Tagha_exec(TaghaVM_t *vm)
 				const Word_t bytes = _TaghaScript_get_imm4(script);
 				// how many arguments pushed as native args
 				const Word_t argcount = _TaghaScript_get_imm4(script);
-				uchar params[bytes];
-				_TaghaScript_pop_nbytes(script, params, bytes);
-				(*pfNative)(script, argcount, bytes, params);
+				//uchar params[bytes];
+				//_TaghaScript_pop_nbytes(script, params, bytes);
+				(*pfNative)(script, argcount, bytes/*, params*/);
 				DISPATCH();
 			}
 			/* support calling natives via function pointers */
@@ -1530,9 +1529,9 @@ void Tagha_exec(TaghaVM_t *vm)
 				}
 				const Word_t bytes = _TaghaScript_get_imm4(script);
 				const Word_t argcount = _TaghaScript_get_imm4(script);
-				uchar params[bytes];
-				_TaghaScript_pop_nbytes(script, params, bytes);
-				(*pfNative)(script, argcount, bytes, params);
+				//uchar params[bytes];
+				//_TaghaScript_pop_nbytes(script, params, bytes);
+				(*pfNative)(script, argcount, bytes/*, params*/);
 				DISPATCH();
 			}
 			exec_reset:;

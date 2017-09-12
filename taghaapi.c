@@ -116,6 +116,7 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 				script = NULL;
 				goto error;
 			}
+			
 			fread(script->pInstrStream, sizeof(uchar), script->uiInstrSize, pFile);
 			// transfer script address to the vector.
 			vector_add(vm->pvecScripts, script);

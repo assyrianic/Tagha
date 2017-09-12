@@ -155,13 +155,13 @@ int main(int argc, char **argv)
 	bytecode hello_world_char_ptr = {
 		0,0,0,0,	// set instruction pointer entry point
 		pushb,	0,
-		pushb,	10,		// newline char
+		pushb,	'\n',		// newline char
 		pushb,	100,	// d
 		pushb,	108,	// l
 		pushb,	114,	// r
 		pushb,	111,	// o
 		pushb,	87,		// W
-		pushb,	32,		// space
+		pushb,	' ',		// space
 		pushb,	111,	// o
 		pushb,	108,	// l
 		pushb,	108,	// l

@@ -8,13 +8,15 @@
 #include <dlfcn.h>
 #include "tagha.h"
 
-void	*pLibTagha = NULL;
+void *pLibTagha;
 uchar	*(*taghascript_getptr)(Script_t *, const Word_t);
 void	(*taghascript_pushint)(Script_t *, const uint);
 void	(*taghascript_pushlong)(Script_t *, const u64);
+uint	(*taghascript_popint)(Script_t *);
+u64		(*taghascript_poplong)(Script_t *);
 
 /* void print_helloworld(void); */
-static void native_print_helloworld(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+static void native_print_helloworld(Script_t *restrict script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
@@ -23,13 +25,13 @@ static void native_print_helloworld(Script_t *restrict script, const uint argc, 
 }
 
 /* int puts(const char *s); */
-static void native_puts(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+static void native_puts(Script_t *restrict script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
 	
 	// get our first argument which is a pointer to char.
-	Word_t addr = *(Word_t *)arrParams;
+	Word_t addr = (*taghascript_popint)(script);
 	
 	// using addr to retrieve the physical pointer of the string.
 	uchar *stkptr = (*taghascript_getptr)(script, addr);
@@ -45,13 +47,13 @@ static void native_puts(Script_t *restrict script, const uint argc, const uint b
 }
 
 /* int printf(const char *fmt, ...); */
-static void native_printf(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+static void native_printf(Script_t *restrict script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
 	
 	// get first arg which is the string's memory address.
-	Word_t addr = *(Word_t *)arrParams;
+	Word_t addr = (*taghascript_popint)(script);
 	
 	// using addr to retrieve the physical pointer of the string.
 	uchar *stkptr = (*taghascript_getptr)(script, addr);
@@ -61,16 +63,91 @@ static void native_printf(Script_t *restrict script, const uint argc, const uint
 	}
 	// cast the physical pointer to char* string.
 	const char *str = (const char *)stkptr;
+	char *iter=(char *)str;
+	int chrs=0;
 	
-	// ptr arithmetic our params straight to our args.
-	arrParams += sizeof(Word_t);
+	if( !pLibTagha )
+		return;
 	
-	// execute (v)printf and push its return value which is a 4-byte int.
-	(*taghascript_pushint)(script, vprintf(str, (char *)arrParams));
+	double (*popdbl)(Script_t *) = dlsym(pLibTagha, "TaghaScript_pop_float64");
+	uchar (*popbyte)(Script_t *) = dlsym(pLibTagha, "TaghaScript_pop_byte");
+	
+	while( *iter ) {
+		if( *iter=='%' ) {
+			iter++;
+			
+			char data_buffer[1024];
+			switch( *iter ) {
+				case '%':
+					printf("%%");
+					chrs++;
+					break;
+				
+				case 'f':
+				case 'F':
+					chrs += sprintf(data_buffer, "%f", (*popdbl)(script));
+					printf(data_buffer);
+					break;
+				
+				case 'e':
+				case 'E':
+					chrs += sprintf(data_buffer, "%e", (*popdbl)(script));
+					printf(data_buffer);
+					break;
+					
+				case 'a':
+				case 'A':
+					chrs += sprintf(data_buffer, "%a", (*popdbl)(script));
+					printf(data_buffer);
+					break;
+					
+				case 'i':
+				case 'd':
+					chrs += sprintf(data_buffer, "%i", (int)(*taghascript_popint)(script));
+					printf(data_buffer);
+					break;
+					
+				case 'u':
+					chrs += sprintf(data_buffer, "%u", (*taghascript_popint)(script));
+					printf(data_buffer);
+					break;
+					
+				case 'x':
+				case 'X':
+					chrs += sprintf(data_buffer, "%x", (*taghascript_popint)(script));
+					printf(data_buffer);
+					break;
+				
+				case 'o':
+					chrs += sprintf(data_buffer, "%o", (*taghascript_popint)(script));
+					printf(data_buffer);
+					break;
+				
+				case 'c':
+					chrs += sprintf(data_buffer, "%c", (*popbyte)(script));
+					printf(data_buffer);
+					break;
+				
+				case 'p':
+					chrs += sprintf(data_buffer, "%p", (void *) (*taghascript_popint)(script));
+					printf(data_buffer);
+					break;
+				
+				default:
+					printf("invalid format\n");
+					(*taghascript_pushint)(script, -1);
+					return;
+			}
+		}
+		else putchar(*iter);
+		chrs++, iter++;
+	}
+	iter = NULL;
+	(*taghascript_pushint)(script, (uint)chrs);
 }
 
 /* void test_ptr(struct player *p); */
-static void native_test_ptr(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+static void native_test_ptr(Script_t *restrict script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
@@ -82,7 +159,7 @@ static void native_test_ptr(Script_t *restrict script, const uint argc, const ui
 	} *player=NULL;
 	
 	// get first arg which is the memory address to our data.
-	Word_t addr = *(Word_t *)arrParams;
+	Word_t addr = (*taghascript_popint)(script);
 	
 	/*
 	 * Notice the way our struct is formatted.
@@ -102,14 +179,13 @@ static void native_test_ptr(Script_t *restrict script, const uint argc, const ui
 }
 
 /* FILE *fopen(const char *filename, const char *modes); */
-static void native_fopen(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+static void native_fopen(Script_t *restrict script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
 	
-	Word_t filename_addr = *(Word_t *)arrParams;
-	arrParams += sizeof(Word_t);
-	Word_t modes_addr = *(Word_t *)arrParams;
+	Word_t filename_addr = (*taghascript_popint)(script);
+	Word_t modes_addr = (*taghascript_popint)(script);
 	
 	uchar *stkptr_filestr = (*taghascript_getptr)(script, filename_addr);
 	if( !stkptr_filestr ) {
@@ -144,12 +220,12 @@ static void native_fopen(Script_t *restrict script, const uint argc, const uint 
 }
 
 /* int fclose(FILE *stream); */
-static void native_fclose(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+static void native_fclose(Script_t *restrict script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
 	
-	Word_t addr = *(Word_t *)arrParams;
+	Word_t addr = (*taghascript_popint)(script);
 	uchar *stkptr = (*taghascript_getptr)(script, addr);
 	if( !stkptr ) {
 		(*taghascript_pushint)(script, -1);
@@ -165,12 +241,12 @@ static void native_fclose(Script_t *restrict script, const uint argc, const uint
 }
 
 /* void *malloc(size_t size); */
-static void native_malloc(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+static void native_malloc(Script_t *restrict script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
 	
-	const Word_t ptrsize = *(Word_t *)arrParams;
+	const Word_t ptrsize = (*taghascript_popint)(script);
 	const unsigned size = sizeof(uintptr_t);
 	
 	printf("native_malloc:: allocating size: %u\n", ptrsize);
@@ -191,22 +267,22 @@ static void native_malloc(Script_t *restrict script, const uint argc, const uint
 }
 
 /* void free(void *ptr); */
-static void native_free(Script_t *restrict script, const uint argc, const uint bytes, uchar *arrParams)
+static void native_free(Script_t *restrict script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
 	
-	// arrParams holds the virtual address as usual.
+	// pop the virtual address as usual.
 	// get physical ptr then cast to an int that's big enough to hold a pointer
 	// then cast to void pointer.
-	Word_t addr = *(Word_t *)arrParams;
+	Word_t addr = (*taghascript_popint)(script);
 	uchar *stkptr = (*taghascript_getptr)(script, addr);
 	if( !stkptr )
 		return;
 	
 	void *ptr = (void *) *(uintptr_t *)stkptr;
 	if( ptr )
-		free(ptr), ptr=NULL;
+		printf("ptr is VALID, freeing...\n"), free(ptr), ptr=NULL;
 }
 
 int main(int argc, char **argv)
@@ -215,6 +291,7 @@ int main(int argc, char **argv)
 		printf("[TaghaVM Usage]: './TaghaVM' '.tagha file' \n");
 		return 1;
 	}
+	
 	pLibTagha = dlopen("./libtagha_gcc.so.1.0.0", RTLD_LAZY|RTLD_GLOBAL);
 	if( !pLibTagha ) {
 		printf("pLibTagha is NULL\n");
@@ -224,6 +301,8 @@ int main(int argc, char **argv)
 	taghascript_getptr = dlsym(pLibTagha, "TaghaScript_addr2ptr");
 	taghascript_pushint = dlsym(pLibTagha, "TaghaScript_push_int32");
 	taghascript_pushlong = dlsym(pLibTagha, "TaghaScript_push_int64");
+	taghascript_popint = dlsym(pLibTagha, "TaghaScript_push_int64");
+	taghascript_poplong = dlsym(pLibTagha, "TaghaScript_pop_int32");
 	
 	TaghaVM_t vm;
 	void (*taghaInit)(TaghaVM_t *) = dlsym(pLibTagha, "Tagha_init");
