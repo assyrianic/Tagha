@@ -71,6 +71,32 @@ void wrt_natives_to_header(FILE *f, const unsigned numnats, ...)
 	}
 }
 
+void wrt_funcs_to_header(FILE *f, const unsigned num_funcs, ...)
+{
+	if( !f )
+		return;
+	
+	fwrite(&num_funcs, sizeof(unsigned), 1, f);
+	if( num_funcs ) {
+		char *buffer;
+		va_list varfuncs;
+		va_start(varfuncs, num_funcs);
+		unsigned i;
+		for( i=0 ; i<num_funcs ; i++ ) {
+			buffer = va_arg(varfuncs, char*);
+			unsigned strsize = strlen(buffer)+1;	// copy null terminator too!
+			fwrite(&strsize, sizeof(unsigned), 1, f);
+			fwrite(buffer, sizeof(char), strsize, f);
+			
+			unsigned params = va_arg(varfuncs, unsigned);
+			fwrite(&params, sizeof(unsigned), 1, f);
+			
+			unsigned entry = va_arg(varfuncs, unsigned);
+			fwrite(&entry, sizeof(unsigned), 1, f);
+		}
+	}
+}
+
 int main(int argc, char **argv)
 {
 	FILE *pFile = NULL;
@@ -130,13 +156,12 @@ int main(int argc, char **argv)
 	if( pFile ) {
 		wrt_tbc_headers(pFile, 5);
 		wrt_natives_to_header(pFile, 0);
+		wrt_funcs_to_header(pFile, 0);
 		fwrite(endian_test1, sizeof(uint8_t), sizeof(endian_test1), pFile);
 		fclose(pFile);
 	}
 	
 	bytecode float_test = {
-		9,0,0,0,	// set stack size.
-		0,0,0,0,	// set amount of natives!
 		0,0,0,0,	// set instruction pointer entry point
 		//jmp, 17,0,0,0,
 		// -16776961
@@ -179,14 +204,13 @@ int main(int argc, char **argv)
 	if( pFile ) {
 		wrt_tbc_headers(pFile, 32);
 		wrt_natives_to_header(pFile, 1, "puts");
+		wrt_funcs_to_header(pFile, 1, "main", 0, 32);
 		fwrite(hello_world_char_ptr, sizeof(uint8_t), sizeof(hello_world_char_ptr), pFile);
 		fclose(pFile);
 	}
 	
 	// example of locally (stack-allocated) made pointers and manipulating them.
 	bytecode pointers = {
-		16,0,0,0,	// set stack size.
-		0,0,0,0,	// set amount of natives!
 		0,0,0,0,
 		nop,
 		// int i = 170;
@@ -202,8 +226,6 @@ int main(int argc, char **argv)
 	// void func(int a, int b) { a+b; }
 	// func declarations are done by cdecl standard.
 	bytecode test_func_call = {
-		28,0,0,0,	// set stack size.
-		0,0,0,0,	// set amount of natives!
 		0,0,0,0,
 		pushl,	0,0,1,244,	//0-4		push b
 		pushl,	0,0,0,2,	//5-9		push a
@@ -218,8 +240,6 @@ int main(int argc, char **argv)
 	
 	
 	bytecode test_call_opcodes = {
-		28,0,0,0,	// set stack size.
-		0,0,0,0,	// set amount of natives!
 		0,0,0,0,
 		call,	0,0,0,12,	// 0-4
 		pushl,	0,0,0,18,	// 5-9
@@ -279,25 +299,33 @@ int main(int argc, char **argv)
 	
 	pFile = fopen("./float_test.tbc", "wb");
 	if( pFile ) {
-		fwrite(&magic, sizeof(unsigned short), 1, pFile);
+		wrt_tbc_headers(pFile, 9);
+		wrt_natives_to_header(pFile, 0);
+		wrt_funcs_to_header(pFile, 1, "main", 0, 32);
 		fwrite(float_test, sizeof(uint8_t), sizeof(float_test), pFile);
 		fclose(pFile);
 	}
 	pFile = fopen("./pointers.tbc", "wb");
 	if( pFile ) {
-		fwrite(&magic, sizeof(unsigned short), 1, pFile);
+		wrt_tbc_headers(pFile, 16);
+		wrt_natives_to_header(pFile, 0);
+		wrt_funcs_to_header(pFile, 0);
 		fwrite(pointers, sizeof(uint8_t), sizeof(pointers), pFile);
 		fclose(pFile);
 	}
 	pFile = fopen("./test_func_call.tbc", "wb");
 	if( pFile ) {
-		fwrite(&magic, sizeof(unsigned short), 1, pFile);
+		wrt_tbc_headers(pFile, 28);
+		wrt_natives_to_header(pFile, 0);
+		wrt_funcs_to_header(pFile, 1, "main", 2, 18);
 		fwrite(test_func_call, sizeof(uint8_t), sizeof(test_func_call), pFile);
 		fclose(pFile);
 	}
 	pFile = fopen("./test_call_opcodes.tbc", "wb");
 	if( pFile ) {
-		fwrite(&magic, sizeof(unsigned short), 1, pFile);
+		wrt_tbc_headers(pFile, 28);
+		wrt_natives_to_header(pFile, 0);
+		wrt_funcs_to_header(pFile, 2, "func1", 0, 12, "func2", 0, 18);
 		fwrite(test_call_opcodes, sizeof(uint8_t), sizeof(test_call_opcodes), pFile);
 		fclose(pFile);
 	}
@@ -305,13 +333,12 @@ int main(int argc, char **argv)
 	if( pFile ) {
 		wrt_tbc_headers(pFile, 255);
 		wrt_natives_to_header(pFile, 0);
+		wrt_funcs_to_header(pFile, 0);
 		fwrite(all_opcodes_test, sizeof(uint8_t), sizeof(all_opcodes_test), pFile);
 		fclose(pFile);
 	}
 	
 	bytecode test_retx_func = {
-		24,0,0,0,	// set stack size.
-		0,0,0,0,	// set amount of natives!
 		0,0,0,0,
 		// func prototype -> int f(int);
 		pushl,	0,0,0,9,	//6-10	-push argument 1.
@@ -328,14 +355,14 @@ int main(int argc, char **argv)
 	};
 	pFile = fopen("./test_retx_func.tbc", "wb");
 	if( pFile ) {
-		fwrite(&magic, sizeof(unsigned short), 1, pFile);
+		wrt_tbc_headers(pFile, 24);
+		wrt_natives_to_header(pFile, 0);
+		wrt_funcs_to_header(pFile, 1, "f", 1, 11);
 		fwrite(test_retx_func, sizeof(uint8_t), sizeof(test_retx_func), pFile);
 		fclose(pFile);
 	}
 	
 	bytecode test_recursion = {
-		255,255,255,0,	// set stack size.
-		0,0,0,0,	// set amount of natives!
 		0,0,0,0,
 		call,	0,0,0,6,	//6-10
 		halt,	//11
@@ -343,7 +370,9 @@ int main(int argc, char **argv)
 	};
 	pFile = fopen("./test_recursion.tbc", "wb");
 	if( pFile ) {
-		fwrite(&magic, sizeof(unsigned short), 1, pFile);
+		wrt_tbc_headers(pFile, 0xffffff);
+		wrt_natives_to_header(pFile, 0);
+		wrt_funcs_to_header(pFile, 1, "recursive", 0, 6);
 		fwrite(test_recursion, sizeof(uint8_t), sizeof(test_recursion), pFile);
 		fclose(pFile);
 	}
@@ -360,8 +389,6 @@ int main(int argc, char **argv)
 	//	//	return i*temp;
 	//}
 	bytecode test_factorial_recurs = {
-		255,0,0,0,	// set stack size.
-		0,0,0,0,	// set amount of natives!
 		0,0,0,0,
 		pushl,	0,0,0,7,	//14-18
 		call,	0,0,0,11,	//19-15
@@ -392,7 +419,9 @@ int main(int argc, char **argv)
 	};
 	pFile = fopen("./test_factorial_recurs.tbc", "wb");
 	if( pFile ) {
-		fwrite(&magic, sizeof(unsigned short), 1, pFile);
+		wrt_tbc_headers(pFile, 0xff);
+		wrt_natives_to_header(pFile, 0);
+		wrt_funcs_to_header(pFile, 1, "factorial", 1, 11);
 		fwrite(test_factorial_recurs, sizeof(uint8_t), sizeof(test_factorial_recurs), pFile);
 		//unsigned funcs = 1;
 		//fwrite(&funcs, sizeof(unsigned), 1, pFile);
@@ -416,9 +445,6 @@ int main(int argc, char **argv)
 	*/
 	
 	bytecode test_native = {
-		32,0,0,0,	// set stack size.
-		1,0,0,0,	// set amount of natives!
-		5,0,0,0,	't','e','s','t',0,	// string size of 1st native
 		0,0,0,0,
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
@@ -429,16 +455,14 @@ int main(int argc, char **argv)
 	};
 	pFile = fopen("./test_native.tbc", "wb");
 	if( pFile ) {
-		fwrite(&magic, sizeof(unsigned short), 1, pFile);
+		wrt_tbc_headers(pFile, 32);
+		wrt_natives_to_header(pFile, 1, "test");
+		wrt_funcs_to_header(pFile, 0);
 		fwrite(test_native, sizeof(uint8_t), sizeof(test_native), pFile);
 		fclose(pFile);
 	}
 	
 	bytecode test_local_native_funcptr = {
-		0xDE, 0xC0,	// magic
-		32,0,0,0,	// set stack size.
-		1,0,0,0,	// set amount of natives!
-		5,0,0,0,	't','e','s','t',0,	// string size of 1st native
 		0,0,0,0,	// set entry point, remember to account for natives.
 		pushl,	0,0,0,50,	// ammo
 		pushl,	0,0,0,100,	// health
@@ -450,7 +474,9 @@ int main(int argc, char **argv)
 	};
 	pFile = fopen("./test_local_native_funcptr.tbc", "wb");
 	if( pFile ) {
-		//fwrite(&magic, sizeof(unsigned short), 1, pFile);
+		wrt_tbc_headers(pFile, 32);
+		wrt_natives_to_header(pFile, 1, "test");
+		wrt_funcs_to_header(pFile, 0);
 		fwrite(test_local_native_funcptr, sizeof(uint8_t), sizeof(test_local_native_funcptr), pFile);
 		fclose(pFile);
 	}
@@ -477,6 +503,7 @@ int main(int argc, char **argv)
 	if( pFile ) {
 		wrt_tbc_headers(pFile, 32);
 		wrt_natives_to_header(pFile, 2, "test", "printHW");
+		wrt_funcs_to_header(pFile, 0);
 		fwrite(test_multiple_natives, sizeof(uint8_t), sizeof(test_multiple_natives), pFile);
 		fclose(pFile);
 	}
@@ -496,6 +523,7 @@ int main(int argc, char **argv)
 	if( pFile ) {
 		wrt_tbc_headers(pFile, 32);
 		wrt_natives_to_header(pFile, 0);
+		wrt_funcs_to_header(pFile, 1, "main", 0, 6);
 		fwrite(test_int2chr, sizeof(uint8_t), sizeof(test_int2chr), pFile);
 		fclose(pFile);
 	}
@@ -530,6 +558,7 @@ int main(int argc, char **argv)
 	if( pFile ) {
 		wrt_tbc_headers(pFile, 64);
 		wrt_natives_to_header(pFile, 1, "printf");
+		wrt_funcs_to_header(pFile, 1, "main", 0, 32);
 		fwrite(test_printf, sizeof(uint8_t), sizeof(test_printf), pFile);
 		fclose(pFile);
 	}
@@ -573,6 +602,7 @@ int main(int argc, char **argv)
 	if( pFile ) {
 		wrt_tbc_headers(pFile, 64);
 		wrt_natives_to_header(pFile, 2, "fopen", "fclose");
+		wrt_funcs_to_header(pFile, 1, "main", 0, 50);
 		fwrite(test_fopen, sizeof(uint8_t), sizeof(test_fopen), pFile);
 		fclose(pFile);
 	}
@@ -590,6 +620,7 @@ int main(int argc, char **argv)
 	if( pFile ) {
 		wrt_tbc_headers(pFile, 32);
 		wrt_natives_to_header(pFile, 2, "malloc", "free");
+		wrt_funcs_to_header(pFile, 1, "main", 0, 6);
 		fwrite(test_malloc, sizeof(uint8_t), sizeof(test_malloc), pFile);
 		fclose(pFile);
 	}

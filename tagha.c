@@ -261,6 +261,7 @@ static inline void _TaghaScript_pop_nbytes(Script_t *restrict script, void *rest
 	Word_t i=0;
 	// should stop when the integer underflows
 	//for( i=bytesize-1 ; i<bytesize ; i-- )
+	uchar cBuffer[bytesize];
 	for( i=0 ; i<bytesize ; i++ )
 		((uchar *)pBuffer)[i] = script->pbMemory[script->sp++];
 }
@@ -531,7 +532,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			exec_loadspq:;
 				a = _TaghaScript_pop_int32(script);
 				if( script->bSafeMode and (a+7) >= script->uiMemsize ) {
-					printf("exec_loadspq reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a+7);
+					printf("exec_loadspq reported: Invalid memory access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a+7);
 					goto *dispatch[halt];
 				}
 				conv.ull = *(u64 *)(script->pbMemory + a);
@@ -542,7 +543,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			exec_loadspl:;
 				a = _TaghaScript_pop_int32(script);
 				if( script->bSafeMode and (a+3) >= script->uiMemsize ) {
-					printf("exec_loadspl reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a+3);
+					printf("exec_loadspl reported: Invalid memory access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a+3);
 					goto *dispatch[halt];
 				}
 				conv.ui = *(uint *)(script->pbMemory + a);
@@ -553,7 +554,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			exec_loadsps:;
 				a = _TaghaScript_pop_int32(script);
 				if( script->bSafeMode and (a+1) >= script->uiMemsize ) {
-					printf("exec_loadsps reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a+1);
+					printf("exec_loadsps reported: Invalid memory access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a+1);
 					goto *dispatch[halt];
 				}
 				conv.us = *(ushort *)(script->pbMemory + a);
@@ -564,7 +565,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			exec_loadspb:;
 				a = _TaghaScript_pop_int32(script);
 				if( script->bSafeMode and a >= script->uiMemsize ) {
-					printf("exec_loadspb reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a);
+					printf("exec_loadspb reported: Invalid memory access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a);
 					goto *dispatch[halt];
 				}
 				conv.c[0] = script->pbMemory[a];
@@ -575,7 +576,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			exec_storespq:;
 				a = _TaghaScript_pop_int32(script);
 				if( script->bSafeMode and a+7 >= script->uiMemsize ) {
-					printf("exec_storespq reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a+7);
+					printf("exec_storespq reported: Invalid memory access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a+7);
 					goto *dispatch[halt];
 				}
 				conv.ull = _TaghaScript_pop_int64(script);
@@ -586,7 +587,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			exec_storespl:;		// store TOS into another part of the data stack.
 				a = _TaghaScript_pop_int32(script);
 				if( script->bSafeMode and a+3 >= script->uiMemsize ) {
-					printf("exec_storespl reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a+3);
+					printf("exec_storespl reported: Invalid memory access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a+3);
 					goto *dispatch[halt];
 				}
 				conv.ui = _TaghaScript_pop_int32(script);
@@ -597,7 +598,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			exec_storesps:;
 				a = _TaghaScript_pop_int32(script);
 				if( script->bSafeMode and a+1 >= script->uiMemsize ) {
-					printf("exec_storesps reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a+1);
+					printf("exec_storesps reported: Invalid memory access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a+1);
 					goto *dispatch[halt];
 				}
 				conv.us = _TaghaScript_pop_short(script);
@@ -608,7 +609,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			exec_storespb:;
 				a = _TaghaScript_pop_int32(script);
 				if( script->bSafeMode and a >= script->uiMemsize ) {
-					printf("exec_storespb reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a);
+					printf("exec_storespb reported: Invalid memory access! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, a);
 					goto *dispatch[halt];
 				}
 				script->pbMemory[a] = _TaghaScript_pop_byte(script);
@@ -617,7 +618,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			
 			exec_copyq:;
 				if( script->bSafeMode and script->sp+7 >= script->uiMemsize ) {
-					printf("exec_copyq reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+7);
+					printf("exec_copyq reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+7);
 					goto *dispatch[halt];
 				}
 				conv.ull = *(u64 *)(script->pbMemory + script->sp);
@@ -627,7 +628,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			
 			exec_copyl:;	// copy 4 bytes of top of stack and put as new top of stack.
 				if( script->bSafeMode and script->sp+3 >= script->uiMemsize ) {
-					printf("exec_copyl reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+3);
+					printf("exec_copyl reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+3);
 					goto *dispatch[halt];
 				}
 				conv.ui = *(uint *)(script->pbMemory + script->sp);
@@ -637,7 +638,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			
 			exec_copys:;
 				if( script->bSafeMode and script->sp+1 >= script->uiMemsize ) {
-					printf("exec_copys reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+1);
+					printf("exec_copys reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+1);
 					goto *dispatch[halt];
 				}
 				conv.us = *(ushort *)(script->pbMemory + script->sp);

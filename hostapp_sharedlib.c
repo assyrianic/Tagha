@@ -328,7 +328,7 @@ int main(int argc, char **argv)
 		(*taghaLoad)(&vm, argv[i]);
 		
 	void (*taghaExec)(TaghaVM_t *) = dlsym(pLibTagha, "Tagha_exec");
-	(*taghaExec)(&vm);	//Tagha_free(script);
+	(*taghaExec)(&vm);
 	/*
 	int x;
 	do {

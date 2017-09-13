@@ -2,10 +2,6 @@
 #ifndef VECTOR_H_INCLUDED
 	#define VECTOR_H_INCLUDED
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef struct vector {
 	void		**data;
 	unsigned	size, count;
@@ -19,8 +15,5 @@ void		*vector_get		(const vector *, const unsigned);
 void		vector_delete	(vector *, const unsigned);
 void		vector_free		(vector *);
 
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* VECTOR_H_INCLUDED */

@@ -2,7 +2,7 @@
 
 import sys;
 
-def enum(*sequential, **named):
+def enum(*sequential, **named) -> object:
 	enums = dict(zip(sequential, range(len(sequential))), **named);
 	return type('Enum', (), enums);
 
@@ -79,6 +79,22 @@ def wrt_hdr_natives(f, *natives):
 		f.write(0x0.to_bytes(1, byteorder='little'));
 		i += 1;
 
+def wrt_hdr_funcs(f, *funcs):
+	i = 0;
+	numfuncs = len(funcs);
+	f.write(numfuncs.to_bytes(4, byteorder='little'));
+	while i<numfuncs:
+		f.write((len(funcs[i])+1).to_bytes(4, byteorder='little'));
+		f.write(funcs[i].encode('utf-8'));
+		f.write(0x0.to_bytes(1, byteorder='little'));
+		i += 1;
+		
+		f.write(funcs[i].to_bytes(4, byteorder='little'));
+		i += 1;
+		
+		f.write(funcs[i].to_bytes(4, byteorder='little'));
+		i += 1;
+
 def wrt_opcode(f, opcode:int):
 	f.write(opcode.to_bytes(1, byteorder='big'));
 
@@ -87,6 +103,8 @@ def wrt_opcode(f, opcode:int):
 with open('test_native.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 32);
 	wrt_hdr_natives(tbc, 'test');
+	wrt_hdr_funcs(tbc, 0);
+	
 	tbc.write(0x0.to_bytes(4, byteorder='little'));
 	wrt_opcode(tbc, opcodes.pushl);
 	tbc.write(0x32.to_bytes(4, byteorder='big'));
@@ -106,6 +124,8 @@ with open('test_native.tbc', 'wb+') as tbc:
 with open('test_multiple_natives.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 32);
 	wrt_hdr_natives(tbc, 'test', 'printHW');
+	wrt_hdr_funcs(tbc, 0);
+	
 	tbc.write(0x0.to_bytes(4, byteorder='little'));
 	wrt_opcode(tbc, opcodes.pushl);
 	tbc.write(0x32.to_bytes(4, byteorder='big'));

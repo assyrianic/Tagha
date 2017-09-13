@@ -53,12 +53,14 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 		script->pInstrStream = NULL;
 		script->pbMemory = NULL;
 		script->ppstrNatives = NULL;
+		script->pFuncTable = NULL;
 		
 		//fclose(pFile); pFile=NULL;
 		u64 filesize = get_file_size(pFile);
 		uint bytecount = 0;
 		ushort verify;
 		fread(&verify, sizeof(ushort), 1, pFile);
+		
 		// verify that this is executable code.
 		if( verify == 0xC0DE ) {
 			printf("Tagha_load_script :: verified code!\n");
@@ -70,8 +72,8 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 				script->pbMemory = calloc(script->uiMemsize, sizeof(uchar));
 			else script->pbMemory = calloc(32, sizeof(uchar));	// have a default size of 32 bytes for memory.
 			if( !script->pbMemory ) {
-				printf("Tagha_load_script :: Failed to allocate global memory for script\n");
-				Tagha_free(vm);
+				printf("Tagha_load_script :: Failed to allocate memory for script\n");
+				TaghaScript_free(script);
 				script = NULL;
 				goto error;
 			}
@@ -94,15 +96,42 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 						script->ppstrNatives[i][n++] = c;
 						++bytecount;
 					}
-					printf("Tagha_load_script :: copied native name %s\n", script->ppstrNatives[i]);
+					printf("Tagha_load_script :: copied native name \'%s\'\n", script->ppstrNatives[i]);
 				}
 			} else script->ppstrNatives = NULL;
+			
+			fread(&script->uiFuncs, sizeof(uint), 1, pFile);
+			bytecount += 4;
+			if( script->uiFuncs ) {
+				script->pFuncTable = calloc(script->uiFuncs, sizeof(FuncTable_t));
+				uint i;
+				for( i=0 ; i<script->uiFuncs ; i++ ) {
+					uint str_size;
+					fread(&str_size, sizeof(uint), 1, pFile);
+					bytecount += 4;
+					script->pFuncTable[i].pFuncName = calloc(str_size, sizeof(char));
+					uint n = 0;
+					char c;
+					while( n<str_size ) {
+						fread(&c, sizeof(char), 1, pFile);
+						script->pFuncTable[i].pFuncName[n++] = c;
+						++bytecount;
+					}
+					
+					fread(&script->pFuncTable[i].uiParams, sizeof(uint), 1, pFile);
+					bytecount += 4;
+					fread(&script->pFuncTable[i].uiEntry, sizeof(uint), 1, pFile);
+					bytecount += 4;
+					printf("Tagha_load_script :: copied function name \'%s\'\n", script->pFuncTable[i].pFuncName);
+				}
+			} else script->pFuncTable = NULL;
 			
 			fread(&script->ip, sizeof(uint), 1, pFile);
 			printf("Tagha_load_script :: ip starts at %" PRIu32 "\n", script->ip);
 			bytecount += 4;
 			
-			script->bSafeMode = script->bDebugMode = true;
+			script->bSafeMode = true;
+			script->bDebugMode = false;
 			script->sp = script->bp = script->uiMemsize-1;
 			script->uiMaxInstrs = 0xfffff;	// helps to stop infinite/runaway loops
 			
@@ -112,7 +141,7 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 			script->pInstrStream = calloc(script->uiInstrSize, sizeof(uchar));
 			if( !script->pInstrStream ) {
 				printf("Tagha_load_script :: ERROR! Could not allocate Instruction Stream!\n");
-				Tagha_free(vm);
+				TaghaScript_free(script);
 				script = NULL;
 				goto error;
 			}
@@ -125,13 +154,49 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 		}
 		else {	// invalid script, kill the reference and the script itself.
 			printf("Tagha_load_script :: unknown file memory format\n");
-			Tagha_free(vm);
+			TaghaScript_free(script);
 			script = NULL;
 		}
 	}
 	else script = NULL;
 error:;
-	fclose(pFile); pFile=NULL;
+	fclose(pFile), pFile=NULL;
+}
+
+void TaghaScript_free(Script_t *script)
+{
+	if( !script )
+		return;
+	
+	if( script->pbMemory )
+		free(script->pbMemory);
+	script->pbMemory = NULL;
+	
+	if( script->pInstrStream )
+		free(script->pInstrStream);
+	script->pInstrStream = NULL;
+	
+	// free our tables
+	uint i;
+	if( script->ppstrNatives ) {
+		for( i=0 ; i<script->uiNatives ; i++ ) {
+			if( script->ppstrNatives[i] )
+				free(script->ppstrNatives[i]);
+			script->ppstrNatives[i] = NULL;
+		}
+		free(script->ppstrNatives);
+		script->ppstrNatives = NULL;
+	}
+	if( script->pFuncTable ) {
+		for( i=0 ; i<script->uiFuncs ; i++ ) {
+			if( script->pFuncTable[i].pFuncName )
+				free(script->pFuncTable[i].pFuncName);
+			script->pFuncTable[i].pFuncName = NULL;
+		}
+		free(script->pFuncTable);
+		script->pFuncTable = NULL;
+	}
+	free(script);
 }
 
 void Tagha_free(TaghaVM_t *vm)
@@ -148,26 +213,7 @@ void Tagha_free(TaghaVM_t *vm)
 			if( !script )
 				continue;
 			
-			if( script->pbMemory )
-				free(script->pbMemory);
-			script->pbMemory = NULL;
-			
-			if( script->pInstrStream )
-				free(script->pInstrStream);
-			script->pInstrStream = NULL;
-			
-			if( script->ppstrNatives ) {
-				uint i;
-				for( i=0 ; i<script->uiNatives ; i++ ) {
-					if( script->ppstrNatives[i] )
-						free(script->ppstrNatives[i]);
-					script->ppstrNatives[i] = NULL;
-				}
-				free(script->ppstrNatives);
-				script->ppstrNatives = NULL;
-			}
-			free(script);
-			script = NULL;
+			TaghaScript_free(script), script=NULL;
 			// after freeing scripts, replace their data with NULL.
 			vector_set(buffer, n, NULL);
 		}
@@ -197,7 +243,7 @@ void TaghaScript_reset(Script_t *script)
 }
 
 
-int Tagha_register_natives(TaghaVM_t *restrict vm, NativeInfo_t *arrNatives)
+int Tagha_register_natives(TaghaVM_t *restrict vm, NativeInfo_t *restrict arrNatives)
 {
 	if( !vm or !arrNatives )
 		return 0;
@@ -428,6 +474,14 @@ uchar *TaghaScript_addr2ptr(Script_t *restrict script, const Word_t stk_address)
 	return( script->pbMemory + stk_address );
 }
 
+void TaghaScript_call_func(Script_t *restrict script, const char *restrict funcname)
+{
+	if( !script or !funcname )
+		return;
+	
+	
+}
+
 
 void TaghaScript_debug_print_memory(const Script_t *script)
 {
@@ -441,8 +495,8 @@ void TaghaScript_debug_print_memory(const Script_t *script)
 	uint size = script->uiMemsize;
 	for( i=0 ; i<size ; i++ )
 		if( script->sp == i )
-			printf("T.O.S. : Memory[0x%x] == %" PRIu32 "\n", i, script->pbMemory[i]);
-		else printf("Memory[0x%x] == %" PRIu32 "\n", i, script->pbMemory[i]);
+			printf("T.O.S. : Memory[%" PRIu32 "] == %" PRIu32 "\n", i, script->pbMemory[i]);
+		else printf("Memory[%" PRIu32 "] == %" PRIu32 "\n", i, script->pbMemory[i]);
 	printf("\n");
 }
 void TaghaScript_debug_print_ptrs(const Script_t *script)

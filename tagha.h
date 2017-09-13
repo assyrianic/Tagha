@@ -12,7 +12,7 @@ extern "C" {
 
 //#define SIZE(x)		sizeof((x)) / sizeof((x)[0]);
 
-#define typename(x) _Generic((x),        /* Get the name of a type */           \
+//#define typename(x) _Generic((x),        /* Get the name of a type */           \
         _Bool: "_Bool",                    unsigned char: "unsigned char",        \
         char: "char",                      short: "short",                        \
         unsigned short: "unsigned short",  int: "int",                            \
@@ -27,7 +27,7 @@ extern "C" {
         float *: "float *",                    double *: "double *",              \
         default: "other")
 
-#define TAGHA_VERSION_STR	"0.0.8a"
+#define TAGHA_VERSION_STR		"0.0.8a"
 
 typedef		unsigned char		uchar;
 typedef		uchar				bytecode[];
@@ -46,29 +46,38 @@ typedef struct TaghaVM			TaghaVM_t;
 
 //	API to call C/C++ functions from scripts.
 //	account for function pointers to natives being executed on script side.
-typedef		void (*fnNative_t)(Script_t *restrict script, const uint argc, const uint bytes/*, uchar *arrParams*/);
+typedef		void (*fnNative_t)(Script_t *script, const uint argc, const uint bytes/*, uchar *arrParams*/);
 
 typedef struct nativeinfo {
 	const char	*strName;
 	fnNative_t	pFunc;
 } NativeInfo_t;
 
-int	Tagha_register_natives(TaghaVM_t *restrict vm, NativeInfo_t *arrNatives);
+int	Tagha_register_natives(TaghaVM_t *vm, NativeInfo_t *arrNatives);
 
 /* Script File Structure.
  * magic verifier
  * Stack Vector
- * NativeTable Vector
+ * Native Table Vector
+ * Func Table Vector
  */
+
+typedef struct func_tbl {
+	char	*pFuncName;
+	uint	uiParams;
+	uint	uiEntry;
+} FuncTable_t;
  
 struct TaghaScript {
 	uchar	*pbMemory, *pInstrStream;
 	char	**ppstrNatives;	// natives table as stored strings.
+	FuncTable_t	*pFuncTable;
 	Word_t	ip, sp, bp;
 	uint	uiMemsize;
 	uint	uiInstrSize;
 	uint	uiMaxInstrs;
 	uint	uiNatives;		// count how many natives script uses.
+	uint	uiFuncs;
 	bool	bSafeMode;
 	bool	bDebugMode;
 };
@@ -76,7 +85,7 @@ struct TaghaScript {
 struct TaghaVM {
 	vector	*pvecScripts;
 	// Natives should be GLOBALLY available to all scripts on a per-header-basis...
-	// meaning that a script can only use a native if the header has it.
+	// meaning that a script can only use a native if the header has the native compiled to it.
 	dict	*pmapNatives;
 };
 
@@ -100,7 +109,7 @@ union conv_union {	// converter union. for convenience
 };
 
 void	Tagha_init(TaghaVM_t *vm);
-void	Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename);
+void	Tagha_load_script(TaghaVM_t *vm, char *filename);
 void	Tagha_free(TaghaVM_t *vm);
 void	Tagha_exec(TaghaVM_t *vm);
 
@@ -108,32 +117,34 @@ void	TaghaScript_debug_print_ptrs(const Script_t *script);
 void	TaghaScript_debug_print_memory(const Script_t *script);
 void	TaghaScript_debug_print_instrs(const Script_t *script);
 void	TaghaScript_reset(Script_t *script);
+void	TaghaScript_free(Script_t *script);
 
-void	TaghaScript_push_longfloat(Script_t *restrict script, const long double val);
+void	TaghaScript_push_longfloat(Script_t *script, const long double val);
 long double	TaghaScript_pop_longfloat(Script_t *script);
 
-void	TaghaScript_push_int64(Script_t *restrict script, const u64 val);
+void	TaghaScript_push_int64(Script_t *script, const u64 val);
 u64		TaghaScript_pop_int64(Script_t *script);
 
-void	TaghaScript_push_float64(Script_t *restrict script, const double val);
+void	TaghaScript_push_float64(Script_t *script, const double val);
 double	TaghaScript_pop_float64(Script_t *script);
 
-void	TaghaScript_push_int32(Script_t *restrict script, const uint val);
+void	TaghaScript_push_int32(Script_t *script, const uint val);
 uint	TaghaScript_pop_int32(Script_t *script);
 
-void	TaghaScript_push_float32(Script_t *restrict script, const float val);
+void	TaghaScript_push_float32(Script_t *script, const float val);
 float	TaghaScript_pop_float32(Script_t *script);
 
-void	TaghaScript_push_short(Script_t *restrict script, const ushort val);
+void	TaghaScript_push_short(Script_t *script, const ushort val);
 ushort	TaghaScript_pop_short(Script_t *script);
 
-void	TaghaScript_push_byte(Script_t *restrict script, const uchar val);
+void	TaghaScript_push_byte(Script_t *script, const uchar val);
 uchar	TaghaScript_pop_byte(Script_t *script);
 
-void	TaghaScript_push_nbytes(Script_t *restrict script, void *restrict pItem, const Word_t bytesize);
-void	TaghaScript_pop_nbytes(Script_t *restrict script, void *restrict pBuffer, const Word_t bytesize);
+void	TaghaScript_push_nbytes(Script_t *script, void *pItem, const Word_t bytesize);
+void	TaghaScript_pop_nbytes(Script_t *script, void *pBuffer, const Word_t bytesize);
 
-uchar	*TaghaScript_addr2ptr(Script_t *restrict script, const Word_t stk_address);
+uchar	*TaghaScript_addr2ptr(Script_t *script, const Word_t stk_address);
+void	TaghaScript_call_func(Script_t *script, const char *funcname);
 
 #ifdef __cplusplus
 }

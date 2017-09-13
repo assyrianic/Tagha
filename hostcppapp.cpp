@@ -1,16 +1,16 @@
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <iso646.h>
-#include <stddef.h>
-#include <stdarg.h>
-#include <stdint.h>
+#include <cstdio>
+#include <cstdlib>
+#include <ciso646>
+#include <cstddef>
+#include <cstdarg>
+#include <cstdint>
+#include <string>
 #include "tagha.h"
 
 
-
 /* void print_helloworld(void); */
-static void native_print_helloworld(Script_t *restrict script, const uint argc, const uint bytes)
+static void native_print_helloworld(Script_t *script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
@@ -19,7 +19,7 @@ static void native_print_helloworld(Script_t *restrict script, const uint argc, 
 }
 
 /* int puts(const char *s); */
-static void native_puts(Script_t *restrict script, const uint argc, const uint bytes)
+static void native_puts(Script_t *script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
@@ -34,14 +34,14 @@ static void native_puts(Script_t *restrict script, const uint argc, const uint b
 		return;
 	}
 	// cast the physical pointer to char*.
-	const char *str = (const char *)stkptr;
+	const char *str = reinterpret_cast< const char* >(stkptr);
 	
 	// push back the value of the return val of puts.
 	TaghaScript_push_int32(script, puts(str));
 }
 
 /* int printf(const char *fmt, ...); */
-static void native_printf(Script_t *restrict script, const uint argc, const uint bytes)
+static void native_printf(Script_t *script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
@@ -56,9 +56,9 @@ static void native_printf(Script_t *restrict script, const uint argc, const uint
 		return;
 	}
 	// cast the physical pointer to char*.
-	const char *str = (const char *)stkptr;
+	const char *str = reinterpret_cast< const char* >(stkptr);
 	
-	char *iter=(char *)str;
+	char *iter = const_cast< char* >(str);
 	int chrs=0;
 	
 	while( *iter ) {
@@ -117,7 +117,7 @@ static void native_printf(Script_t *restrict script, const uint argc, const uint
 					break;
 				
 				case 'p':
-					chrs += sprintf(data_buffer, "%p", (void *) TaghaScript_pop_int32(script));
+					chrs += sprintf(data_buffer, "%p", reinterpret_cast< void* >(TaghaScript_pop_int32(script)));
 					printf(data_buffer);
 					break;
 				
@@ -130,12 +130,12 @@ static void native_printf(Script_t *restrict script, const uint argc, const uint
 		else putchar(*iter);
 		chrs++, iter++;
 	} /* while( *iter ) */
-	iter = NULL;
+	iter = nullptr;
 	TaghaScript_push_int32(script, (uint)chrs);
 }
 
 /* void test_ptr(struct player *p); */
-static void native_test_ptr(Script_t *restrict script, const uint argc, const uint bytes)
+static void native_test_ptr(Script_t *script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
@@ -144,7 +144,7 @@ static void native_test_ptr(Script_t *restrict script, const uint argc, const ui
 		float	speed;
 		uint	health;
 		uint	ammo;
-	} *player=NULL;
+	} *player=nullptr;
 	
 	// get first arg which is the virtual address to our data.
 	Word_t addr = TaghaScript_pop_int32(script);
@@ -158,7 +158,7 @@ static void native_test_ptr(Script_t *restrict script, const uint argc, const ui
 	uchar *stkptr = TaghaScript_addr2ptr(script, addr);
 	if( !stkptr )
 		return;
-	player = (struct Player *)stkptr;
+	player = reinterpret_cast< struct Player* >(stkptr);
 	
 	// debug print to see if our data is accurate.
 	printf("native_test_ptr :: ammo: %u\n", player->ammo);
@@ -167,7 +167,7 @@ static void native_test_ptr(Script_t *restrict script, const uint argc, const ui
 }
 
 /* FILE *fopen(const char *filename, const char *modes); */
-static void native_fopen(Script_t *restrict script, const uint argc, const uint bytes)
+static void native_fopen(Script_t *script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
@@ -186,8 +186,8 @@ static void native_fopen(Script_t *restrict script, const uint argc, const uint 
 		return;
 	}
 	
-	const char *filename = (const char *)stkptr_filestr;
-	const char *mode = (const char *)stkptr_modes;
+	const char *filename = reinterpret_cast< const char* >(stkptr_filestr);
+	const char *mode = reinterpret_cast< const char* >(stkptr_modes);
 	
 	const unsigned ptrsize = sizeof(FILE *);
 	FILE *pFile = fopen(filename, mode);
@@ -208,7 +208,7 @@ static void native_fopen(Script_t *restrict script, const uint argc, const uint 
 }
 
 /* int fclose(FILE *stream); */
-static void native_fclose(Script_t *restrict script, const uint argc, const uint bytes)
+static void native_fclose(Script_t *script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
@@ -219,17 +219,18 @@ static void native_fclose(Script_t *restrict script, const uint argc, const uint
 		TaghaScript_push_int32(script, -1);
 		return;
 	}
-	FILE *pFile = (FILE *) *(uintptr_t *)stkptr;
+	//FILE *pFile = (FILE *) *(uintptr_t *)stkptr;
+	FILE *pFile = reinterpret_cast< FILE* >((*reinterpret_cast< uintptr_t* >(stkptr)));
 	if( pFile ) {
 		printf("native_fclose:: closing FILE*\n");
 		TaghaScript_push_int32(script, fclose(pFile));
-		pFile=NULL;
+		pFile=nullptr;
 	}
 	else printf("native_fclose:: FILE* is NULL\n");
 }
 
 /* void *malloc(size_t size); */
-static void native_malloc(Script_t *restrict script, const uint argc, const uint bytes)
+static void native_malloc(Script_t *script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
@@ -255,7 +256,7 @@ static void native_malloc(Script_t *restrict script, const uint argc, const uint
 }
 
 /* void free(void *ptr); */
-static void native_free(Script_t *restrict script, const uint argc, const uint bytes)
+static void native_free(Script_t *script, const uint argc, const uint bytes)
 {
 	if( !script )
 		return;
@@ -270,7 +271,7 @@ static void native_free(Script_t *restrict script, const uint argc, const uint b
 	
 	void *ptr = (void *) *(uintptr_t *)stkptr;
 	if( ptr )
-		printf("ptr is VALID, freeing...\n"), free(ptr), ptr=NULL;
+		printf("ptr is VALID, freeing...\n"), free(ptr), ptr=nullptr;
 }
 
 int main(int argc, char **argv)
@@ -299,15 +300,8 @@ int main(int argc, char **argv)
 	uint i;
 	for( i=argc-1 ; i ; i-- )
 		Tagha_load_script(&vm, argv[i]);
+		
 	Tagha_exec(&vm);
-	/*
-	int x;
-	do {
-		printf("0 or less to exit.\n");
-		scanf("%i", &x);
-	}
-	while( x>0 );*/
-	
 	Tagha_free(&vm);
 	return 0;
 }
