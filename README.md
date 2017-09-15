@@ -10,7 +10,7 @@ download or git clone the project. The build scripts in the project give you the
 * **For a shared library**, edit `build_libtagha_shared.sh` as needed and execute. The build script will cleanup any \*.o files left behind.
 * **For a static library**, edit `build_libtagha_static.sh` as needed and execute. The build script will cleanup any \*.o files left behind as well.
 * **If you want to try out the bytecode executables using the example host app sources**, edit `build_hostapp.sh` as needed and execute.
-* **To build the C Tagha Assembler**, don't worry about it and use the better python3 version `tbc_asm.py` (the python version will generate all the bytecode executable examples WHERE IT IS EXECUTED).
+* **To Generate Tagha Bytecode**, execute `tbc_asm.py` (requires python v3+) but careful as python assembler will generate the bytecode executables _in the same directory where it is executed_.
 
 ## Pull Requests
 Pull requests are always welcome and will be reviewed!
