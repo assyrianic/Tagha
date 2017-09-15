@@ -53,7 +53,7 @@ typedef struct nativeinfo {
 	fnNative_t	pFunc;
 } NativeInfo_t;
 
-int	Tagha_register_natives(TaghaVM_t *vm, NativeInfo_t *arrNatives);
+bool	Tagha_register_natives(TaghaVM_t *vm, NativeInfo_t *arrNatives);
 
 /* Script File Structure.
  * magic verifier
@@ -67,19 +67,20 @@ typedef struct func_tbl {
 	uint	uiParams;
 	uint	uiEntry;
 } FuncTable_t;
- 
+
 struct TaghaScript {
 	uchar	*pbMemory, *pInstrStream;
 	char	**ppstrNatives;	// natives table as stored strings.
 	FuncTable_t	*pFuncTable;
 	Word_t	ip, sp, bp;
-	uint	uiMemsize;
-	uint	uiInstrSize;
-	uint	uiMaxInstrs;
-	uint	uiNatives;		// count how many natives script uses.
-	uint	uiFuncs;
-	bool	bSafeMode;
-	bool	bDebugMode;
+	uint
+		uiMemsize,
+		uiInstrSize,
+		uiMaxInstrs,
+		uiNatives,
+		uiFuncs
+	;
+	bool	bSafeMode, bDebugMode;
 };
 
 struct TaghaVM {

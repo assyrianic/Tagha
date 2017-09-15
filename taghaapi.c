@@ -5,6 +5,7 @@
 #include <iso646.h>
 #include <inttypes.h>
 #include <assert.h>
+#include <string.h>
 #include "tagha.h"
 
 
@@ -131,7 +132,7 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 			bytecount += 4;
 			
 			script->bSafeMode = true;
-			script->bDebugMode = false;
+			script->bDebugMode = true;
 			script->sp = script->bp = script->uiMemsize-1;
 			script->uiMaxInstrs = 0xfffff;	// helps to stop infinite/runaway loops
 			
@@ -242,18 +243,17 @@ void TaghaScript_reset(Script_t *script)
 	script->sp = script->bp = script->uiMemsize - 1;
 }
 
-
-int Tagha_register_natives(TaghaVM_t *restrict vm, NativeInfo_t *restrict arrNatives)
+bool Tagha_register_natives(TaghaVM_t *restrict vm, NativeInfo_t *restrict arrNatives)
 {
 	if( !vm or !arrNatives )
-		return 0;
+		return false;
 	else if( !vm->pmapNatives )
-		return 0;
+		return false;
 	
 	Word_t i;
 	for( i=0 ; arrNatives[i].pFunc != NULL ; i++ )
 		dict_insert(vm->pmapNatives, arrNatives[i].strName, (void *)arrNatives[i].pFunc);
-	return 1;
+	return true;
 }
 
 
@@ -269,26 +269,23 @@ void TaghaScript_push_longfloat(Script_t *restrict script, const long double val
 		printf("TaghaScript_push_longfloat reported: stack overflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp-ldsize);
 		exit(1);
 	}
-	long double longdbl = val;
-	uint i = 0;
-	while( i<ldsize )
-		script->pbMemory[script->sp--] = ((uchar *)&longdbl)[i++];
+	script->sp -= ldsize;
+	*(long double *)(script->pbMemory + script->sp) = val;
 }
 
 long double TaghaScript_pop_longfloat(Script_t *script)
 {
 	if( !script )
 		return 0;
+	
 	uint ldsize = sizeof(long double);
 	if( script->bSafeMode and (script->sp+ldsize) >= script->uiMemsize ) {
 		printf("TaghaScript_pop_longfloat reported: stack underflow! Current instruction address: %" PRIu32 " | Stack index: %" PRIu32 "\n", script->ip, script->sp+ldsize);
 		exit(1);
 	}
-	long double longdbl;
-	uint i = ldsize-1;
-	while( i<ldsize )
-		((uchar *)&longdbl)[i--] = script->pbMemory[++script->sp];
-	return longdbl;
+	long double val = *(long double *)(script->pbMemory + script->sp);
+	script->sp += ldsize;
+	return val;
 }
 
 void TaghaScript_push_int64(Script_t *restrict script, const u64 val)
@@ -478,8 +475,21 @@ void TaghaScript_call_func(Script_t *restrict script, const char *restrict funcn
 {
 	if( !script or !funcname )
 		return;
+	else if( !script->pFuncTable )
+		return;
 	
-	
+	FuncTable_t	*pFuncs = script->pFuncTable;
+	uint i;
+	bool bfound=false;
+	for( i=0 ; i<script->uiFuncs ; i++ ) {
+		if( !strcmp(funcname, pFuncs[i].pFuncName) ) {
+			bfound=true;
+			break;
+		}
+	}
+	if( bfound ) {
+	}
+	pFuncs=NULL;
 }
 
 

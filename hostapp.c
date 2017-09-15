@@ -260,7 +260,6 @@ static void native_free(Script_t *restrict script, const uint argc, const uint b
 	if( !script )
 		return;
 	
-	// arrParams holds the virtual address as usual.
 	// get physical ptr then cast to an int that's big enough to hold a pointer
 	// then cast to void pointer.
 	Word_t addr = TaghaScript_pop_int32(script);
