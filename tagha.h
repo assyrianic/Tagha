@@ -27,10 +27,9 @@ extern "C" {
         float *: "float *",                    double *: "double *",              \
         default: "other")
 
-#define TAGHA_VERSION_STR		"0.0.8a"
+#define TAGHA_VERSION_STR		"0.0.9a"
 
 typedef		unsigned char		uchar;
-typedef		uchar				bytecode[];
 typedef		unsigned short		ushort;
 typedef		unsigned int		uint;
 typedef		long long int		i64;	// long longs are at minimum 64-bits as defined by C99 standard
@@ -40,7 +39,7 @@ typedef		uint				Word_t;	// word size is 4 bytes
 
 
 struct TaghaScript;
-struct TaghaVM; 
+struct TaghaVM;
 typedef struct TaghaScript		Script_t;
 typedef struct TaghaVM			TaghaVM_t;
 
@@ -49,17 +48,16 @@ typedef struct TaghaVM			TaghaVM_t;
 typedef		void (*fnNative_t)(Script_t *script, const uint argc, const uint bytes/*, uchar *arrParams*/);
 
 typedef struct nativeinfo {
-	const char	*strName;
+	const char	*strName;	// use as string literals
 	fnNative_t	pFunc;
 } NativeInfo_t;
-
-bool	Tagha_register_natives(TaghaVM_t *vm, NativeInfo_t *arrNatives);
 
 /* Script File Structure.
  * magic verifier
  * Stack Vector
  * Native Table Vector
  * Func Table Vector
+ * Data Table Vector
  */
 
 typedef struct func_tbl {
@@ -68,17 +66,26 @@ typedef struct func_tbl {
 	uint	uiEntry;
 } FuncTable_t;
 
+typedef struct data_tbl {
+	char	*pVarName;
+	uint	uiBytes;
+	uint	uiAddress;
+} DataTable_t;
+
 struct TaghaScript {
 	uchar	*pbMemory, *pInstrStream;
-	char	**ppstrNatives;	// natives table as stored strings.
-	FuncTable_t	*pFuncTable;
+	char	**ppstrNatives;		// natives table as stored strings.
+	// TODO make these two into hashmaps perhaps?
+	FuncTable_t	*pFuncTable;	// stores the functions compiled to script.
+	DataTable_t	*pDataTable;	// stores global vars.
 	Word_t	ip, sp, bp;
 	uint
 		uiMemsize,
 		uiInstrSize,
 		uiMaxInstrs,
 		uiNatives,
-		uiFuncs
+		uiFuncs,
+		uiGlobals
 	;
 	bool	bSafeMode, bDebugMode;
 };
@@ -113,12 +120,24 @@ void	Tagha_init(TaghaVM_t *vm);
 void	Tagha_load_script(TaghaVM_t *vm, char *filename);
 void	Tagha_free(TaghaVM_t *vm);
 void	Tagha_exec(TaghaVM_t *vm);
+bool	Tagha_register_natives(TaghaVM_t *vm, NativeInfo_t *arrNatives);
 
 void	TaghaScript_debug_print_ptrs(const Script_t *script);
 void	TaghaScript_debug_print_memory(const Script_t *script);
 void	TaghaScript_debug_print_instrs(const Script_t *script);
 void	TaghaScript_reset(Script_t *script);
 void	TaghaScript_free(Script_t *script);
+
+uint	TaghaScript_stacksize(Script_t *script);
+uint	TaghaScript_instrsize(Script_t *script);
+uint	TaghaScript_maxinstrs(Script_t *script);
+uint	TaghaScript_nativecount(Script_t *script);
+uint	TaghaScript_funcs(Script_t *script);
+uint	TaghaScript_globals(Script_t *script);
+bool	TaghaScript_safemode_active(Script_t *script);
+bool	TaghaScript_debug_active(Script_t *script);
+
+
 
 void	TaghaScript_push_longfloat(Script_t *script, const long double val);
 long double	TaghaScript_pop_longfloat(Script_t *script);

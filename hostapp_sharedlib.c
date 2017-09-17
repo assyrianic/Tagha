@@ -282,7 +282,7 @@ static void native_free(Script_t *restrict script, const uint argc, const uint b
 	
 	void *ptr = (void *) *(uintptr_t *)stkptr;
 	if( ptr )
-		printf("ptr is VALID, freeing...\n"), free(ptr), ptr=NULL;
+		printf("native_free :: ptr is VALID, freeing...\n"), free(ptr), ptr=NULL;
 }
 
 int main(int argc, char **argv)
