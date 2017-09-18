@@ -180,8 +180,6 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 			printf("Tagha_load_script :: Script Debug Mode: %" PRIu32 "\n", script->bDebugMode);
 			bytecount++;
 			
-			script->bSafeMode = true;
-			script->bDebugMode = true;
 			printf("Tagha_load_script :: final stack size %" PRIu32 "\n", script->sp);
 			script->uiMaxInstrs = 0xfffff;	// helps to stop infinite/runaway loops
 			
