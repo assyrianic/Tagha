@@ -13,6 +13,22 @@ static unsigned gethash(const char *szKey)
 	return h;
 }
 
+unsigned int32hash(unsigned x) {
+    x = ((x >> 16) ^ x) * 0x45d9f3b;
+    x = ((x >> 16) ^ x) * 0x45d9f3b;
+    x = (x >> 16) ^ x;
+    return x;
+}
+/*
+uint64_t int64hash(uint64_t x) {
+    x = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
+    x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);
+    x = x ^ (x >> 31);
+    return x;
+}
+*/
+
+
 void dict_init(dict *d)
 {
 	if( !d )
@@ -22,9 +38,9 @@ void dict_init(dict *d)
 	d->size = d->count = 0;
 }
 
-void dict_free(dict *d, const bool free_kv_data)
+void dict_free(dict *d)
 {
-	if( !d )
+	if( !d || !d->table )
 		return;
 	
 	/*
@@ -33,18 +49,16 @@ void dict_free(dict *d, const bool free_kv_data)
 	 * or else you'll get a nice little segfault ;)
 	 * not sure why but whatever makes the code work I guess.
 	*/
-	kvnode_t	*kv = NULL,
-			*next = NULL;
-	
-	for( unsigned i=0 ; i<d->size ; ++i ) {
+	kvnode_t
+		*kv = NULL,
+		*next = NULL
+		;
+	for( unsigned i=0 ; i<d->size ; i++ ) {
 		for( kv = d->table[i] ; kv ; kv = next ) {
 			next = kv->pNext;
-			if( free_kv_data && kv->pData ) {
-				free(kv->pData);
-				kv->pData = NULL;
-			}
-			free(kv);
-			kv = NULL;
+			kv->pData = NULL;
+			kv->strKey = NULL;
+			free(kv), kv = NULL;
 		}
 	}
 	if( d->table )
@@ -120,15 +134,15 @@ void dict_delete(dict *restrict d, const char *restrict szKey)
 		return;
 	
 	unsigned hash = gethash(szKey) % d->size;
-	kvnode_t	*kv = NULL,
-			*next = NULL;
-	
+	kvnode_t
+		*kv = NULL,
+		*next = NULL
+		;
 	for( kv = d->table[hash] ; kv ; kv = next ) {
 		next = kv->pNext;
 		if( !strcmp(kv->strKey, szKey) ) {
 			d->table[hash] = kv->pNext;
-			free(kv);
-			kv = NULL;
+			free(kv), kv = NULL;
 			d->count--;
 		}
 	}
@@ -136,7 +150,7 @@ void dict_delete(dict *restrict d, const char *restrict szKey)
 
 bool dict_has_key(const dict *restrict d, const char *restrict szKey)
 {
-	if( !d )
+	if( !d || !d->table )
 		return false;
 	
 	kvnode_t *prev;
@@ -176,9 +190,10 @@ void dict_rehash(dict *d)
 	curr = d->table;
 	d->table = temp;
 	
-	kvnode_t	*kv = NULL,
-			*next = NULL;
-	
+	kvnode_t
+		*kv = NULL,
+		*next = NULL
+		;
 	for( unsigned i=0 ; i<old_size ; ++i ) {
 		if( !curr[i] )
 			continue;
@@ -186,14 +201,28 @@ void dict_rehash(dict *d)
 			next = kv->pNext;
 			dict_insert(d, kv->strKey, kv->pData);
 			// free the inner nodes since they'll be re-hashed
-			free(kv);
-			kv = NULL;
-			printf("**** Rehashed Entry ****\n");
+			kv->strKey=NULL, kv->pData=NULL;
+			free(kv), kv = NULL;
+			//printf("**** Rehashed Entry ****\n");
 		}
 	}
 	if( curr )
 		free(curr);
 	curr = NULL;
+}
+
+const char *dict_get_key(const dict *restrict d, const char *restrict szKey)
+{
+	if( !d || !d->table )
+		return NULL;
+	
+	kvnode_t *prev;
+	unsigned hash = gethash(szKey) % d->size;
+	for( prev = d->table[hash] ; prev ; prev = prev->pNext )
+		if( !strcmp(prev->strKey, szKey) )
+			return prev->strKey;
+	
+	return NULL;
 }
 
 /*
@@ -207,3 +236,146 @@ unsigned long gethash(const char *szKey)
 	return h;
 }
 */
+
+bool dict_insert_int(dict *restrict d, const unsigned uikey, void *restrict pData)
+{
+	if( !d )
+		return false;
+	
+	if( d->size == 0 ) {
+		d->size = 8;
+		d->table = calloc(d->size, sizeof(kvnode_t));
+		
+		if( !d->table ) {
+			printf("**** Memory Allocation Error **** dict_insert_int::d->table is NULL\n");
+			d->size = 0;
+			return false;
+		}
+	}
+	else if( d->count >= d->size ) {
+		dict_rehash(d);
+		//printf("**** Rehashed Dictionary ****\n");
+		//printf("**** Dictionary Size is now %llu ****\n", d->size);
+	}
+	else if( dict_has_key_int(d, uikey) ) {
+		printf("dict_insert_int::d already has entry!\n");
+		return false;
+	}
+	
+	kvnode_t *node = malloc( sizeof(kvnode_t) );
+	if( !node ) {
+		printf("**** Memory Allocation Error **** dict_insert_int::node is NULL\n");
+		return false;
+	}
+	node->uiKey = uikey;
+	node->pData = pData;
+	
+	unsigned hash = int32hash(uikey) % d->size;
+	node->pNext = d->table[hash];
+	d->table[hash] = node;
+	++d->count;
+	return true;
+}
+
+void *dict_find_int(const dict *d, const unsigned uikey)
+{
+	if( !d )
+		return NULL;
+	else if( !d->table )
+		return NULL;
+	
+	kvnode_t *kv;
+	unsigned hash = int32hash(uikey) % d->size;
+	for( kv = d->table[hash] ; kv ; kv = kv->pNext )
+		if( kv->uiKey==uikey )
+			return kv->pData;
+	
+	return NULL;
+}
+
+void dict_delete_int(dict *d, const unsigned uikey)
+{
+	if( !d )
+		return;
+	
+	if( !dict_has_key_int(d, uikey) )
+		return;
+	
+	unsigned hash = int32hash(uikey) % d->size;
+	kvnode_t
+		*kv = NULL,
+		*next = NULL
+	;
+	for( kv = d->table[hash] ; kv ; kv = next ) {
+		next = kv->pNext;
+		if( kv->uiKey==uikey ) {
+			d->table[hash] = kv->pNext;
+			free(kv), kv = NULL;
+			d->count--;
+		}
+	}
+}
+bool dict_has_key_int(const dict *d, const unsigned uikey)
+{
+	if( !d )
+		return false;
+	
+	kvnode_t *prev;
+	unsigned hash = int32hash(uikey) % d->size;
+	for( prev = d->table[hash] ; prev ; prev = prev->pNext )
+		if( prev->uiKey==uikey )
+			return true;
+	
+	return false;
+}
+
+void dict_rehash_int(dict *d)
+{
+	if( !d )
+		return;
+	
+	unsigned old_size = d->size;
+	d->size <<= 1;
+	d->count = 0;
+	
+	kvnode_t **curr, **temp;
+	temp = calloc(d->size, sizeof(kvnode_t));
+	if( !temp ) {
+		printf("**** Memory Allocation Error **** dict_insert::temp is NULL\n");
+		d->size = 0;
+		return;
+	}
+	
+	curr = d->table;
+	d->table = temp;
+	
+	kvnode_t
+		*kv = NULL,
+		*next = NULL
+	;
+	for( unsigned i=0 ; i<old_size ; ++i ) {
+		if( !curr[i] )
+			continue;
+		for( kv = curr[i] ; kv ; kv = next ) {
+			next = kv->pNext;
+			dict_insert_int(d, kv->uiKey, kv->pData);
+			// free the inner nodes since they'll be re-hashed
+			free(kv), kv = NULL;
+			//printf("**** Rehashed Entry ****\n");
+		}
+	}
+	if( curr )
+		free(curr);
+	curr = NULL;
+}
+
+
+
+
+
+
+
+
+
+
+

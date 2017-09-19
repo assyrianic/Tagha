@@ -9,14 +9,14 @@
 #include "tagha.h"
 
 void *pLibTagha;
-uchar	*(*taghascript_getptr)(Script_t *, const Word_t);
-void	(*taghascript_pushint)(Script_t *, const uint);
-void	(*taghascript_pushlong)(Script_t *, const u64);
-uint	(*taghascript_popint)(Script_t *);
-u64		(*taghascript_poplong)(Script_t *);
+uint8_t		*(*taghascript_getptr)(Script_t *, const Word_t);
+void		(*taghascript_pushint)(Script_t *, const uint32_t);
+void		(*taghascript_pushlong)(Script_t *, const uint64_t);
+uint32_t	(*taghascript_popint)(Script_t *);
+uint64_t	(*taghascript_poplong)(Script_t *);
 
 /* void print_helloworld(void); */
-static void native_print_helloworld(Script_t *restrict script, const uint argc, const uint bytes)
+static void native_print_helloworld(Script_t *restrict script, const uint32_t argc, const uint32_t bytes)
 {
 	if( !script )
 		return;
@@ -25,7 +25,7 @@ static void native_print_helloworld(Script_t *restrict script, const uint argc, 
 }
 
 /* int puts(const char *s); */
-static void native_puts(Script_t *restrict script, const uint argc, const uint bytes)
+static void native_puts(Script_t *restrict script, const uint32_t argc, const uint32_t bytes)
 {
 	if( !script )
 		return;
@@ -34,7 +34,7 @@ static void native_puts(Script_t *restrict script, const uint argc, const uint b
 	Word_t addr = (*taghascript_popint)(script);
 	
 	// using addr to retrieve the physical pointer of the string.
-	uchar *stkptr = (*taghascript_getptr)(script, addr);
+	uint8_t *stkptr = (*taghascript_getptr)(script, addr);
 	if( !stkptr ) {
 		(*taghascript_pushint)(script, -1);
 		return;
@@ -47,7 +47,7 @@ static void native_puts(Script_t *restrict script, const uint argc, const uint b
 }
 
 /* int printf(const char *fmt, ...); */
-static void native_printf(Script_t *restrict script, const uint argc, const uint bytes)
+static void native_printf(Script_t *restrict script, const uint32_t argc, const uint32_t bytes)
 {
 	if( !script )
 		return;
@@ -56,7 +56,7 @@ static void native_printf(Script_t *restrict script, const uint argc, const uint
 	Word_t addr = (*taghascript_popint)(script);
 	
 	// using addr to retrieve the physical pointer of the string.
-	uchar *stkptr = (*taghascript_getptr)(script, addr);
+	uint8_t *stkptr = (*taghascript_getptr)(script, addr);
 	if( !stkptr ) {
 		(*taghascript_pushint)(script, -1);
 		return;
@@ -64,13 +64,13 @@ static void native_printf(Script_t *restrict script, const uint argc, const uint
 	// cast the physical pointer to char* string.
 	const char *str = (const char *)stkptr;
 	char *iter=(char *)str;
-	int chrs=0;
+	int32_t chrs=0;
 	
 	if( !pLibTagha )
 		return;
 	
 	double (*popdbl)(Script_t *) = dlsym(pLibTagha, "TaghaScript_pop_float64");
-	uchar (*popbyte)(Script_t *) = dlsym(pLibTagha, "TaghaScript_pop_byte");
+	uint8_t (*popbyte)(Script_t *) = dlsym(pLibTagha, "TaghaScript_pop_byte");
 	
 	while( *iter ) {
 		if( *iter=='%' ) {
@@ -103,7 +103,7 @@ static void native_printf(Script_t *restrict script, const uint argc, const uint
 					
 				case 'i':
 				case 'd':
-					chrs += sprintf(data_buffer, "%i", (int)(*taghascript_popint)(script));
+					chrs += sprintf(data_buffer, "%i", (int32_t)(*taghascript_popint)(script));
 					printf(data_buffer);
 					break;
 					
@@ -143,19 +143,19 @@ static void native_printf(Script_t *restrict script, const uint argc, const uint
 		chrs++, iter++;
 	}
 	iter = NULL;
-	(*taghascript_pushint)(script, (uint)chrs);
+	(*taghascript_pushint)(script, (uint32_t)chrs);
 }
 
 /* void test_ptr(struct player *p); */
-static void native_test_ptr(Script_t *restrict script, const uint argc, const uint bytes)
+static void native_test_ptr(Script_t *restrict script, const uint32_t argc, const uint32_t bytes)
 {
 	if( !script )
 		return;
 	
 	struct Player {
 		float	speed;
-		uint	health;
-		uint	ammo;
+		uint32_t	health;
+		uint32_t	ammo;
 	} *player=NULL;
 	
 	// get first arg which is the memory address to our data.
@@ -167,7 +167,7 @@ static void native_test_ptr(Script_t *restrict script, const uint argc, const ui
 	 * ammo is pushed first, then health, then finally the speed float.
 	 * then we get the value from the stack and cast it to our struct!
 	*/
-	uchar *stkptr = (*taghascript_getptr)(script, addr);
+	uint8_t *stkptr = (*taghascript_getptr)(script, addr);
 	if( !stkptr )
 		return;
 	player = (struct Player *)stkptr;
@@ -179,7 +179,7 @@ static void native_test_ptr(Script_t *restrict script, const uint argc, const ui
 }
 
 /* FILE *fopen(const char *filename, const char *modes); */
-static void native_fopen(Script_t *restrict script, const uint argc, const uint bytes)
+static void native_fopen(Script_t *restrict script, const uint32_t argc, const uint32_t bytes)
 {
 	if( !script )
 		return;
@@ -187,12 +187,12 @@ static void native_fopen(Script_t *restrict script, const uint argc, const uint 
 	Word_t filename_addr = (*taghascript_popint)(script);
 	Word_t modes_addr = (*taghascript_popint)(script);
 	
-	uchar *stkptr_filestr = (*taghascript_getptr)(script, filename_addr);
+	uint8_t *stkptr_filestr = (*taghascript_getptr)(script, filename_addr);
 	if( !stkptr_filestr ) {
 		(*taghascript_pushint)(script, 0);
 		return;
 	}
-	uchar *stkptr_modes = (*taghascript_getptr)(script, modes_addr);
+	uint8_t *stkptr_modes = (*taghascript_getptr)(script, modes_addr);
 	if( !stkptr_modes ) {
 		(*taghascript_pushint)(script, 0);
 		return;
@@ -220,13 +220,13 @@ static void native_fopen(Script_t *restrict script, const uint argc, const uint 
 }
 
 /* int fclose(FILE *stream); */
-static void native_fclose(Script_t *restrict script, const uint argc, const uint bytes)
+static void native_fclose(Script_t *restrict script, const uint32_t argc, const uint32_t bytes)
 {
 	if( !script )
 		return;
 	
 	Word_t addr = (*taghascript_popint)(script);
-	uchar *stkptr = (*taghascript_getptr)(script, addr);
+	uint8_t *stkptr = (*taghascript_getptr)(script, addr);
 	if( !stkptr ) {
 		(*taghascript_pushint)(script, -1);
 		return;
@@ -241,7 +241,7 @@ static void native_fclose(Script_t *restrict script, const uint argc, const uint
 }
 
 /* void *malloc(size_t size); */
-static void native_malloc(Script_t *restrict script, const uint argc, const uint bytes)
+static void native_malloc(Script_t *restrict script, const uint32_t argc, const uint32_t bytes)
 {
 	if( !script )
 		return;
@@ -267,7 +267,7 @@ static void native_malloc(Script_t *restrict script, const uint argc, const uint
 }
 
 /* void free(void *ptr); */
-static void native_free(Script_t *restrict script, const uint argc, const uint bytes)
+static void native_free(Script_t *restrict script, const uint32_t argc, const uint32_t bytes)
 {
 	if( !script )
 		return;
@@ -276,7 +276,7 @@ static void native_free(Script_t *restrict script, const uint argc, const uint b
 	// get physical ptr then cast to an int that's big enough to hold a pointer
 	// then cast to void pointer.
 	Word_t addr = (*taghascript_popint)(script);
-	uchar *stkptr = (*taghascript_getptr)(script, addr);
+	uint8_t *stkptr = (*taghascript_getptr)(script, addr);
 	if( !stkptr )
 		return;
 	
@@ -284,6 +284,37 @@ static void native_free(Script_t *restrict script, const uint argc, const uint b
 	if( ptr )
 		printf("native_free :: ptr is VALID, freeing...\n"), free(ptr), ptr=NULL;
 }
+
+/* void callfunc( void (*f)(void) ); */
+static void native_callfunc(Script_t *restrict script, const uint32_t argc, const uint32_t bytes)
+{
+	if( !script )
+		return;
+	
+	// addr is the function address.
+	Word_t addr = (*taghascript_popint)(script);
+	printf("native_callfunc :: func ptr addr: %u\n", addr);
+	// call our function which should push any return value back for us to pop.
+	void (*call_func_by_addr)(Script_t *, const uint32_t) = dlsym(pLibTagha, "TaghaScript_call_func_by_addr");
+	(*call_func_by_addr)(script, addr);
+	printf("native_callfunc :: invoking.\n");
+	//TaghaScript_call_func_by_name(script, "f");
+}
+
+/* void getglobal(void); */
+static void native_getglobal(Script_t *restrict script, const uint32_t argc, const uint32_t bytes)
+{
+	if( !script )
+		return;
+	
+	void (*get_global_by_name)(Script_t *, const char *) = dlsym(pLibTagha, "TaghaScript_get_global_by_name");
+	uint8_t *p = (*get_global_by_name)(script, "i");
+	if( !p )
+		return;
+	
+	printf("native_getglobal :: i == %i\n", *(int *)p);
+}
+
 
 int main(int argc, char **argv)
 {
@@ -323,14 +354,14 @@ int main(int argc, char **argv)
 	(*taghaReg)(&vm, host_natives);
 	
 	void (*taghaLoad)(TaghaVM_t *, char *) = dlsym(pLibTagha, "Tagha_load_script");
-	uint i;
+	uint32_t i;
 	for( i=argc-1 ; i ; i-- )
 		(*taghaLoad)(&vm, argv[i]);
 		
 	void (*taghaExec)(TaghaVM_t *) = dlsym(pLibTagha, "Tagha_exec");
 	(*taghaExec)(&vm);
 	/*
-	int x;
+	int32_t x;
 	do {
 		printf("0 or less to exit.\n");
 		scanf("%i", &x);

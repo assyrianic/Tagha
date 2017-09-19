@@ -62,11 +62,11 @@ def asmlify(lines:list) -> list:
 		print(line);
 
 
-def wrt_hdr(f, memsize:int):
+def wrt_hdr(f, memsize:int) -> None:
 	f.write(0xC0DE.to_bytes(2, byteorder='little'));
 	f.write(memsize.to_bytes(4, byteorder='little'));
 
-def wrt_hdr_natives(f, *natives):
+def wrt_hdr_natives(f, *natives) -> None:
 	i = 0;
 	numnatives = len(natives);
 	f.write(numnatives.to_bytes(4, byteorder='little'));
@@ -78,7 +78,7 @@ def wrt_hdr_natives(f, *natives):
 		f.write(0x0.to_bytes(1, byteorder='little'));
 		i += 1;
 
-def wrt_hdr_funcs(f, *funcs):
+def wrt_hdr_funcs(f, *funcs) -> None:
 	i = 0;
 	numfuncs = len(funcs) // 3;
 	f.write(numfuncs.to_bytes(4, byteorder='little'));
@@ -95,7 +95,7 @@ def wrt_hdr_funcs(f, *funcs):
 		f.write(funcs[i].to_bytes(4, byteorder='little'));
 		i += 1;
 
-def wrt_hdr_globals(f, *lGlobals):
+def wrt_hdr_globals(f, *lGlobals) -> None:
 	i = 0;
 	numglobals = len(lGlobals) // 4;
 	f.write(numglobals.to_bytes(4, byteorder='little'));
@@ -196,7 +196,7 @@ with open('endian_test1.tbc', 'wb+') as tbc:
 	wrt_hdr_natives(tbc);
 	wrt_hdr_funcs(tbc, 'main', 0, 6);
 	wrt_hdr_globals(tbc, 'i', 16-4, 4, 0x0a0b0c0d);
-	wrt_hdr_footer(tbc, entry=0, safemode=False);
+	wrt_hdr_footer(tbc, entry=0);
 	
 	wrt_1op_4byte(tbc, opcodes.call, 6); #0-4 "call 6,0,0,0"
 	wrt_opcode(tbc, opcodes.halt); #5	"halt"
@@ -305,7 +305,7 @@ with open('test_recursion.tbc', 'wb+') as tbc:
 	wrt_hdr_natives(tbc);
 	wrt_hdr_funcs(tbc, 'recursive', 0, 6);
 	wrt_hdr_globals(tbc);
-	wrt_hdr_footer(tbc, entry=0);
+	wrt_hdr_footer(tbc, entry=0, safemode=True, debugmode=False);
 	
 	wrt_1op_4byte(tbc, opcodes.call, 6);
 	wrt_opcode(tbc, opcodes.halt);
@@ -505,9 +505,93 @@ with open('test_globalvars.tbc', 'wb+') as tbc:
 	wrt_callnat(tbc, 0, 8, 2);	# call printf
 	wrt_pushl(tbc, 0);
 	wrt_1op_4byte(tbc, opcodes.retx, 4);	# return 0;
+	
+'''
+void f() {
+}
 
+int main()
+{
+	void (*z)(void);
+	callfunc(z);
+	return 0;
+}
+'''
+with open('test_funcptr_native.tbc', 'wb+') as tbc:
+	wrt_hdr(tbc, 17);
+	wrt_hdr_natives(tbc, 'callfunc');
+	wrt_hdr_funcs(tbc, 'main', 0, 16, 'f', 1, 0);
+	wrt_hdr_globals(tbc);
+	wrt_hdr_footer(tbc, entry=10);
+	
+	wrt_pushl(tbc, 0); #0-4	push 'f''s func address
+	wrt_1op_4byte(tbc, opcodes.retx, 4); #5-9		return 0
+	
+	wrt_1op_4byte(tbc, opcodes.call, 16); #10-14	call main
+	wrt_opcode(tbc, opcodes.halt); #15	exit main
+	
+	wrt_pushl(tbc, 0);
+	wrt_callnat(tbc, 0, 4, 1);
+	wrt_pushl(tbc, 0);
+	wrt_1op_4byte(tbc, opcodes.retx, 4);	# return 0;
 
+'''
+int i;
+int f(void) {
+	return i;
+}
+float e;
 
+int main(void)
+{
+	int l = 5;
+	printf( "%i\n", f()+l );
+	return 0;
+}
+'''
+with open('test_loadgbl.tbc', 'wb+') as tbc:
+	wrt_hdr(tbc, 17);
+	wrt_hdr_natives(tbc, 'getglobal');
+	wrt_hdr_funcs(tbc, 'main', 0, 6);
+	wrt_hdr_globals(tbc, 'i', 16-4, 4, 4294967196);
+	wrt_hdr_footer(tbc, entry=0);
+	
+	wrt_1op_4byte(tbc, opcodes.call, 6); #0-4	call main
+	wrt_opcode(tbc, opcodes.halt); #5	exit main
+	
+	#wrt_pushl(tbc, 16-4);	# load string literal
+	wrt_callnat(tbc, 0, 0, 0);	# call printf
+	wrt_pushl(tbc, 0);
+	wrt_1op_4byte(tbc, opcodes.retx, 4);	# return 0;
+	
+'''
+void f() {
+}
+
+int main()
+{
+	void (*z)(void);
+	callfunc(z);
+	return 0;
+}
+'''
+with open('test_call_func_by_name.tbc', 'wb+') as tbc:
+	wrt_hdr(tbc, 17);
+	wrt_hdr_natives(tbc, 'callfunc');
+	wrt_hdr_funcs(tbc, 'main', 0, 16, 'f', 1, 0);
+	wrt_hdr_globals(tbc);
+	wrt_hdr_footer(tbc, entry=10);
+	
+	wrt_pushl(tbc, 0); #0-4	push 'f''s func address
+	wrt_1op_4byte(tbc, opcodes.retx, 4); #5-9		return 0
+	
+	wrt_1op_4byte(tbc, opcodes.call, 16); #10-14	call main
+	wrt_opcode(tbc, opcodes.halt); #15	exit main
+	
+	wrt_pushl(tbc, 0);
+	wrt_callnat(tbc, 0, 4, 1);
+	wrt_pushl(tbc, 0);
+	wrt_1op_4byte(tbc, opcodes.retx, 4);	# return 0;
 
 
 
