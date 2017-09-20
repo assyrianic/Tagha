@@ -11,21 +11,27 @@
 #define INSTR_SET	\
 	X(halt) \
 	X(pushq) X(pushl) X(pushs) X(pushb) X(pushsp) X(puship) X(pushbp) \
-	X(pushspadd) X(pushspsub) X(pushbpadd) X(pushbpsub) \
+	X(pushspadd) X(pushspsub) X(pushbpadd) X(pushbpsub) X(pushipadd) X(pushipsub) \
+	\
 	X(popq) X(popl) X(pops) X(popb) X(popsp) X(popip) X(popbp) \
+	\
 	X(storespq) X(storespl) X(storesps) X(storespb) \
 	X(loadspq) X(loadspl) X(loadsps) X(loadspb) \
+	\
 	X(copyq) X(copyl) X(copys) X(copyb) \
+	\
 	X(addq) X(uaddq) X(addl) X(uaddl) X(addf) \
 	X(subq) X(usubq) X(subl) X(usubl) X(subf) \
 	X(mulq) X(umulq) X(mull) X(umull) X(mulf) \
 	X(divq) X(udivq) X(divl) X(udivl) X(divf) \
 	X(modq) X(umodq) X(modl) X(umodl) \
 	X(addf64) X(subf64) X(mulf64) X(divf64) \
+	\
 	X(andl) X(orl) X(xorl) X(notl) X(shll) X(shrl) \
 	X(andq) X(orq) X(xorq) X(notq) X(shlq) X(shrq) \
 	X(incq) X(incl) X(incf) X(decq) X(decl) X(decf) X(negq) X(negl) X(negf) \
 	X(incf64) X(decf64) X(negf64) \
+	\
 	X(ltq) X(ltl) X(ultq) X(ultl) X(ltf) \
 	X(gtq) X(gtl) X(ugtq) X(ugtl) X(gtf) \
 	X(cmpq) X(cmpl) X(ucmpq) X(ucmpl) X(compf) \
@@ -33,6 +39,7 @@
 	X(geqq) X(ugeqq) X(geql) X(ugeql) X(geqf) \
 	X(ltf64) X(gtf64) X(cmpf64) X(leqf64) X(geqf64) \
 	X(neqq) X(uneqq) X(neql) X(uneql) X(neqf) X(neqf64) \
+	\
 	X(jmp) X(jzq) X(jnzq) X(jzl) X(jnzl) \
 	X(call) X(calls) X(ret) X(retx) X(reset) \
 	X(pushnataddr) X(callnat) X(callnats) \
@@ -521,6 +528,22 @@ void Tagha_exec(TaghaVM_t *vm)
 				_TaghaScript_push_int32(script, a-b);
 				if( debugmode )
 					printf("pushbpsub: subbed bp with %" PRIu32 ", result: %" PRIu32 "\n", b, a-b);
+				DISPATCH();
+			
+			exec_pushipadd:;
+				a = script->ip;
+				b = _TaghaScript_pop_int32(script);
+				_TaghaScript_push_int32(script, a+b);
+				if( debugmode )
+					printf("pushipadd: added ip with %" PRIu32 ", result: %" PRIu32 "\n", b, a+b);
+				DISPATCH();
+				
+			exec_pushipsub:;
+				a = script->ip;
+				b = _TaghaScript_pop_int32(script);
+				_TaghaScript_push_int32(script, a-b);
+				if( debugmode )
+					printf("pushipsub: subbed ip with %" PRIu32 ", result: %" PRIu32 "\n", b, a-b);
 				DISPATCH();
 			
 			exec_popq:;
@@ -1622,6 +1645,44 @@ void Tagha_exec(TaghaVM_t *vm)
 				_TaghaScript_push_int32(script, script->bp);	// push ebp
 				script->bp = script->sp;	// mov ebp, esp
 				script->ip = conv.ui;	// jump to instruction
+				
+				if( debugmode )
+					printf("script->bp: %" PRIu32 "\n", script->sp);
+				continue;
+			
+			exec_callrel:;
+				conv.ui = _TaghaScript_get_imm4(script);	// get func address
+				if( debugmode )
+					printf("call :: calling address: %" PRIu32 "\n", conv.ui);
+					
+				_TaghaScript_push_int32(script, script->ip+1);	// save return address.
+				if( debugmode )
+					printf("call :: return addr: %" PRIu32 "\n", script->ip+1);
+				
+				script->ip += conv.ui;	// jump to relative instruction
+					
+				_TaghaScript_push_int32(script, script->bp);	// push ebp;
+				if( debugmode )
+					printf("call :: pushing bp: %" PRIu32 "\n", script->bp);
+				script->bp = script->sp;	// mov ebp, esp;
+				
+				if( debugmode )
+					printf("call :: bp set to sp: %" PRIu32 "\n", script->bp);
+				continue;
+			
+			exec_callsrel:;
+				conv.ui = _TaghaScript_pop_int32(script);	// get func address
+				if( debugmode )
+					printf("calls: calling address: %" PRIu32 "\n", conv.ui);
+					
+				_TaghaScript_push_int32(script, script->ip+1);	// save return address.
+				
+				if( debugmode )
+					printf("call return addr: %" PRIu32 "\n", _TaghaScript_peek_int32(script));
+				
+				_TaghaScript_push_int32(script, script->bp);	// push ebp
+				script->bp = script->sp;	// mov ebp, esp
+				script->ip += conv.ui;	// jump to instruction
 				
 				if( debugmode )
 					printf("script->bp: %" PRIu32 "\n", script->sp);

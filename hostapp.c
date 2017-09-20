@@ -309,6 +309,24 @@ static void native_getglobal(Script_t *restrict script, const uint32_t argc, con
 	printf("native_getglobal :: i == %i\n", *(int *)p);
 }
 
+/* void callfuncname( const char *func ); */
+static void native_callfuncname(Script_t *restrict script, const uint32_t argc, const uint32_t bytes)
+{
+	if( !script )
+		return;
+	
+	// addr is the function address.
+	Word_t addr = TaghaScript_pop_int32(script);
+	printf("native_callfuncname :: func ptr addr: %u\n", addr);
+	uint8_t *stkptr = TaghaScript_addr2ptr(script, addr);
+	if( !stkptr ) {
+		puts("native_callfuncname reported an ERROR :: **** param 'func' is NULL ****\n");
+		return;
+	}
+	TaghaScript_call_func_by_name(script, (const char *)stkptr);
+	printf("native_callfuncname :: finished calling script : \'%s\'\n", (const char *)stkptr);
+}
+
 
 int main(int argc, char **argv)
 {
@@ -331,6 +349,7 @@ int main(int argc, char **argv)
 		{"free", native_free},
 		{"callfunc", native_callfunc},
 		{"getglobal", native_getglobal},
+		{"callfuncname", native_callfuncname},
 		{NULL, NULL}
 	};
 	Tagha_register_natives(&vm, host_natives);

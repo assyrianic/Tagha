@@ -308,11 +308,32 @@ static void native_getglobal(Script_t *restrict script, const uint32_t argc, con
 		return;
 	
 	void (*get_global_by_name)(Script_t *, const char *) = dlsym(pLibTagha, "TaghaScript_get_global_by_name");
+	assert( get_global_by_name );
 	uint8_t *p = (*get_global_by_name)(script, "i");
 	if( !p )
 		return;
 	
 	printf("native_getglobal :: i == %i\n", *(int *)p);
+}
+
+/* void callfuncname( const char *func ); */
+static void native_callfuncname(Script_t *script, const uint32_t argc, const uint32_t bytes)
+{
+	if( !script )
+		return;
+	
+	// addr is the function address.
+	Word_t addr = (*taghascript_popint)(script);
+	printf("native_callfuncname :: func ptr addr: %u\n", addr);
+	uint8_t *stkptr = (*taghascript_getptr)(script, addr);
+	if( !stkptr ) {
+		puts("native_callfuncname reported an ERROR :: **** param 'func' is NULL ****\n");
+		return;
+	}
+	void (*call_func_by_name)(Script_t *, const char *) = dlsym(pLibTagha, "TaghaScript_call_func_by_name");
+	assert( call_func_by_name );
+	(*call_func_by_name)(script, (const char *)stkptr);
+	printf("native_callfuncname :: finished calling script : \'%s\'\n", (const char *)stkptr);
 }
 
 
@@ -348,6 +369,9 @@ int main(int argc, char **argv)
 		{"fclose", native_fclose},
 		{"malloc", native_malloc},
 		{"free", native_free},
+		{"callfunc", native_callfunc},
+		{"getglobal", native_getglobal},
+		{"callfuncname", native_callfuncname},
 		{NULL, NULL}
 	};
 	void (*taghaReg)(TaghaVM_t *, NativeInfo_t *) = dlsym(pLibTagha, "Tagha_register_natives");

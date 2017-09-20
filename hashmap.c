@@ -13,7 +13,7 @@ static unsigned gethash(const char *szKey)
 	return h;
 }
 
-unsigned int32hash(unsigned x) {
+static unsigned int32hash(unsigned x) {
     x = ((x >> 16) ^ x) * 0x45d9f3b;
     x = ((x >> 16) ^ x) * 0x45d9f3b;
     x = (x >> 16) ^ x;
@@ -236,7 +236,7 @@ unsigned long gethash(const char *szKey)
 	return h;
 }
 */
-
+/*
 bool dict_insert_int(dict *restrict d, const unsigned uikey, void *restrict pData)
 {
 	if( !d )
@@ -368,10 +368,7 @@ void dict_rehash_int(dict *d)
 		free(curr);
 	curr = NULL;
 }
-
-
-
-
+*/
 
 
 
