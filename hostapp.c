@@ -31,6 +31,7 @@ static void native_puts(Script_t *restrict script, const uint32_t argc, const ui
 	uint8_t *stkptr = TaghaScript_addr2ptr(script, addr);
 	if( !stkptr ) {
 		TaghaScript_push_int32(script, -1);
+		puts("native_puts reported an ERROR :: **** param 's' is NULL ****\n");
 		return;
 	}
 	// cast the physical pointer to char*.
@@ -54,6 +55,7 @@ static void native_printf(Script_t *restrict script, const uint32_t argc, const 
 	uint8_t *stkptr = TaghaScript_addr2ptr(script, addr);
 	if( !stkptr ) {
 		TaghaScript_push_int32(script, -1);
+		puts("native_printf reported an ERROR :: **** param 'fmt' is NULL ****\n");
 		return;
 	}
 	// cast the physical pointer to char*.
@@ -157,8 +159,10 @@ static void native_test_ptr(Script_t *restrict script, const uint32_t argc, cons
 	 * then we get the value from the stack and cast it to our struct!
 	*/
 	uint8_t *stkptr = TaghaScript_addr2ptr(script, addr);
-	if( !stkptr )
+	if( !stkptr ) {
+		puts("native_test_ptr reported an ERROR :: **** param 'p' is NULL ****\n");
 		return;
+	}
 	player = (struct Player *)stkptr;
 	
 	// debug print to see if our data is accurate.
@@ -178,11 +182,13 @@ static void native_fopen(Script_t *restrict script, const uint32_t argc, const u
 	
 	uint8_t *stkptr_filestr = TaghaScript_addr2ptr(script, filename_addr);
 	if( !stkptr_filestr ) {
+		puts("native_fopen reported an ERROR :: **** param 'filename' is NULL ****\n");
 		TaghaScript_push_int32(script, 0);
 		return;
 	}
 	uint8_t *stkptr_modes = TaghaScript_addr2ptr(script, modes_addr);
 	if( !stkptr_modes ) {
+		puts("native_fopen reported an ERROR :: **** param 'modes' is NULL ****\n");
 		TaghaScript_push_int32(script, 0);
 		return;
 	}
@@ -217,6 +223,7 @@ static void native_fclose(Script_t *restrict script, const uint32_t argc, const 
 	Word_t addr = TaghaScript_pop_int32(script);
 	uint8_t *stkptr = TaghaScript_addr2ptr(script, addr);
 	if( !stkptr ) {
+		puts("native_fclose reported an ERROR :: **** param 'stream' is NULL ****\n");
 		TaghaScript_push_int32(script, -1);
 		return;
 	}
@@ -265,8 +272,10 @@ static void native_free(Script_t *restrict script, const uint32_t argc, const ui
 	// then cast to void pointer.
 	Word_t addr = TaghaScript_pop_int32(script);
 	uint8_t *stkptr = TaghaScript_addr2ptr(script, addr);
-	if( !stkptr )
+	if( !stkptr ) {
+		puts("native_free reported an ERROR :: **** param 'ptr' is NULL ****\n");
 		return;
+	}
 	
 	void *ptr = (void *) *(uintptr_t *)stkptr;
 	if( ptr )

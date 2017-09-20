@@ -49,7 +49,8 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 		return;
 	}
 	
-	Script_t *script = malloc(sizeof(Script_t));
+	Script_t *script = NULL;
+	script = malloc(sizeof(Script_t));
 	if( script ) {
 		script->pInstrStream = NULL;
 		script->pbMemory = NULL;
@@ -209,7 +210,7 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 			
 			
 			fread(&script->ip, sizeof(uint32_t), 1, pFile);
-			printf("Tagha_load_script :: ip starts at %" PRIu32 "\n", script->ip);
+			printf("Tagha_load_script :: entry ip starts at %" PRIu32 "\n", script->ip);
 			bytecount += 4;
 			
 			fread(&script->bSafeMode, sizeof(bool), 1, pFile);
@@ -622,14 +623,14 @@ uint8_t *TaghaScript_addr2ptr(Script_t *restrict script, const Word_t stk_addres
 	return( script->pbMemory + stk_address );
 }
 
-void TaghaScript_call_func_by_name(Script_t *restrict script, const char *restrict funcname)
+void TaghaScript_call_func_by_name(Script_t *restrict script, const char *restrict strFunc)
 {
-	if( !script or !funcname )
+	if( !script or !strFunc )
 		return;
 	else if( !script->pmapFuncs )
 		return;
 	
-	FuncTable_t	*pFuncs = dict_find(script->pmapFuncs, funcname);
+	FuncTable_t	*pFuncs = dict_find(script->pmapFuncs, strFunc);
 	if( pFuncs ) {
 		bool debugmode = script->bDebugMode;
 		uint32_t func_addr = pFuncs->uiEntry;

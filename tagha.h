@@ -46,6 +46,18 @@ typedef struct nativeinfo {
 	fnNative_t	pFunc;
 } NativeInfo_t;
 
+bool		Tagha_register_natives(TaghaVM_t *vm, NativeInfo_t *arrNatives);
+
+
+typedef struct typeinfo {
+	const char	*strType;
+	void		*pAddr;
+	uint32_t	uiSize;
+} TypeInfo_t;
+
+bool		Tagha_register_type(TaghaVM_t *vm, TypeInfo_t *arrTypes);
+
+
 /* Script File Structure.
  * magic verifier
  * Stack Vector
@@ -55,13 +67,11 @@ typedef struct nativeinfo {
  */
 
 typedef struct func_tbl {
-	//char		*pFuncName;
 	uint32_t	uiParams;
 	uint32_t	uiEntry;
 } FuncTable_t;
 
 typedef struct data_tbl {
-	//char		*pVarName;
 	uint32_t	uiBytes;
 	uint32_t	uiAddress;
 } DataTable_t;
@@ -112,7 +122,6 @@ void		Tagha_init(TaghaVM_t *vm);
 void		Tagha_load_script(TaghaVM_t *vm, char *filename);
 void		Tagha_free(TaghaVM_t *vm);
 void		Tagha_exec(TaghaVM_t *vm);
-bool		Tagha_register_natives(TaghaVM_t *vm, NativeInfo_t *arrNatives);
 
 void		TaghaScript_debug_print_ptrs(const Script_t *script);
 void		TaghaScript_debug_print_memory(const Script_t *script);
@@ -157,7 +166,7 @@ void		TaghaScript_pop_nbytes(Script_t *script, void *pBuffer, const Word_t bytes
 
 uint8_t		*TaghaScript_addr2ptr(Script_t *script, const Word_t stk_address);
 
-void		TaghaScript_call_func_by_name(Script_t *script, const char *funcname);
+void		TaghaScript_call_func_by_name(Script_t *script, const char *strFunc);
 void		TaghaScript_call_func_by_addr(Script_t *script, const Word_t func_addr);
 
 uint8_t		*TaghaScript_get_global_by_name(Script_t *script, const char *strGlobalName);

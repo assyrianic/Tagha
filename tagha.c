@@ -380,15 +380,15 @@ void Tagha_exec(TaghaVM_t *vm)
 	// our value temporaries
 	union conv_union conv, convb;
 	uint32_t	b,a;
-	uint64_t		qb,qa;
-	double	db,da;
-	float	fb,fa;
+	uint64_t	qb,qa;
+	double		db,da;
+	float		fb,fa;
 	uint16_t	sb,sa;
-	uint8_t	cb,ca;
+	uint8_t		cb,ca;
 	long double	ldb, lda;
-	fnNative_t pfNative;
-	bool safemode;
-	bool debugmode;
+	fnNative_t	pfNative = NULL;
+	bool		safemode;
+	bool		debugmode;
 	
 #define X(x) #x ,
 	// for debugging purposes.
@@ -565,7 +565,7 @@ void Tagha_exec(TaghaVM_t *vm)
 				
 			exec_popsp:;
 				script->sp = _TaghaScript_pop_int32(script);
-				if( safemode )
+				if( debugmode )
 					printf("popsp: sp is now %" PRIu32 " bytes.\n", script->sp);
 				DISPATCH();
 				
