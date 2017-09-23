@@ -62,8 +62,8 @@ bool		Tagha_register_type(TaghaVM_t *vm, TypeInfo_t *arrTypes);
  * magic verifier
  * Stack Vector
  * Native Table Vector
- * Func Table Vector
- * Data Table Vector
+ * Func Table Dictionary
+ * Data Table Dictionary
  */
 
 typedef struct func_tbl {
@@ -76,11 +76,17 @@ typedef struct data_tbl {
 	uint32_t	uiAddress;
 } DataTable_t;
 
+typedef struct handle {
+	void		*pHostPtr;
+	uint32_t	uiHNDL;
+} Handle_t;
+
 struct TaghaScript {
 	uint8_t		*pbMemory, *pInstrStream;
-	char		**ppstrNatives;		// natives table as stored strings.
+	char		**pstrNatives;	// natives table as stored strings.
 	dict		*pmapFuncs;		// stores the functions compiled to script.
 	dict		*pmapGlobals;	// stores global vars.
+	vector		*pvecHostData;
 	Word_t		ip, sp, bp;
 	uint32_t
 		uiMemsize,
@@ -109,6 +115,8 @@ union conv_union {	// converter union. for convenience
 	double		dbl;
 	uint8_t		c[8];
 	
+	uint64_t	mmx_ull[2];
+	int64_t		mmx_ll[2];
 	uint32_t	mmx_ui[4];
 	int32_t		mmx_i[4];
 	float		mmx_f[4];
@@ -139,7 +147,6 @@ bool		TaghaScript_safemode_active(const Script_t *script);
 bool		TaghaScript_debug_active(const Script_t *script);
 
 
-
 void		TaghaScript_push_longfloat(Script_t *script, const long double val);
 long double	TaghaScript_pop_longfloat(Script_t *script);
 
@@ -164,12 +171,22 @@ uint8_t		TaghaScript_pop_byte(Script_t *script);
 void		TaghaScript_push_nbytes(Script_t *script, void *pItem, const Word_t bytesize);
 void		TaghaScript_pop_nbytes(Script_t *script, void *pBuffer, const Word_t bytesize);
 
+/*
+ * IDEA : have pointer dereferencing by load/store sp
+ * actually dereference the address instead of using an address
+ * as a relative offset array index.
+ */
 uint8_t		*TaghaScript_addr2ptr(Script_t *script, const Word_t stk_address);
 
 void		TaghaScript_call_func_by_name(Script_t *script, const char *strFunc);
 void		TaghaScript_call_func_by_addr(Script_t *script, const Word_t func_addr);
 
-uint8_t		*TaghaScript_get_global_by_name(Script_t *script, const char *strGlobalName);
+void		*TaghaScript_get_global_by_name(Script_t *script, const char *strGlobalName);
+
+uint32_t	TaghaScript_store_hostdata(Script_t *script, void *data);
+void		*TaghaScript_get_hostdata(Script_t *script, const uint32_t id);
+void		TaghaScript_del_hostdata(Script_t *script, const uint32_t id);
+void		TaghaScript_free_hostdata(Script_t *script);
 
 #ifdef __cplusplus
 }

@@ -196,20 +196,14 @@ static void native_fopen(Script_t *restrict script, const uint32_t argc, const u
 	const char *filename = (const char *)stkptr_filestr;
 	const char *mode = (const char *)stkptr_modes;
 	
-	const unsigned ptrsize = sizeof(FILE *);
 	FILE *pFile = fopen(filename, mode);
 	if( pFile ) {
 		printf("native_fopen:: opening file \'%s\' with mode: \'%s\'\n", filename, mode);
-		if( ptrsize==4 )
-			TaghaScript_push_int32(script, (uintptr_t)pFile);
-		else TaghaScript_push_int64(script, (uintptr_t)pFile);
-		TaghaScript_push_int32(script, script->sp);
+		uint32_t addr = TaghaScript_store_hostdata(script, pFile);
+		TaghaScript_push_int32(script, addr);
 	}
 	else {
 		printf("failed to get filename: \'%s\'\n", filename);
-		if( ptrsize==4 )
-			TaghaScript_push_int32(script, 0);
-		else TaghaScript_push_int64(script, 0L);
 		TaghaScript_push_int32(script, 0);
 	}
 }
@@ -220,20 +214,22 @@ static void native_fclose(Script_t *restrict script, const uint32_t argc, const 
 	if( !script )
 		return;
 	
-	Word_t addr = TaghaScript_pop_int32(script);
-	uint8_t *stkptr = TaghaScript_addr2ptr(script, addr);
-	if( !stkptr ) {
-		puts("native_fclose reported an ERROR :: **** param 'stream' is NULL ****\n");
-		TaghaScript_push_int32(script, -1);
+	uint32_t addr = TaghaScript_pop_int32(script);
+	if( addr == 0xFFFFFFFF )
 		return;
-	}
-	FILE *pFile = (FILE *) *(uintptr_t *)stkptr;
+	
+	FILE *pFile = TaghaScript_get_hostdata(script, addr);
 	if( pFile ) {
 		printf("native_fclose:: closing FILE*\n");
 		TaghaScript_push_int32(script, fclose(pFile));
 		pFile=NULL;
+		// erases the dangling reference from host data.
+		TaghaScript_del_hostdata(script, addr);
 	}
-	else printf("native_fclose:: FILE* is NULL\n");
+	else {
+		printf("native_fclose:: FILE* is NULL\n");
+		TaghaScript_push_int32(script, -1);
+	}
 }
 
 /* void *malloc(size_t size); */
@@ -249,15 +245,11 @@ static void native_malloc(Script_t *restrict script, const uint32_t argc, const 
 	void *p = malloc(ptrsize);
 	if( p ) {
 		printf("native_malloc:: pointer is VALID.\n");
-		if( size==4 )
-			TaghaScript_push_int32(script, (uintptr_t)p);
-		else TaghaScript_push_int64(script, (uintptr_t)p);
-		TaghaScript_push_int32(script, script->sp);
+		uint32_t addr = TaghaScript_store_hostdata(script, p);
+		TaghaScript_push_int32(script, addr);
 	}
 	else {
-		if( size==4 )
-			TaghaScript_push_int32(script, 0);
-		else TaghaScript_push_int64(script, 0L);
+		printf("native_malloc:: returned\'p\' is NULL\n");
 		TaghaScript_push_int32(script, 0);
 	}
 }
@@ -268,18 +260,18 @@ static void native_free(Script_t *restrict script, const uint32_t argc, const ui
 	if( !script )
 		return;
 	
-	// get physical ptr then cast to an int that's big enough to hold a pointer
-	// then cast to void pointer.
-	Word_t addr = TaghaScript_pop_int32(script);
-	uint8_t *stkptr = TaghaScript_addr2ptr(script, addr);
-	if( !stkptr ) {
-		puts("native_free reported an ERROR :: **** param 'ptr' is NULL ****\n");
+	uint32_t addr = TaghaScript_pop_int32(script);
+	if( addr == 0xFFFFFFFF ) {
+		puts("native_free reported :: **** param 'ptr' is NULL ****\n");
 		return;
 	}
 	
-	void *ptr = (void *) *(uintptr_t *)stkptr;
-	if( ptr )
-		printf("native_free :: ptr is VALID, freeing...\n"), free(ptr), ptr=NULL;
+	void *ptr = TaghaScript_get_hostdata(script, addr);
+	if( ptr ) {
+		printf("native_free :: ptr is VALID, freeing...\n");
+		free(ptr), ptr=NULL;
+		TaghaScript_del_hostdata(script, addr);
+	}
 }
 
 /* void callfunc( void (*f)(void) ); */
@@ -303,7 +295,7 @@ static void native_getglobal(Script_t *restrict script, const uint32_t argc, con
 	if( !script )
 		return;
 	
-	uint8_t *p = TaghaScript_get_global_by_name(script, "i");
+	void *p = TaghaScript_get_global_by_name(script, "i");
 	if( !p )
 		return;
 	printf("native_getglobal :: i == %i\n", *(int *)p);

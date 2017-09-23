@@ -4,7 +4,7 @@
 #include <string.h>
 #include "hashmap.h"
 
-static unsigned gethash(const char *szKey)
+uint32_t gethash32(const char *szKey)
 {
 	const unsigned char *us;
 	unsigned h = 0;
@@ -13,20 +13,31 @@ static unsigned gethash(const char *szKey)
 	return h;
 }
 
-static unsigned int32hash(unsigned x) {
-    x = ((x >> 16) ^ x) * 0x45d9f3b;
-    x = ((x >> 16) ^ x) * 0x45d9f3b;
-    x = (x >> 16) ^ x;
-    return x;
+uint64_t gethash64(const char *szKey)
+{
+	char *us;
+	uint64_t h = 0;
+	for (us = (char *)szKey; *us; us++)
+		h = h * 147 + *us;
+
+	return h;
 }
-/*
-uint64_t int64hash(uint64_t x) {
-    x = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
-    x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);
-    x = x ^ (x >> 31);
-    return x;
+
+uint32_t int32hash(uint32_t x)
+{
+	x = ((x >> 16) ^ x) * 0x45d9f3b;
+	x = ((x >> 16) ^ x) * 0x45d9f3b;
+	x = (x >> 16) ^ x;
+	return x;
 }
-*/
+
+uint64_t int64hash(uint64_t x)
+{
+	x = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
+	x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);
+	x = x ^ (x >> 31);
+	return x;
+}
 
 
 void dict_init(dict *d)
@@ -99,7 +110,7 @@ bool dict_insert(dict *restrict d, const char *restrict szKey, void *restrict pD
 	node->strKey = szKey;
 	node->pData = pData;
 	
-	unsigned hash = gethash(szKey) % d->size;
+	uint32_t hash = gethash32(szKey) % d->size;
 	node->pNext = d->table[hash];
 	d->table[hash] = node;
 	++d->count;
@@ -118,7 +129,7 @@ void *dict_find(const dict *restrict d, const char *restrict szKey)
 	 * pointer without worrying of a segfault
 	*/
 	kvnode_t *kv;
-	unsigned hash = gethash(szKey) % d->size;
+	unsigned hash = gethash32(szKey) % d->size;
 	for( kv = d->table[hash] ; kv ; kv = kv->pNext )
 		if( !strcmp(kv->strKey, szKey) )
 			return kv->pData;
@@ -133,7 +144,7 @@ void dict_delete(dict *restrict d, const char *restrict szKey)
 	if( !dict_has_key(d, szKey) )
 		return;
 	
-	unsigned hash = gethash(szKey) % d->size;
+	uint32_t hash = gethash32(szKey) % d->size;
 	kvnode_t
 		*kv = NULL,
 		*next = NULL
@@ -154,7 +165,7 @@ bool dict_has_key(const dict *restrict d, const char *restrict szKey)
 		return false;
 	
 	kvnode_t *prev;
-	unsigned hash = gethash(szKey) % d->size;
+	uint32_t hash = gethash32(szKey) % d->size;
 	for( prev = d->table[hash] ; prev ; prev = prev->pNext )
 		if( !strcmp(prev->strKey, szKey) )
 			return true;
@@ -162,7 +173,7 @@ bool dict_has_key(const dict *restrict d, const char *restrict szKey)
 	return false;
 }
 
-unsigned dict_len(const dict *d)
+uint32_t dict_len(const dict *d)
 {
 	if( !d )
 		return 0L;
@@ -175,7 +186,7 @@ void dict_rehash(dict *d)
 	if( !d )
 		return;
 	
-	unsigned old_size = d->size;
+	uint32_t old_size = d->size;
 	d->size <<= 1;
 	d->count = 0;
 	
@@ -194,7 +205,7 @@ void dict_rehash(dict *d)
 		*kv = NULL,
 		*next = NULL
 		;
-	for( unsigned i=0 ; i<old_size ; ++i ) {
+	for( uint32_t i=0 ; i<old_size ; ++i ) {
 		if( !curr[i] )
 			continue;
 		for( kv = curr[i] ; kv ; kv = next ) {
@@ -217,7 +228,7 @@ const char *dict_get_key(const dict *restrict d, const char *restrict szKey)
 		return NULL;
 	
 	kvnode_t *prev;
-	unsigned hash = gethash(szKey) % d->size;
+	uint32_t hash = gethash32(szKey) % d->size;
 	for( prev = d->table[hash] ; prev ; prev = prev->pNext )
 		if( !strcmp(prev->strKey, szKey) )
 			return prev->strKey;
@@ -225,19 +236,10 @@ const char *dict_get_key(const dict *restrict d, const char *restrict szKey)
 	return NULL;
 }
 
-/*
-unsigned long gethash(const char *szKey)
-{
-	char *us;
-	unsigned long h = 0;
-	for (us = (char *)szKey; *us; us++)
-		h = h * 147 + *us;
 
-	return h;
-}
-*/
+
 /*
-bool dict_insert_int(dict *restrict d, const unsigned uikey, void *restrict pData)
+bool dict_insert_int(dict *restrict d, const uint64_t key, void *restrict pData)
 {
 	if( !d )
 		return false;
@@ -257,7 +259,7 @@ bool dict_insert_int(dict *restrict d, const unsigned uikey, void *restrict pDat
 		//printf("**** Rehashed Dictionary ****\n");
 		//printf("**** Dictionary Size is now %llu ****\n", d->size);
 	}
-	else if( dict_has_key_int(d, uikey) ) {
+	else if( dict_has_key_int(d, key) ) {
 		printf("dict_insert_int::d already has entry!\n");
 		return false;
 	}
@@ -267,17 +269,17 @@ bool dict_insert_int(dict *restrict d, const unsigned uikey, void *restrict pDat
 		printf("**** Memory Allocation Error **** dict_insert_int::node is NULL\n");
 		return false;
 	}
-	node->uiKey = uikey;
+	node->i64Key = key;
 	node->pData = pData;
 	
-	unsigned hash = int32hash(uikey) % d->size;
+	uint64_t hash = int64hash(key) % d->size;
 	node->pNext = d->table[hash];
 	d->table[hash] = node;
 	++d->count;
 	return true;
 }
 
-void *dict_find_int(const dict *d, const unsigned uikey)
+void *dict_find_int(const dict *d, const uint64_t key)
 {
 	if( !d )
 		return NULL;
@@ -285,45 +287,45 @@ void *dict_find_int(const dict *d, const unsigned uikey)
 		return NULL;
 	
 	kvnode_t *kv;
-	unsigned hash = int32hash(uikey) % d->size;
+	uint64_t hash = int64hash(key) % d->size;
 	for( kv = d->table[hash] ; kv ; kv = kv->pNext )
-		if( kv->uiKey==uikey )
+		if( kv->i64Key==key )
 			return kv->pData;
 	
 	return NULL;
 }
 
-void dict_delete_int(dict *d, const unsigned uikey)
+void dict_delete_int(dict *d, const uint64_t key)
 {
 	if( !d )
 		return;
 	
-	if( !dict_has_key_int(d, uikey) )
+	if( !dict_has_key_int(d, key) )
 		return;
 	
-	unsigned hash = int32hash(uikey) % d->size;
+	uint64_t hash = int64hash(key) % d->size;
 	kvnode_t
 		*kv = NULL,
 		*next = NULL
 	;
 	for( kv = d->table[hash] ; kv ; kv = next ) {
 		next = kv->pNext;
-		if( kv->uiKey==uikey ) {
+		if( kv->i64Key==key ) {
 			d->table[hash] = kv->pNext;
 			free(kv), kv = NULL;
 			d->count--;
 		}
 	}
 }
-bool dict_has_key_int(const dict *d, const unsigned uikey)
+bool dict_has_key_int(const dict *d, const uint64_t key)
 {
 	if( !d )
 		return false;
 	
 	kvnode_t *prev;
-	unsigned hash = int32hash(uikey) % d->size;
+	uint64_t hash = int64hash(key) % d->size;
 	for( prev = d->table[hash] ; prev ; prev = prev->pNext )
-		if( prev->uiKey==uikey )
+		if( prev->i64Key==key )
 			return true;
 	
 	return false;
@@ -334,7 +336,7 @@ void dict_rehash_int(dict *d)
 	if( !d )
 		return;
 	
-	unsigned old_size = d->size;
+	uint32_t old_size = d->size;
 	d->size <<= 1;
 	d->count = 0;
 	
@@ -353,12 +355,12 @@ void dict_rehash_int(dict *d)
 		*kv = NULL,
 		*next = NULL
 	;
-	for( unsigned i=0 ; i<old_size ; ++i ) {
+	for( uint32_t i=0 ; i<old_size ; ++i ) {
 		if( !curr[i] )
 			continue;
 		for( kv = curr[i] ; kv ; kv = next ) {
 			next = kv->pNext;
-			dict_insert_int(d, kv->uiKey, kv->pData);
+			dict_insert_int(d, kv->i64Key, kv->pData);
 			// free the inner nodes since they'll be re-hashed
 			free(kv), kv = NULL;
 			//printf("**** Rehashed Entry ****\n");
@@ -369,8 +371,6 @@ void dict_rehash_int(dict *d)
 	curr = NULL;
 }
 */
-
-
 
 
 

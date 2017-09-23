@@ -83,23 +83,23 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 			fread(&script->uiNatives, sizeof(uint32_t), 1, pFile);
 			bytecount += 4;
 			if( script->uiNatives ) {
-				script->ppstrNatives = calloc(script->uiNatives, sizeof(char *));
+				script->pstrNatives = calloc(script->uiNatives, sizeof(char *));
 				uint32_t i;
 				for( i=0 ; i<script->uiNatives ; i++ ) {
 					uint32_t str_size;
 					fread(&str_size, sizeof(uint32_t), 1, pFile);
 					bytecount += 4;
-					script->ppstrNatives[i] = calloc(str_size, sizeof(char));
+					script->pstrNatives[i] = calloc(str_size, sizeof(char));
 					uint32_t n = 0;
 					char c;
 					while( n<str_size ) {
 						fread(&c, sizeof(char), 1, pFile);
-						script->ppstrNatives[i][n++] = c;
+						script->pstrNatives[i][n++] = c;
 						++bytecount;
 					}
-					printf("Tagha_load_script :: copied native name \'%s\'\n", script->ppstrNatives[i]);
+					printf("Tagha_load_script :: copied native name \'%s\'\n", script->pstrNatives[i]);
 				}
-			} else script->ppstrNatives = NULL;
+			} else script->pstrNatives = NULL;
 			
 			fread(&script->uiFuncs, sizeof(uint32_t), 1, pFile);
 			bytecount += 4;
@@ -208,6 +208,14 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 				}
 			} else script->pmapGlobals = NULL; //script->pDataTable = NULL;
 			
+			script->pvecHostData = malloc(sizeof(vector));
+			if( !script->pvecHostData ) {
+				printf("Tagha_load_script :: Failed to allocate memory for host data vector.\n");
+				TaghaScript_free(script);
+				script = NULL;
+				goto error;
+			}
+			else vector_init(script->pvecHostData);
 			
 			fread(&script->ip, sizeof(uint32_t), 1, pFile);
 			printf("Tagha_load_script :: entry ip starts at %" PRIu32 "\n", script->ip);
@@ -235,6 +243,8 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 			}
 			
 			fread(script->pInstrStream, sizeof(uint8_t), script->uiInstrSize, pFile);
+			
+			
 			// transfer script address to the vector.
 			vector_add(vm->pvecScripts, script);
 			script = NULL;
@@ -266,25 +276,16 @@ void TaghaScript_free(Script_t *script)
 	
 	// free our tables
 	uint32_t i;
-	if( script->ppstrNatives ) {
+	if( script->pstrNatives ) {
 		for( i=0 ; i<script->uiNatives ; i++ ) {
-			if( script->ppstrNatives[i] )
-				free(script->ppstrNatives[i]);
-			script->ppstrNatives[i] = NULL;
+			if( script->pstrNatives[i] )
+				free(script->pstrNatives[i]);
+			script->pstrNatives[i] = NULL;
 		}
-		free(script->ppstrNatives);
-		script->ppstrNatives = NULL;
+		free(script->pstrNatives);
+		script->pstrNatives = NULL;
 	}
 	if( script->pmapFuncs ) {
-		/*
-		for( i=0 ; i<script->uiFuncs ; i++ ) {
-			if( script->pFuncTable[i].pFuncName )
-				free(script->pFuncTable[i].pFuncName);
-			script->pFuncTable[i].pFuncName = NULL;
-		}
-		free(script->pFuncTable);
-		script->pFuncTable = NULL;
-		*/
 		kvnode_t
 			*kv = NULL,
 			*next = NULL
@@ -308,15 +309,6 @@ void TaghaScript_free(Script_t *script)
 		script->pmapFuncs = NULL;
 	}
 	if( script->pmapGlobals ) {
-		/*
-		for( i=0 ; i<script->uiGlobals ; i++ ) {
-			if( script->pDataTable[i].pVarName )
-				free(script->pDataTable[i].pVarName);
-			script->pDataTable[i].pVarName = NULL;
-		}
-		free(script->pDataTable);
-		script->pDataTable = NULL;
-		*/
 		kvnode_t
 			*kv = NULL,
 			*next = NULL
@@ -338,6 +330,9 @@ void TaghaScript_free(Script_t *script)
 		dict_free(script->pmapGlobals);
 		free(script->pmapGlobals);
 		script->pmapGlobals = NULL;
+	}
+	if( script->pvecHostData ) {
+		TaghaScript_free_hostdata(script);
 	}
 	free(script);
 }
@@ -668,9 +663,9 @@ void TaghaScript_call_func_by_addr(Script_t *script, const Word_t func_addr)
 	script->bp = script->sp;	// mov ebp, esp;
 }
 
-uint8_t *TaghaScript_get_global_by_name(Script_t *script, const char *strGlobalName)
+void *TaghaScript_get_global_by_name(Script_t *script, const char *strGlobalName)
 {
-	uint8_t *p = NULL;
+	void *p = NULL;
 	if( !script or !script->pmapGlobals )
 		return p;
 	
@@ -681,6 +676,80 @@ uint8_t *TaghaScript_get_global_by_name(Script_t *script, const char *strGlobalN
 	}
 	return p;
 }
+
+uint32_t TaghaScript_store_hostdata(Script_t *restrict script, void *restrict data)
+{
+	if( !script or !script->pvecHostData )
+		return 0xFFFFFFFF;
+	
+	static uint32_t id = 0;
+	Handle_t *pHandle = malloc(sizeof(Handle_t));
+	pHandle->pHostPtr = data;
+	pHandle->uiHNDL = ++id;
+	vector_add(script->pvecHostData, pHandle);
+	pHandle = NULL;
+	return id;
+}
+
+void *TaghaScript_get_hostdata(Script_t *script, const uint32_t id)
+{
+	if( !script or !script->pvecHostData )
+		return NULL;
+	
+	vector *pVec = script->pvecHostData;
+	Handle_t *pIter;
+	for( uint32_t i=0 ; i<pVec->count ; i++ ) {
+		pIter = pVec->data[i];
+		if( !pIter )
+			continue;
+		else if( pIter->uiHNDL==id )
+			return pIter->pHostPtr;
+	}
+	return NULL;
+}
+
+void TaghaScript_del_hostdata(Script_t *script, const uint32_t id)
+{
+	if( !script or !script->pvecHostData )
+		return;
+	
+	vector *pVec = script->pvecHostData;
+	Handle_t *pIter;
+	uint32_t i = 0;
+	for( i=0 ; i<pVec->count ; i++ ) {
+		pIter = pVec->data[i];
+		if( !pIter )
+			continue;
+		else if( pIter->uiHNDL==id ) {
+			pIter->pHostPtr = NULL;
+			free(pIter), pIter = NULL;
+			pVec->data[i] = NULL;
+			break;
+		}
+	}
+	vector_delete(pVec, i);
+}
+
+void TaghaScript_free_hostdata(Script_t *script)
+{
+	if( !script or !script->pvecHostData )
+		return;
+	
+	vector *pVec = script->pvecHostData;
+	Handle_t *pIter;
+	for( uint32_t i=0 ; i<pVec->count ; i++ ) {
+		pIter = pVec->data[i];
+		if( !pIter )
+			continue;
+		
+		pIter->pHostPtr = NULL;
+		free(pIter), pIter = NULL;
+		pVec->data[i] = NULL;
+	}
+	vector_free(pVec);
+	free(pVec), pVec = script->pvecHostData = NULL;
+}
+
 
 uint32_t TaghaScript_stacksize(const Script_t *script)
 {

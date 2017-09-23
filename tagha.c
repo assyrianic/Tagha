@@ -537,7 +537,7 @@ void Tagha_exec(TaghaVM_t *vm)
 				if( debugmode )
 					printf("pushipadd: added ip with %" PRIu32 ", result: %" PRIu32 "\n", b, a+b);
 				DISPATCH();
-				
+			
 			exec_pushipsub:;
 				a = script->ip;
 				b = _TaghaScript_pop_int32(script);
@@ -585,19 +585,19 @@ void Tagha_exec(TaghaVM_t *vm)
 				if( debugmode )
 					printf("popb\n");
 				DISPATCH();
-				
+			
 			exec_popsp:;
 				script->sp = _TaghaScript_pop_int32(script);
 				if( debugmode )
 					printf("popsp: sp is now %" PRIu32 " bytes.\n", script->sp);
 				DISPATCH();
-				
+			
 			exec_popbp:;
 				script->bp = _TaghaScript_pop_int32(script);
 				if( debugmode )
 					printf("popbp: bp is now %" PRIu32 " bytes.\n", script->bp);
 				DISPATCH();
-				
+			
 			exec_popip:;
 				script->ip = _TaghaScript_pop_int32(script);
 				if( debugmode )
@@ -1735,7 +1735,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			}
 			
 			exec_pushnataddr:;
-				if( safemode and !script->ppstrNatives ) {
+				if( safemode and !script->pstrNatives ) {
 					printf("exec_pushnataddr reported: native table is NULL! Current instruction address: %" PRIu32 "\n", script->ip);
 					goto *dispatch[halt];
 				}
@@ -1745,9 +1745,9 @@ void Tagha_exec(TaghaVM_t *vm)
 					printf("exec_pushnataddr reported: native index \'%" PRIu32 "\' is out of bounds! Current instruction address: %" PRIu32 "\n", a, script->ip);
 					goto *dispatch[halt];
 				}
-				pfNative = (fnNative_t) dict_find(vm->pmapNatives, script->ppstrNatives[a]);
+				pfNative = (fnNative_t) dict_find(vm->pmapNatives, script->pstrNatives[a]);
 				if( safemode and !pfNative ) {
-					printf("exec_pushnataddr reported: native \'%s\' not registered! Current instruction address: %" PRIu32 "\n", script->ppstrNatives[a], script->ip);
+					printf("exec_pushnataddr reported: native \'%s\' not registered! Current instruction address: %" PRIu32 "\n", script->pstrNatives[a], script->ip);
 					goto *dispatch[halt];
 				}
 				_TaghaScript_push_int64(script, (uintptr_t)pfNative);
@@ -1756,7 +1756,7 @@ void Tagha_exec(TaghaVM_t *vm)
 				DISPATCH();
 			
 			exec_callnat:; {	// call a native
-				if( safemode and !script->ppstrNatives ) {
+				if( safemode and !script->pstrNatives ) {
 					printf("exec_callnat reported: native table is NULL! Current instruction address: %" PRIu32 "\n", script->ip);
 					goto *dispatch[halt];
 				}
@@ -1766,9 +1766,9 @@ void Tagha_exec(TaghaVM_t *vm)
 					goto *dispatch[halt];
 				}
 				
-				pfNative = (fnNative_t) dict_find(vm->pmapNatives, script->ppstrNatives[a]);
+				pfNative = (fnNative_t) dict_find(vm->pmapNatives, script->pstrNatives[a]);
 				if( safemode and !pfNative ) {
-					printf("exec_callnat reported: native \'%s\' not registered! Current instruction address: %" PRIu32 "\n", script->ppstrNatives[a], script->ip);
+					printf("exec_callnat reported: native \'%s\' not registered! Current instruction address: %" PRIu32 "\n", script->pstrNatives[a], script->ip);
 					goto *dispatch[halt];
 				}
 				// how many bytes to push to native.
@@ -1789,7 +1789,7 @@ void Tagha_exec(TaghaVM_t *vm)
 			exec_callnats:; {	// call native by func ptr allocated on stack
 				pfNative = (fnNative_t)(uintptr_t) _TaghaScript_pop_int64(script);
 				if( safemode and !pfNative ) {
-					printf("exec_callnats reported: native \'%s\' not registered! Current instruction address: %" PRIu32 "\n", script->ppstrNatives[a], script->ip);
+					printf("exec_callnats reported: native \'%s\' not registered! Current instruction address: %" PRIu32 "\n", script->pstrNatives[a], script->ip);
 					goto *dispatch[halt];
 				}
 				const Word_t bytes = _TaghaScript_get_imm4(script);

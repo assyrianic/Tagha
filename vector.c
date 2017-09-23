@@ -11,20 +11,20 @@ void vector_init(struct vector *v)
 	v->size = v->count = 0;
 }
 
-inline unsigned vector_count(const struct vector *v)
+unsigned vector_count(const struct vector *v)
 {
 	if( !v )
 		return 0;
 	return v->count;
 }
 
-void vector_add(struct vector *restrict v, void *restrict e)
+unsigned vector_add(struct vector *restrict v, void *restrict e)
 {
 	if( !v )
-		return;
+		return -1;
 	
 	if( v->size == 0 ) {
-		v->size = 2;
+		v->size = 4;
 		v->data = calloc(v->size, sizeof(void *));
 		assert( v->data );
 	}
@@ -35,7 +35,7 @@ void vector_add(struct vector *restrict v, void *restrict e)
 	}
 	
 	v->data[v->count] = e;
-	v->count++;
+	return v->count++;
 }
 
 void vector_set(struct vector *restrict v, const unsigned index, void *restrict e)
@@ -55,7 +55,7 @@ void *vector_get(const struct vector *v, const unsigned index)
 	
 	else if( index >= v->count )
 		return NULL;
-
+	
 	return v->data[index];
 }
 
