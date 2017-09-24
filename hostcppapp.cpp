@@ -6,6 +6,7 @@
 #include <cstdarg>
 #include <cstdint>
 #include <string>
+#include <cinttypes>
 #include "tagha.h"
 
 
@@ -25,7 +26,7 @@ static void native_puts(Script_t *script, const uint32_t argc, const uint32_t by
 		return;
 	
 	// get our first parameter which is a virtual address to our string.
-	Word_t addr = TaghaScript_pop_int32(script);
+	Word_t addr = TaghaScript_pop_word(script);
 	
 	// use the virtual address to get the physical pointer of the string.
 	uint8_t *stkptr = TaghaScript_addr2ptr(script, addr);
@@ -47,7 +48,7 @@ static void native_printf(Script_t *script, const uint32_t argc, const uint32_t 
 		return;
 	
 	// get our first parameter which is a virtual address to our string.
-	Word_t addr = TaghaScript_pop_int32(script);
+	Word_t addr = TaghaScript_pop_word(script);
 	
 	// use the virtual address to get the physical pointer of the string.
 	uint8_t *stkptr = TaghaScript_addr2ptr(script, addr);
@@ -147,7 +148,7 @@ static void native_test_ptr(Script_t *script, const uint32_t argc, const uint32_
 	} *player=nullptr;
 	
 	// get first arg which is the virtual address to our data.
-	Word_t addr = TaghaScript_pop_int32(script);
+	Word_t addr = TaghaScript_pop_word(script);
 	
 	/*
 	 * Notice the order of the struct's data.
@@ -172,8 +173,8 @@ static void native_fopen(Script_t *script, const uint32_t argc, const uint32_t b
 	if( !script )
 		return;
 	
-	Word_t filename_addr = TaghaScript_pop_int32(script);
-	Word_t modes_addr = TaghaScript_pop_int32(script);
+	Word_t filename_addr = TaghaScript_pop_word(script);
+	Word_t modes_addr = TaghaScript_pop_word(script);
 	
 	uint8_t *stkptr_filestr = TaghaScript_addr2ptr(script, filename_addr);
 	if( !stkptr_filestr ) {
@@ -191,16 +192,14 @@ static void native_fopen(Script_t *script, const uint32_t argc, const uint32_t b
 	const char *filename = (const char *)stkptr_filestr;
 	const char *mode = (const char *)stkptr_modes;
 	
-	const unsigned ptrsize = sizeof(FILE *);
 	FILE *pFile = fopen(filename, mode);
 	if( pFile ) {
 		printf("native_fopen:: opening file \'%s\' with mode: \'%s\'\n", filename, mode);
-		uint32_t addr = TaghaScript_store_hostdata(script, pFile);
-		TaghaScript_push_int32(script, addr);
+		TaghaScript_push_word(script, (Word_t)pFile);
 	}
 	else {
 		printf("failed to get filename: \'%s\'\n", filename);
-		TaghaScript_push_int32(script, 0);
+		TaghaScript_push_word(script, 0);
 	}
 }
 
@@ -210,17 +209,11 @@ static void native_fclose(Script_t *script, const uint32_t argc, const uint32_t 
 	if( !script )
 		return;
 	
-	uint32_t addr = TaghaScript_pop_int32(script);
-	if( addr == 0xFFFFFFFF )
-		return;
-	
-	FILE *pFile = reinterpret_cast< FILE* >(TaghaScript_get_hostdata(script, addr));
+	FILE *pFile = reinterpret_cast< FILE* >(TaghaScript_pop_word(script));
 	if( pFile ) {
 		printf("native_fclose:: closing FILE*\n");
 		TaghaScript_push_int32(script, fclose(pFile));
 		pFile=nullptr;
-		// erases the dangling reference from host data.
-		TaghaScript_del_hostdata(script, addr);
 	}
 	else {
 		printf("native_fclose:: FILE* is NULL\n");
@@ -234,19 +227,17 @@ static void native_malloc(Script_t *script, const uint32_t argc, const uint32_t 
 	if( !script )
 		return;
 	
-	const Word_t ptrsize = TaghaScript_pop_int32(script);
-	const unsigned size = sizeof(uintptr_t);
+	const Word_t ptrsize = TaghaScript_pop_word(script);
 	
-	printf("native_malloc:: allocating size: %u\n", ptrsize);
+	printf("native_malloc:: allocating size: %" PRIWord "\n", ptrsize);
 	void *p = malloc(ptrsize);
 	if( p ) {
 		printf("native_malloc:: pointer is VALID.\n");
-		uint32_t addr = TaghaScript_store_hostdata(script, p);
-		TaghaScript_push_int32(script, addr);
+		TaghaScript_push_word(script, (Word_t)p);
 	}
 	else {
 		printf("native_malloc:: returned\'p\' is NULL\n");
-		TaghaScript_push_int32(script, 0);
+		TaghaScript_push_word(script, 0);
 	}
 }
 
@@ -256,19 +247,10 @@ static void native_free(Script_t *script, const uint32_t argc, const uint32_t by
 	if( !script )
 		return;
 	
-	// get physical ptr then cast to an int that's big enough to hold a pointer
-	// then cast to void pointer.
-	uint32_t addr = TaghaScript_pop_int32(script);
-	if( addr == 0xFFFFFFFF ) {
-		puts("native_free reported :: **** param 'ptr' is NULL ****\n");
-		return;
-	}
-	
-	void *ptr = TaghaScript_get_hostdata(script, addr);
+	void *ptr = (void *)TaghaScript_pop_word(script);
 	if( ptr ) {
 		printf("native_free :: ptr is VALID, freeing...\n");
-		free(ptr), ptr=null;
-		TaghaScript_del_hostdata(script, addr);
+		free(ptr), ptr=NULL;
 	}
 }
 
@@ -279,12 +261,11 @@ static void native_callfunc(Script_t *script, const uint32_t argc, const uint32_
 		return;
 	
 	// addr is the function address.
-	Word_t addr = TaghaScript_pop_int32(script);
-	printf("native_callfunc :: func ptr addr: %u\n", addr);
+	Word_t addr = TaghaScript_pop_word(script);
+	printf("native_callfunc :: func ptr addr: %" PRIWord "\n", addr);
 	// call our function which should push any return value back for us to pop.
 	TaghaScript_call_func_by_addr(script, addr);
 	printf("native_callfunc :: invoking.\n");
-	//TaghaScript_call_func_by_name(script, "f");
 }
 
 /* void getglobal(void); */
@@ -305,9 +286,9 @@ static void native_callfuncname(Script_t *script, const uint32_t argc, const uin
 	if( !script )
 		return;
 	
-	// addr is the function address.
-	Word_t addr = TaghaScript_pop_int32(script);
-	printf("native_callfuncname :: func ptr addr: %u\n", addr);
+	Word_t addr = TaghaScript_pop_word(script);
+	printf("native_callfuncname :: func ptr addr: %" PRIWord "\n", addr);
+	
 	uint8_t *stkptr = TaghaScript_addr2ptr(script, addr);
 	if( !stkptr ) {
 		puts("native_callfuncname reported an ERROR :: **** param 'func' is NULL ****\n");

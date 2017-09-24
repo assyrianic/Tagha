@@ -135,7 +135,7 @@ def wrt_hdr_globals(f, *lGlobals) -> None:
 		i += 1;
 
 def wrt_hdr_footer(f, entry=0, safemode=True, debugmode=True) -> None:
-	f.write(entry.to_bytes(4, byteorder='little'));
+	f.write(entry.to_bytes(8, byteorder='little'));
 	f.write(safemode.to_bytes(1, byteorder='little'));
 	f.write(debugmode.to_bytes(1, byteorder='little'));
 
@@ -171,13 +171,17 @@ def wrt_push_smaller(f, size:int, val:int) -> None:
 def wrt_1op_4byte(f, opcode:int, val:int) -> None:
 	f.write(opcode.to_bytes(1, byteorder='little'));
 	f.write(val.to_bytes(4, byteorder='little'));
+	
+def wrt_1op_8byte(f, opcode:int, val:int) -> None:
+	f.write(opcode.to_bytes(1, byteorder='little'));
+	f.write(val.to_bytes(8, byteorder='little'));
 
 def wrt_callnat(f, index:int, bytespushed:int, argcount:int) -> None:
 	f.write(opcodes.callnat.to_bytes(1, byteorder='little'));
 	f.write(index.to_bytes(4, byteorder='little'));
 	f.write(bytespushed.to_bytes(4, byteorder='little'));
 	f.write(argcount.to_bytes(4, byteorder='little'));
-	
+
 def wrt_callnats(f, bytespushed:int, argcount:int) -> None:
 	f.write(opcodes.callnats.to_bytes(1, byteorder='little'));
 	f.write(bytespushed.to_bytes(4, byteorder='little'));
@@ -192,87 +196,87 @@ int main()
 }
 '''
 with open('endian_test1.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 17);
+	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'main', 0, 6);
-	wrt_hdr_globals(tbc, 'i', 16-4, 4, 0x0a0b0c0d);
+	wrt_hdr_funcs(tbc, 'main', 0, 10);
+	wrt_hdr_globals(tbc, 'i', 63-4, 4, 0x0a0b0c0d);
 	wrt_hdr_footer(tbc, entry=0);
 	
-	wrt_1op_4byte(tbc, opcodes.call, 6); #0-4 "call 6,0,0,0"
-	wrt_opcode(tbc, opcodes.halt); #5	"halt"
+	wrt_1op_8byte(tbc, opcodes.call, 10);
+	wrt_opcode(tbc, opcodes.halt);
 	
-	wrt_pushl(tbc, 0); #6-10	"pushl 0,0,0,0,"
-	wrt_1op_4byte(tbc, opcodes.retx, 4); #11-15	"retx 4,0,0,0"
+	wrt_pushl(tbc, 0);
+	wrt_1op_4byte(tbc, opcodes.retx, 4);
 
 with open('float_test.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 10);
+	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc);
 	wrt_hdr_funcs(tbc);
-	wrt_hdr_globals(tbc, 'flTen', 5, 4, 10.0, 'flTwo', 1, 4, 2.0);
+	wrt_hdr_globals(tbc, 'flTen', 63-4, 4, 10.0, 'flTwo', 63-8, 4, 2.0);
 	wrt_hdr_footer(tbc, entry=0);
 	
 	wrt_opcode(tbc, opcodes.addf);
 	wrt_opcode(tbc, opcodes.halt);
 
 with open('hello_world.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 32);
+	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc, 'puts');
-	wrt_hdr_funcs(tbc, 'main', 0, 32);
-	wrt_hdr_globals(tbc, 'str00001', 18, len('hello world\n')+1, 'hello world\n');
+	wrt_hdr_funcs(tbc, 'main', 0, 10);
+	wrt_hdr_globals(tbc, 'str00001', 63-(len('hello world\n')+1), len('hello world\n')+1, 'hello world\n');
 	wrt_hdr_footer(tbc, entry=0);
 	
 	# stack starts at 31, pushing 13 chars, left with 18.
-	wrt_1op_4byte(tbc, opcodes.call, 6);
+	wrt_1op_8byte(tbc, opcodes.call, 10);
 	wrt_opcode(tbc, opcodes.halt);
 	
-	wrt_pushl(tbc, 8);
+	wrt_pushq(tbc, 16);
 	wrt_opcode(tbc, opcodes.pushbpadd);
-	wrt_callnat(tbc, 0, 4, 1);
+	wrt_callnat(tbc, 0, 8, 1);
 	wrt_opcode(tbc, opcodes.ret);
 
 with open('pointers.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 16);
+	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc);
 	wrt_hdr_funcs(tbc);
-	wrt_hdr_globals(tbc, 't0', 15-4, 4, 50000);
+	wrt_hdr_globals(tbc, 't0', 63-4, 4, 50000);
 	wrt_hdr_footer(tbc, entry=0);
 	
 	# 687 in hex
 	wrt_pushl(tbc, 687);
-	wrt_pushl(tbc, 11);
+	wrt_pushq(tbc, 63-4);
 	wrt_opcode(tbc, opcodes.storespl);
 	wrt_opcode(tbc, opcodes.halt);
 
 with open('test_func_call.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 28);
+	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, "func", 2, 18);
+	wrt_hdr_funcs(tbc, "func", 2, 22);
 	wrt_hdr_globals(tbc);
 	wrt_hdr_footer(tbc, entry=0);
 	
 	wrt_pushl(tbc, 500);
 	wrt_pushl(tbc, 2);
-	wrt_1op_4byte(tbc, opcodes.call, 18);
+	wrt_1op_8byte(tbc, opcodes.call, 22);
 	wrt_opcode(tbc, opcodes.popl);
 	wrt_opcode(tbc, opcodes.popl);
 	
 	wrt_opcode(tbc, opcodes.halt);
-	wrt_pushl(tbc, 19);
+	wrt_pushq(tbc, 55);
 	wrt_opcode(tbc, opcodes.loadspl);
-	wrt_pushl(tbc, 23);
+	wrt_pushq(tbc, 59);
 	wrt_opcode(tbc, opcodes.loadspl);
 	wrt_opcode(tbc, opcodes.addl);
 	wrt_opcode(tbc, opcodes.ret);
 
 with open('test_call_opcodes.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 28);
+	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'func1', 0, 12, 'func2', 0, 18);
+	wrt_hdr_funcs(tbc, 'func1', 0, 20, 'func2', 0, 26);
 	wrt_hdr_globals(tbc);
 	wrt_hdr_footer(tbc, entry=0);
 	
-	wrt_1op_4byte(tbc, opcodes.call, 12);
-	wrt_pushl(tbc, 18);
+	wrt_1op_8byte(tbc, opcodes.call, 20);
+	wrt_pushq(tbc, 26);
 	wrt_opcode(tbc, opcodes.calls);
 	wrt_opcode(tbc, opcodes.halt);
 	
@@ -283,17 +287,17 @@ with open('test_call_opcodes.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.ret);
 
 with open('test_retx_func.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 24);
+	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'f', 1, 11);
+	wrt_hdr_funcs(tbc, 'f', 1, 15);
 	wrt_hdr_globals(tbc);
 	wrt_hdr_footer(tbc, entry=0);
 	
 	wrt_pushl(tbc, 9);
-	wrt_1op_4byte(tbc, opcodes.call, 11);
+	wrt_1op_8byte(tbc, opcodes.call, 15);
 	wrt_opcode(tbc, opcodes.halt);
 	
-	wrt_pushl(tbc, 8);
+	wrt_pushq(tbc, 16);
 	wrt_opcode(tbc, opcodes.pushbpadd);
 	wrt_opcode(tbc, opcodes.loadspl);
 	wrt_pushl(tbc, 6);
@@ -303,18 +307,18 @@ with open('test_retx_func.tbc', 'wb+') as tbc:
 with open('test_recursion.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 0xffffff);
 	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'recursive', 0, 6);
+	wrt_hdr_funcs(tbc, 'recursive', 0, 10);
 	wrt_hdr_globals(tbc);
 	wrt_hdr_footer(tbc, entry=0, safemode=True, debugmode=False);
 	
-	wrt_1op_4byte(tbc, opcodes.call, 6);
+	wrt_1op_8byte(tbc, opcodes.call, 10);
 	wrt_opcode(tbc, opcodes.halt);
-	wrt_1op_4byte(tbc, opcodes.call, 6);
+	wrt_1op_8byte(tbc, opcodes.call, 10);
 
 with open('test_factorial_recurs.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 255);
 	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'factorial', 1, 11);
+	wrt_hdr_funcs(tbc, 'factorial', 1, 15);
 	wrt_hdr_globals(tbc);
 	wrt_hdr_footer(tbc, entry=0);
 	#unsigned int factorial(unsigned int i) {
@@ -324,32 +328,32 @@ with open('test_factorial_recurs.tbc', 'wb+') as tbc:
 	#}
 	
 	wrt_pushl(tbc, 7);
-	wrt_1op_4byte(tbc, opcodes.call, 11);
+	wrt_1op_8byte(tbc, opcodes.call, 15);
 	wrt_opcode(tbc, opcodes.halt);
 	
 	# load i
-	wrt_pushl(tbc, 8);
+	wrt_pushq(tbc, 16);
 	wrt_opcode(tbc, opcodes.pushbpadd);
 	wrt_opcode(tbc, opcodes.loadspl);
 	# load 1
 	wrt_pushl(tbc, 1);
 	# i <= 1 ?
 	wrt_opcode(tbc, opcodes.uleql);
-	wrt_1op_4byte(tbc, opcodes.jzl, 39);
+	wrt_1op_8byte(tbc, opcodes.jzl, 51);
 	wrt_pushl(tbc, 1);
 	wrt_1op_4byte(tbc, opcodes.retx, 4);
 	
-	wrt_pushl(tbc, 8);
+	wrt_pushq(tbc, 16);
 	wrt_opcode(tbc, opcodes.pushbpadd);
 	wrt_opcode(tbc, opcodes.loadspl);
 	wrt_pushl(tbc, 1);
 	# i-1
 	wrt_opcode(tbc, opcodes.usubl);
 	# factorial( i-1 );
-	wrt_1op_4byte(tbc, opcodes.call, 11);
+	wrt_1op_8byte(tbc, opcodes.call, 15);
 	
 	# load i
-	wrt_pushl(tbc, 8);
+	wrt_pushq(tbc, 16);
 	wrt_opcode(tbc, opcodes.pushbpadd);
 	wrt_opcode(tbc, opcodes.loadspl);
 	# i * result of factorial( i-1 );
@@ -357,7 +361,7 @@ with open('test_factorial_recurs.tbc', 'wb+') as tbc:
 	wrt_1op_4byte(tbc, opcodes.retx, 4);
 
 with open('test_native.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 32);
+	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc, 'test');
 	wrt_hdr_funcs(tbc);
 	wrt_hdr_globals(tbc);
@@ -371,7 +375,7 @@ with open('test_native.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.halt);
 
 with open('test_local_native_funcptr.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 32);
+	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc, 'test');
 	wrt_hdr_funcs(tbc);
 	wrt_hdr_globals(tbc);
@@ -382,11 +386,11 @@ with open('test_local_native_funcptr.tbc', 'wb+') as tbc:
 	wrt_pushl(tbc, 300.0);
 	wrt_opcode(tbc, opcodes.pushsp);
 	wrt_1op_4byte(tbc, opcodes.pushnataddr, 0);
-	wrt_callnats(tbc, 4, 1);
+	wrt_callnats(tbc, 8, 1);
 	wrt_opcode(tbc, opcodes.halt);
 
 with open('test_multiple_natives.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 32);
+	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc, 'test', 'printHW');
 	wrt_hdr_funcs(tbc);
 	wrt_hdr_globals(tbc);
@@ -397,21 +401,21 @@ with open('test_multiple_natives.tbc', 'wb+') as tbc:
 	wrt_pushl(tbc, 300.0);
 	wrt_opcode(tbc, opcodes.pushsp);
 	wrt_callnat(tbc, 1, 0, 0);
-	wrt_callnat(tbc, 0, 4, 1);
+	wrt_callnat(tbc, 0, 8, 1);
 	wrt_opcode(tbc, opcodes.halt);
 
 with open('test_int2chr.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 32);
+	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, "main", 0, 6);
+	wrt_hdr_funcs(tbc, "main", 0, 10);
 	wrt_hdr_globals(tbc);
 	wrt_hdr_footer(tbc, entry=0);
 	
-	wrt_1op_4byte(tbc, opcodes.call, 6);
+	wrt_1op_8byte(tbc, opcodes.call, 10);
 	wrt_opcode(tbc, opcodes.halt);
 	
 	wrt_pushl(tbc, 0x052A);
-	wrt_pushl(tbc, 4);
+	wrt_pushq(tbc, 4);
 	wrt_opcode(tbc, opcodes.pushbpsub);
 	wrt_opcode(tbc, opcodes.loadspb);
 	wrt_opcode(tbc, opcodes.ret);
@@ -420,55 +424,54 @@ with open('test_int2chr.tbc', 'wb+') as tbc:
 with open('test_printf.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc, "printf");
-	wrt_hdr_funcs(tbc, 'main', 0, 32);
+	wrt_hdr_funcs(tbc, 'main', 0, 10);
 	wrt_hdr_globals(tbc, 'str00001', 63-(len('\nnum==%i %f\n')+1), len('\nnum==%i %f\n')+1, '\nnum==%i %f\n');
 	wrt_hdr_footer(tbc, entry=0);
 	
-	wrt_1op_4byte(tbc, opcodes.call, 6);
+	wrt_1op_8byte(tbc, opcodes.call, 10);
 	wrt_opcode(tbc, opcodes.halt);
 	
 	wrt_pushq(tbc, 300.0);
 	wrt_pushl(tbc, 280);
-	wrt_pushl(tbc, 8);
-	wrt_opcode(tbc, opcodes.pushbpadd);
-	wrt_callnat(tbc, 0, 16, 3);
+	wrt_pushq(tbc, 63-(len('\nnum==%i %f\n')+1));
+	wrt_callnat(tbc, 0, 20, 3);
 	wrt_opcode(tbc, opcodes.ret);
 
 with open('test_fopen.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc, "fopen", "fclose");
-	wrt_hdr_funcs(tbc, 'main', 0, 50);
+	wrt_hdr_funcs(tbc, 'main', 0, 10);
 	wrt_hdr_globals(tbc,
-		'str00001', 44, len('./endian_test1.tbc')+1, './endian_test1.tbc',
-		'str00002', 41, len('rb')+1, 'rb'
+		'str00001', 63-(len('./endian_test1.tbc')+1), len('./endian_test1.tbc')+1, './endian_test1.tbc',
+		'str00002', 44-(len('rb')+1), len('rb')+1, 'rb'
 		);
 	wrt_hdr_footer(tbc, entry=0);
 	
-	wrt_1op_4byte(tbc, opcodes.call, 6);
+	wrt_1op_8byte(tbc, opcodes.call, 10);
 	wrt_opcode(tbc, opcodes.halt);
 	
-	wrt_pushl(tbc, 8);
-	wrt_opcode(tbc, opcodes.pushbpadd);
-	wrt_pushl(tbc, 11);
-	wrt_opcode(tbc, opcodes.pushbpadd);
-	wrt_callnat(tbc, 0, 8, 2);
-	wrt_callnat(tbc, 1, 4, 1);
+	wrt_pushq(tbc, 44-(len('rb')+1));
+	wrt_pushq(tbc, 63-(len('./endian_test1.tbc')+1));
+	wrt_callnat(tbc, 0, 16, 2);
+	wrt_callnat(tbc, 1, 8, 1);
 	wrt_opcode(tbc, opcodes.ret);
 
 with open('test_malloc.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 32);
+	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc, "malloc", "free");
-	wrt_hdr_funcs(tbc, 'main', 0, 6);
+	wrt_hdr_funcs(tbc, 'main', 0, 10);
 	wrt_hdr_globals(tbc);
 	wrt_hdr_footer(tbc, entry=0);
 	
-	wrt_1op_4byte(tbc, opcodes.call, 6);
+	wrt_1op_8byte(tbc, opcodes.call, 10);
 	wrt_opcode(tbc, opcodes.halt);
 	
-	wrt_pushl(tbc, 4);
-	wrt_callnat(tbc, 0, 4, 1);
-	wrt_callnat(tbc, 1, 4, 1);
+	wrt_pushq(tbc, 4);
+	wrt_callnat(tbc, 0, 8, 1);
+	wrt_callnat(tbc, 1, 8, 1);
 	wrt_opcode(tbc, opcodes.ret);
+
+
 
 ''' FIRST MAJOR PROGRAM THAT RESEMBLES ACTUAL C
 int i;
@@ -487,25 +490,27 @@ int main(void)
 with open('test_globalvars.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc, 'printf');
-	wrt_hdr_funcs(tbc, 'main', 0, 17, 'f', 0, 0);
+	wrt_hdr_funcs(tbc, 'main', 0, 25, 'f', 0, 0);
 	wrt_hdr_globals(tbc, 'i', 63-4, 4, 0, 'e', 63-8, 4, 0, 'str00001', 63-12, len('%i\n')+1, '%i\n');
-	wrt_hdr_footer(tbc, entry=11);
+	wrt_hdr_footer(tbc, entry=15);
 	
-	wrt_pushl(tbc, 63-4); #0-4	push 'i''s address
-	wrt_opcode(tbc, opcodes.loadspl); # load 'i' by address to TOS.
-	wrt_1op_4byte(tbc, opcodes.retx, 4); #6-10		return 'i'
+	wrt_pushq(tbc, 63-4); #0-8	push 'i''s address
+	wrt_opcode(tbc, opcodes.loadspl); #9 load 'i' by address to TOS.
+	wrt_1op_4byte(tbc, opcodes.retx, 4); #10-14		return 'i'
 	
-	wrt_1op_4byte(tbc, opcodes.call, 17); #11-15	call main
-	wrt_opcode(tbc, opcodes.halt); #16	exit main
+	wrt_1op_8byte(tbc, opcodes.call, 25); #15-23	call main
+	wrt_opcode(tbc, opcodes.halt); #24	exit main
 	
-	wrt_pushl(tbc, 5); #17-21	int l=5;
-	wrt_1op_4byte(tbc, opcodes.call, 0); #22-26		call 'f'
+	wrt_pushl(tbc, 5); #25-29	int l=5;
+	wrt_1op_8byte(tbc, opcodes.call, 0); #30-38		call 'f'
 	wrt_opcode(tbc, opcodes.addl); # f() + l
-	wrt_pushl(tbc, 63-12);	# load string literal
-	wrt_callnat(tbc, 0, 8, 2);	# call printf
+	wrt_pushq(tbc, 63-12);	# load string literal
+	wrt_callnat(tbc, 0, 12, 2);	# call printf
 	wrt_pushl(tbc, 0);
 	wrt_1op_4byte(tbc, opcodes.retx, 4);	# return 0;
-	
+
+
+
 '''
 void f() {
 }
@@ -518,20 +523,20 @@ int main()
 }
 '''
 with open('test_funcptr_native.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 17);
+	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc, 'callfunc');
-	wrt_hdr_funcs(tbc, 'main', 0, 16, 'f', 1, 0);
+	wrt_hdr_funcs(tbc, 'main', 0, 20, 'f', 1, 0);
 	wrt_hdr_globals(tbc);
 	wrt_hdr_footer(tbc, entry=10);
 	
 	wrt_pushl(tbc, 0); #0-4	push 'f''s func address
 	wrt_1op_4byte(tbc, opcodes.retx, 4); #5-9		return 0
 	
-	wrt_1op_4byte(tbc, opcodes.call, 16); #10-14	call main
-	wrt_opcode(tbc, opcodes.halt); #15	exit main
+	wrt_1op_8byte(tbc, opcodes.call, 20); #10-18	call main
+	wrt_opcode(tbc, opcodes.halt); #19	exit main
 	
-	wrt_pushl(tbc, 0);
-	wrt_callnat(tbc, 0, 4, 1);
+	wrt_pushq(tbc, 0); #20
+	wrt_callnat(tbc, 0, 8, 1);
 	wrt_pushl(tbc, 0);
 	wrt_1op_4byte(tbc, opcodes.retx, 4);	# return 0;
 
@@ -550,17 +555,17 @@ int main(void)
 }
 '''
 with open('test_loadgbl.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 17);
+	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc, 'getglobal');
 	wrt_hdr_funcs(tbc, 'main', 0, 6);
-	wrt_hdr_globals(tbc, 'i', 16-4, 4, 4294967196);
+	wrt_hdr_globals(tbc, 'i', 63-4, 4, 4294967196);
 	wrt_hdr_footer(tbc, entry=0);
 	
-	wrt_1op_4byte(tbc, opcodes.call, 6); #0-4	call main
-	wrt_opcode(tbc, opcodes.halt); #5	exit main
+	wrt_1op_8byte(tbc, opcodes.call, 10); #0-8	call main
+	wrt_opcode(tbc, opcodes.halt); #9	exit main
 	
 	#wrt_pushl(tbc, 16-4);	# load string literal
-	wrt_callnat(tbc, 0, 0, 0);	# call printf
+	wrt_callnat(tbc, 0, 0, 0);	# call 'getglobal'
 	wrt_pushl(tbc, 0);
 	wrt_1op_4byte(tbc, opcodes.retx, 4);	# return 0;
 	
@@ -576,20 +581,20 @@ int main()
 }
 '''
 with open('test_call_func_by_name.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 24);
+	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc, 'callfuncname');
-	wrt_hdr_funcs(tbc, 'main', 0, 16, 'f', 1, 0);
-	wrt_hdr_globals(tbc, 'str00001', 23-(len('f')+1), len('f')+1, 'f');
+	wrt_hdr_funcs(tbc, 'main', 0, 20, 'f', 1, 0);
+	wrt_hdr_globals(tbc, 'str00001', 63-(len('f')+1), len('f')+1, 'f');
 	wrt_hdr_footer(tbc, entry=10);
 	
 	wrt_pushl(tbc, 0); #0-4	push 'f''s func address
 	wrt_1op_4byte(tbc, opcodes.retx, 4); #5-9		return 0
 	
-	wrt_1op_4byte(tbc, opcodes.call, 16); #10-14	call main
-	wrt_opcode(tbc, opcodes.halt); #15	exit main
+	wrt_1op_8byte(tbc, opcodes.call, 20); #10-18	call main
+	wrt_opcode(tbc, opcodes.halt); #19	exit main
 	
-	wrt_pushl(tbc, 23-(len('f')+1));
-	wrt_callnat(tbc, 0, 4, 1);
+	wrt_pushq(tbc, 63-(len('f')+1));
+	wrt_callnat(tbc, 0, 8, 1);
 	wrt_pushl(tbc, 0);
 	wrt_1op_4byte(tbc, opcodes.retx, 4);	# return 0;
 

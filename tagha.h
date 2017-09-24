@@ -7,8 +7,7 @@
 extern "C" {
 #endif
 
-#include "hashmap.h"
-#include "vector.h"
+#include "ds.h"
 #include <stdint.h>
 
 //#define SIZE(x)		sizeof((x)) / sizeof((x)[0]);
@@ -28,8 +27,11 @@ extern "C" {
         float *: "float *",                    double *: "double *",              \
         default: "other")
 
-#define TAGHA_VERSION_STR		"0.0.9a"
-typedef		uint32_t			Word_t;	// word size is 4 bytes
+#define TAGHA_VERSION_STR		"0.0.11a"
+//typedef		uint32_t			Word_t;
+//#define		PRIWord				PRIu32
+typedef		uint64_t			Word_t;
+#define		PRIWord				PRIu64
 
 
 struct TaghaScript;
@@ -49,9 +51,15 @@ typedef struct nativeinfo {
 bool		Tagha_register_natives(TaghaVM_t *vm, NativeInfo_t *arrNatives);
 
 
+typedef struct _val { 
+	const char	*strVal;	// name of field or enum value.
+	uint32_t	uibytesize;
+} Value_t;
+
+// for stuff like structs, enums, and unions.
 typedef struct typeinfo {
 	const char	*strType;
-	void		*pAddr;
+	Value_t		*pValues;
 	uint32_t	uiSize;
 } TypeInfo_t;
 
@@ -75,18 +83,19 @@ typedef struct data_tbl {
 	uint32_t	uiBytes;
 	uint32_t	uiAddress;
 } DataTable_t;
-
+/*
 typedef struct handle {
 	void		*pHostPtr;
 	uint32_t	uiHNDL;
 } Handle_t;
+*/
 
 struct TaghaScript {
 	uint8_t		*pbMemory, *pInstrStream;
 	char		**pstrNatives;	// natives table as stored strings.
-	dict		*pmapFuncs;		// stores the functions compiled to script.
-	dict		*pmapGlobals;	// stores global vars.
-	vector		*pvecHostData;
+	Map_t		*pmapFuncs;		// stores the functions compiled to script.
+	Map_t		*pmapGlobals;	// stores global vars.
+	//Vec_t		*pvecHostData;
 	Word_t		ip, sp, bp;
 	uint32_t
 		uiMemsize,
@@ -100,8 +109,8 @@ struct TaghaScript {
 };
 
 struct TaghaVM {
-	vector	*pvecScripts;
-	dict	*pmapNatives;
+	Vec_t	*pvecScripts;
+	Map_t	*pmapNatives;
 };
 
 union conv_union {	// converter union. for convenience
@@ -147,6 +156,9 @@ bool		TaghaScript_safemode_active(const Script_t *script);
 bool		TaghaScript_debug_active(const Script_t *script);
 
 
+void		TaghaScript_push_word(Script_t *script, const Word_t val);
+Word_t		TaghaScript_pop_word(Script_t *script);
+
 void		TaghaScript_push_longfloat(Script_t *script, const long double val);
 long double	TaghaScript_pop_longfloat(Script_t *script);
 
@@ -168,8 +180,8 @@ uint16_t	TaghaScript_pop_short(Script_t *script);
 void		TaghaScript_push_byte(Script_t *script, const uint8_t val);
 uint8_t		TaghaScript_pop_byte(Script_t *script);
 
-void		TaghaScript_push_nbytes(Script_t *script, void *pItem, const Word_t bytesize);
-void		TaghaScript_pop_nbytes(Script_t *script, void *pBuffer, const Word_t bytesize);
+void		TaghaScript_push_nbytes(Script_t *script, void *pItem, const uint32_t bytesize);
+void		TaghaScript_pop_nbytes(Script_t *script, void *pBuffer, const uint32_t bytesize);
 
 /*
  * IDEA : have pointer dereferencing by load/store sp
@@ -182,12 +194,12 @@ void		TaghaScript_call_func_by_name(Script_t *script, const char *strFunc);
 void		TaghaScript_call_func_by_addr(Script_t *script, const Word_t func_addr);
 
 void		*TaghaScript_get_global_by_name(Script_t *script, const char *strGlobalName);
-
+/*
 uint32_t	TaghaScript_store_hostdata(Script_t *script, void *data);
 void		*TaghaScript_get_hostdata(Script_t *script, const uint32_t id);
 void		TaghaScript_del_hostdata(Script_t *script, const uint32_t id);
 void		TaghaScript_free_hostdata(Script_t *script);
-
+*/
 #ifdef __cplusplus
 }
 #endif
