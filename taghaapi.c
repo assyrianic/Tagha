@@ -2,9 +2,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <iso646.h>
 #include <inttypes.h>
-#include <assert.h>
 #include <string.h>
 #include "tagha.h"
 
@@ -22,7 +20,7 @@ static uint64_t get_file_size(FILE *pFile)
 	return size;
 }
 
-void Tagha_init(TaghaVM_t *restrict vm)
+void Tagha_init(struct TaghaVM *restrict vm)
 {
 	if( !vm )
 		return;
@@ -36,9 +34,14 @@ void Tagha_init(TaghaVM_t *restrict vm)
 	if( !vm->pmapNatives )
 		printf("[Tagha Error]: **** Unable to initialize Native Map ****\n");
 	else map_init(vm->pmapNatives);
+	
+	vm->pmapExpTypes = malloc(sizeof(Map_t));
+	if( !vm->pmapExpTypes )
+		printf("[Tagha Error]: **** Unable to initialize Exported Types Map ****\n");
+	else map_init(vm->pmapExpTypes);
 }
 
-void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
+void Tagha_load_script(struct TaghaVM *restrict vm, char *restrict filename)
 {
 	if( !vm )
 		return;
@@ -49,8 +52,8 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 		return;
 	}
 	
-	Script_t *script = NULL;
-	script = malloc(sizeof(Script_t));
+	struct TaghaScript *script = NULL;
+	script = malloc(sizeof(struct TaghaScript));
 	if( script ) {
 		script->pInstrStream = NULL;
 		script->pbMemory = NULL;
@@ -220,9 +223,9 @@ void Tagha_load_script(TaghaVM_t *restrict vm, char *restrict filename)
 			else vector_init(script->pvecHostData);
 			*/
 			
-			ignore_warns = fread(&script->ip, sizeof(Word_t), 1, pFile);
+			ignore_warns = fread(&script->ip, sizeof(uint64_t), 1, pFile);
 			printf("Tagha_load_script :: entry ip starts at %" PRIWord "\n", script->ip);
-			bytecount += sizeof(Word_t);
+			bytecount += sizeof(uint64_t);
 			
 			ignore_warns = fread(&script->bSafeMode, sizeof(bool), 1, pFile);
 			printf("Tagha_load_script :: Script Safe Mode: %" PRIu32 "\n", script->bSafeMode);
@@ -263,7 +266,7 @@ error:;
 	fclose(pFile), pFile=NULL;
 }
 
-void TaghaScript_free(Script_t *script)
+void TaghaScript_free(struct TaghaScript *script)
 {
 	if( !script )
 		return;
@@ -340,14 +343,14 @@ void TaghaScript_free(Script_t *script)
 	free(script);
 }
 
-void Tagha_free(TaghaVM_t *vm)
+void Tagha_free(struct TaghaVM *vm)
 {
 	if( !vm )
 		return;
 	if( vm->pvecScripts ) {
 		uint32_t n=0;
 		uint32_t nScripts = vector_count(vm->pvecScripts);
-		Script_t *script;
+		struct TaghaScript *script;
 		Vec_t *buffer=vm->pvecScripts;
 		for( n=0 ; n<nScripts ; n++ ) {
 			script = vector_get(buffer, n);
@@ -368,22 +371,24 @@ void Tagha_free(TaghaVM_t *vm)
 		free(vm->pmapNatives);
 		vm->pmapNatives = NULL;
 	}
+	if( vm->pmapExpTypes ) {
+		map_free(vm->pmapExpTypes);
+		free(vm->pmapExpTypes);
+		vm->pmapExpTypes = NULL;
+	}
 }
 
 
-void TaghaScript_reset(Script_t *script)
+void TaghaScript_reset(struct TaghaScript *script)
 {
 	if( !script )
 		return;
-	
-	uint32_t i;
-	for( i=0 ; i<script->uiMemsize ; i++ )
-		script->pbMemory[i] = 0;
-	
+	// better than a for-loop setting everything to 0.
+	memset(script->pbMemory, 0, script->uiMemsize);
 	script->sp = script->bp = script->uiMemsize-1;
 }
 
-bool Tagha_register_natives(TaghaVM_t *restrict vm, NativeInfo_t *restrict arrNatives)
+bool Tagha_register_natives(struct TaghaVM *restrict vm, NativeInfo_t *restrict arrNatives)
 {
 	if( !vm or !arrNatives )
 		return false;
@@ -396,42 +401,9 @@ bool Tagha_register_natives(TaghaVM_t *restrict vm, NativeInfo_t *restrict arrNa
 	return true;
 }
 
-bool Tagha_register_type(TaghaVM_t *vm, TypeInfo_t *arrTypes)
-{
-	if( !vm or !arrTypes )
-		return false;
-	//else if( !vm-> )
-		return false;
-}
 
 
-void TaghaScript_push_word(Script_t *script, const Word_t val)
-{
-	if( !script )
-		return;
-	uint32_t size = sizeof(Word_t);
-	if( script->bSafeMode and (script->sp-size) >= script->uiMemsize ) {
-		printf("TaghaScript_push_word reported: stack overflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
-		return;
-	}
-	script->sp -= size;
-	*(Word_t *)(script->pbMemory + script->sp) = val;
-}
-Word_t TaghaScript_pop_word(Script_t *script)
-{
-	if( !script )
-		return 0;
-	uint32_t size = sizeof(Word_t);
-	if( script->bSafeMode and (script->sp+size) >= script->uiMemsize ) {
-		printf("TaghaScript_pop_word reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
-		return 0;
-	}
-	Word_t val = *(Word_t *)(script->pbMemory + script->sp);
-	script->sp += size;
-	return val;
-}
-
-void TaghaScript_push_longfloat(Script_t *restrict script, const long double val)
+void TaghaScript_push_longfloat(struct TaghaScript *restrict script, const long double val)
 {
 	if( !script )
 		return;
@@ -446,7 +418,7 @@ void TaghaScript_push_longfloat(Script_t *restrict script, const long double val
 	*(long double *)(script->pbMemory + script->sp) = val;
 }
 
-long double TaghaScript_pop_longfloat(Script_t *script)
+long double TaghaScript_pop_longfloat(struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
@@ -461,7 +433,7 @@ long double TaghaScript_pop_longfloat(Script_t *script)
 	return val;
 }
 
-void TaghaScript_push_int64(Script_t *restrict script, const uint64_t val)
+void TaghaScript_push_int64(struct TaghaScript *restrict script, const uint64_t val)
 {
 	if( !script )
 		return;
@@ -473,7 +445,7 @@ void TaghaScript_push_int64(Script_t *restrict script, const uint64_t val)
 	script->sp -= size;
 	*(uint64_t *)(script->pbMemory + script->sp) = val;
 }
-uint64_t TaghaScript_pop_int64(Script_t *script)
+uint64_t TaghaScript_pop_int64(struct TaghaScript *script)
 {
 	if( !script )
 		return 0L;
@@ -487,7 +459,7 @@ uint64_t TaghaScript_pop_int64(Script_t *script)
 	return val;
 }
 
-void TaghaScript_push_float64(Script_t *restrict script, const double val)
+void TaghaScript_push_float64(struct TaghaScript *restrict script, const double val)
 {
 	if( !script )
 		return;
@@ -499,7 +471,7 @@ void TaghaScript_push_float64(Script_t *restrict script, const double val)
 	script->sp -= size;
 	*(double *)(script->pbMemory + script->sp) = val;
 }
-double TaghaScript_pop_float64(Script_t *script)
+double TaghaScript_pop_float64(struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
@@ -513,7 +485,7 @@ double TaghaScript_pop_float64(Script_t *script)
 	return val;
 }
 
-void TaghaScript_push_int32(Script_t *restrict script, const uint32_t val)
+void TaghaScript_push_int32(struct TaghaScript *restrict script, const uint32_t val)
 {
 	if( !script )
 		return;
@@ -525,7 +497,7 @@ void TaghaScript_push_int32(Script_t *restrict script, const uint32_t val)
 	script->sp -= size;
 	*(uint32_t *)(script->pbMemory + script->sp) = val;
 }
-uint32_t TaghaScript_pop_int32(Script_t *script)
+uint32_t TaghaScript_pop_int32(struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
@@ -539,7 +511,7 @@ uint32_t TaghaScript_pop_int32(Script_t *script)
 	return val;
 }
 
-void TaghaScript_push_float32(Script_t *restrict script, const float val)
+void TaghaScript_push_float32(struct TaghaScript *restrict script, const float val)
 {
 	if( !script )
 		return;
@@ -551,7 +523,7 @@ void TaghaScript_push_float32(Script_t *restrict script, const float val)
 	script->sp -= size;
 	*(float *)(script->pbMemory + script->sp) = val;
 }
-float TaghaScript_pop_float32(Script_t *script)
+float TaghaScript_pop_float32(struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
@@ -565,7 +537,7 @@ float TaghaScript_pop_float32(Script_t *script)
 	return val;
 }
 
-void TaghaScript_push_short(Script_t *restrict script, const uint16_t val)
+void TaghaScript_push_short(struct TaghaScript *restrict script, const uint16_t val)
 {
 	if( !script )
 		return;
@@ -577,7 +549,7 @@ void TaghaScript_push_short(Script_t *restrict script, const uint16_t val)
 	script->sp -= size;
 	*(uint16_t *)(script->pbMemory + script->sp) = val;
 }
-uint16_t TaghaScript_pop_short(Script_t *script)
+uint16_t TaghaScript_pop_short(struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
@@ -591,7 +563,7 @@ uint16_t TaghaScript_pop_short(Script_t *script)
 	return val;
 }
 
-void TaghaScript_push_byte(Script_t *restrict script, const uint8_t val)
+void TaghaScript_push_byte(struct TaghaScript *restrict script, const uint8_t val)
 {
 	if( !script )
 		return;
@@ -603,7 +575,7 @@ void TaghaScript_push_byte(Script_t *restrict script, const uint8_t val)
 	script->sp -= size;
 	script->pbMemory[script->sp] = val;
 }
-uint8_t TaghaScript_pop_byte(Script_t *script)
+uint8_t TaghaScript_pop_byte(struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
@@ -617,7 +589,7 @@ uint8_t TaghaScript_pop_byte(Script_t *script)
 	return val;
 }
 
-void TaghaScript_push_nbytes(Script_t *restrict script, void *restrict pItem, const uint32_t bytesize)
+void TaghaScript_push_nbytes(struct TaghaScript *restrict script, void *restrict pItem, const uint32_t bytesize)
 {
 	if( !script )
 		return;
@@ -625,12 +597,15 @@ void TaghaScript_push_nbytes(Script_t *restrict script, void *restrict pItem, co
 		printf("TaghaScript_push_nbytes reported: stack overflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
 		return;
 	}
-	Word_t i=0;
-	//for( i=0 ; i<bytesize ; i++ )
+	script->sp -= bytesize;
+	memcpy((script->pbMemory + script->sp), pItem, bytesize);
+	/*
+	uint64_t i=0;
 	for( i=bytesize-1 ; i<bytesize ; i-- )
 		script->pbMemory[--script->sp] = ((uint8_t *)pItem)[i];
+	*/
 }
-void TaghaScript_pop_nbytes(Script_t *restrict script, void *restrict pBuffer, const uint32_t bytesize)
+void TaghaScript_pop_nbytes(struct TaghaScript *restrict script, void *restrict pBuffer, const uint32_t bytesize)
 {
 	if( !script )
 		return;
@@ -638,14 +613,16 @@ void TaghaScript_pop_nbytes(Script_t *restrict script, void *restrict pBuffer, c
 		printf("TaghaScript_pop_nbytes reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
 		return;
 	}
-	Word_t i=0;
-	// should stop when the integer underflows
-	//for( i=bytesize-1 ; i<bytesize ; i-- )
+	memcpy(pBuffer, (script->pbMemory + script->sp), bytesize);
+	script->sp += bytesize;
+	/*
+	uint64_t i=0;
 	for( i=0 ; i<bytesize ; i++ )
 		((uint8_t *)pBuffer)[i] = script->pbMemory[script->sp++];
+	*/
 }
 
-uint8_t *TaghaScript_addr2ptr(Script_t *restrict script, const Word_t stk_address)
+uint8_t *TaghaScript_addr2ptr(struct TaghaScript *restrict script, const uint64_t stk_address)
 {
 	if( !script or !script->pbMemory )
 		return NULL;
@@ -654,7 +631,7 @@ uint8_t *TaghaScript_addr2ptr(Script_t *restrict script, const Word_t stk_addres
 	return( script->pbMemory + stk_address );
 }
 
-void TaghaScript_call_func_by_name(Script_t *restrict script, const char *restrict strFunc)
+void TaghaScript_call_func_by_name(struct TaghaScript *restrict script, const char *restrict strFunc)
 {
 	if( !script or !strFunc )
 		return;
@@ -669,13 +646,13 @@ void TaghaScript_call_func_by_name(Script_t *restrict script, const char *restri
 		if( debugmode )
 			printf("TaghaScript_call_func_by_name :: calling address: %" PRIu32 "\n", func_addr);
 		
-		TaghaScript_push_word(script, script->ip+1);	// save return address.
+		TaghaScript_push_int64(script, script->ip+1);	// save return address.
 		if( debugmode )
 			printf("TaghaScript_call_func_by_name :: return addr: %" PRIWord "\n", script->ip+1);
 		
 		script->ip = func_addr;	// jump to instruction
 		
-		TaghaScript_push_word(script, script->bp);	// push ebp;
+		TaghaScript_push_int64(script, script->bp);	// push ebp;
 		if( debugmode )
 			printf("TaghaScript_call_func_by_name :: pushing bp: %" PRIWord "\n", script->bp);
 		script->bp = script->sp;	// mov ebp, esp;
@@ -685,21 +662,21 @@ void TaghaScript_call_func_by_name(Script_t *restrict script, const char *restri
 	}
 	pFuncs=NULL;
 }
-void TaghaScript_call_func_by_addr(Script_t *script, const Word_t func_addr)
+void TaghaScript_call_func_by_addr(struct TaghaScript *script, const uint64_t func_addr)
 {
 	if( !script )
 		return;
 	else if( script->uiInstrSize >= func_addr )
 		return;
 	
-	TaghaScript_push_word(script, script->ip+1);	// save return address.
+	TaghaScript_push_int64(script, script->ip+1);	// save return address.
 	script->ip = func_addr;	// jump to instruction
 	
-	TaghaScript_push_word(script, script->bp);	// push ebp;
+	TaghaScript_push_int64(script, script->bp);	// push ebp;
 	script->bp = script->sp;	// mov ebp, esp;
 }
 
-void *TaghaScript_get_global_by_name(Script_t *script, const char *strGlobalName)
+void *TaghaScript_get_global_by_name(struct TaghaScript *script, const char *strGlobalName)
 {
 	void *p = NULL;
 	if( !script or !script->pmapGlobals )
@@ -713,7 +690,7 @@ void *TaghaScript_get_global_by_name(Script_t *script, const char *strGlobalName
 	return p;
 }
 /*
-uint32_t TaghaScript_store_hostdata(Script_t *restrict script, void *restrict data)
+uint32_t TaghaScript_store_hostdata(struct TaghaScript *restrict script, void *restrict data)
 {
 	if( !script or !script->pvecHostData )
 		return 0xFFFFFFFF;
@@ -727,7 +704,7 @@ uint32_t TaghaScript_store_hostdata(Script_t *restrict script, void *restrict da
 	return id;
 }
 
-void *TaghaScript_get_hostdata(Script_t *script, const uint32_t id)
+void *TaghaScript_get_hostdata(struct TaghaScript *script, const uint32_t id)
 {
 	if( !script or !script->pvecHostData )
 		return NULL;
@@ -744,7 +721,7 @@ void *TaghaScript_get_hostdata(Script_t *script, const uint32_t id)
 	return NULL;
 }
 
-void TaghaScript_del_hostdata(Script_t *script, const uint32_t id)
+void TaghaScript_del_hostdata(struct TaghaScript *script, const uint32_t id)
 {
 	if( !script or !script->pvecHostData )
 		return;
@@ -766,7 +743,7 @@ void TaghaScript_del_hostdata(Script_t *script, const uint32_t id)
 	vector_delete(pVec, i);
 }
 
-void TaghaScript_free_hostdata(Script_t *script)
+void TaghaScript_free_hostdata(struct TaghaScript *script)
 {
 	if( !script or !script->pvecHostData )
 		return;
@@ -787,50 +764,50 @@ void TaghaScript_free_hostdata(Script_t *script)
 }
 */
 
-uint32_t TaghaScript_stacksize(const Script_t *script)
+uint32_t TaghaScript_stacksize(const struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
 	return script->uiMemsize;
 }
-uint32_t TaghaScript_instrsize(const Script_t *script)
+uint32_t TaghaScript_instrsize(const struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
 	return script->uiInstrSize;
 }
-uint32_t TaghaScript_maxinstrs(const Script_t *script)
+uint32_t TaghaScript_maxinstrs(const struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
 	return script->uiMaxInstrs;
 }
-uint32_t TaghaScript_nativecount(const Script_t *script)
+uint32_t TaghaScript_nativecount(const struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
 	return script->uiNatives;
 }
-uint32_t TaghaScript_funcs(const Script_t *script)
+uint32_t TaghaScript_funcs(const struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
 	return script->uiFuncs;
 }
-uint32_t TaghaScript_globals(const Script_t *script)
+uint32_t TaghaScript_globals(const struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
 	return script->uiGlobals;
 }
 
-bool TaghaScript_safemode_active(const Script_t *script)
+bool TaghaScript_safemode_active(const struct TaghaScript *script)
 {
 	if( !script )
 		return false;
 	return script->bSafeMode;
 }
-bool TaghaScript_debug_active(const Script_t *script)
+bool TaghaScript_debug_active(const struct TaghaScript *script)
 {
 	if( !script )
 		return false;
@@ -838,7 +815,7 @@ bool TaghaScript_debug_active(const Script_t *script)
 }
 
 
-void TaghaScript_debug_print_memory(const Script_t *script)
+void TaghaScript_debug_print_memory(const struct TaghaScript *script)
 {
 	if( !script )
 		return;
@@ -854,7 +831,7 @@ void TaghaScript_debug_print_memory(const Script_t *script)
 		else printf("Memory[%.10" PRIu32 "] == %" PRIu32 "\n", i, script->pbMemory[i]);
 	printf("\n");
 }
-void TaghaScript_debug_print_ptrs(const Script_t *script)
+void TaghaScript_debug_print_ptrs(const struct TaghaScript *script)
 {
 	if( !script )
 		return;
@@ -865,13 +842,14 @@ void TaghaScript_debug_print_ptrs(const Script_t *script)
 			\nStack Frame Pointer: %" PRIWord "\n", script->ip, script->sp, script->bp);
 	printf("\n");
 }
-void TaghaScript_debug_print_instrs(const Script_t *script)
+void TaghaScript_debug_print_instrs(const struct TaghaScript *script)
 {
 	if( !script )
 		return;
 	
 	uint32_t i;
-	for( i=0 ; i<script->uiInstrSize ; i++ )
+	uint32_t size = script->uiInstrSize;
+	for( i=0 ; i<size ; i++ )
 		printf("Instr[%.10"PRIu32"] == %"PRIu32"\n", i, script->pInstrStream[i]);
 	printf("\n");
 }

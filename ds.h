@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct _vec {
+typedef struct vec {
 	void		**data;
 	uint32_t	size, count;
 } Vec_t;
@@ -20,16 +20,16 @@ void		vector_free		(Vec_t *);
 
 
 
-typedef struct _kvnode {
+typedef struct kvnode {
 	union {
 		const char	*strKey;
 		uint64_t	i64Key;
 	};
 	void			*pData;
-	struct _kvnode	*pNext;
+	struct kvnode	*pNext;
 } kvnode_t;
 
-typedef struct _map {
+typedef struct map {
 	kvnode_t		**table;
 	uint64_t		size, count;
 } Map_t;
