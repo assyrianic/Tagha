@@ -404,7 +404,7 @@ void Tagha_exec(struct TaghaVM *vm)
 	
 	// our value temporaries
 	union conv_union conv, convb;
-	uint64_t		addr, wb,wa;
+	uint64_t	addr, wb,wa;
 	uint32_t	b,a;
 	uint64_t	qb,qa;
 	double		db,da;
@@ -430,8 +430,7 @@ void Tagha_exec(struct TaghaVM *vm)
 	
 #define DISPATCH()	++script->ip; continue
 	
-	uint32_t x;
-	for( x=0 ; x<nScripts ; x++ ) {
+	for( uint32_t x=0 ; x<nScripts ; x++ ) {
 		script = vector_get(vm->pvecScripts, x);
 		if( !script )
 			continue;
@@ -1725,14 +1724,14 @@ void Tagha_exec(struct TaghaVM *vm)
 					printf("exec_pushnataddr reported: native index \'%" PRIu32 "\' is out of bounds! Current instruction address: %" PRIWord "\n", a, script->ip);
 					goto *dispatch[halt];
 				}
-				pfNative = (fnNative_t) map_find(vm->pmapNatives, script->pstrNatives[a]);
+				pfNative = (fnNative_t) (uintptr_t)map_find(vm->pmapNatives, script->pstrNatives[a]);
 				if( safemode and !pfNative ) {
 					printf("exec_pushnataddr reported: native \'%s\' not registered! Current instruction address: %" PRIWord "\n", script->pstrNatives[a], script->ip);
 					goto *dispatch[halt];
 				}
 				_TaghaScript_push_int64(script, (uintptr_t)pfNative);
 				if( debugmode )
-					printf("pushnataddr: pushed native func addr: %" PRIWord "\n", (uintptr_t)pfNative);
+					printf("pushnataddr: pushed native func addr: %" PRIWord "\n", (uint64_t)(uintptr_t)pfNative);
 				DISPATCH();
 			
 			exec_callnat:; {	// call a native
@@ -1746,7 +1745,7 @@ void Tagha_exec(struct TaghaVM *vm)
 					goto *dispatch[halt];
 				}
 				
-				pfNative = (fnNative_t) map_find(vm->pmapNatives, script->pstrNatives[a]);
+				pfNative = (fnNative_t) (uintptr_t)map_find(vm->pmapNatives, script->pstrNatives[a]);
 				if( safemode and !pfNative ) {
 					printf("exec_callnat reported: native \'%s\' not registered! Current instruction address: %" PRIWord "\n", script->pstrNatives[a], script->ip);
 					goto *dispatch[halt];
@@ -1756,7 +1755,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				// how many arguments pushed as native args
 				const uint32_t argcount = _TaghaScript_get_imm4(script);
 				if( debugmode ) {
-					printf("callnat: Calling func addr: %"PRIWord" ", (uintptr_t)pfNative);
+					printf("callnat: Calling func addr: %"PRIWord" ", (uint64_t)(uintptr_t)pfNative);
 					printf("with %"PRIu32" amount of bytes pushed ", bytes);
 					printf("and %"PRIu32" args / parameters.\n", argcount);
 				}
@@ -1775,7 +1774,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				const uint32_t bytes = _TaghaScript_get_imm4(script);
 				const uint32_t argcount = _TaghaScript_get_imm4(script);
 				if( debugmode ) {
-					printf("callnats: Calling func addr: %"PRIWord" ", (uintptr_t)pfNative);
+					printf("callnats: Calling func addr: %"PRIWord" ", (uint64_t)(uintptr_t)pfNative);
 					printf("with %"PRIu32" amount of bytes pushed ", bytes);
 					printf("and %"PRIu32" args / parameters.\n", argcount);
 				}

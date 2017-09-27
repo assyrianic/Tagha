@@ -36,29 +36,35 @@ extern "C" {
 
 struct TaghaScript;
 struct TaghaVM;
+struct NativeInfo;
+//struct TypeInfo;
+struct FuncTable;
+struct DataTable;
+
 typedef struct TaghaScript		Script_t;
 typedef struct TaghaVM			TaghaVM_t;
+typedef struct DataTable		DataTable_t;
+typedef struct FuncTable		FuncTable_t;
+typedef struct NativeInfo		NativeInfo_t;
+//typedef struct TypeInfo			TypeInfo_t;
 
 //	API to call C/C++ functions from scripts.
 //	account for function pointers to natives being executed on script side.
 typedef		void (*fnNative_t)(struct TaghaScript *script, const uint32_t argc, const uint32_t bytes/*, uint8_t *arrParams*/);
 
-typedef struct nativeinfo {
+struct NativeInfo {
 	const char	*strName;	// use as string literals
 	fnNative_t	pFunc;
-} NativeInfo_t;
+};
+bool		Tagha_register_natives(struct TaghaVM *vm, struct NativeInfo *arrNatives);
 
-bool		Tagha_register_natives(struct TaghaVM *vm, NativeInfo_t *arrNatives);
-
-
-bool		Tagha_register_enum(struct TaghaVM *vm, const char *strEnum);
-bool		Tagha_register_enum_val(struct TaghaVM *vm, const char *strEnumval, const uint64_t ulEnumVal);
-
-bool		Tagha_register_struct(struct TaghaVM *vm, const char *strStruct);
-bool		Tagha_register_struct_field(struct TaghaVM *vm, const char *strField, const uint32_t ulBytes);
-
-bool		Tagha_register_union(struct TaghaVM *vm, const char *strUnion, const uint32_t ulBytes);
-bool		Tagha_register_union_field(struct TaghaVM *vm, const char *strField);
+/*
+struct TypeInfo {
+	const char	*strType;
+	uint64_t	ulVal;
+};
+bool		Tagha_register_type(struct TaghaVM *vm, const char *strType, struct TypeInfo *arrVals);
+*/
 
 /* Script File Structure.
  * magic verifier
@@ -68,15 +74,15 @@ bool		Tagha_register_union_field(struct TaghaVM *vm, const char *strField);
  * Data Table Dictionary
  */
 
-typedef struct func_tbl {
+struct FuncTable {
 	uint32_t	uiParams;
 	uint32_t	uiEntry;	// TODO: make this into uint64?
-} FuncTable_t;
+};
 
-typedef struct data_tbl {
+struct DataTable {
 	uint32_t	uiBytes;
 	uint32_t	uiAddress;	// TODO: make this into uint64?
-} DataTable_t;
+};
 
 
 /*
@@ -92,7 +98,7 @@ struct TaghaScript {
 	Map_t		*pmapFuncs;		// stores the functions compiled to script.
 	Map_t		*pmapGlobals;	// stores global vars.
 	//Vec_t		*pvecHostData;
-	uint64_t		ip, sp, bp;
+	uint64_t	ip, sp, bp;
 	uint32_t
 		uiMemsize,
 		uiInstrSize,
@@ -101,13 +107,14 @@ struct TaghaScript {
 		uiFuncs,
 		uiGlobals
 	;
-	bool	bSafeMode, bDebugMode;
+	bool	bSafeMode : 1;
+	bool	bDebugMode : 1;
 };
 
 struct TaghaVM {
 	Vec_t	*pvecScripts;	// all loaded scripts in here.
 	Map_t	*pmapNatives;	// Natives are mapped here.
-	Map_t	*pmapExpTypes;	// Exported Types from Host to Scripts.
+	//Map_t	*pmapExpTypes;	// Exported Types from Host to Scripts.
 };
 
 union conv_union {	// converter union. for convenience
@@ -120,7 +127,9 @@ union conv_union {	// converter union. for convenience
 	int64_t		ll;
 	double		dbl;
 	uint8_t		c[8];
-	
+};
+
+union mmx_data {
 	uint64_t	mmx_ull[2];
 	int64_t		mmx_ll[2];
 	uint32_t	mmx_ui[4];

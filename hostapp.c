@@ -26,19 +26,18 @@ static void native_puts(struct TaghaScript *restrict script, const uint32_t argc
 	// get our first parameter which is a virtual address to our string.
 	uint64_t addr = TaghaScript_pop_int64(script);
 	
-	// use the virtual address to get the physical pointer of the string.
-	uint8_t *stkptr = TaghaScript_addr2ptr(script, addr);
-	if( !stkptr ) {
+	// use the virtual address to get the pointer of the string
+	// and cast it to 'char*'.
+	const char *str = (const char *)TaghaScript_addr2ptr(script, addr);
+	if( !str ) {
 		TaghaScript_push_int32(script, -1);
 		puts("native_puts reported an ERROR :: **** param 's' is NULL ****\n");
 		return;
 	}
-	// cast the physical pointer to char*.
-	const char *str = (const char *)stkptr;
 	
 	// push back the value of the return val of puts.
 	TaghaScript_push_int32(script, puts(str));
-	stkptr=NULL;
+	str = NULL;
 }
 
 /* int printf(const char *fmt, ...); */
@@ -50,15 +49,14 @@ static void native_printf(struct TaghaScript *restrict script, const uint32_t ar
 	// get our first parameter which is a virtual address to our string.
 	uint64_t addr = TaghaScript_pop_int64(script);
 	
-	// use the virtual address to get the physical pointer of the string.
-	uint8_t *stkptr = TaghaScript_addr2ptr(script, addr);
-	if( !stkptr ) {
+	// use the virtual address to get the pointer of the string
+	// and cast it to 'char*'.
+	const char *str = (const char *)TaghaScript_addr2ptr(script, addr);
+	if( !str ) {
 		TaghaScript_push_int32(script, -1);
 		puts("native_printf reported an ERROR :: **** param 'fmt' is NULL ****\n");
 		return;
 	}
-	// cast the physical pointer to char*.
-	const char *str = (const char *)stkptr;
 	
 	char *iter=(char *)str;
 	int32_t chrs=0;
@@ -76,51 +74,51 @@ static void native_printf(struct TaghaScript *restrict script, const uint32_t ar
 				case 'f':
 				case 'F':
 					chrs += sprintf(data_buffer, "%f", TaghaScript_pop_float64(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 				
 				case 'e':
 				case 'E':
 					chrs += sprintf(data_buffer, "%e", TaghaScript_pop_float64(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 					
 				case 'a':
 				case 'A':
 					chrs += sprintf(data_buffer, "%a", TaghaScript_pop_float64(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 					
 				case 'i':
 				case 'd':
 					chrs += sprintf(data_buffer, "%i", (int32_t)TaghaScript_pop_int32(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 					
 				case 'u':
 					chrs += sprintf(data_buffer, "%u", TaghaScript_pop_int32(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 					
 				case 'x':
 				case 'X':
 					chrs += sprintf(data_buffer, "%x", TaghaScript_pop_int32(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 				
 				case 'o':
 					chrs += sprintf(data_buffer, "%o", TaghaScript_pop_int32(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 				
 				case 'c':
 					chrs += sprintf(data_buffer, "%c", TaghaScript_pop_byte(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 				
 				case 'p':
 					chrs += sprintf(data_buffer, "%p", (void *)(uintptr_t)TaghaScript_pop_int64(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 				
 				default:
@@ -179,21 +177,18 @@ static void native_fopen(struct TaghaScript *restrict script, const uint32_t arg
 	uint64_t filename_addr = TaghaScript_pop_int64(script);
 	uint64_t modes_addr = TaghaScript_pop_int64(script);
 	
-	uint8_t *stkptr_filestr = TaghaScript_addr2ptr(script, filename_addr);
-	if( !stkptr_filestr ) {
+	const char *filename = (const char *)TaghaScript_addr2ptr(script, filename_addr);
+	if( !filename ) {
 		puts("native_fopen reported an ERROR :: **** param 'filename' is NULL ****\n");
 		TaghaScript_push_int32(script, 0);
 		return;
 	}
-	uint8_t *stkptr_modes = TaghaScript_addr2ptr(script, modes_addr);
-	if( !stkptr_modes ) {
+	const char *mode = (const char *)TaghaScript_addr2ptr(script, modes_addr);
+	if( !mode ) {
 		puts("native_fopen reported an ERROR :: **** param 'modes' is NULL ****\n");
 		TaghaScript_push_int32(script, 0);
 		return;
 	}
-	
-	const char *filename = (const char *)stkptr_filestr;
-	const char *mode = (const char *)stkptr_modes;
 	
 	FILE *pFile = fopen(filename, mode);
 	if( pFile ) {
@@ -297,14 +292,14 @@ static void native_callfuncname(struct TaghaScript *restrict script, const uint3
 	uint64_t addr = TaghaScript_pop_int64(script);
 	printf("native_callfuncname :: func ptr addr: %" PRIWord "\n", addr);
 	
-	uint8_t *stkptr = TaghaScript_addr2ptr(script, addr);
-	if( !stkptr ) {
+	const char *strfunc = (const char *)TaghaScript_addr2ptr(script, addr);
+	if( !strfunc ) {
 		puts("native_callfuncname reported an ERROR :: **** param 'func' is NULL ****\n");
 		return;
 	}
 	
-	TaghaScript_call_func_by_name(script, (const char *)stkptr);
-	printf("native_callfuncname :: finished calling script : \'%s\'\n", (const char *)stkptr);
+	TaghaScript_call_func_by_name(script, strfunc);
+	printf("native_callfuncname :: finished calling script : \'%s\'\n", strfunc);
 }
 
 

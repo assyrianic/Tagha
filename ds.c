@@ -145,7 +145,7 @@ void map_free(Map_t *map)
 	for( uint32_t i=0 ; i<map->size ; i++ ) {
 		for( kv = map->table[i] ; kv ; kv = next ) {
 			next = kv->pNext;
-			kv->pData = NULL;
+			kv->pData = 0;
 			kv->strKey = NULL;
 			free(kv), kv = NULL;
 		}
@@ -155,7 +155,7 @@ void map_free(Map_t *map)
 	map_init(map);
 }
 
-bool map_insert(Map_t *restrict map, const char *restrict szKey, void *restrict pData)
+bool map_insert(Map_t *restrict map, const char *restrict szKey, const uint64_t pData)
 {
 	if( !map )
 		return false;
@@ -195,12 +195,12 @@ bool map_insert(Map_t *restrict map, const char *restrict szKey, void *restrict 
 	return true;
 }
 
-void *map_find(const Map_t *restrict map, const char *restrict szKey)
+uint64_t map_find(const Map_t *restrict map, const char *restrict szKey)
 {
 	if( !map )
-		return NULL;
+		return 0;
 	else if( !map->table )
-		return NULL;
+		return 0;
 	/*
 	 * if Map_tionary pointer is const, you only
 	 * need to use one traversing kvnode_t
@@ -211,7 +211,7 @@ void *map_find(const Map_t *restrict map, const char *restrict szKey)
 	for( kv = map->table[hash] ; kv ; kv = kv->pNext )
 		if( !strcmp(kv->strKey, szKey) )
 			return kv->pData;
-	return NULL;
+	return 0;
 }
 
 void map_delete(Map_t *restrict map, const char *restrict szKey)
@@ -251,7 +251,7 @@ bool map_has_key(const Map_t *restrict map, const char *restrict szKey)
 	return false;
 }
 
-uint32_t map_len(const Map_t *map)
+uint64_t map_len(const Map_t *map)
 {
 	if( !map )
 		return 0L;
@@ -290,7 +290,7 @@ void map_rehash(Map_t *map)
 			next = kv->pNext;
 			map_insert(map, kv->strKey, kv->pData);
 			// free the inner nodes since they'll be re-hashed
-			kv->strKey=NULL, kv->pData=NULL;
+			kv->strKey=NULL, kv->pData=0;
 			free(kv), kv = NULL;
 			//printf("**** Rehashed Entry ****\n");
 		}

@@ -62,7 +62,10 @@ static void native_printf(struct TaghaScript *script, const uint32_t argc, const
 	while( *iter ) {
 		if( *iter=='%' ) {
 			iter++;
-			char data_buffer[1024];
+			
+			// make sure we zero out the buffer 
+			char data_buffer[1024] = {0};
+			
 			switch( *iter ) {
 				case '%':
 					printf("%%");
@@ -72,51 +75,51 @@ static void native_printf(struct TaghaScript *script, const uint32_t argc, const
 				case 'f':
 				case 'F':
 					chrs += sprintf(data_buffer, "%f", TaghaScript_pop_float64(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 				
 				case 'e':
 				case 'E':
 					chrs += sprintf(data_buffer, "%e", TaghaScript_pop_float64(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 					
 				case 'a':
 				case 'A':
 					chrs += sprintf(data_buffer, "%a", TaghaScript_pop_float64(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 					
 				case 'i':
 				case 'd':
 					chrs += sprintf(data_buffer, "%i", (int32_t)TaghaScript_pop_int32(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 					
 				case 'u':
 					chrs += sprintf(data_buffer, "%u", TaghaScript_pop_int32(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 					
 				case 'x':
 				case 'X':
 					chrs += sprintf(data_buffer, "%x", TaghaScript_pop_int32(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 				
 				case 'o':
 					chrs += sprintf(data_buffer, "%o", TaghaScript_pop_int32(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 				
 				case 'c':
 					chrs += sprintf(data_buffer, "%c", TaghaScript_pop_byte(script));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 				
 				case 'p':
 					chrs += sprintf(data_buffer, "%p", reinterpret_cast< void* >(TaghaScript_pop_int64(script)));
-					printf(data_buffer);
+					printf("%s", data_buffer);
 					break;
 				
 				default:
