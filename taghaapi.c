@@ -403,6 +403,7 @@ bool Tagha_register_natives(struct TaghaVM *restrict vm, struct NativeInfo *rest
 		map_insert(vm->pmapNatives, arrNatives[i].strName, (uintptr_t)arrNatives[i].pFunc);
 	return true;
 }
+
 /*
 bool Tagha_register_type(struct TaghaVM *restrict vm, const char *restrict strType, struct TypeInfo *arrVals)
 {
@@ -875,7 +876,12 @@ void TaghaScript_debug_print_instrs(const struct TaghaScript *script)
 	printf("\n");
 }
 
-
+void gfree(void **ptr)
+{
+	if( *ptr )
+		free(*ptr);
+	*ptr = NULL;
+}
 
 
 

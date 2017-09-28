@@ -145,6 +145,7 @@ void		Tagha_init(struct TaghaVM *vm);
 void		Tagha_load_script(struct TaghaVM *vm, char *filename);
 void		Tagha_free(struct TaghaVM *vm);
 void		Tagha_exec(struct TaghaVM *vm);
+void		Tagha_load_libc_natives(struct TaghaVM *vm);
 
 void		TaghaScript_debug_print_ptrs(const struct TaghaScript *script);
 void		TaghaScript_debug_print_memory(const struct TaghaScript *script);
@@ -189,7 +190,7 @@ void		TaghaScript_pop_nbytes(struct TaghaScript *script, void *pBuffer, const ui
 /*
  * IDEA : have pointer dereferencing by load/store sp
  * actually dereference the address instead of using an address
- * as a relative offset array index.
+ * as a relative offset array index. Very unsafe but fast.
  */
 uint8_t		*TaghaScript_addr2ptr(struct TaghaScript *script, const uint64_t stk_address);
 
@@ -203,6 +204,9 @@ void		*TaghaScript_get_hostdata(struct TaghaScript *script, const uint32_t id);
 void		TaghaScript_del_hostdata(struct TaghaScript *script, const uint32_t id);
 void		TaghaScript_free_hostdata(struct TaghaScript *script);
 */
+
+void gfree(void **ptr);
+
 #ifdef __cplusplus
 }
 #endif

@@ -218,6 +218,12 @@ with open('float_test.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.addf);
 	wrt_opcode(tbc, opcodes.halt);
 
+'''
+int main()
+{
+	puts("hello world\n");
+}
+'''
 with open('hello_world.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc, 'puts');
@@ -232,7 +238,8 @@ with open('hello_world.tbc', 'wb+') as tbc:
 	wrt_pushq(tbc, 16);
 	wrt_opcode(tbc, opcodes.pushbpadd);
 	wrt_callnat(tbc, 0, 8, 1);
-	wrt_opcode(tbc, opcodes.ret);
+	wrt_pushl(tbc, 0);
+	wrt_1op_4byte(tbc, opcodes.retx, 4);
 
 with open('pointers.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 64);
@@ -595,6 +602,46 @@ with open('test_call_func_by_name.tbc', 'wb+') as tbc:
 	
 	wrt_pushq(tbc, 63-(len('f')+1));
 	wrt_callnat(tbc, 0, 8, 1);
+	wrt_pushl(tbc, 0);
+	wrt_1op_4byte(tbc, opcodes.retx, 4);	# return 0;
+
+'''
+test GCC-style assembler generated code.
+main:
+        pushq   %rbp
+        movq    %rsp, %rbp
+        movl    $5, -4(%rbp)
+        movb    $-1, -5(%rbp)
+        movl    $0, %eax
+        popq    %rbp
+        ret
+'''
+with open('test_gcc_style_asm.tbc', 'wb+') as tbc:
+	wrt_hdr(tbc, 64);
+	wrt_hdr_natives(tbc);
+	wrt_hdr_funcs(tbc, 'main', 0, 10);
+	wrt_hdr_globals(tbc);
+	wrt_hdr_footer(tbc, entry=0);
+	instraddr = 8;
+	wrt_1op_8byte(tbc, opcodes.call, 10); #0-8	call main
+	instraddr += 1;
+	wrt_opcode(tbc, opcodes.halt); #9	exit main
+	instraddr += 1;
+	
+	wrt_pushq(tbc, 5);	# reserve stack space for local vars
+	wrt_opcode(tbc, opcodes.pushspsub);
+	wrt_opcode(tbc, opcodes.popsp);
+	
+	wrt_pushl(tbc, 5);
+	wrt_pushq(tbc, 4);
+	wrt_opcode(tbc, opcodes.pushbpsub);
+	wrt_opcode(tbc, opcodes.storespl);
+	
+	wrt_push_smaller(tbc, 1, 255);
+	wrt_pushq(tbc, 5);
+	wrt_opcode(tbc, opcodes.pushbpsub);
+	wrt_opcode(tbc, opcodes.storespb);
+	
 	wrt_pushl(tbc, 0);
 	wrt_1op_4byte(tbc, opcodes.retx, 4);	# return 0;
 
