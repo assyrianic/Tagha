@@ -29,18 +29,9 @@ static void native_test_ptr(struct TaghaScript *script, const uint32_t argc, con
 	} *player=nullptr;
 	
 	// get first arg which is the virtual address to our data.
-	uint64_t addr = TaghaScript_pop_int64(script);
-	
-	/*
-	 * Notice the order of the struct's data.
-	 * we pushed the struct data from last to first.
-	 * ammo is pushed first, then health, then finally the speed float.
-	 * then we get the value from the stack and cast it to our struct!
-	*/
-	uint8_t *stkptr = TaghaScript_addr2ptr(script, addr);
-	if( !stkptr )
+	player = reinterpret_cast< struct Player* >(TaghaScript_pop_int64(script));
+	if( !player )
 		return;
-	player = reinterpret_cast< struct Player* >(stkptr);
 	
 	// debug print to see if our data is accurate.
 	printf("native_test_ptr :: ammo: %u\n", player->ammo);
@@ -80,16 +71,13 @@ static void native_callfuncname(struct TaghaScript *script, const uint32_t argc,
 	if( !script )
 		return;
 	
-	uint64_t addr = TaghaScript_pop_int64(script);
-	printf("native_callfuncname :: func ptr addr: %" PRIWord "\n", addr);
-	
-	uint8_t *stkptr = TaghaScript_addr2ptr(script, addr);
-	if( !stkptr ) {
+	const char *str = reinterpret_cast< const char* >(TaghaScript_pop_int64(script));
+	if( !str ) {
 		puts("native_callfuncname reported an ERROR :: **** param 'func' is NULL ****\n");
 		return;
 	}
-	TaghaScript_call_func_by_name(script, (const char *)stkptr);
-	printf("native_callfuncname :: finished calling script : \'%s\'\n", (const char *)stkptr);
+	TaghaScript_call_func_by_name(script, str);
+	printf("native_callfuncname :: finished calling script : \'%s\'\n", str);
 }
 
 

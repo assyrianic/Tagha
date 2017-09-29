@@ -99,6 +99,7 @@ struct TaghaScript {
 	Map_t		*pmapGlobals;	// stores global vars.
 	//Vec_t		*pvecHostData;
 	uint64_t	ip, sp, bp;
+	uint8_t		*SP, *BP;
 	uint32_t
 		uiMemsize,
 		uiInstrSize,

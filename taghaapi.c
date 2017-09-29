@@ -85,6 +85,7 @@ void Tagha_load_script(struct TaghaVM *restrict vm, char *restrict filename)
 			}
 			bytecount += sizeof(uint32_t);
 			script->sp = script->bp = script->uiMemsize-1;
+			script->SP = script->BP = (script->pbMemory + script->sp);
 			
 			ignore_warns = fread(&script->uiNatives, sizeof(uint32_t), 1, pFile);
 			bytecount += sizeof(uint32_t);
@@ -328,6 +329,7 @@ void TaghaScript_free(struct TaghaScript *script)
 	if( script->pvecHostData )
 		TaghaScript_free_hostdata(script);
 	*/
+	script->BP = script->SP = NULL;
 	free(script);
 }
 
@@ -390,6 +392,7 @@ void TaghaScript_reset(struct TaghaScript *script)
 	// better than a for-loop setting everything to 0.
 	memset(script->pbMemory, 0, script->uiMemsize);
 	script->sp = script->bp = script->uiMemsize-1;
+	script->SP = script->BP = (script->pbMemory + script->sp);
 }
 
 bool Tagha_register_natives(struct TaghaVM *restrict vm, struct NativeInfo *restrict arrNatives)
@@ -441,7 +444,8 @@ void TaghaScript_push_longfloat(struct TaghaScript *restrict script, const long 
 		exit(1);
 	}
 	script->sp -= size;
-	*(long double *)(script->pbMemory + script->sp) = val;
+	script->SP -= size;
+	*(long double *)(script->SP) = val;
 }
 
 long double TaghaScript_pop_longfloat(struct TaghaScript *script)
@@ -454,8 +458,9 @@ long double TaghaScript_pop_longfloat(struct TaghaScript *script)
 		printf("TaghaScript_pop_longfloat reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
 		exit(1);
 	}
-	long double val = *(long double *)(script->pbMemory + script->sp);
+	long double val = *(long double *)(script->SP);
 	script->sp += size;
+	script->SP += size;
 	return val;
 }
 
@@ -469,7 +474,8 @@ void TaghaScript_push_int64(struct TaghaScript *restrict script, const uint64_t 
 		return;
 	}
 	script->sp -= size;
-	*(uint64_t *)(script->pbMemory + script->sp) = val;
+	script->SP -= size;
+	*(uint64_t *)(script->SP) = val;
 }
 uint64_t TaghaScript_pop_int64(struct TaghaScript *script)
 {
@@ -482,6 +488,7 @@ uint64_t TaghaScript_pop_int64(struct TaghaScript *script)
 	}
 	uint64_t val = *(uint64_t *)(script->pbMemory + script->sp);
 	script->sp += size;
+	script->SP += size;
 	return val;
 }
 
@@ -495,7 +502,8 @@ void TaghaScript_push_float64(struct TaghaScript *restrict script, const double 
 		return;
 	}
 	script->sp -= size;
-	*(double *)(script->pbMemory + script->sp) = val;
+	script->SP -= size;
+	*(double *)(script->SP) = val;
 }
 double TaghaScript_pop_float64(struct TaghaScript *script)
 {
@@ -506,8 +514,9 @@ double TaghaScript_pop_float64(struct TaghaScript *script)
 		printf("TaghaScript_pop_float64 reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
 		return 0;
 	}
-	double val = *(double *)(script->pbMemory + script->sp);
+	double val = *(double *)(script->SP);
 	script->sp += size;
+	script->SP += size;
 	return val;
 }
 
@@ -521,7 +530,8 @@ void TaghaScript_push_int32(struct TaghaScript *restrict script, const uint32_t 
 		return;
 	}
 	script->sp -= size;
-	*(uint32_t *)(script->pbMemory + script->sp) = val;
+	script->SP -= size;
+	*(uint32_t *)(script->SP) = val;
 }
 uint32_t TaghaScript_pop_int32(struct TaghaScript *script)
 {
@@ -532,8 +542,9 @@ uint32_t TaghaScript_pop_int32(struct TaghaScript *script)
 		printf("TaghaScript_pop_int32 reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
 		return 0;
 	}
-	uint32_t val = *(uint32_t *)(script->pbMemory + script->sp);
+	uint32_t val = *(uint32_t *)(script->SP);
 	script->sp += size;
+	script->SP += size;
 	return val;
 }
 
@@ -547,7 +558,8 @@ void TaghaScript_push_float32(struct TaghaScript *restrict script, const float v
 		return;
 	}
 	script->sp -= size;
-	*(float *)(script->pbMemory + script->sp) = val;
+	script->SP -= size;
+	*(float *)(script->SP) = val;
 }
 float TaghaScript_pop_float32(struct TaghaScript *script)
 {
@@ -558,8 +570,9 @@ float TaghaScript_pop_float32(struct TaghaScript *script)
 		printf("TaghaScript_pop_float32 reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
 		return 0;
 	}
-	float val = *(float *)(script->pbMemory + script->sp);
+	float val = *(float *)(script->SP);
 	script->sp += size;
+	script->SP += size;
 	return val;
 }
 
@@ -573,7 +586,8 @@ void TaghaScript_push_short(struct TaghaScript *restrict script, const uint16_t 
 		return;
 	}
 	script->sp -= size;
-	*(uint16_t *)(script->pbMemory + script->sp) = val;
+	script->SP -= size;
+	*(uint16_t *)(script->SP) = val;
 }
 uint16_t TaghaScript_pop_short(struct TaghaScript *script)
 {
@@ -584,8 +598,9 @@ uint16_t TaghaScript_pop_short(struct TaghaScript *script)
 		printf("TaghaScript_pop_short reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
 		return 0;
 	}
-	uint16_t val = *(uint16_t *)(script->pbMemory + script->sp);
+	uint16_t val = *(uint16_t *)(script->SP);
 	script->sp += size;
+	script->SP += size;
 	return val;
 }
 
@@ -599,7 +614,8 @@ void TaghaScript_push_byte(struct TaghaScript *restrict script, const uint8_t va
 		return;
 	}
 	script->sp -= size;
-	script->pbMemory[script->sp] = val;
+	script->SP -= size;
+	*(script->SP) = val;
 }
 uint8_t TaghaScript_pop_byte(struct TaghaScript *script)
 {
@@ -610,8 +626,9 @@ uint8_t TaghaScript_pop_byte(struct TaghaScript *script)
 		printf("TaghaScript_pop_byte reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
 		return 0;
 	}
-	uint8_t val = script->pbMemory[script->sp];
+	uint8_t val = *(script->SP);
 	script->sp += size;
+	script->SP += size;
 	return val;
 }
 
@@ -624,7 +641,8 @@ void TaghaScript_push_nbytes(struct TaghaScript *restrict script, void *restrict
 		return;
 	}
 	script->sp -= bytesize;
-	memcpy((script->pbMemory + script->sp), pItem, bytesize);
+	script->SP -= bytesize;
+	memcpy(script->SP, pItem, bytesize);
 	/*
 	for( uint32_t i=bytesize-1 ; i<bytesize ; i-- )
 		script->pbMemory[--script->sp] = ((uint8_t *)pItem)[i];
@@ -638,8 +656,9 @@ void TaghaScript_pop_nbytes(struct TaghaScript *restrict script, void *restrict 
 		printf("TaghaScript_pop_nbytes reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
 		return;
 	}
-	memcpy(pBuffer, (script->pbMemory + script->sp), bytesize);
+	memcpy(pBuffer, script->SP, bytesize);
 	script->sp += bytesize;
+	script->SP += bytesize;
 	/*
 	for( uint32_t i=0 ; i<bytesize ; i++ )
 		((uint8_t *)pBuffer)[i] = script->pbMemory[script->sp++];
@@ -662,7 +681,7 @@ void TaghaScript_call_func_by_name(struct TaghaScript *restrict script, const ch
 	else if( !script->pmapFuncs )
 		return;
 	
-	struct FuncTable	*pFuncs = (struct FuncTable *)(uintptr_t)map_find(script->pmapFuncs, strFunc);
+	struct FuncTable *pFuncs = (struct FuncTable *)(uintptr_t)map_find(script->pmapFuncs, strFunc);
 	if( pFuncs ) {
 		bool debugmode = script->bDebugMode;
 		uint32_t func_addr = pFuncs->uiEntry;
@@ -676,10 +695,11 @@ void TaghaScript_call_func_by_name(struct TaghaScript *restrict script, const ch
 		
 		script->ip = func_addr;	// jump to instruction
 		
-		TaghaScript_push_int64(script, script->bp);	// push ebp;
+		TaghaScript_push_int64(script, (uintptr_t)script->BP);	// push ebp;
 		if( debugmode )
 			printf("TaghaScript_call_func_by_name :: pushing bp: %" PRIWord "\n", script->bp);
 		script->bp = script->sp;	// mov ebp, esp;
+		script->BP = script->SP;
 		
 		if( debugmode )
 			printf("TaghaScript_call_func_by_name :: bp set to sp: %" PRIWord "\n", script->bp);
@@ -696,8 +716,9 @@ void TaghaScript_call_func_by_addr(struct TaghaScript *script, const uint64_t fu
 	TaghaScript_push_int64(script, script->ip+1);	// save return address.
 	script->ip = func_addr;	// jump to instruction
 	
-	TaghaScript_push_int64(script, script->bp);	// push ebp;
+	TaghaScript_push_int64(script, (uintptr_t)script->BP);	// push ebp;
 	script->bp = script->sp;	// mov ebp, esp;
+	script->BP = script->SP;
 }
 
 void *TaghaScript_get_global_by_name(struct TaghaScript *script, const char *strGlobalName)
