@@ -31,6 +31,25 @@ static void native_free(struct TaghaScript *restrict script, const uint32_t argc
 	}
 }
 
+/* void *calloc(size_t num, size_t size); */
+static void native_calloc(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
+{
+	const uint64_t num = TaghaScript_pop_int64(script);
+	const uint64_t size = TaghaScript_pop_int64(script);
+	
+	void *p = calloc(num, size);
+	TaghaScript_push_int64(script, (uintptr_t)p);
+}
+
+/* void *realloc(void *ptr, size_t size); */
+static void native_realloc(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
+{
+	void *ptr = (void *)(uintptr_t)TaghaScript_pop_int64(script);
+	const uint64_t size = TaghaScript_pop_int64(script);
+	
+	TaghaScript_push_int64(script, (uintptr_t)realloc(ptr, size));
+}
+
 
 void Tagha_load_stdlib_natives(struct TaghaVM *vm)
 {
@@ -40,6 +59,8 @@ void Tagha_load_stdlib_natives(struct TaghaVM *vm)
 	NativeInfo_t libc_stdlib_natives[] = {
 		{"malloc", native_malloc},
 		{"free", native_free},
+		{"calloc", native_calloc},
+		{"realloc", native_realloc},
 		{NULL, NULL}
 	};
 	Tagha_register_natives(vm, libc_stdlib_natives);

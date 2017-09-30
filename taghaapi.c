@@ -859,6 +859,7 @@ bool TaghaScript_debug_active(const struct TaghaScript *script)
 }
 
 
+
 void TaghaScript_debug_print_memory(const struct TaghaScript *script)
 {
 	if( !script )
@@ -903,9 +904,6 @@ void gfree(void **ptr)
 		free(*ptr);
 	*ptr = NULL;
 }
-
-
-
 
 
 
