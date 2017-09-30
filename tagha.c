@@ -53,9 +53,13 @@ static inline void _TaghaScript_get_immn(struct TaghaScript *restrict script, vo
 	if( !script or !pBuffer )
 		return;
 	
-	uint32_t i = 0;
-	while( i<bytesize )
-		((uint8_t *)pBuffer)[i++] = script->pInstrStream[++script->ip];
+	if( script->bSafeMode and (script->ip+bytesize) >= script->uiInstrSize ) {
+		printf("_TaghaScript_get_immn reported: instr overflow! Current instruction address: %" PRIWord "\n", script->ip);
+		return;
+	}
+	script->ip++;
+	memcpy(pBuffer, (script->pInstrStream + script->ip), bytesize);
+	script->ip += bytesize-1;
 }
 
 /*
@@ -71,6 +75,11 @@ static inline uint64_t _TaghaScript_get_imm8(struct TaghaScript *restrict script
 		printf("_TaghaScript_get_imm8 reported: instr overflow! Current instruction address: %" PRIWord "\n", script->ip);
 		return 0L;
 	}
+	script->ip++;
+	uint64_t val = *(uint64_t *)(script->pInstrStream + script->ip);
+	script->ip += 7;
+	return val;
+	/*
 	union conv_union conv;
 	conv.c[0] = script->pInstrStream[++script->ip];
 	conv.c[1] = script->pInstrStream[++script->ip];
@@ -81,6 +90,7 @@ static inline uint64_t _TaghaScript_get_imm8(struct TaghaScript *restrict script
 	conv.c[6] = script->pInstrStream[++script->ip];
 	conv.c[7] = script->pInstrStream[++script->ip];
 	return conv.ull;
+	*/
 }
 
 static inline uint32_t _TaghaScript_get_imm4(struct TaghaScript *restrict script)
@@ -91,6 +101,11 @@ static inline uint32_t _TaghaScript_get_imm4(struct TaghaScript *restrict script
 		printf("_TaghaScript_get_imm4 reported: instr overflow! Current instruction address: %" PRIWord "\n", script->ip);
 		return 0;
 	}
+	script->ip++;
+	uint32_t val = *(uint32_t *)(script->pInstrStream + script->ip);
+	script->ip += 3;
+	return val;
+	/*
 	union conv_union conv;
 	//	0x0A,0x0B,0x0C,0x0D,
 	conv.c[0] = script->pInstrStream[++script->ip];
@@ -98,6 +113,7 @@ static inline uint32_t _TaghaScript_get_imm4(struct TaghaScript *restrict script
 	conv.c[2] = script->pInstrStream[++script->ip];
 	conv.c[3] = script->pInstrStream[++script->ip];
 	return conv.ui;
+	*/
 }
 
 static inline uint16_t _TaghaScript_get_imm2(struct TaghaScript *restrict script)
@@ -108,10 +124,16 @@ static inline uint16_t _TaghaScript_get_imm2(struct TaghaScript *restrict script
 		printf("_TaghaScript_get_imm2 reported: instr overflow! Current instruction address: %" PRIWord "\n", script->ip);
 		return 0;
 	}
+	script->ip++;
+	uint16_t val = *(uint16_t *)(script->pInstrStream + script->ip);
+	script->ip++;
+	return val;
+	/*
 	union conv_union conv;
 	conv.c[0] = script->pInstrStream[++script->ip];
 	conv.c[1] = script->pInstrStream[++script->ip];
 	return conv.us;
+	*/
 }
 
 
