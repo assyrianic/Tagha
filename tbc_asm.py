@@ -134,10 +134,10 @@ def wrt_hdr_globals(f, *lGlobals) -> None:
 			f.write(lGlobals[i].to_bytes(bytecount, byteorder='little'));
 		i += 1;
 
-def wrt_hdr_footer(f, entry=0, safemode=True, debugmode=True) -> None:
+def wrt_hdr_footer(f, entry=0, modes=3) -> None:
 	f.write(entry.to_bytes(8, byteorder='little'));
-	f.write(safemode.to_bytes(1, byteorder='little'));
-	f.write(debugmode.to_bytes(1, byteorder='little'));
+	# 1 for safemode, 2 for debugmode, 3 for both.
+	f.write(modes.to_bytes(1, byteorder='little'));
 
 def wrt_opcode(f, opcode:int) -> None:
 	f.write(opcode.to_bytes(1, byteorder='little'));
@@ -315,7 +315,7 @@ with open('test_recursion.tbc', 'wb+') as tbc:
 	wrt_hdr_natives(tbc);
 	wrt_hdr_funcs(tbc, 'recursive', 0, 10);
 	wrt_hdr_globals(tbc);
-	wrt_hdr_footer(tbc, entry=0, safemode=True, debugmode=False);
+	wrt_hdr_footer(tbc, entry=0, modes=3);
 	
 	wrt_1op_8byte(tbc, opcodes.call, 10);
 	wrt_opcode(tbc, opcodes.halt);

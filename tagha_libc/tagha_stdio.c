@@ -70,8 +70,6 @@ static void native_fclose(struct TaghaScript *restrict script, const uint32_t ar
 		printf("fclose:: closing FILE*\n");
 		TaghaScript_push_int32(script, fclose(pFile));
 		pFile=NULL;
-		// erases the dangling reference from host data.
-		//TaghaScript_del_hostdata(script, addr);
 	}
 	else {
 		printf("fclose:: FILE* is NULL\n");

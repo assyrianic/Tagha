@@ -11,7 +11,6 @@ extern "C" {
 #include <stdint.h>
 #include <iso646.h>
 
-//#define SIZE(x)		sizeof((x)) / sizeof((x)[0]);
 
 //#define typename(x) _Generic((x),        /* Get the name of a type */           \
         _Bool: "_Bool",                    unsigned char: "unsigned char",        \
@@ -93,32 +92,33 @@ typedef struct handle {
 */
 
 struct TaghaScript {
-	uint8_t		*pbMemory, *pInstrStream;
+	uint8_t		*pbMemory, *pInstrStream;	// memory to hold data and instruction stream.
 	char		**pstrNatives;	// natives table as stored strings.
 	Map_t		*pmapFuncs;		// stores the functions compiled to script.
 	Map_t		*pmapGlobals;	// stores global vars.
 	//Vec_t		*pvecHostData;
-	uint64_t	ip, sp, bp;
-	uint8_t		*SP, *BP;
+	uint64_t	ip, sp, bp;	// our data "pointers"
+	uint8_t		*SP, *BP;	// our actual stack and base frame pointers. bounds checked by "sp" and "bp" int versions.
 	uint32_t
-		uiMemsize,
-		uiInstrSize,
-		uiMaxInstrs,
-		uiNatives,
-		uiFuncs,
-		uiGlobals
+		uiMemsize,	// size of pbMemory
+		uiInstrSize,	// size of pInstrStream
+		uiMaxInstrs,	// max amount of instrs a script can execute.
+		uiNatives,	// amount of natives the script uses.
+		uiFuncs,	// how many functions the script has.
+		uiGlobals	// how many globals variables the script has.
 	;
-	bool	bSafeMode : 1;
-	bool	bDebugMode : 1;
+	bool	bSafeMode : 1;	// does the script want bounds checking?
+	bool	bDebugMode : 1;	// print debug info.
 };
 
 struct TaghaVM {
-	Vec_t	*pvecScripts;	// all loaded scripts in here.
-	Map_t	*pmapNatives;	// Natives are mapped here.
+	Vec_t	*pvecScripts;	// vector to store all loaded scripts.
+	Map_t	*pmapNatives;	// hashmap that stores the native's script name and the C/C++ function pointer bound to it.
 	//Map_t	*pmapExpTypes;	// Exported Types from Host to Scripts.
 };
 
-union conv_union {	// converter union. for convenience
+// converter union. for convenient type punning.
+union conv_union {
 	uint32_t	ui;
 	int32_t		i;
 	float		f;
@@ -130,6 +130,7 @@ union conv_union {	// converter union. for convenience
 	uint8_t		c[8];
 };
 
+// mmx union for doing packed math to help speed up array or struct based numbers.
 union mmx_data {
 	uint64_t	mmx_ull[2];
 	int64_t		mmx_ll[2];
@@ -194,7 +195,7 @@ void		TaghaScript_pop_nbytes(struct TaghaScript *script, void *pBuffer, const ui
  * actually dereference the address instead of using an address
  * as a relative offset array index. Very unsafe but fast.
  */
-uint8_t		*TaghaScript_addr2ptr(struct TaghaScript *script, const uint64_t stk_address);
+//uint8_t		*TaghaScript_addr2ptr(struct TaghaScript *script, const uint64_t stk_address);
 
 void		TaghaScript_call_func_by_name(struct TaghaScript *script, const char *strFunc);
 void		TaghaScript_call_func_by_addr(struct TaghaScript *script, const uint64_t func_addr);
