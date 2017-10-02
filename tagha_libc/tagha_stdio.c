@@ -395,7 +395,7 @@ static void native_fseek(struct TaghaScript *restrict script, const uint32_t arg
 static void native_ftell(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
 {
 	FILE *stream = (FILE *)(uintptr_t)TaghaScript_pop_int64(script);
-	TaghaScript_push_int32(script, ftell(stream));
+	TaghaScript_push_int64(script, (uint64_t)ftell(stream));
 }
 
 /* void rewind(FILE *stream); */
