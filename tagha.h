@@ -49,21 +49,13 @@ typedef struct NativeInfo		NativeInfo_t;
 
 //	API to call C/C++ functions from scripts.
 //	account for function pointers to natives being executed on script side.
-typedef		void (*fnNative_t)(struct TaghaScript *script, const uint32_t argc, const uint32_t bytes/*, uint8_t *arrParams*/);
+typedef		void (*fnNative_t)(struct TaghaScript *script, const uint32_t argc, const uint32_t bytes/*, uint64_t *arrParams*/);
 
 struct NativeInfo {
 	const char	*strName;	// use as string literals
 	fnNative_t	pFunc;
 };
-bool		Tagha_register_natives(struct TaghaVM *vm, struct NativeInfo *arrNatives);
 
-/*
-struct TypeInfo {
-	const char	*strType;
-	uint64_t	ulVal;
-};
-bool		Tagha_register_type(struct TaghaVM *vm, const char *strType, struct TypeInfo *arrVals);
-*/
 
 /* Script File Structure.
  * magic verifier
@@ -80,71 +72,49 @@ struct FuncTable {
 
 struct DataTable {
 	uint32_t	uiBytes;
-	uint32_t	uiAddress;	// TODO: make this into uint64?
+	uint32_t	uiOffset;	// TODO: make this into uint64?
 };
 
 
-/*
-typedef struct handle {
-	void		*pHostPtr;
-	uint32_t	uiHNDL;
-} Handle_t;
-*/
-
 struct TaghaScript {
-	uint8_t		*pbMemory, *pInstrStream;	// memory to hold data and instruction stream.
-	char		**pstrNatives;	// natives table as stored strings.
-	Map_t		*pmapFuncs;		// stores the functions compiled to script.
-	Map_t		*pmapGlobals;	// stores global vars.
-	//Vec_t		*pvecHostData;
-	uint64_t	ip, sp, bp;	// our data "pointers"
-	uint8_t		*SP, *BP;	// our actual stack and base frame pointers. bounds checked by "sp" and "bp" int versions.
-	uint32_t
-		uiMemsize,	// size of pbMemory
-		uiInstrSize,	// size of pInstrStream
-		uiMaxInstrs,	// max amount of instrs a script can execute.
-		uiNatives,	// amount of natives the script uses.
-		uiFuncs,	// how many functions the script has.
-		uiGlobals	// how many globals variables the script has.
+	uint64_t
+		ip,	// instruction pointer offset.
+		sp,	// stack pointer offset.
+		bp	// base ptr / stack frame ptr offset.
 	;
-	bool	bSafeMode : 1;	// does the script want bounds checking?
-	bool	bDebugMode : 1;	// print debug info.
+	uint8_t
+		*m_pMemory,	// stack and data stream. Used for stack and data segment
+		*m_pText,	// instruction stream.
+		*m_pData,	// global data.
+		*IP,	// instruction ptr
+		*SP,	// stack ptr.
+		*BP		// base ptr/stack frame ptr.
+	;
+	char	**m_pstrNatives;	// natives table as stored strings.
+	Map_t
+		*m_pmapFuncs,	// stores the functions compiled to script.
+		*m_pmapGlobals	// stores global vars like string literals or variables.
+		;
+	uint32_t
+		m_uiMemsize,	// size of m_pMemory
+		m_uiInstrSize,	// size of m_pText
+		m_uiMaxInstrs,	// max amount of instrs a script can execute.
+		m_uiNatives,	// amount of natives the script uses.
+		m_uiFuncs,	// how many functions the script has.
+		m_uiGlobals	// how many globals variables the script has.
+	;
+	bool	m_bSafeMode : 1;	// does the script want bounds checking?
+	bool	m_bDebugMode : 1;	// print debug info.
 };
 
 struct TaghaVM {
-	Vec_t	*pvecScripts;	// vector to store all loaded scripts.
-	Map_t	*pmapNatives;	// hashmap that stores the native's script name and the C/C++ function pointer bound to it.
-	//Map_t	*pmapExpTypes;	// Exported Types from Host to Scripts.
-};
-
-// converter union. for convenient type punning.
-union conv_union {
-	uint32_t	ui;
-	int32_t		i;
-	float		f;
-	uint16_t	us;
-	int16_t		s;
-	uint64_t	ull;
-	int64_t		ll;
-	double		dbl;
-	uint8_t		c[8];
-};
-
-// mmx union for doing packed math to help speed up array or struct based numbers.
-union mmx_data {
-	uint64_t	mmx_ull[2];
-	int64_t		mmx_ll[2];
-	uint32_t	mmx_ui[4];
-	int32_t		mmx_i[4];
-	float		mmx_f[4];
-	uint16_t	mmx_us[8];
-	int16_t		mmx_s[8];
-	int8_t		mmx_c[16];
-	uint8_t		mmx_uc[16];
+	Vec_t	*m_pvecScripts;	// vector to store all loaded scripts.
+	Map_t	*m_pmapNatives;	// hashmap that stores the native's script name and the C/C++ function pointer bound to it.
 };
 
 void		Tagha_init(struct TaghaVM *vm);
 void		Tagha_load_script(struct TaghaVM *vm, char *filename);
+bool		Tagha_register_natives(struct TaghaVM *vm, struct NativeInfo *arrNatives);
 void		Tagha_free(struct TaghaVM *vm);
 void		Tagha_exec(struct TaghaVM *vm);
 void		Tagha_load_libc_natives(struct TaghaVM *vm);
@@ -172,14 +142,14 @@ long double	TaghaScript_pop_longfloat(struct TaghaScript *script);
 void		TaghaScript_push_int64(struct TaghaScript *script, const uint64_t val);
 uint64_t	TaghaScript_pop_int64(struct TaghaScript *script);
 
-void		TaghaScript_push_float64(struct TaghaScript *script, const double val);
-double		TaghaScript_pop_float64(struct TaghaScript *script);
+void		TaghaScript_push_double(struct TaghaScript *script, const double val);
+double		TaghaScript_pop_double(struct TaghaScript *script);
 
 void		TaghaScript_push_int32(struct TaghaScript *script, const uint32_t val);
 uint32_t	TaghaScript_pop_int32(struct TaghaScript *script);
 
-void		TaghaScript_push_float32(struct TaghaScript *script, const float val);
-float		TaghaScript_pop_float32(struct TaghaScript *script);
+void		TaghaScript_push_float(struct TaghaScript *script, const float val);
+float		TaghaScript_pop_float(struct TaghaScript *script);
 
 void		TaghaScript_push_short(struct TaghaScript *script, const uint16_t val);
 uint16_t	TaghaScript_pop_short(struct TaghaScript *script);
@@ -190,25 +160,55 @@ uint8_t		TaghaScript_pop_byte(struct TaghaScript *script);
 void		TaghaScript_push_nbytes(struct TaghaScript *script, void *pItem, const uint32_t bytesize);
 void		TaghaScript_pop_nbytes(struct TaghaScript *script, void *pBuffer, const uint32_t bytesize);
 
-/*
- * IDEA : have pointer dereferencing by load/store sp
- * actually dereference the address instead of using an address
- * as a relative offset array index. Very unsafe but fast.
- */
-//uint8_t		*TaghaScript_addr2ptr(struct TaghaScript *script, const uint64_t stk_address);
 
 void		TaghaScript_call_func_by_name(struct TaghaScript *script, const char *strFunc);
 void		TaghaScript_call_func_by_addr(struct TaghaScript *script, const uint64_t func_addr);
 
 void		*TaghaScript_get_global_by_name(struct TaghaScript *script, const char *strGlobalName);
-/*
-uint32_t	TaghaScript_store_hostdata(struct TaghaScript *script, void *data);
-void		*TaghaScript_get_hostdata(struct TaghaScript *script, const uint32_t id);
-void		TaghaScript_del_hostdata(struct TaghaScript *script, const uint32_t id);
-void		TaghaScript_free_hostdata(struct TaghaScript *script);
-*/
 
 void		gfree(void **ptr);
+
+
+#define INSTR_SET	\
+	X(halt) \
+	X(pushq) X(pushl) X(pushs) X(pushb) X(pushsp) X(puship) X(pushbp) X(pushoffset) \
+	X(pushspadd) X(pushspsub) X(pushbpadd) X(pushbpsub) X(pushipadd) X(pushipsub) \
+	\
+	X(popq) X(popsp) X(popip) X(popbp) \
+	\
+	X(storespq) X(storespl) X(storesps) X(storespb) \
+	X(loadspq) X(loadspl) X(loadsps) X(loadspb) \
+	\
+	X(copyq) X(copyl) X(copys) X(copyb) \
+	\
+	X(addq) X(uaddq) X(addl) X(uaddl) X(addf) \
+	X(subq) X(usubq) X(subl) X(usubl) X(subf) \
+	X(mulq) X(umulq) X(mull) X(umull) X(mulf) \
+	X(divq) X(udivq) X(divl) X(udivl) X(divf) \
+	X(modq) X(umodq) X(modl) X(umodl) \
+	X(addf64) X(subf64) X(mulf64) X(divf64) \
+	\
+	X(andl) X(orl) X(xorl) X(notl) X(shll) X(shrl) \
+	X(andq) X(orq) X(xorq) X(notq) X(shlq) X(shrq) \
+	X(incq) X(incl) X(incf) X(decq) X(decl) X(decf) X(negq) X(negl) X(negf) \
+	X(incf64) X(decf64) X(negf64) \
+	\
+	X(ltq) X(ltl) X(ultq) X(ultl) X(ltf) \
+	X(gtq) X(gtl) X(ugtq) X(ugtl) X(gtf) \
+	X(cmpq) X(cmpl) X(ucmpq) X(ucmpl) X(compf) \
+	X(leqq) X(uleqq) X(leql) X(uleql) X(leqf) \
+	X(geqq) X(ugeqq) X(geql) X(ugeql) X(geqf) \
+	X(ltf64) X(gtf64) X(cmpf64) X(leqf64) X(geqf64) \
+	X(neqq) X(uneqq) X(neql) X(uneql) X(neqf) X(neqf64) \
+	\
+	X(jmp) X(jzq) X(jnzq) X(jzl) X(jnzl) \
+	X(call) X(calls) X(ret) X(retx) X(reset) \
+	X(pushnataddr) X(callnat) X(callnats) \
+	X(nop) \
+
+#define X(x) x,
+enum InstrSet { INSTR_SET };
+#undef X
 
 #ifdef __cplusplus
 }

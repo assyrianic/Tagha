@@ -43,36 +43,36 @@ static void native_script_pop_int32(struct TaghaScript *restrict script, const u
 	TaghaScript_push_int32(script, val);
 }
 
-/* void script_push_float64(Script_t *script, const double val); */
-static void native_script_push_float64(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
+/* void script_push_double(Script_t *script, const double val); */
+static void native_script_push_double(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
 {
 	struct TaghaScript *restrict pScript = (struct TaghaScript *)(uintptr_t)TaghaScript_pop_int64(script);
-	double val = TaghaScript_pop_float64(script);
-	TaghaScript_push_float64(pScript, val);
+	double val = TaghaScript_pop_double(script);
+	TaghaScript_push_double(pScript, val);
 }
 
-/* double script_pop_float64(Script_t *script); */
-static void native_script_pop_float64(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
+/* double script_pop_double(Script_t *script); */
+static void native_script_pop_double(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
 {
 	struct TaghaScript *restrict pScript = (struct TaghaScript *)(uintptr_t)TaghaScript_pop_int64(script);
-	double val = TaghaScript_pop_float64(pScript);
-	TaghaScript_push_float64(script, val);
+	double val = TaghaScript_pop_double(pScript);
+	TaghaScript_push_double(script, val);
 }
 
-/* void script_push_float32(Script_t *script, const float val); */
-static void native_script_push_float32(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
+/* void script_push_float(Script_t *script, const float val); */
+static void native_script_push_float(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
 {
 	struct TaghaScript *restrict pScript = (struct TaghaScript *)(uintptr_t)TaghaScript_pop_int64(script);
-	float val = TaghaScript_pop_float32(script);
-	TaghaScript_push_float32(pScript, val);
+	float val = TaghaScript_pop_float(script);
+	TaghaScript_push_float(pScript, val);
 }
 
-/* float script_pop_short(Script_t *script); */
-static void native_script_pop_float32(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
+/* float script_pop_float(Script_t *script); */
+static void native_script_pop_float(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
 {
 	struct TaghaScript *restrict pScript = (struct TaghaScript *)(uintptr_t)TaghaScript_pop_int64(script);
-	float val = TaghaScript_pop_float32(pScript);
-	TaghaScript_push_float32(script, val);
+	float val = TaghaScript_pop_float(pScript);
+	TaghaScript_push_float(script, val);
 }
 
 
@@ -131,10 +131,10 @@ void Tagha_load_self_natives(struct TaghaVM *vm)
 		{"script_pop_int64", native_script_pop_int64},
 		{"script_push_int32", native_script_push_int32},
 		{"script_pop_int32", native_script_pop_int32},
-		{"script_push_float64", native_script_push_float64},
-		{"script_pop_float64", native_script_pop_float64},
-		{"script_push_float32", native_script_push_float32},
-		{"script_pop_float32", native_script_pop_float32},
+		{"script_push_double", native_script_push_double},
+		{"script_pop_double", native_script_pop_double},
+		{"script_push_float", native_script_push_float},
+		{"script_pop_float", native_script_pop_float},
 		{"script_push_short", native_script_push_short},
 		{"script_pop_short", native_script_pop_short},
 		{"script_push_byte", native_script_push_byte},

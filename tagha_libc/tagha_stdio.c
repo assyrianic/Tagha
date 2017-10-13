@@ -169,11 +169,12 @@ static void native_setbuf(struct TaghaScript *restrict script, const uint32_t ar
 	setbuf(pStream, pBuffer);
 }
 
+void string_format(const char *str);
+
 /* int printf(const char *fmt, ...); */
 static void native_printf(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
 {
 	const char *str = (const char *)(uintptr_t)TaghaScript_pop_int64(script);
-	
 	if( !str ) {
 		TaghaScript_push_int32(script, -1);
 		puts("native_printf reported an ERROR :: **** param 'fmt' is NULL ****\n");
@@ -181,8 +182,8 @@ static void native_printf(struct TaghaScript *restrict script, const uint32_t ar
 	}
 	
 	char *iter=(char *)str;
-	int32_t chrs=0;
 	
+	int32_t chrs=0;
 	while( *iter ) {
 		if( *iter=='%' ) {
 			iter++;
@@ -195,19 +196,19 @@ static void native_printf(struct TaghaScript *restrict script, const uint32_t ar
 					
 				case 'f':
 				case 'F':
-					chrs += sprintf(data_buffer, "%f", TaghaScript_pop_float64(script));
+					chrs += sprintf(data_buffer, "%f", TaghaScript_pop_double(script));
 					printf("%s", data_buffer);
 					break;
 					
 				case 'e':
 				case 'E':
-					chrs += sprintf(data_buffer, "%e", TaghaScript_pop_float64(script));
+					chrs += sprintf(data_buffer, "%e", TaghaScript_pop_double(script));
 					printf("%s", data_buffer);
 					break;
 					
 				case 'a':
 				case 'A':
-					chrs += sprintf(data_buffer, "%a", TaghaScript_pop_float64(script));
+					chrs += sprintf(data_buffer, "%a", TaghaScript_pop_double(script));
 					printf("%s", data_buffer);
 					break;
 					
