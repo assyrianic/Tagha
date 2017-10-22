@@ -14,14 +14,13 @@ static inline void _TaghaScript_get_immn(struct TaghaScript *restrict script, vo
 		return;
 	
 	if( script->m_bSafeMode and (script->ip+bytesize) >= script->m_uiInstrSize ) {
-		printf("_TaghaScript_get_immn reported: instr overflow! Current instruction address: %" PRIWord "\n", script->ip);
+		printf("_TaghaScript_get_immn reported: instr overflow! Current instruction address: %" PRIu64 "\n", script->ip);
 		return;
 	}
 	
-	script->IP++;
-	memcpy(pBuffer, script->IP, bytesize);
-	script->IP += bytesize-1;
-	script->ip += bytesize;
+	script->ip++;
+	memcpy(pBuffer, script->m_pText + script->ip, bytesize);
+	script->ip += bytesize-1;
 }
 
 
@@ -35,13 +34,12 @@ static inline uint64_t _TaghaScript_get_imm8(struct TaghaScript *restrict script
 	if( !script )
 		return 0L;
 	if( script->m_bSafeMode and (script->ip+8) >= script->m_uiInstrSize ) {
-		printf("_TaghaScript_get_imm8 reported: instr overflow! Current instruction address: %" PRIWord "\n", script->ip);
+		printf("_TaghaScript_get_imm8 reported: instr overflow! Current instruction offset: %" PRIu64 "\n", script->ip);
 		return 0L;
 	}
-	script->IP++;
-	uint64_t val = *(uint64_t *)(script->IP);
-	script->IP += 7;
-	script->ip += 8;
+	script->ip++;
+	uint64_t val = *(uint64_t *)(script->m_pText + script->ip);
+	script->ip += 7;
 	return val;
 }
 
@@ -50,13 +48,12 @@ static inline uint32_t _TaghaScript_get_imm4(struct TaghaScript *restrict script
 	if( !script )
 		return 0;
 	if( script->m_bSafeMode and (script->ip+4) >= script->m_uiInstrSize ) {
-		printf("_TaghaScript_get_imm4 reported: instr overflow! Current instruction address: %" PRIWord "\n", script->ip);
+		printf("_TaghaScript_get_imm4 reported: instr overflow! Current instruction offset: %" PRIu64 "\n", script->ip);
 		return 0;
 	}
-	script->IP++;
-	uint32_t val = *(uint32_t *)(script->IP);
-	script->IP += 3;
-	script->ip += 4;
+	script->ip++;
+	uint32_t val = *(uint32_t *)(script->m_pText + script->ip);
+	script->ip += 3;
 	return val;
 }
 
@@ -65,13 +62,12 @@ static inline uint16_t _TaghaScript_get_imm2(struct TaghaScript *restrict script
 	if( !script )
 		return 0;
 	if( script->m_bSafeMode and (script->ip+2) >= script->m_uiInstrSize ) {
-		printf("_TaghaScript_get_imm2 reported: instr overflow! Current instruction address: %" PRIWord "\n", script->ip);
+		printf("_TaghaScript_get_imm2 reported: instr overflow! Current instruction offset: %" PRIu64 "\n", script->ip);
 		return 0;
 	}
-	script->IP++;
-	uint16_t val = *(uint16_t *)(script->IP);
-	script->IP += 1;
-	script->ip += 2;
+	script->ip++;
+	uint16_t val = *(uint16_t *)(script->m_pText + script->ip);
+	script->ip++;
 	return val;
 }
 
@@ -86,12 +82,11 @@ static inline void _TaghaScript_push_int64(struct TaghaScript *restrict script, 
 		return;
 	uint32_t size = sizeof(uint64_t);
 	if( script->m_bSafeMode and (script->sp-size) >= script->m_uiMemsize ) {
-		printf("_TaghaScript_push_int64 reported: stack overflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("_TaghaScript_push_int64 reported: stack overflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return;
 	}
 	script->sp -= size;
-	script->SP -= size;
-	*(uint64_t *)(script->SP) = val;
+	*(uint64_t *)(script->m_pMemory + script->sp) = val;
 }
 static inline uint64_t _TaghaScript_pop_int64(struct TaghaScript *script)
 {
@@ -99,12 +94,11 @@ static inline uint64_t _TaghaScript_pop_int64(struct TaghaScript *script)
 		return 0L;
 	uint32_t size = sizeof(uint64_t);
 	if( script->m_bSafeMode and (script->sp+size) >= script->m_uiMemsize ) {
-		printf("_TaghaScript_pop_int64 reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("_TaghaScript_pop_int64 reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return 0L;
 	}
-	uint64_t val = *(uint64_t *)(script->SP);
+	uint64_t val = *(uint64_t *)(script->m_pMemory + script->sp);
 	script->sp += size;
-	script->SP += size;
 	return val;
 }
 
@@ -114,12 +108,11 @@ static inline void _TaghaScript_push_double(struct TaghaScript *restrict script,
 		return;
 	uint32_t size = sizeof(double);
 	if( script->m_bSafeMode and (script->sp-size) >= script->m_uiMemsize ) {
-		printf("_TaghaScript_push_double reported: stack overflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("_TaghaScript_push_double reported: stack overflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return;
 	}
 	script->sp -= size;
-	script->SP -= size;
-	*(double *)(script->SP) = val;
+	*(double *)(script->m_pMemory + script->sp) = val;
 }
 static inline double _TaghaScript_pop_double(struct TaghaScript *script)
 {
@@ -127,12 +120,11 @@ static inline double _TaghaScript_pop_double(struct TaghaScript *script)
 		return 0;
 	uint32_t size = sizeof(double);
 	if( script->m_bSafeMode and (script->sp+size) >= script->m_uiMemsize ) {
-		printf("_TaghaScript_pop_double reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("_TaghaScript_pop_double reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return 0;
 	}
-	double val = *(double *)(script->SP);
+	double val = *(double *)(script->m_pMemory + script->sp);
 	script->sp += size;
-	script->SP += size;
 	return val;
 }
 
@@ -142,12 +134,11 @@ static inline void _TaghaScript_push_int32(struct TaghaScript *restrict script, 
 		return;
 	uint32_t size = sizeof(uint32_t);
 	if( script->m_bSafeMode and (script->sp-size) >= script->m_uiMemsize ) {
-		printf("_TaghaScript_push_int32 reported: stack overflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("_TaghaScript_push_int32 reported: stack overflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return;
 	}
 	script->sp -= size;
-	script->SP -= size;
-	*(uint32_t *)(script->SP) = val;
+	*(uint32_t *)(script->m_pMemory + script->sp) = val;
 }
 static inline uint32_t _TaghaScript_pop_int32(struct TaghaScript *script)
 {
@@ -155,12 +146,11 @@ static inline uint32_t _TaghaScript_pop_int32(struct TaghaScript *script)
 		return 0;
 	uint32_t size = sizeof(uint32_t);
 	if( script->m_bSafeMode and (script->sp+size) >= script->m_uiMemsize ) {	// we're subtracting, did we integer underflow?
-		printf("_TaghaScript_pop_int32 reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("_TaghaScript_pop_int32 reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return 0;
 	}
-	uint32_t val = *(uint32_t *)(script->SP);
+	uint32_t val = *(uint32_t *)(script->m_pMemory + script->sp);
 	script->sp += size;
-	script->SP += size;
 	return val;
 }
 
@@ -170,12 +160,11 @@ static inline void _TaghaScript_push_float(struct TaghaScript *restrict script, 
 		return;
 	uint32_t size = sizeof(float);
 	if( script->m_bSafeMode and (script->sp-size) >= script->m_uiMemsize ) {
-		printf("_TaghaScript_push_float reported: stack overflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("_TaghaScript_push_float reported: stack overflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return;
 	}
 	script->sp -= size;
-	script->SP -= size;
-	*(float *)(script->SP) = val;
+	*(float *)(script->m_pMemory + script->sp) = val;
 }
 static inline float _TaghaScript_pop_float(struct TaghaScript *script)
 {
@@ -183,12 +172,11 @@ static inline float _TaghaScript_pop_float(struct TaghaScript *script)
 		return 0;
 	uint32_t size = sizeof(float);
 	if( script->m_bSafeMode and (script->sp+size) >= script->m_uiMemsize ) {
-		printf("_TaghaScript_pop_float reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("_TaghaScript_pop_float reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return 0;
 	}
-	float val = *(float *)(script->SP);
+	float val = *(float *)(script->m_pMemory + script->sp);
 	script->sp += size;
-	script->SP += size;
 	return val;
 }
 
@@ -198,12 +186,11 @@ static inline void _TaghaScript_push_short(struct TaghaScript *restrict script, 
 		return;
 	uint32_t size = sizeof(uint16_t);
 	if( script->m_bSafeMode and (script->sp-size) >= script->m_uiMemsize ) {
-		printf("_TaghaScript_push_short reported: stack overflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("_TaghaScript_push_short reported: stack overflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return;
 	}
 	script->sp -= size;
-	script->SP -= size;
-	*(uint16_t *)(script->SP) = val;
+	*(uint16_t *)(script->m_pMemory + script->sp) = val;
 }
 static inline uint16_t _TaghaScript_pop_short(struct TaghaScript *script)
 {
@@ -211,12 +198,11 @@ static inline uint16_t _TaghaScript_pop_short(struct TaghaScript *script)
 		return 0;
 	uint32_t size = sizeof(uint16_t);
 	if( script->m_bSafeMode and (script->sp+size) >= script->m_uiMemsize ) {
-		printf("_TaghaScript_pop_short reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("_TaghaScript_pop_short reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return 0;
 	}
-	uint16_t val = *(uint16_t *)(script->SP);
+	uint16_t val = *(uint16_t *)(script->m_pMemory + script->sp);
 	script->sp += size;
-	script->SP += size;
 	return val;
 }
 
@@ -226,12 +212,11 @@ static inline void _TaghaScript_push_byte(struct TaghaScript *restrict script, c
 		return;
 	uint32_t size = sizeof(uint8_t);
 	if( script->m_bSafeMode and (script->sp-size) >= script->m_uiMemsize ) {
-		printf("_TaghaScript_push_byte reported: stack overflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("_TaghaScript_push_byte reported: stack overflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return;
 	}
 	script->sp -= size;
-	script->SP -= size;
-	*(uint8_t *)(script->SP) = val;
+	*(uint8_t *)(script->m_pMemory + script->sp) = val;
 }
 static inline uint8_t _TaghaScript_pop_byte(struct TaghaScript *script)
 {
@@ -239,12 +224,11 @@ static inline uint8_t _TaghaScript_pop_byte(struct TaghaScript *script)
 		return 0;
 	uint32_t size = sizeof(uint8_t);
 	if( script->m_bSafeMode and (script->sp+size) >= script->m_uiMemsize ) {
-		printf("_TaghaScript_pop_byte reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("_TaghaScript_pop_byte reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return 0;
 	}
-	uint8_t val = *(uint8_t *)(script->SP);
+	uint8_t val = *(uint8_t *)(script->m_pMemory + script->sp);
 	script->sp += size;
-	script->SP += size;
 	return val;
 }
 
@@ -253,34 +237,22 @@ static inline void _TaghaScript_push_nbytes(struct TaghaScript *restrict script,
 	if( !script )
 		return;
 	if( script->m_bSafeMode and (script->sp-bytesize) >= script->m_uiMemsize ) {
-		printf("_TaghaScript_push_nbytes reported: stack overflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("_TaghaScript_push_nbytes reported: stack overflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return;
 	}
-	script->sp -= bytesize;
-	script->SP -= bytesize;
-	memcpy(script->SP, pItem, bytesize);
-	/*
-	uint64_t i=0;
-	for( i=bytesize-1 ; i<bytesize ; i-- )
-		script->m_pMemory[--script->sp] = ((uint8_t *)pItem)[i];
-	*/
+	script->sp -= bytesize; //(bytesize + 3) & -4;
+	memcpy(script->m_pMemory + script->sp, pItem, bytesize);
 }
 static inline void _TaghaScript_pop_nbytes(struct TaghaScript *restrict script, void *restrict pBuffer, const uint32_t bytesize)
 {
 	if( !script )
 		return;
 	if( script->m_bSafeMode and (script->sp+bytesize) >= script->m_uiMemsize ) {
-		printf("_TaghaScript_pop_nbytes reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("_TaghaScript_pop_nbytes reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return;
 	}
-	memcpy(pBuffer, script->SP, bytesize);
+	memcpy(pBuffer, script->m_pMemory + script->sp, bytesize);
 	script->sp += bytesize;
-	script->SP += bytesize;
-	/*
-	uint64_t i=0;
-	for( i=0 ; i<bytesize ; i++ )
-		((uint8_t *)pBuffer)[i] = script->m_pMemory[script->sp++];
-	*/
 }
 
 
@@ -289,30 +261,30 @@ static inline uint64_t _TaghaScript_peek_int64(struct TaghaScript *script)
 	if( !script )
 		return 0;
 	if( script->m_bSafeMode and (script->sp+7) >= script->m_uiMemsize ) {
-		printf("Tagha_peek_int32 reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("Tagha_peek_int32 reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return 0;
 	}
-	return *(uint64_t *)( script->SP );
+	return *(uint64_t *)( script->m_pMemory + script->sp );
 }
 static inline double _TaghaScript_peek_double(struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
 	if( script->m_bSafeMode and (script->sp+7) >= script->m_uiMemsize ) {
-		printf("Tagha_peek_int32 reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("Tagha_peek_int32 reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return 0;
 	}
-	return *(double *)( script->SP );
+	return *(double *)( script->m_pMemory + script->sp );
 }
 static inline uint32_t _TaghaScript_peek_int32(struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
 	if( script->m_bSafeMode and (script->sp+3) >= script->m_uiMemsize ) {
-		printf("Tagha_peek_int32 reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("Tagha_peek_int32 reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return 0;
 	}
-	return *(uint32_t *)( script->SP );
+	return *(uint32_t *)( script->m_pMemory + script->sp );
 }
 
 static inline float _TaghaScript_peek_float(struct TaghaScript *script)
@@ -320,10 +292,10 @@ static inline float _TaghaScript_peek_float(struct TaghaScript *script)
 	if( !script )
 		return 0;
 	if( script->m_bSafeMode and (script->sp+3) >= script->m_uiMemsize ) {
-		printf("Tagha_peek_float reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("Tagha_peek_float reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return 0;
 	}
-	return *(float *)( script->SP );
+	return *(float *)( script->m_pMemory + script->sp );
 }
 
 static inline uint16_t _TaghaScript_peek_short(struct TaghaScript *script)
@@ -331,10 +303,10 @@ static inline uint16_t _TaghaScript_peek_short(struct TaghaScript *script)
 	if( !script )
 		return 0;
 	if( script->m_bSafeMode and (script->sp+1) >= script->m_uiMemsize ) {
-		printf("Tagha_peek_short reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("Tagha_peek_short reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return 0;
 	}
-	return *(uint16_t *)( script->SP );
+	return *(uint16_t *)( script->m_pMemory + script->sp );
 }
 
 static inline uint8_t _TaghaScript_peek_byte(struct TaghaScript *script)
@@ -342,10 +314,10 @@ static inline uint8_t _TaghaScript_peek_byte(struct TaghaScript *script)
 	if( !script )
 		return 0;
 	if( script->m_bSafeMode and (script->sp) >= script->m_uiMemsize ) {
-		printf("Tagha_peek_byte reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
+		printf("Tagha_peek_byte reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
 		return 0;
 	}
-	return *(uint8_t *)( script->SP );
+	return *(uint8_t *)( script->m_pMemory + script->sp );
 }
 
 
@@ -380,12 +352,12 @@ void Tagha_exec(struct TaghaVM *vm)
 	
 #define X(x) &&exec_##x ,
 	// our instruction dispatch table.
-	static const void *dispatch[] = { INSTR_SET };
+	const void *dispatch[] = { INSTR_SET };
 #undef X
 #undef INSTR_SET
 	
 	
-#define DISPATCH()	++script->ip; ++script->IP; continue
+#define DISPATCH()	++script->ip; continue
 	
 	for( uint32_t x=0 ; x<nScripts ; x++ ) {
 		script = vector_get(vm->m_pvecScripts, x);
@@ -403,11 +375,11 @@ void Tagha_exec(struct TaghaVM *vm)
 			debugmode = script->m_bDebugMode;
 			if( safemode ) {
 				if( script->ip >= script->m_uiInstrSize ) {
-					printf("instruction address out of bounds! instruction == \'%" PRIWord "\'\n", script->ip);
+					printf("instruction address out of bounds! instruction == \'%" PRIu64 "\'\n", script->ip);
 					goto *dispatch[halt];
 				}
-				else if( *script->IP > nop ) {
-					printf("illegal instruction exception! instruction == \'%" PRIu32 "\' @ %" PRIWord "\n", *script->IP, script->ip);
+				else if( script->m_pText[script->ip] > nop ) {
+					printf("illegal instruction exception! instruction == \'%" PRIu32 "\' @ %" PRIu64 "\n", script->m_pText[script->ip], script->ip);
 					goto *dispatch[halt];
 				}
 			}
@@ -415,7 +387,7 @@ void Tagha_exec(struct TaghaVM *vm)
 			sleep(1);
 #endif
 			//printf( "current instruction == \"%s\" @ ip == %" PRIu32 "\n", opcode2str[script->m_pText[script->ip]], script->ip );
-			goto *dispatch[ *script->IP ];
+			goto *dispatch[ script->m_pText[script->ip] ];
 			
 			exec_nop:;
 				DISPATCH();
@@ -448,217 +420,223 @@ void Tagha_exec(struct TaghaVM *vm)
 				DISPATCH();
 			
 			exec_pushb:;	// push a byte onto the stack
-				_TaghaScript_push_byte(script, *++script->IP);
-				++script->ip;
+				_TaghaScript_push_byte(script, script->m_pText[++script->ip]);
 				if( debugmode )
 					printf("pushb: pushed %" PRIu32 "\n", script->m_pMemory[script->sp]);
 				DISPATCH();
 			
 			exec_pushsp:;	// push sp onto the stack, uses 4 bytes since 'sp' is uint32_t32
-				qa = script->sp;
+				qa = (uintptr_t)(script->m_pMemory + script->sp);
 				_TaghaScript_push_int64(script, qa);
 				if( debugmode )
-					printf("pushsp: pushed sp : %" PRIWord "\n", qa);
+					printf("pushsp: pushed sp : %" PRIu64 "\n", qa);
 				DISPATCH();
 			
 			exec_puship:;
-				qa = (uintptr_t)script->IP;
+				qa = (uintptr_t)(script->m_pText + script->ip);
 				_TaghaScript_push_int64(script, qa);
 				if( debugmode )
-					printf("puship: pushed ip : %" PRIWord "\n", qa);
+					printf("puship: pushed ip : %" PRIu64 "\n", qa);
 				DISPATCH();
 			
 			exec_pushbp:;
-				_TaghaScript_push_int64(script, (uintptr_t)script->BP);
+				_TaghaScript_push_int64(script, (uintptr_t)(script->m_pMemory + script->bp));
 				if( debugmode )
-					printf("pushbp: pushed bp : %" PRIuPTR "\n", (uintptr_t)script->BP);
+					printf("pushbp: pushed bp : %" PRIuPTR "\n", (uintptr_t)(script->m_pMemory + script->bp));
 				DISPATCH();
 			
 			exec_pushoffset:;
 				qa = _TaghaScript_get_imm8(script);
 				_TaghaScript_push_int64(script, (uintptr_t)(script->m_pMemory + qa));
 				if( debugmode )
-					printf("pushoffset: pushed offset index - %" PRIWord " : %p\n", qa, (script->m_pMemory + qa));
+					printf("pushoffset: pushed offset index - %" PRIu64 " : %p\n", qa, (script->m_pMemory + qa));
 				DISPATCH();
 			
 			exec_pushspadd:;
-				qa = (uintptr_t)script->SP;
+				qa = (uintptr_t)(script->m_pMemory + script->sp);
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, qa+qb);
 				if( debugmode )
-					printf("pushspadd: added sp with %" PRIWord ", result: %" PRIWord "\n", qb, qa+qb);
+					printf("pushspadd: added sp with %" PRIu64 ", result: %" PRIu64 "\n", qb, qa+qb);
 				DISPATCH();
 			
 			exec_pushspsub:;
-				qa = (uintptr_t)script->SP;
+				qa = (uintptr_t)(script->m_pMemory + script->sp);
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, qa-qb);
 				if( debugmode )
-					printf("pushspsub: subbed sp with %" PRIWord ", result: %" PRIWord "\n", qb, qa-qb);
+					printf("pushspsub: subbed sp with %" PRIu64 ", result: %" PRIu64 "\n", qb, qa-qb);
 				DISPATCH();
 			
 			exec_pushbpadd:;
-				qa = (uintptr_t)script->BP;
+				qa = (uintptr_t)(script->m_pMemory + script->bp);
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, qa+qb);
 				if( debugmode )
-					printf("pushbpadd: added bp with %" PRIWord ", result: %" PRIWord "\n", qb, qa+qb);
+					printf("pushbpadd: added bp with %" PRIu64 ", result: %" PRIu64 "\n", qb, qa+qb);
 				DISPATCH();
 			
 			exec_pushbpsub:;
-				qa = (uintptr_t)script->BP;
+				qa = (uintptr_t)(script->m_pMemory + script->bp);
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, qa-qb);
 				if( debugmode )
-					printf("pushbpsub: subbed bp with %" PRIWord ", result: %" PRIWord "\n", qb, qa-qb);
+					printf("pushbpsub: subbed bp with %" PRIu64 ", result: %" PRIu64 "\n", qb, qa-qb);
 				DISPATCH();
 			
 			exec_pushipadd:;
-				qa = (uintptr_t)script->IP;
+				qa = (uintptr_t)(script->m_pText + script->ip);
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, qa+qb);
 				if( debugmode )
-					printf("pushipadd: added ip with %" PRIWord ", result: %" PRIWord "\n", qb, qa+qb);
+					printf("pushipadd: added ip with %" PRIu64 ", result: %" PRIu64 "\n", qb, qa+qb);
 				DISPATCH();
 			
 			exec_pushipsub:;
-				qa = (uintptr_t)script->IP;
+				qa = (uintptr_t)(script->m_pText + script->ip);
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, qa-qb);
 				if( debugmode )
-					printf("pushipsub: subbed ip with %" PRIWord ", result: %" PRIWord "\n", qb, qa-qb);
+					printf("pushipsub: subbed ip with %" PRIu64 ", result: %" PRIu64 "\n", qb, qa-qb);
 				DISPATCH();
 			
 			exec_popq:;
 				if( safemode and (script->sp+8) >= script->m_uiMemsize ) {
-					printf("exec_popq reported: stack underflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
-					goto *dispatch[halt];
+					printf("exec_popq reported: stack underflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
+					DISPATCH();
 				}
-				script->SP += 8;
-				script->sp = script->SP - script->m_pMemory;
+				script->sp += 8;
 				if( debugmode )
 					printf("popq\n");
 				DISPATCH();
 			
-			exec_popsp:;
-				script->SP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
-				script->sp = script->SP - script->m_pMemory;
+			exec_popsp:; {
+				uint8_t *p = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
+				script->sp = p - script->m_pMemory;
 				if( debugmode )
-					printf("popsp: sp is now %" PRIWord ".\n", script->sp);
+					printf("popsp: sp is now %" PRIu64 ".\n", script->sp);
 				DISPATCH();
-			
-			exec_popbp:;
-				script->BP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
-				script->bp = script->BP - script->m_pMemory;
+			}
+			exec_popbp:; {
+				uint8_t *p = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
+				script->bp = p - script->m_pMemory;
 				if( debugmode )
-					printf("popbp: bp is now %" PRIWord ".\n", script->bp);
+					printf("popbp: bp is now %" PRIu64 ".\n", script->bp);
 				DISPATCH();
-			
-			exec_popip:;
-				script->IP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
-				script->ip = script->IP - script->m_pText;
+			}
+			exec_popip:; {
+				uint8_t *p = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
+				script->ip = p - script->m_pText;
 				if( debugmode )
-					printf("popip: ip is now at address: %" PRIWord ".\n", script->ip);
+					printf("popip: ip is now at address: %" PRIu64 ".\n", script->ip);
 				continue;
-			
+			}
 			exec_loadspq:;
 				addr = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
 				if( safemode and !addr ) {
-					printf("exec_loadspq reported: Invalid memory access! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, (uint64_t)(addr-script->m_pMemory));
-					goto *dispatch[halt];
+					printf("exec_loadspq reported: Invalid memory access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, (uint64_t)(addr-script->m_pMemory));
+					_TaghaScript_push_int64(script, 0);
+					DISPATCH();
 				}
 				qa = *(uint64_t *)addr;
 				_TaghaScript_push_int64(script, qa);
 				if( debugmode )
-					printf("loaded 8-byte data to T.O.S. - %" PRIu64 " from sp offset [%" PRIWord "]\n", qa, (uint64_t)(addr-script->m_pMemory));
+					printf("loaded 8-byte data to T.O.S. - %" PRIu64 " from sp offset [%" PRIu64 "]\n", qa, (uint64_t)(addr-script->m_pMemory));
 				DISPATCH();
 			
 			exec_loadspl:;
 				addr = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
 				if( safemode and !addr ) {
-					printf("exec_loadspl reported: Invalid memory access! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, (uint64_t)(addr-script->m_pMemory));
-					goto *dispatch[halt];
+					printf("exec_loadspl reported: Invalid memory access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, (uint64_t)(addr-script->m_pMemory));
+					_TaghaScript_push_int32(script, 0);
+					DISPATCH();
 				}
 				a = *(uint32_t *)addr;
 				_TaghaScript_push_int32(script, a);
 				if( debugmode )
-					printf("loaded 4-byte data to T.O.S. - %" PRIu32 " from sp offset [%" PRIWord "]\n", a, (uint64_t)(addr-script->m_pMemory));
+					printf("loaded 4-byte data to T.O.S. - %" PRIu32 " from sp offset [%" PRIu64 "]\n", a, (uint64_t)(addr-script->m_pMemory));
 				DISPATCH();
 			
 			exec_loadsps:;
 				addr = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
 				if( safemode and !addr ) {
-					printf("exec_loadsps reported: Invalid memory access! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, (uint64_t)(addr-script->m_pMemory));
-					goto *dispatch[halt];
+					printf("exec_loadsps reported: Invalid memory access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, (uint64_t)(addr-script->m_pMemory));
+					_TaghaScript_push_short(script, 0);
+					DISPATCH();
 				}
 				sa = *(uint16_t *)addr;
 				_TaghaScript_push_short(script, sa);
 				if( debugmode )
-					printf("loaded 2-byte data to T.O.S. - %" PRIu32 " from sp offset [%" PRIWord "]\n", sa, (uint64_t)(addr-script->m_pMemory));
+					printf("loaded 2-byte data to T.O.S. - %" PRIu32 " from sp offset [%" PRIu64 "]\n", sa, (uint64_t)(addr-script->m_pMemory));
 				DISPATCH();
 			
 			exec_loadspb:;
 				addr = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
 				if( safemode and !addr ) {
-					printf("exec_loadspb reported: Invalid memory access! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, (uint64_t)(addr-script->m_pMemory));
-					goto *dispatch[halt];
+					printf("exec_loadspb reported: Invalid memory access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, (uint64_t)(addr-script->m_pMemory));
+					_TaghaScript_push_byte(script, 0);
+					DISPATCH();
 				}
 				_TaghaScript_push_byte(script, *addr);
 				if( debugmode )
-					printf("loaded byte data to T.O.S. - %" PRIu32 " from sp offset [%" PRIWord "]\n", *addr, (uint64_t)(addr-script->m_pMemory));
+					printf("loaded byte data to T.O.S. - %" PRIu32 " from sp offset [%" PRIu64 "]\n", *addr, (uint64_t)(addr-script->m_pMemory));
 				DISPATCH();
 			
 			exec_storespq:;
 				addr = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
 				if( safemode and !addr ) {
-					printf("exec_storespq reported: Invalid memory access! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, (uint64_t)(addr-script->m_pMemory));
-					goto *dispatch[halt];
+					printf("exec_storespq reported: Invalid memory access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, (uint64_t)(addr-script->m_pMemory));
+					_TaghaScript_pop_int64(script);
+					DISPATCH();
 				}
 				qa = _TaghaScript_pop_int64(script);
 				*(uint64_t *)addr = qa;
 				if( debugmode )
-					printf("stored 8-byte data from T.O.S. - %" PRIu64 " to sp offset [%" PRIWord "]\n", qa, (uint64_t)(addr-script->m_pMemory));
+					printf("stored 8-byte data from T.O.S. - %" PRIu64 " to sp offset [%" PRIu64 "]\n", qa, (uint64_t)(addr-script->m_pMemory));
 				DISPATCH();
 			
 			exec_storespl:;		// store TOS into another part of the data stack.
 				addr = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
 				if( safemode and !addr ) {
-					printf("exec_storespl reported: Invalid memory access! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, (uint64_t)(addr-script->m_pMemory));
-					goto *dispatch[halt];
+					printf("exec_storespl reported: Invalid memory access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, (uint64_t)(addr-script->m_pMemory));
+					_TaghaScript_pop_int32(script);
+					DISPATCH();
 				}
 				a = _TaghaScript_pop_int32(script);
 				*(uint32_t *)addr = a;
 				if( debugmode )
-					printf("stored 4-byte data from T.O.S. - %" PRIu32 " to sp offset [%" PRIWord "]\n", a, (uint64_t)(addr-script->m_pMemory));
+					printf("stored 4-byte data from T.O.S. - %" PRIu32 " to sp offset [%" PRIu64 "]\n", a, (uint64_t)(addr-script->m_pMemory));
 				DISPATCH();
 			
 			exec_storesps:;
 				addr = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
 				if( safemode and !addr ) {
-					printf("exec_storesps reported: Invalid memory access! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, (uint64_t)(addr-script->m_pMemory));
-					goto *dispatch[halt];
+					printf("exec_storesps reported: Invalid memory access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, (uint64_t)(addr-script->m_pMemory));
+					_TaghaScript_pop_short(script);
+					DISPATCH();
 				}
 				sa = _TaghaScript_pop_short(script);
 				*(uint16_t *)addr = sa;
 				if( debugmode )
-					printf("stored 2-byte data from T.O.S. - %" PRIu32 " to sp offset [%" PRIWord "]\n", sa, (uint64_t)(addr-script->m_pMemory));
+					printf("stored 2-byte data from T.O.S. - %" PRIu32 " to sp offset [%" PRIu64 "]\n", sa, (uint64_t)(addr-script->m_pMemory));
 				DISPATCH();
 			
 			exec_storespb:;
 				addr = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
 				if( safemode and !addr ) {
-					printf("exec_storespb reported: Invalid memory access! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, (uint64_t)(addr-script->m_pMemory));
-					goto *dispatch[halt];
+					printf("exec_storespb reported: Invalid memory access! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, (uint64_t)(addr-script->m_pMemory));
+					_TaghaScript_pop_byte(script);
+					DISPATCH();
 				}
 				*addr = _TaghaScript_pop_byte(script);
 				if( debugmode )
-					printf("stored byte data from T.O.S. - %" PRIu32 " to sp offset [%" PRIWord "]\n", *addr, (uint64_t)(addr-script->m_pMemory));
+					printf("stored byte data from T.O.S. - %" PRIu32 " to sp offset [%" PRIu64 "]\n", *addr, (uint64_t)(addr-script->m_pMemory));
 				DISPATCH();
 			
 			exec_copyq:;
 				if( safemode and script->sp+7 >= script->m_uiMemsize ) {
-					printf("exec_copyq reported: stack overflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
-					goto *dispatch[halt];
+					printf("exec_copyq reported: stack overflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
+					DISPATCH();
 				}
 				qa = *(uint64_t *)(script->m_pMemory + script->sp);
 				if( debugmode )
@@ -668,8 +646,8 @@ void Tagha_exec(struct TaghaVM *vm)
 			
 			exec_copyl:;	// copy 4 bytes of top of stack and put as new top of stack.
 				if( safemode and script->sp+3 >= script->m_uiMemsize ) {
-					printf("exec_copyl reported: stack overflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
-					goto *dispatch[halt];
+					printf("exec_copyl reported: stack overflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
+					DISPATCH();
 				}
 				a = *(uint32_t *)(script->m_pMemory + script->sp);
 				if( debugmode )
@@ -679,8 +657,8 @@ void Tagha_exec(struct TaghaVM *vm)
 			
 			exec_copys:;
 				if( safemode and script->sp+1 >= script->m_uiMemsize ) {
-					printf("exec_copys reported: stack overflow! Current instruction address: %" PRIWord " | Stack index: %" PRIWord "\n", script->ip, script->sp);
-					goto *dispatch[halt];
+					printf("exec_copys reported: stack overflow! Current instruction address: %" PRIu64 " | Stack index: %" PRIu64 "\n", script->ip, script->sp);
+					DISPATCH();
 				}
 				a = *(uint16_t *)(script->m_pMemory + script->sp);
 				_TaghaScript_push_short(script, (uint16_t)a);
@@ -1432,162 +1410,147 @@ void Tagha_exec(struct TaghaVM *vm)
 			
 			exec_jmp:;		// addresses are word sized bytes.
 				script->ip = _TaghaScript_get_imm8(script);
-				script->IP = script->m_pText + script->ip;
 				if( debugmode )
-					printf("jmping to instruction address: %" PRIWord "\n", script->ip);
+					printf("jmping to instruction address: %" PRIu64 "\n", script->ip);
 				continue;
 			
 			exec_jzq:;
 				qa = _TaghaScript_pop_int64(script);
 				qb = _TaghaScript_get_imm8(script);
-				script->IP = (!qa) ? (script->m_pText + qb) : script->IP+1;
-				script->ip = script->IP - script->m_pText;
+				script->ip = (!qa) ? qb : script->ip+1;
 				
 				if( debugmode )
-					printf("jzq'ing to instruction address: %" PRIWord "\n", script->ip);
+					printf("jzq'ing to instruction address: %" PRIu64 "\n", script->ip);
 				continue;
 			
 			exec_jnzq:;
 				qa = _TaghaScript_pop_int64(script);
 				qb = _TaghaScript_get_imm8(script);
-				script->IP = (qa) ? (script->m_pText + qb) : script->IP+1;
-				script->ip = script->IP - script->m_pText;
+				script->ip = (qa) ? qb : script->ip+1;
 				
 				if( debugmode )
-					printf("jnzq'ing to instruction address: %" PRIWord "\n", script->ip);
+					printf("jnzq'ing to instruction address: %" PRIu64 "\n", script->ip);
 				continue;
 			
 			exec_jzl:;	// check if the first 4 bytes on stack are zero, if yes then jump it.
 				a = _TaghaScript_pop_int32(script);
 				qb = _TaghaScript_get_imm8(script);
-				script->IP = (!a) ? (script->m_pText + qb) : script->IP+1;
-				script->ip = script->IP - script->m_pText;
+				script->ip = (!a) ? qb : script->ip+1;
 				
 				if( debugmode )
-					printf("jzl'ing to instruction address: %" PRIWord "\n", script->ip);	//opcode2str[script->m_pText[script->ip]]
+					printf("jzl'ing to instruction address: %" PRIu64 "\n", script->ip);	//opcode2str[script->m_pText[script->ip]]
 				continue;
 			
 			exec_jnzl:;
 				a = _TaghaScript_pop_int32(script);
 				qb = _TaghaScript_get_imm8(script);
-				script->IP = (a) ? (script->m_pText + qb) : script->IP+1;
-				script->ip = script->IP - script->m_pText;
+				script->ip = (a) ? qb : script->ip+1;
 				
 				if( debugmode )
-					printf("jnzl'ing to instruction address: %" PRIWord "\n", script->ip);
+					printf("jnzl'ing to instruction address: %" PRIu64 "\n", script->ip);
 				continue;
 			
 			exec_call:;		// support functions
 				qa = _TaghaScript_get_imm8(script);	// get func address
 				if( debugmode )
-					printf("call :: calling address: %" PRIWord "\n", qa);
+					printf("call :: calling address: %" PRIu64 "\n", qa);
 				
-				_TaghaScript_push_int64(script, (uintptr_t)script->IP+1);	// save return address.
+				_TaghaScript_push_int64(script, script->ip+1);	// save return address.
 				if( debugmode )
-					printf("call :: return addr: %" PRIWord "\n", script->ip+1);
-				
+					printf("call :: return addr: %" PRIu64 "\n", script->ip+1);
 				script->ip = qa;
-				script->IP = script->m_pText + qa;	// jump to instruction
 				
-				_TaghaScript_push_int64(script, (uintptr_t)script->BP);	// push ebp;
+				_TaghaScript_push_int64(script, script->bp);	// push ebp;
 				if( debugmode )
-					printf("call :: pushing bp: %" PRIuPTR "\n", (uintptr_t)script->BP);
+					printf("call :: pushing bp: %" PRIu64 "\n", script->bp);
 				script->bp = script->sp;	// mov ebp, esp;
-				script->BP = script->SP;
 				
 				if( debugmode )
-					printf("call :: bp set to sp: %" PRIuPTR "\n", (uintptr_t)script->BP);
+					printf("call :: bp set to sp: %" PRIu64 "\n", script->bp);
 				continue;
 			
 			exec_calls:;	// support local function pointers
 				qa = _TaghaScript_pop_int64(script);	// get func address
 				if( debugmode )
-					printf("calls: calling address: %" PRIWord "\n", qa);
+					printf("calls: calling address: %" PRIu64 "\n", qa);
 				
-				_TaghaScript_push_int64(script, (uintptr_t)script->IP+1);	// save return address.
+				_TaghaScript_push_int64(script, script->ip+1);	// save return address.
 				
 				if( debugmode )
-					printf("call return addr: %" PRIWord "\n", script->ip+1);
+					printf("call return addr: %" PRIu64 "\n", script->ip+1);
 				
-				_TaghaScript_push_int64(script, (uintptr_t)script->BP);	// push ebp
+				_TaghaScript_push_int64(script, script->bp);	// push ebp
 				script->bp = script->sp;	// mov ebp, esp;
-				script->BP = script->SP;
 				
 				script->ip = qa;
-				script->IP = script->m_pText + qa;	// jump to instruction
 				
 				if( debugmode )
-					printf("script->bp: %" PRIWord "\n", script->sp);
+					printf("script->bp: %" PRIu64 "\n", script->sp);
 				continue;
 			
 			exec_ret:;
 				script->sp = script->bp;	// mov esp, ebp
-				script->SP = script->BP;
 				if( debugmode )
-					printf("ret ;: sp set to bp, sp == %" PRIWord "\n", script->sp);
+					printf("ret ;: sp set to bp, sp == %" PRIu64 "\n", script->sp);
 				
-				script->BP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);	// pop ebp
-				script->bp = script->BP - script->m_pMemory;
+				script->bp = _TaghaScript_pop_int64(script);	// pop ebp
 				if( debugmode )
-					printf("ret ;: popped to bp, bp == %" PRIWord "\n", script->bp);
+					printf("ret ;: popped to bp, bp == %" PRIu64 "\n", script->bp);
 				
-				script->IP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);	// pop return address.
-				script->ip = script->IP - script->m_pText;
+				script->ip = _TaghaScript_pop_int64(script);	// pop return address.
 				if( debugmode )
-					printf("returning to address: %" PRIWord "\n", script->ip);
+					printf("returning to address: %" PRIu64 "\n", script->ip);
 				continue;
 			
-			exec_retx:; {	// for functions that return something.
+			exec_retn:; {	// for functions that return something.
 				a = _TaghaScript_get_imm4(script);
 				uint8_t bytebuffer[a];
 				if( debugmode )
-					printf("retx :: popping %" PRIu32 " to return\n", a);
+					printf("retn :: popping %" PRIu32 " to return\n", a);
 				/* This opcode assumes all the data for return
 				 * is on the near top of stack. In theory, you can
 				 * use this method to return multiple pieces of data.
 				 */
-				_TaghaScript_pop_nbytes(script, bytebuffer, a);	// store our needed data to a buffer.
+				_TaghaScript_pop_nbytes(script, bytebuffer, a); // store our needed data to a buffer.
 				if( debugmode )
-					printf("retx :: popped %" PRIu32 " bytes\n", a);
+					printf("retn :: popped %" PRIu32 " bytes\n", a);
 				// do our usual return code.
 				script->sp = script->bp;	// mov esp, ebp
-				script->SP = script->BP;
 				
 				if( debugmode )
-					printf("retx :: sp set to bp, sp == %" PRIWord "\n", script->sp);
-				
-				script->BP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
-				script->bp = script->BP - script->m_pMemory;
+					printf("retn :: sp set to bp, sp == %" PRIu64 "\n", script->sp);
+				script->bp = _TaghaScript_pop_int64(script);
 				
 				if( debugmode )
-					printf("retx :: popping bp, bp == %" PRIWord "\n", script->bp);
+					printf("retn :: popping bp, bp == %" PRIu64 "\n", script->bp);
 				
-				script->IP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);	// pop return address.
-				script->ip = script->IP - script->m_pText;
+				script->ip = _TaghaScript_pop_int64(script);	// pop return address.
 				if( debugmode )
-					printf("retx :: popping ip, bp == %" PRIWord "\n", script->ip);
+					printf("retn :: popping ip, bp == %" PRIu64 "\n", script->ip);
 				
 				_TaghaScript_push_nbytes(script, bytebuffer, a);	// push back return data!
 				if( debugmode )
-					printf("retx :: pushed back %" PRIu32 " bytes\n", a);
+					printf("retn :: pushed back %" PRIu32 " bytes\n", a);
 				continue;
 			}
 			
 			exec_pushnataddr:;
 				if( safemode and !script->m_pstrNatives ) {
-					printf("exec_pushnataddr reported: native table is NULL! Current instruction address: %" PRIWord "\n", script->ip);
-					goto *dispatch[halt];
+					printf("exec_pushnataddr reported: native table is NULL!\n");
+					script->ip += 4;
+					_TaghaScript_push_int64(script, 0L);
+					DISPATCH();
 				}
 				// match native name to get an index.
 				a = _TaghaScript_get_imm4(script);
 				if( safemode and a >= script->m_uiNatives  ) {
-					printf("exec_pushnataddr reported: native index \'%" PRIu32 "\' is out of bounds! Current instruction address: %" PRIWord "\n", a, script->ip);
-					goto *dispatch[halt];
+					printf("exec_pushnataddr reported: native index \'%" PRIu32 "\' is out of bounds! Current instruction address: %" PRIu64 "\n", a, script->ip);
+					_TaghaScript_push_int64(script, 0L);
+					DISPATCH();
 				}
 				pfNative = (fnNative_t)(uintptr_t)map_find(vm->m_pmapNatives, script->m_pstrNatives[a]);
 				if( safemode and !pfNative ) {
-					printf("exec_pushnataddr reported: native \'%s\' not registered! Current instruction address: %" PRIWord "\n", script->m_pstrNatives[a], script->ip);
-					goto *dispatch[halt];
+					printf("exec_pushnataddr reported: native \'%s\' not registered!\n", script->m_pstrNatives[a]);
 				}
 				_TaghaScript_push_int64(script, (uintptr_t)pfNative);
 				if( debugmode )
@@ -1596,19 +1559,23 @@ void Tagha_exec(struct TaghaVM *vm)
 			
 			exec_callnat:; {	// call a native
 				if( safemode and !script->m_pstrNatives ) {
-					printf("exec_callnat reported: native table is NULL! Current instruction address: %" PRIWord "\n", script->ip);
-					goto *dispatch[halt];
+					printf("exec_callnat reported: native table is NULL! Current instruction address: %" PRIu64 "\n", script->ip);
+					script->ip += 12;
+					_TaghaScript_push_int64(script, 0L);
+					DISPATCH();
 				}
 				a = _TaghaScript_get_imm4(script);
 				if( safemode and a >= script->m_uiNatives  ) {
-					printf("exec_callnat reported: native index \'%" PRIu32 "\' is out of bounds! Current instruction address: %" PRIWord "\n", a, script->ip);
-					goto *dispatch[halt];
+					printf("exec_callnat reported: native index \'%" PRIu32 "\' is out of bounds! Current instruction address: %" PRIu64 "\n", a, script->ip);
+					_TaghaScript_push_int64(script, 0L);
+					DISPATCH();
 				}
 				
 				pfNative = (fnNative_t) (uintptr_t)map_find(vm->m_pmapNatives, script->m_pstrNatives[a]);
 				if( safemode and !pfNative ) {
-					printf("exec_callnat reported: native \'%s\' not registered! Current instruction address: %" PRIWord "\n", script->m_pstrNatives[a], script->ip);
-					goto *dispatch[halt];
+					printf("exec_callnat reported: native \'%s\' not registered! Current instruction address: %" PRIu64 "\n", script->m_pstrNatives[a], script->ip);
+					script->ip += 8;
+					DISPATCH();
 				}
 				// how many bytes to push to native.
 				const uint32_t bytes = _TaghaScript_get_imm4(script);
@@ -1619,28 +1586,16 @@ void Tagha_exec(struct TaghaVM *vm)
 					printf("with %" PRIu32 " bytes pushed ", bytes);
 					printf("and %" PRIu32 " args.\n", argcount);
 				}
-				/*
-				uint64_t *parms = &(uint64_t){0};
-				if( bytes ) {
-					if( bytes<=8 ) {
-						_TaghaScript_pop_nbytes(script, parms, bytes);
-					}
-					else if( bytes>8 ) {
-						uint64_t tempparams[bytes/8+1];
-						parms = tempparams;
-						_TaghaScript_pop_nbytes(script, parms, bytes);
-					}
-				}
-				*/
-				(*pfNative)(script, argcount, bytes/*, parms*/);
+				(*pfNative)(script, argcount, bytes);
 				DISPATCH();
 			}
 			/* support calling natives via function pointers */
 			exec_callnats:; {	// call native by func ptr allocated on stack
 				pfNative = (fnNative_t)(uintptr_t) _TaghaScript_pop_int64(script);
 				if( safemode and !pfNative ) {
-					printf("exec_callnats reported: native \'%s\' not registered! Current instruction address: %" PRIWord "\n", script->m_pstrNatives[a], script->ip);
-					goto *dispatch[halt];
+					printf("exec_callnats reported: native \'%s\' not registered! Current instruction address: %" PRIu64 "\n", script->m_pstrNatives[a], script->ip);
+					script->ip += 8;
+					DISPATCH();
 				}
 				const uint32_t bytes = _TaghaScript_get_imm4(script);
 				const uint32_t argcount = _TaghaScript_get_imm4(script);
@@ -1649,20 +1604,7 @@ void Tagha_exec(struct TaghaVM *vm)
 					printf("with %" PRIu32 " bytes pushed ", bytes);
 					printf("and %" PRIu32 " args.\n", argcount);
 				}
-				/*
-				uint64_t *parms = &(uint64_t){0};
-				if( bytes ) {
-					if( bytes<=8 ) {
-						_TaghaScript_pop_nbytes(script, parms, bytes);
-					}
-					else if( bytes>8 ) {
-						uint64_t tempparams[bytes/8+1];
-						parms = tempparams;
-						_TaghaScript_pop_nbytes(script, parms, bytes);
-					}
-				}
-				*/
-				(*pfNative)(script, argcount, bytes/*, parms*/);
+				(*pfNative)(script, argcount, bytes);
 				DISPATCH();
 			}
 			exec_reset:;

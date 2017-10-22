@@ -27,10 +27,7 @@ extern "C" {
         float *: "float *",                    double *: "double *",              \
         default: "other")
 
-#define TAGHA_VERSION_STR		"0.0.11a"
-//typedef		uint32_t			uint64_t;
-//#define		PRIWord				PRIu32
-#define		PRIWord				PRIu64
+#define TAGHA_VERSION_STR		"0.0.15a"
 
 
 struct TaghaScript;
@@ -40,7 +37,7 @@ struct NativeInfo;
 struct FuncTable;
 struct DataTable;
 
-typedef struct TaghaScript		Script_t;
+typedef struct TaghaScript		Script_t, Applet_t, Plugin_t;
 typedef struct TaghaVM			TaghaVM_t;
 typedef struct DataTable		DataTable_t;
 typedef struct FuncTable		FuncTable_t;
@@ -49,7 +46,7 @@ typedef struct NativeInfo		NativeInfo_t;
 
 //	API to call C/C++ functions from scripts.
 //	account for function pointers to natives being executed on script side.
-typedef		void (*fnNative_t)(struct TaghaScript *script, const uint32_t argc, const uint32_t bytes/*, uint64_t *arrParams*/);
+typedef		void (*fnNative_t)(struct TaghaScript *script, const uint32_t argc, const uint32_t bytes);
 
 struct NativeInfo {
 	const char	*strName;	// use as string literals
@@ -66,13 +63,13 @@ struct NativeInfo {
  */
 
 struct FuncTable {
-	uint32_t	uiParams;
-	uint32_t	uiEntry;	// TODO: make this into uint64?
+	uint32_t	m_uiParams;
+	uint32_t	m_uiEntry;	// TODO: make this into uint64?
 };
 
 struct DataTable {
-	uint32_t	uiBytes;
-	uint32_t	uiOffset;	// TODO: make this into uint64?
+	uint32_t	m_uiBytes;
+	uint32_t	m_uiOffset;	// TODO: make this into uint64?
 };
 
 
@@ -84,11 +81,7 @@ struct TaghaScript {
 	;
 	uint8_t
 		*m_pMemory,	// stack and data stream. Used for stack and data segment
-		*m_pText,	// instruction stream.
-		*m_pData,	// global data.
-		*IP,	// instruction ptr
-		*SP,	// stack ptr.
-		*BP		// base ptr/stack frame ptr.
+		*m_pText	// instruction stream.
 	;
 	char	**m_pstrNatives;	// natives table as stored strings.
 	Map_t
@@ -113,7 +106,7 @@ struct TaghaVM {
 };
 
 void		Tagha_init(struct TaghaVM *vm);
-void		Tagha_load_script(struct TaghaVM *vm, char *filename);
+void		Tagha_load_script_by_name(struct TaghaVM *vm, char *filename);
 bool		Tagha_register_natives(struct TaghaVM *vm, struct NativeInfo *arrNatives);
 void		Tagha_free(struct TaghaVM *vm);
 void		Tagha_exec(struct TaghaVM *vm);
@@ -169,6 +162,8 @@ void		*TaghaScript_get_global_by_name(struct TaghaScript *script, const char *st
 void		gfree(void **ptr);
 
 
+
+
 #define INSTR_SET	\
 	X(halt) \
 	X(pushq) X(pushl) X(pushs) X(pushb) X(pushsp) X(puship) X(pushbp) X(pushoffset) \
@@ -202,7 +197,7 @@ void		gfree(void **ptr);
 	X(neqq) X(uneqq) X(neql) X(uneql) X(neqf) X(neqf64) \
 	\
 	X(jmp) X(jzq) X(jnzq) X(jzl) X(jnzl) \
-	X(call) X(calls) X(ret) X(retx) X(reset) \
+	X(call) X(calls) X(ret) X(retn) X(reset) \
 	X(pushnataddr) X(callnat) X(callnats) \
 	X(nop) \
 

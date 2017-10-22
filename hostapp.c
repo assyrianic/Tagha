@@ -109,7 +109,7 @@ int main(int argc, char **argv)
 	
 	uint32_t i;
 	for( i=argc-1 ; i ; i-- )
-		Tagha_load_script(&vm, argv[i]);
+		Tagha_load_script_by_name(&vm, argv[i]);
 	Tagha_exec(&vm);
 	/*
 	int32_t x;

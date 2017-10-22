@@ -47,7 +47,7 @@ static void native_callfunc(struct TaghaScript *script, const uint32_t argc, con
 	
 	// addr is the function address.
 	uint64_t addr = TaghaScript_pop_int64(script);
-	printf("native_callfunc :: func ptr addr: %" PRIWord "\n", addr);
+	printf("native_callfunc :: func ptr addr: %" PRIu64 "\n", addr);
 	// call our function which should push any return value back for us to pop.
 	TaghaScript_call_func_by_addr(script, addr);
 	printf("native_callfunc :: invoking.\n");
@@ -105,7 +105,7 @@ int main(int argc, char **argv)
 	
 	uint32_t i;
 	for( i=argc-1 ; i ; i-- )
-		Tagha_load_script(&vm, argv[i]);
+		Tagha_load_script_by_name(&vm, argv[i]);
 		
 	Tagha_exec(&vm);
 	Tagha_free(&vm);

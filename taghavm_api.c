@@ -24,21 +24,8 @@ void Tagha_init(struct TaghaVM *restrict vm)
 	else map_init(vm->m_pmapNatives);
 }
 
-// need this to determine m_pText's final size.
-static uint64_t get_file_size(FILE *pFile)
-{
-	uint64_t size = 0L;
-	if( !pFile )
-		return size;
-	
-	if( !fseek(pFile, 0, SEEK_END) ) {
-		size = (uint64_t)ftell(pFile);
-		rewind(pFile);
-	}
-	return size;
-}
 
-static uint32_t scripthdr_read_natives(Script_t **script, FILE **pFile)
+static uint32_t scripthdr_read_natives_table(Script_t **script, FILE **pFile)
 {
 	if( !*script or !*pFile )
 		return 0;
@@ -50,7 +37,7 @@ static uint32_t scripthdr_read_natives(Script_t **script, FILE **pFile)
 	ignores = fread(&(*script)->m_uiNatives, sizeof(uint32_t), 1, *pFile);
 	bytesread += sizeof(uint32_t);
 	if( (*script)->m_uiNatives ) {
-		// script has natives? Copy their names so we can match them later.
+		// script has natives? Copy their names so we can late bind them to host later.
 		(*script)->m_pstrNatives = calloc((*script)->m_uiNatives, sizeof(char *));
 		for( uint32_t i=0 ; i<(*script)->m_uiNatives ; i++ ) {
 			uint32_t str_size;
@@ -63,7 +50,7 @@ static uint32_t scripthdr_read_natives(Script_t **script, FILE **pFile)
 			// read in the native's name.
 			ignores = fread((*script)->m_pstrNatives[i], sizeof(char), str_size, *pFile);
 			bytesread += str_size;
-			printf("Tagha_load_script :: copied native name \'%s\'\n", (*script)->m_pstrNatives[i]);
+			printf("Tagha_load_script_by_name :: copied native name \'%s\'\n", (*script)->m_pstrNatives[i]);
 		}
 	} /* if( script->m_uiNatives ) */
 	else (*script)->m_pstrNatives = NULL;
@@ -95,7 +82,7 @@ static uint32_t scripthdr_read_func_table(Script_t **script, FILE **pFile)
 			// allocate the hashmap function key.
 			char *strFunc = calloc(str_size, sizeof(char));
 			if( !strFunc ) {
-				printf("Tagha_load_script :: Failed to allocate memory for strFunc\n");
+				printf("Tagha_load_script_by_name :: Failed to allocate memory for strFunc\n");
 				TaghaScript_free((*script));
 				(*script) = NULL;
 				fclose(*pFile), *pFile=NULL;
@@ -107,7 +94,7 @@ static uint32_t scripthdr_read_func_table(Script_t **script, FILE **pFile)
 			// allocate function's data to a table.
 			struct FuncTable *pFuncData = malloc(sizeof(struct FuncTable));
 			if( !pFuncData ) {
-				printf("Tagha_load_script :: Failed to allocate memory for pFuncData\n");
+				printf("Tagha_load_script_by_name :: Failed to allocate memory for pFuncData\n");
 				TaghaScript_free((*script));
 				(*script) = NULL;
 				fclose(*pFile), *pFile=NULL;
@@ -116,12 +103,12 @@ static uint32_t scripthdr_read_func_table(Script_t **script, FILE **pFile)
 			// copy func's header data to our table
 			// then store the table to our function hashmap with the key
 			// we allocated earlier.
-			ignore_warns = fread(&pFuncData->uiParams, sizeof(uint32_t), 1, *pFile);
+			ignore_warns = fread(&pFuncData->m_uiParams, sizeof(uint32_t), 1, *pFile);
 			bytecount += sizeof(uint32_t);
-			ignore_warns = fread(&pFuncData->uiEntry, sizeof(uint32_t), 1, *pFile);
+			ignore_warns = fread(&pFuncData->m_uiEntry, sizeof(uint32_t), 1, *pFile);
 			bytecount += sizeof(uint32_t);
-			printf("Tagha_load_script :: copied function name \'%s\'\n", strFunc);
-			printf("Tagha_load_script :: Function Dict Keyvals { \'%s\': %u }\n", strFunc, pFuncData->uiEntry);
+			printf("Tagha_load_script_by_name :: copied function name \'%s\'\n", strFunc);
+			printf("Tagha_load_script_by_name :: Function Dict Keyvals { \'%s\': %u }\n", strFunc, pFuncData->m_uiEntry);
 			map_insert((*script)->m_pmapFuncs, strFunc, (uintptr_t)pFuncData);
 			strFunc = NULL, pFuncData = NULL;
 		} /* for( uint32_t i=0 ; i<(*script)->m_uiFuncs ; i++ ) */
@@ -140,7 +127,7 @@ static uint32_t scripthdr_read_global_table(Script_t **script, FILE **pFile)
 	
 	// check if the script has global variables.
 	ignore_warns = fread(&(*script)->m_uiGlobals, sizeof(uint32_t), 1, *pFile);
-	printf("Tagha_load_script :: m_uiGlobals: \'%u\'\n", (*script)->m_uiGlobals);
+	printf("Tagha_load_script_by_name :: m_uiGlobals: \'%u\'\n", (*script)->m_uiGlobals);
 	bytecount += sizeof(uint32_t);
 	uint32_t globalbytes = 0;
 	if( (*script)->m_uiGlobals ) {
@@ -156,7 +143,7 @@ static uint32_t scripthdr_read_global_table(Script_t **script, FILE **pFile)
 			// allocate string to use as a key for our global var.
 			char *strGlobal = calloc(str_size, sizeof(char));
 			if( !strGlobal ) {
-				printf("Tagha_load_script :: Failed to allocate memory for strGlobal\n");
+				printf("Tagha_load_script_by_name :: Failed to allocate memory for strGlobal\n");
 				TaghaScript_free(*script), *script = NULL;
 				fclose(*pFile), *pFile=NULL;
 				return 0;
@@ -167,7 +154,7 @@ static uint32_t scripthdr_read_global_table(Script_t **script, FILE **pFile)
 			// allocate table for our global var's data.
 			struct DataTable *pGlobalData = malloc(sizeof(struct DataTable));
 			if( !pGlobalData ) {
-				printf("Tagha_load_script :: Failed to allocate memory for pGlobalData\n");
+				printf("Tagha_load_script_by_name :: Failed to allocate memory for pGlobalData\n");
 				TaghaScript_free(*script), *script = NULL;
 				fclose(*pFile), *pFile=NULL;
 				return 0;
@@ -175,26 +162,26 @@ static uint32_t scripthdr_read_global_table(Script_t **script, FILE **pFile)
 			
 			// read the global var's data from the header and add it to our hashmap.
 			// same procedure as our function hashmap.
-			ignore_warns = fread(&pGlobalData->uiOffset, sizeof(uint32_t), 1, *pFile);
+			ignore_warns = fread(&pGlobalData->m_uiOffset, sizeof(uint32_t), 1, *pFile);
 			bytecount += sizeof(uint32_t);
-			ignore_warns = fread(&pGlobalData->uiBytes, sizeof(uint32_t), 1, *pFile);
+			ignore_warns = fread(&pGlobalData->m_uiBytes, sizeof(uint32_t), 1, *pFile);
 			bytecount += sizeof(uint32_t);
 			
 			// global var always has intialized data. Copy that data to our stack.
 			// copy it by byte.
-			globalbytes = pGlobalData->uiBytes;
+			globalbytes = pGlobalData->m_uiBytes;
 			{
 				uint8_t initdata[globalbytes];
-				printf("Tagha_load_script :: global var byte size: %u\n", globalbytes);
+				printf("Tagha_load_script_by_name :: global var byte size: %u\n", globalbytes);
 				ignore_warns = fread(initdata, sizeof(uint8_t), globalbytes, *pFile);
 				bytecount += globalbytes;
 				memcpy(pTemp, initdata, globalbytes);
 				pTemp += globalbytes;
 				//for( n=0 ; n<globalbytes ; n++ )
-				//	printf("Tagha_load_script :: initdata[%u] == %u\n", n, initdata[n]);
+				//	printf("Tagha_load_script_by_name :: initdata[%u] == %u\n", n, initdata[n]);
 			}
-			printf("Tagha_load_script :: copied global var name \'%s\'\n", strGlobal);
-			printf("Tagha_load_script :: Global Dict Keyvals { \'%s\': %u }\n", strGlobal, pGlobalData->uiOffset);
+			printf("Tagha_load_script_by_name :: copied global var name \'%s\'\n", strGlobal);
+			printf("Tagha_load_script_by_name :: Global Dict Keyvals { \'%s\': %u }\n", strGlobal, pGlobalData->m_uiOffset);
 			
 			// insert the global var's table to our hashmap.
 			map_insert((*script)->m_pmapGlobals, strGlobal, (uintptr_t)pGlobalData);
@@ -206,7 +193,44 @@ static uint32_t scripthdr_read_global_table(Script_t **script, FILE **pFile)
 	return bytecount;
 }
 
-void Tagha_load_script(struct TaghaVM *restrict vm, char *restrict filename)
+static bool is_c_file(const char *filename)
+{
+	if( !filename )
+		return false;
+	
+	const char *p = filename;
+	// iterate to end of string and then check backwards.
+	while( *p )
+		p++;
+	return( (*(p-1)=='c' or *(p-1)=='C') and (*(p-2)=='.') );
+}
+static bool is_tbc_file(const char *filename)
+{
+	if( !filename )
+		return false;
+	
+	const char *p = filename;
+	// iterate to end of string and then check backwards.
+	while( *p )
+		p++;
+	return( (p[-3]=='t' and p[-2]=='b' and p[-1]=='c') or (p[-3]=='T' and p[-2]=='B' and p[-1]=='C') );
+}
+
+// need this to determine m_pText's final size.
+static uint64_t get_file_size(FILE *pFile)
+{
+	uint64_t size = 0L;
+	if( !pFile )
+		return size;
+	
+	if( !fseek(pFile, 0, SEEK_END) ) {
+		size = (uint64_t)ftell(pFile);
+		rewind(pFile);
+	}
+	return size;
+}
+
+void Tagha_load_script_by_name(struct TaghaVM *restrict vm, char *restrict filename)
 {
 	if( !vm )
 		return;
@@ -232,21 +256,21 @@ void Tagha_load_script(struct TaghaVM *restrict vm, char *restrict filename)
 		
 		// verify that this is executable code.
 		if( verify == 0xC0DE ) {
-			printf("Tagha_load_script :: verified code!\n");
+			printf("Tagha_load_script_by_name :: verified code!\n");
 			bytecount += sizeof(uint16_t);
 			
 			// get the needed script memory size which will include both global and local vars.
 			ignore_warns = fread(&script->m_uiMemsize, sizeof(uint32_t), 1, pFile);
-			printf("Tagha_load_script :: Memory Size: %" PRIu32 "\n", script->m_uiMemsize);
+			printf("Tagha_load_script_by_name :: Memory Size: %" PRIu32 "\n", script->m_uiMemsize);
 			
-			// have a default size of 32 bytes for memory.
+			// have a default size of 64 bytes for memory.
 			if( !script->m_uiMemsize )
 				script->m_uiMemsize = 64;
 			script->m_pMemory = calloc(script->m_uiMemsize, sizeof(uint8_t));
 			
 			// scripts NEED memory, if memory is invalid then we can't use the script.
 			if( !script->m_pMemory ) {
-				printf("Tagha_load_script :: Failed to allocate memory for script\n");
+				printf("Tagha_load_script_by_name :: Failed to allocate memory for script\n");
 				TaghaScript_free(script), script = NULL;
 				goto error;
 			}
@@ -254,9 +278,8 @@ void Tagha_load_script(struct TaghaVM *restrict vm, char *restrict filename)
 			
 			// set both the integer and pointer stack pointers to point at the top of the stack.
 			script->sp = script->bp = script->m_uiMemsize-1;
-			script->SP = script->BP = (script->m_pMemory + script->sp);
 			
-			bytecount += scripthdr_read_natives(&script, &pFile);
+			bytecount += scripthdr_read_natives_table(&script, &pFile);
 			bytecount += scripthdr_read_func_table(&script, &pFile);
 			if( !pFile )
 				return;
@@ -266,38 +289,37 @@ void Tagha_load_script(struct TaghaVM *restrict vm, char *restrict filename)
 			
 			// read in our entry point where our code should begin executing.
 			ignore_warns = fread(&script->ip, sizeof(uint64_t), 1, pFile);
-			printf("Tagha_load_script :: entry ip starts at %" PRIWord "\n", script->ip);
+			printf("Tagha_load_script_by_name :: entry ip starts at %" PRIu64 "\n", script->ip);
 			bytecount += sizeof(uint64_t);
 			
 			// check if the script is either in safemode or debug mode.
 			char boolean;
 			ignore_warns = fread(&boolean, sizeof(bool), 1, pFile);
 			script->m_bSafeMode = (boolean & 1) >= 1;
-			printf("Tagha_load_script :: Script Safe Mode: %" PRIu32 "\n", script->m_bSafeMode);
+			printf("Tagha_load_script_by_name :: Script Safe Mode: %" PRIu32 "\n", script->m_bSafeMode);
 			
 			script->m_bDebugMode = (boolean & 2) >= 1;
-			printf("Tagha_load_script :: Script Debug Mode: %" PRIu32 "\n", script->m_bDebugMode);
+			printf("Tagha_load_script_by_name :: Script Debug Mode: %" PRIu32 "\n", script->m_bDebugMode);
 			bytecount += sizeof(bool);
 			
-			printf("Tagha_load_script :: final stack size %" PRIWord "\n", script->sp);
+			printf("Tagha_load_script_by_name :: final stack size %" PRIu64 "\n", script->sp);
 			script->m_uiMaxInstrs = 0xfffff;	// helps to stop infinite/runaway loops
 			
 			// header data is finished, subtract the filesize with the bytecount
 			// to get the size of our instruction stream.
 			// If the instruction stream is invalid, we can't load script.
-			printf("Tagha_load_script :: header bytecount at %" PRIu32 "\n", bytecount);
+			printf("Tagha_load_script_by_name :: header bytecount at %" PRIu32 "\n", bytecount);
 			script->m_uiInstrSize = filesize - bytecount;
-			printf("Tagha_load_script :: instr_size at %" PRIu32 "\n", script->m_uiInstrSize);
+			printf("Tagha_load_script_by_name :: instr_size at %" PRIu32 "\n", script->m_uiInstrSize);
 			script->m_pText = calloc(script->m_uiInstrSize, sizeof(uint8_t));
 			if( !script->m_pText ) {
-				printf("Tagha_load_script :: ERROR! Could not allocate Instruction Stream!\n");
+				printf("Tagha_load_script_by_name :: ERROR! Could not allocate Instruction Stream!\n");
 				TaghaScript_free(script), script = NULL;
 				goto error;
 			}
 			
 			// instruction stream is valid, copy every last instruction and data to the last byte.
 			ignore_warns = fread(script->m_pText, sizeof(uint8_t), script->m_uiInstrSize, pFile);
-			script->IP = script->m_pText + script->ip;
 			
 			// script data has been verified and loaded to memory.
 			// copy script's memory address to VM's script vector.
@@ -306,7 +328,7 @@ void Tagha_load_script(struct TaghaVM *restrict vm, char *restrict filename)
 			printf("\n");
 		}
 		else {	// invalid script, kill the reference and whatever memory the script has allocated.
-			printf("Tagha_load_script :: unknown file memory format\n");
+			printf("Tagha_load_script_by_name :: unknown file memory format\n");
 			TaghaScript_free(script);
 			script = NULL;
 		}
@@ -329,14 +351,14 @@ void Tagha_free(struct TaghaVM *vm)
 		Vec_t *vecbuffer=vm->m_pvecScripts;
 		uint32_t nScripts = vector_count(vecbuffer);
 		struct TaghaScript *script;
-		for( uint32_t n=0 ; n<nScripts ; n++ ) {
-			script = vector_get(vecbuffer, n);
+		for( uint32_t i=0 ; i<nScripts ; i++ ) {
+			script = vector_get(vecbuffer, i);
 			if( !script )
 				continue;
 			
 			TaghaScript_free(script), script=NULL;
 			// after freeing scripts, replace their data with NULL.
-			vector_set(vecbuffer, n, NULL);
+			vector_set(vecbuffer, i, NULL);
 		}
 		
 		// after we've cleaned up the scripts,

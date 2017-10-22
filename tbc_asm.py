@@ -8,7 +8,7 @@ def enum(*sequential, **named) -> object:
 	enums = dict(zip(sequential, range(len(sequential))), **named);
 	return type('Enum', (), enums);
 
-opcodes = enum('halt', 'pushq', 'pushl', 'pushs', 'pushb', 'pushsp', 'puship', 'pushbp', 'pushoffset', 'pushspadd', 'pushspsub', 'pushbpadd', 'pushbpsub', 'pushipadd', 'pushipsub', 'popq', 'popsp', 'popip', 'popbp', 'storespq', 'storespl', 'storesps', 'storespb', 'loadspq', 'loadspl', 'loadsps', 'loadspb', 'copyq', 'copyl', 'copys', 'copyb', 'addq', 'uaddq', 'addl', 'uaddl', 'addf', 'subq', 'usubq', 'subl', 'usubl', 'subf', 'mulq', 'umulq', 'mull', 'umull', 'mulf', 'divq', 'udivq', 'divl', 'udivl', 'divf', 'modq', 'umodq', 'modl', 'umodl', 'addf64', 'subf64', 'mulf64', 'divf64', 'andl', 'orl', 'xorl', 'notl', 'shll', 'shrl', 'andq', 'orq', 'xorq', 'notq', 'shlq', 'shrq', 'incq', 'incl', 'incf', 'decq', 'decl', 'decf', 'negq', 'negl', 'negf', 'incf64', 'decf64', 'negf64', 'ltq', 'ltl', 'ultq', 'ultl', 'ltf', 'gtq', 'gtl', 'ugtq', 'ugtl', 'gtf', 'cmpq', 'cmpl', 'ucmpq', 'ucmpl', 'compf', 'leqq', 'uleqq', 'leql', 'uleql', 'leqf', 'geqq', 'ugeqq', 'geql', 'ugeql', 'geqf', 'ltf64', 'gtf64', 'cmpf64', 'leqf64', 'geqf64', 'neqq', 'uneqq', 'neql', 'uneql', 'neqf', 'neqf64', 'jmp', 'jzq', 'jnzq', 'jzl', 'jnzl', 'call', 'calls', 'ret', 'retx', 'reset', 'pushnataddr', 'callnat', 'callnats', 'nop');
+opcodes = enum('halt', 'pushq', 'pushl', 'pushs', 'pushb', 'pushsp', 'puship', 'pushbp', 'pushoffset', 'pushspadd', 'pushspsub', 'pushbpadd', 'pushbpsub', 'pushipadd', 'pushipsub', 'popq', 'popsp', 'popip', 'popbp', 'storespq', 'storespl', 'storesps', 'storespb', 'loadspq', 'loadspl', 'loadsps', 'loadspb', 'copyq', 'copyl', 'copys', 'copyb', 'addq', 'uaddq', 'addl', 'uaddl', 'addf', 'subq', 'usubq', 'subl', 'usubl', 'subf', 'mulq', 'umulq', 'mull', 'umull', 'mulf', 'divq', 'udivq', 'divl', 'udivl', 'divf', 'modq', 'umodq', 'modl', 'umodl', 'addf64', 'subf64', 'mulf64', 'divf64', 'andl', 'orl', 'xorl', 'notl', 'shll', 'shrl', 'andq', 'orq', 'xorq', 'notq', 'shlq', 'shrq', 'incq', 'incl', 'incf', 'decq', 'decl', 'decf', 'negq', 'negl', 'negf', 'incf64', 'decf64', 'negf64', 'ltq', 'ltl', 'ultq', 'ultl', 'ltf', 'gtq', 'gtl', 'ugtq', 'ugtl', 'gtf', 'cmpq', 'cmpl', 'ucmpq', 'ucmpl', 'compf', 'leqq', 'uleqq', 'leql', 'uleql', 'leqf', 'geqq', 'ugeqq', 'geql', 'ugeql', 'geqf', 'ltf64', 'gtf64', 'cmpf64', 'leqf64', 'geqf64', 'neqq', 'uneqq', 'neql', 'uneql', 'neqf', 'neqf64', 'jmp', 'jzq', 'jnzq', 'jzl', 'jnzl', 'call', 'calls', 'ret', 'retn', 'reset', 'pushnataddr', 'callnat', 'callnats', 'nop');
 
 
 g_dictLabels = {};
@@ -207,7 +207,7 @@ with open('endian_test1.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.halt);
 	
 	wrt_pushl(tbc, 0);
-	wrt_1op_4byte(tbc, opcodes.retx, 4);
+	wrt_1op_4byte(tbc, opcodes.retn, 4);
 
 with open('float_test.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 64);
@@ -246,7 +246,7 @@ with open('hello_world.tbc', 'wb+') as tbc:
 	wrt_1op_8byte(tbc, opcodes.pushoffset, 0);
 	wrt_callnat(tbc, 0, 8, 1);
 	wrt_pushl(tbc, 0);
-	wrt_1op_4byte(tbc, opcodes.retx, 4);
+	wrt_1op_4byte(tbc, opcodes.retn, 4);
 
 with open('pointers.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 64);
@@ -296,7 +296,7 @@ with open('test_call_opcodes.tbc', 'wb+') as tbc:
 	wrt_pushl(tbc, 0xffff);
 	wrt_opcode(tbc, opcodes.ret);
 
-with open('test_retx_func.tbc', 'wb+') as tbc:
+with open('test_retn_func.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc);
 	wrt_hdr_funcs(tbc, 'f', 1, 15);
@@ -312,7 +312,7 @@ with open('test_retx_func.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.loadspl);
 	wrt_pushl(tbc, 6);
 	wrt_opcode(tbc, opcodes.addl);
-	wrt_1op_4byte(tbc, opcodes.retx, 4);
+	wrt_1op_4byte(tbc, opcodes.retn, 4);
 
 with open('test_recursion.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 0xffffffff);
@@ -351,7 +351,7 @@ with open('test_factorial_recurs.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.uleql);
 	wrt_1op_8byte(tbc, opcodes.jzl, 51);
 	wrt_pushl(tbc, 1);
-	wrt_1op_4byte(tbc, opcodes.retx, 4);
+	wrt_1op_4byte(tbc, opcodes.retn, 4);
 	
 	wrt_pushq(tbc, 16);
 	wrt_opcode(tbc, opcodes.pushbpadd);
@@ -370,22 +370,41 @@ with open('test_factorial_recurs.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.loadspl);
 	# i * result of factorial( i-1 );
 	wrt_opcode(tbc, opcodes.umull);
-	wrt_1op_4byte(tbc, opcodes.retx, 4);
+	wrt_1op_4byte(tbc, opcodes.retn, 4);
 
 with open('test_native.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc, 'test');
-	wrt_hdr_funcs(tbc);
+	wrt_hdr_funcs(tbc, 'main', 0, 10);
 	wrt_hdr_globals(tbc);
 	wrt_hdr_footer(tbc, entry=0);
 	
+	wrt_1op_8byte(tbc, opcodes.call, 10); #0-8
+	wrt_opcode(tbc, opcodes.halt);
+	
+	wrt_pushq(tbc, 16);
+	wrt_opcode(tbc, opcodes.pushspsub);
+	wrt_opcode(tbc, opcodes.popsp);
+	
 	wrt_pushl(tbc, 50);
+	wrt_pushq(tbc, 4);
+	wrt_opcode(tbc, opcodes.pushbpsub);
+	wrt_opcode(tbc, opcodes.storespl);
+	
 	wrt_pushl(tbc, 100);
+	wrt_pushq(tbc, 8);
+	wrt_opcode(tbc, opcodes.pushbpsub);
+	wrt_opcode(tbc, opcodes.storespl);
+	
 	wrt_pushl(tbc, 300.0);
 	wrt_pushq(tbc, 12);
 	wrt_opcode(tbc, opcodes.pushbpsub);
-	wrt_callnat(tbc, 0, 4, 1);
-	wrt_opcode(tbc, opcodes.halt);
+	wrt_opcode(tbc, opcodes.storespl);
+	
+	wrt_pushq(tbc, 12);
+	wrt_opcode(tbc, opcodes.pushbpsub);
+	wrt_callnat(tbc, 0, 8, 1);
+	wrt_opcode(tbc, opcodes.ret);
 
 with open('test_local_native_funcptr.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 64);
@@ -434,7 +453,7 @@ with open('test_int2chr.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.pushbpsub);
 	wrt_opcode(tbc, opcodes.loadspb);
 	wrt_pushl(tbc, 0);
-	wrt_1op_4byte(tbc, opcodes.retx, 4);
+	wrt_1op_4byte(tbc, opcodes.retn, 4);
 
 
 with open('test_printf.tbc', 'wb+') as tbc:
@@ -513,7 +532,7 @@ with open('test_globalvars.tbc', 'wb+') as tbc:
 	
 	wrt_1op_8byte(tbc, opcodes.pushoffset, 0); #0-8	push 'i''s address
 	wrt_opcode(tbc, opcodes.loadspl); #9 load 'i' by address to TOS.
-	wrt_1op_4byte(tbc, opcodes.retx, 4); #10-14		return 'i'
+	wrt_1op_4byte(tbc, opcodes.retn, 4); #10-14		return 'i'
 	
 	wrt_1op_8byte(tbc, opcodes.call, 25); #15-23	call main
 	wrt_opcode(tbc, opcodes.halt); #24	exit main
@@ -524,7 +543,7 @@ with open('test_globalvars.tbc', 'wb+') as tbc:
 	wrt_1op_8byte(tbc, opcodes.pushoffset, 8);	# load string literal
 	wrt_callnat(tbc, 0, 12, 2);	# call printf
 	wrt_pushl(tbc, 0);
-	wrt_1op_4byte(tbc, opcodes.retx, 4);	# return 0;
+	wrt_1op_4byte(tbc, opcodes.retn, 4);	# return 0;
 
 
 
@@ -547,7 +566,7 @@ with open('test_funcptr_native.tbc', 'wb+') as tbc:
 	wrt_hdr_footer(tbc, entry=10);
 	
 	wrt_pushl(tbc, 0); #0-4	push 'f''s func address
-	wrt_1op_4byte(tbc, opcodes.retx, 4); #5-9		return 0
+	wrt_1op_4byte(tbc, opcodes.retn, 4); #5-9		return 0
 	
 	wrt_1op_8byte(tbc, opcodes.call, 20); #10-18	call main
 	wrt_opcode(tbc, opcodes.halt); #19	exit main
@@ -555,7 +574,7 @@ with open('test_funcptr_native.tbc', 'wb+') as tbc:
 	wrt_pushq(tbc, 0); #20
 	wrt_callnat(tbc, 0, 8, 1);
 	wrt_pushl(tbc, 0);
-	wrt_1op_4byte(tbc, opcodes.retx, 4);	# return 0;
+	wrt_1op_4byte(tbc, opcodes.retn, 4);	# return 0;
 
 '''
 int i;
@@ -584,8 +603,8 @@ with open('test_loadgbl.tbc', 'wb+') as tbc:
 	#wrt_pushl(tbc, 16-4);	# load string literal
 	wrt_callnat(tbc, 0, 0, 0);	# call 'getglobal'
 	wrt_pushl(tbc, 0);
-	wrt_1op_4byte(tbc, opcodes.retx, 4);	# return 0;
-	
+	wrt_1op_4byte(tbc, opcodes.retn, 4);	# return 0;
+
 '''
 void f() {
 }
@@ -605,7 +624,7 @@ with open('test_call_func_by_name.tbc', 'wb+') as tbc:
 	wrt_hdr_footer(tbc, entry=10);
 	
 	wrt_pushl(tbc, 0); #0-4	push 'f''s func address
-	wrt_1op_4byte(tbc, opcodes.retx, 4); #5-9		return 0
+	wrt_1op_4byte(tbc, opcodes.retn, 4); #5-9		return 0
 	
 	wrt_1op_8byte(tbc, opcodes.call, 20); #10-18	call main
 	wrt_opcode(tbc, opcodes.halt); #19	exit main
@@ -613,7 +632,7 @@ with open('test_call_func_by_name.tbc', 'wb+') as tbc:
 	wrt_1op_8byte(tbc, opcodes.pushoffset, 0);
 	wrt_callnat(tbc, 0, 8, 1);
 	wrt_pushl(tbc, 0);
-	wrt_1op_4byte(tbc, opcodes.retx, 4);	# return 0;
+	wrt_1op_4byte(tbc, opcodes.retn, 4);	# return 0;
 
 '''
 test GCC-style assembler generated code.
@@ -636,7 +655,7 @@ with open('test_gcc_style_asm.tbc', 'wb+') as tbc:
 	wrt_1op_8byte(tbc, opcodes.call, 10); #0-8	call main
 	wrt_opcode(tbc, opcodes.halt); #9	exit main
 	
-	wrt_pushq(tbc, 5);	# reserve stack space for local vars
+	wrt_pushq(tbc, 16);	# reserve stack space for local vars. assembly rbp is allowed to go below 
 	wrt_opcode(tbc, opcodes.pushspsub);
 	wrt_opcode(tbc, opcodes.popsp);
 	
@@ -651,7 +670,7 @@ with open('test_gcc_style_asm.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.storespb);
 	
 	wrt_pushl(tbc, 0);
-	wrt_1op_4byte(tbc, opcodes.retx, 4);	# return 0;
+	wrt_1op_4byte(tbc, opcodes.retn, 4);	# return 0;
 
 
 
