@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <inttypes.h>
 #include <string.h>
 #include <stdarg.h>
 #include "tagha.h"
@@ -90,7 +89,7 @@ void TaghaScript_reset(struct TaghaScript *script)
 	// better than a for-loop setting everything to 0.
 	memset(script->m_pMemory, 0, script->m_uiMemsize);
 	script->m_pSP = script->m_pBP = script->m_pMemory + (script->m_uiMemsize-1);
-	// TODO: reset global variables here as well!
+	// TODO: reset global variables here as well?
 	
 }
 
@@ -104,7 +103,7 @@ void TaghaScript_push_longfloat(struct TaghaScript *restrict script, const long 
 	// long doubles are usually 12 or 16 bytes, adjust for both.
 	uint32_t size = sizeof(long double);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
-		printf("TaghaScript_push_longfloat reported: stack overflow! Current instruction address: %p | Stack addr: %p\n", script->m_pIP, script->m_pSP);
+		TaghaScript_PrintErr(script, __func__, "stack overflow!");
 		return;
 	}
 	script->m_pSP -= size;
@@ -118,7 +117,7 @@ long double TaghaScript_pop_longfloat(struct TaghaScript *script)
 	
 	uint32_t size = sizeof(long double);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
-		printf("TaghaScript_pop_longfloat reported: stack underflow! Current instruction address: %p | Stack addr: %p\n", script->m_pIP, script->m_pSP);
+		TaghaScript_PrintErr(script, __func__, "stack underflow!");
 		return 0;
 	}
 	long double val = *(long double *)script->m_pSP;
@@ -132,7 +131,7 @@ void TaghaScript_push_int64(struct TaghaScript *restrict script, const uint64_t 
 		return;
 	uint32_t size = sizeof(uint64_t);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
-		printf("TaghaScript_push_int64 reported: stack overflow! Current instruction address: %p | Stack addr: %p\n", script->m_pIP, script->m_pSP);
+		TaghaScript_PrintErr(script, __func__, "stack overflow!");
 		return;
 	}
 	script->m_pSP -= size;
@@ -144,7 +143,7 @@ uint64_t TaghaScript_pop_int64(struct TaghaScript *script)
 		return 0L;
 	uint32_t size = sizeof(uint64_t);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
-		printf("TaghaScript_pop_int64 reported: stack underflow! Current instruction address: %p | Stack addr: %p\n", script->m_pIP, script->m_pSP);
+		TaghaScript_PrintErr(script, __func__, "stack underflow!");
 		return 0L;
 	}
 	uint64_t val = *(uint64_t *)script->m_pSP;
@@ -158,7 +157,7 @@ void TaghaScript_push_double(struct TaghaScript *restrict script, const double v
 		return;
 	uint32_t size = sizeof(double);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
-		printf("TaghaScript_push_double reported: stack overflow! Current instruction address: %p | Stack addr: %p\n", script->m_pIP, script->m_pSP);
+		TaghaScript_PrintErr(script, __func__, "stack overflow!");
 		return;
 	}
 	script->m_pSP -= size;
@@ -170,7 +169,7 @@ double TaghaScript_pop_double(struct TaghaScript *script)
 		return 0;
 	uint32_t size = sizeof(double);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
-		printf("TaghaScript_pop_double reported: stack underflow! Current instruction address: %p | Stack addr: %p\n", script->m_pIP, script->m_pSP);
+		TaghaScript_PrintErr(script, __func__, "stack underflow!");
 		return 0;
 	}
 	double val = *(double *)script->m_pSP;
@@ -184,7 +183,7 @@ void TaghaScript_push_int32(struct TaghaScript *restrict script, const uint32_t 
 		return;
 	uint32_t size = sizeof(uint32_t);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
-		printf("TaghaScript_push_int32 reported: stack overflow! Current instruction address: %p | Stack addr: %p\n", script->m_pIP, script->m_pSP);
+		TaghaScript_PrintErr(script, __func__, "stack overflow!");
 		return;
 	}
 	script->m_pSP -= size;
@@ -196,7 +195,7 @@ uint32_t TaghaScript_pop_int32(struct TaghaScript *script)
 		return 0;
 	uint32_t size = sizeof(uint32_t);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
-		printf("TaghaScript_pop_int32 reported: stack underflow! Current instruction address: %p | Stack addr: %p\n", script->m_pIP, script->m_pSP);
+		TaghaScript_PrintErr(script, __func__, "stack underflow!");
 		return 0;
 	}
 	uint32_t val = *(uint32_t *)script->m_pSP;
@@ -210,7 +209,7 @@ void TaghaScript_push_float(struct TaghaScript *restrict script, const float val
 		return;
 	uint32_t size = sizeof(float);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
-		printf("TaghaScript_push_float reported: stack overflow! Current instruction address: %p | Stack addr: %p\n", script->m_pIP, script->m_pSP);
+		TaghaScript_PrintErr(script, __func__, "stack overflow!");
 		return;
 	}
 	script->m_pSP -= size;
@@ -222,7 +221,7 @@ float TaghaScript_pop_float(struct TaghaScript *script)
 		return 0;
 	uint32_t size = sizeof(float);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
-		printf("TaghaScript_pop_float reported: stack underflow! Current instruction address: %p | Stack addr: %p\n", script->m_pIP, script->m_pSP);
+		TaghaScript_PrintErr(script, __func__, "stack underflow!");
 		return 0;
 	}
 	float val = *(float *)script->m_pSP;
@@ -236,7 +235,7 @@ void TaghaScript_push_short(struct TaghaScript *restrict script, const uint16_t 
 		return;
 	uint32_t size = sizeof(uint16_t);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
-		printf("TaghaScript_push_short reported: stack overflow! Current instruction address: %p | Stack addr: %p\n", script->m_pIP, script->m_pSP);
+		TaghaScript_PrintErr(script, __func__, "stack overflow!");
 		return;
 	}
 	script->m_pSP -= size;
@@ -248,7 +247,7 @@ uint16_t TaghaScript_pop_short(struct TaghaScript *script)
 		return 0;
 	uint32_t size = sizeof(uint16_t);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
-		printf("TaghaScript_pop_short reported: stack underflow! Current instruction address: %p | Stack addr: %p\n", script->m_pIP, script->m_pSP);
+		TaghaScript_PrintErr(script, __func__, "stack underflow!");
 		return 0;
 	}
 	uint16_t val = *(uint16_t *)script->m_pSP;
@@ -262,7 +261,7 @@ void TaghaScript_push_byte(struct TaghaScript *restrict script, const uint8_t va
 		return;
 	uint32_t size = sizeof(uint8_t);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
-		printf("TaghaScript_push_byte reported: stack overflow! Current instruction address: %p | Stack addr: %p\n", script->m_pIP, script->m_pSP);
+		TaghaScript_PrintErr(script, __func__, "stack overflow!");
 		return;
 	}
 	script->m_pSP -= size;
@@ -274,7 +273,7 @@ uint8_t TaghaScript_pop_byte(struct TaghaScript *script)
 		return 0;
 	uint32_t size = sizeof(uint8_t);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
-		printf("TaghaScript_pop_byte reported: stack underflow! Current instruction address: %p | Stack addr: %p\n", script->m_pIP, script->m_pSP);
+		TaghaScript_PrintErr(script, __func__, "stack underflow!");
 		return 0;
 	}
 	uint8_t val = *(uint8_t *)script->m_pSP;
@@ -287,7 +286,7 @@ void TaghaScript_push_nbytes(struct TaghaScript *restrict script, void *restrict
 	if( !script )
 		return;
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-bytesize) >= script->m_uiMemsize ) {
-		printf("TaghaScript_push_nbytes reported: stack overflow! Current instruction address: %p | Stack addr: %p\n", script->m_pIP, script->m_pSP);
+		TaghaScript_PrintErr(script, __func__, "stack overflow!");
 		return;
 	}
 	script->m_pSP -= bytesize;
@@ -302,7 +301,7 @@ void TaghaScript_pop_nbytes(struct TaghaScript *restrict script, void *restrict 
 	if( !script )
 		return;
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+bytesize) >= script->m_uiMemsize ) {
-		printf("TaghaScript_pop_nbytes reported: stack underflow! Current instruction address: %p | Stack addr: %p\n", script->m_pIP, script->m_pSP);
+		TaghaScript_PrintErr(script, __func__, "stack underflow!");
 		return;
 	}
 	memcpy(pBuffer, script->m_pSP, bytesize);

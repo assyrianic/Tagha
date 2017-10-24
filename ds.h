@@ -5,10 +5,19 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct vec {
+struct vec;
+struct kvnode;
+struct hashmap;
+
+typedef struct vec		Vec_t, vec_t;
+typedef struct kvnode	kvnode_t, mapnode_t;
+typedef struct hashmap	Map_t, map_t;
+
+
+struct vec {
 	void		**data;
 	uint32_t	size, count;
-} Vec_t;
+};
 
 void		vector_init		(Vec_t *);
 uint32_t	vector_count	(const Vec_t *);
@@ -20,7 +29,7 @@ void		vector_free		(Vec_t *);
 
 
 
-typedef struct kvnode {
+struct kvnode {
 	//union {
 	const char	*strKey;
 	//uint64_t	i64Key;
@@ -28,12 +37,12 @@ typedef struct kvnode {
 	// large enough to store a pointer for 32-bit and 64-bit
 	uint64_t		pData;
 	struct kvnode	*pNext;
-} kvnode_t;
+};
 
-typedef struct Map {
+struct hashmap {
 	kvnode_t		**table;
 	uint64_t		size, count;
-} Map_t;
+};
 
 void		map_init		(Map_t *);
 void		map_free		(Map_t *);

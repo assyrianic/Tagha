@@ -315,7 +315,7 @@ with open('test_retn_func.tbc', 'wb+') as tbc:
 	wrt_1op_4byte(tbc, opcodes.retn, 4);
 
 with open('test_recursion.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 0xfffffff);
+	wrt_hdr(tbc, 0xffFFffF);
 	wrt_hdr_natives(tbc);
 	wrt_hdr_funcs(tbc, 'recursive', 0, 10);
 	wrt_hdr_globals(tbc);

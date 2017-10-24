@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <inttypes.h>
 #include <string.h>
 #include "tagha.h"
 
@@ -456,7 +455,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, qa+qb);
 				if( debugmode )
-					printf("pushspadd: added sp with %" PRIu64 ", result: %llx\n", qb, qa+qb);
+					printf("pushspadd: added sp with %" PRIu64 ", result: %" PRIx64 "\n", qb, qa+qb);
 				DISPATCH();
 			
 			exec_pushspsub:;
@@ -464,7 +463,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, qa-qb);
 				if( debugmode )
-					printf("pushspsub: subbed sp with %" PRIu64 ", result: %llx\n", qb, qa-qb);
+					printf("pushspsub: subbed sp with %" PRIu64 ", result: %" PRIx64 "\n", qb, qa-qb);
 				DISPATCH();
 			
 			exec_pushbpadd:;
@@ -472,7 +471,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, qa+qb);
 				if( debugmode )
-					printf("pushbpadd: added bp with %" PRIu64 ", result: %llx\n", qb, qa+qb);
+					printf("pushbpadd: added bp with %" PRIu64 ", result: %" PRIx64 "\n", qb, qa+qb);
 				DISPATCH();
 			
 			exec_pushbpsub:;
@@ -480,7 +479,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, qa-qb);
 				if( debugmode )
-					printf("pushbpsub: subbed bp with %" PRIu64 ", result: %llx\n", qb, qa-qb);
+					printf("pushbpsub: subbed bp with %" PRIu64 ", result: %" PRIx64 "\n", qb, qa-qb);
 				DISPATCH();
 			
 			exec_pushipadd:;
@@ -488,7 +487,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, qa+qb);
 				if( debugmode )
-					printf("pushipadd: added ip with %" PRIu64 ", result: %llx\n", qb, qa+qb);
+					printf("pushipadd: added ip with %" PRIu64 ", result: %" PRIx64 "\n", qb, qa+qb);
 				DISPATCH();
 			
 			exec_pushipsub:;
@@ -496,7 +495,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, qa-qb);
 				if( debugmode )
-					printf("pushipsub: subbed ip with %" PRIu64 ", result: %llx\n", qb, qa-qb);
+					printf("pushipsub: subbed ip with %" PRIu64 ", result: %" PRIx64 "\n", qb, qa-qb);
 				DISPATCH();
 			
 			exec_popq:;

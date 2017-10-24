@@ -3,8 +3,6 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <inttypes.h>
-#include <time.h>
 #include "tagha.h"
 
 
@@ -38,8 +36,8 @@ static void native_test_ptr(struct TaghaScript *restrict script, const uint32_t 
 	}
 	
 	// debug print to see if our data is accurate.
-	printf("native_test_ptr :: ammo: %u\n", player->ammo);
-	printf("native_test_ptr :: health: %u\n", player->health);
+	printf("native_test_ptr :: ammo: %" PRIu32 "\n", player->ammo);
+	printf("native_test_ptr :: health: %" PRIu32 "\n", player->health);
 	printf("native_test_ptr :: speed: %f\n", player->speed);
 }
 
@@ -89,7 +87,7 @@ static void native_callfuncname(struct TaghaScript *restrict script, const uint3
 int main(int argc, char **argv)
 {
 	if( !argv[1] ) {
-		printf("[TaghaVM Usage]: './TaghaVM' '.tagha file' \n");
+		printf("[TaghaVM Usage]: './TaghaVM' '.tbc file' \n");
 		return 1;
 	}
 	

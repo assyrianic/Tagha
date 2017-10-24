@@ -2,8 +2,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstddef>
-#include <cstdint>
-#include <cinttypes>
 #include "tagha.h"
 
 
@@ -34,8 +32,8 @@ static void native_test_ptr(struct TaghaScript *script, const uint32_t argc, con
 		return;
 	
 	// debug print to see if our data is accurate.
-	printf("native_test_ptr :: ammo: %u\n", player->ammo);
-	printf("native_test_ptr :: health: %u\n", player->health);
+	printf("native_test_ptr :: ammo: %" PRIu32 "\n", player->ammo);
+	printf("native_test_ptr :: health: %" PRIu32 "\n", player->health);
 	printf("native_test_ptr :: speed: %f\n", player->speed);
 }
 
@@ -85,7 +83,7 @@ static void native_callfuncname(struct TaghaScript *script, const uint32_t argc,
 int main(int argc, char **argv)
 {
 	if( !argv[1] ) {
-		printf("[TaghaVM Usage]: './TaghaVM' '.tagha file' \n");
+		printf("[TaghaVM Usage]: './TaghaVM' '.tbc file' \n");
 		return 1;
 	}
 	

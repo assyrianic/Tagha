@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 #include "ds.h"
-#include <stdint.h>
+#include <inttypes.h>
 #include <iso646.h>
 
 
@@ -44,19 +44,16 @@ extern "C" {
 struct TaghaScript;
 struct TaghaVM;
 struct NativeInfo;
-//struct TypeInfo;
 struct FuncTable;
 struct DataTable;
 
 typedef struct TaghaScript		Script_t, Applet_t, Plugin_t;
-typedef struct TaghaVM			TaghaVM_t;
-typedef struct DataTable		DataTable_t;
+typedef struct TaghaVM			TaghaVM_t, TVM_t;
+typedef struct DataTable		DataTable_t, GlobalTable_t;
 typedef struct FuncTable		FuncTable_t;
 typedef struct NativeInfo		NativeInfo_t;
-//typedef struct TypeInfo			TypeInfo_t;
 
 //	API to call C/C++ functions from scripts.
-//	account for function pointers to natives being executed on script side.
 typedef		void (*fnNative_t)(struct TaghaScript *script, const uint32_t argc, const uint32_t bytes);
 
 struct NativeInfo {
@@ -88,15 +85,15 @@ struct TaghaScript {
 	uint8_t
 		*m_pMemory,	// stack and data stream. Used for stack and data segment
 		*m_pText,	// instruction stream.
-		*m_pIP,	// instruction ptr.
-		*m_pSP,	// stack ptr.
+		*m_pIP,		// instruction ptr.
+		*m_pSP,		// stack ptr.
 		*m_pBP		// base ptr / stack frame ptr.
 	;
 	char	**m_pstrNatives;	// natives table as stored strings.
 	Map_t
 		*m_pmapFuncs,	// stores the functions compiled to script.
 		*m_pmapGlobals	// stores global vars like string literals or variables.
-		;
+	;
 	uint32_t
 		m_uiMemsize,	// size of m_pMemory
 		m_uiInstrSize,	// size of m_pText
@@ -114,14 +111,21 @@ struct TaghaVM {
 	Map_t	*m_pmapNatives;	// hashmap that stores the native's script name and the C/C++ function pointer bound to it.
 };
 
+// taghavm_api.c
 void		Tagha_init(struct TaghaVM *vm);
 void		Tagha_load_script_by_name(struct TaghaVM *vm, char *filename);
 bool		Tagha_register_natives(struct TaghaVM *vm, struct NativeInfo arrNatives[]);
 void		Tagha_free(struct TaghaVM *vm);
+void		gfree(void **ptr);
+
+// tagha_exec.c
 void		Tagha_exec(struct TaghaVM *vm);
+
+// tagha_libc.c
 void		Tagha_load_libc_natives(struct TaghaVM *vm);
 void		Tagha_load_self_natives(struct TaghaVM *vm);
 
+// taghascript_api.c 
 void		TaghaScript_debug_print_ptrs(const struct TaghaScript *script);
 void		TaghaScript_debug_print_memory(const struct TaghaScript *script);
 void		TaghaScript_debug_print_instrs(const struct TaghaScript *script);
@@ -167,8 +171,6 @@ void		TaghaScript_call_func_by_name(struct TaghaScript *script, const char *strF
 void		TaghaScript_call_func_by_addr(struct TaghaScript *script, const uint64_t func_addr);
 
 void		*TaghaScript_get_global_by_name(struct TaghaScript *script, const char *strGlobalName);
-
-void		gfree(void **ptr);
 void		TaghaScript_PrintErr(struct TaghaScript *script, const char *funcname, const char *err, ...);
 
 
