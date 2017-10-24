@@ -27,6 +27,17 @@ extern "C" {
         float *: "float *",                    double *: "double *",              \
         default: "other")
 
+/* For Colored Debugging Printing! */
+#define KNRM	"\x1B[0m"	// Normal
+#define KRED	"\x1B[31m"
+#define KGRN	"\x1B[32m"
+#define KYEL	"\x1B[33m"
+#define KBLU	"\x1B[34m"
+#define KMAG	"\x1B[35m"
+#define KCYN	"\x1B[36m"
+#define KWHT	"\x1B[37m"
+#define RESET	"\033[0m"	// Reset obviously
+
 #define TAGHA_VERSION_STR		"0.0.15a"
 
 
@@ -74,14 +85,12 @@ struct DataTable {
 
 
 struct TaghaScript {
-	uint64_t
-		ip,	// instruction pointer offset.
-		sp,	// stack pointer offset.
-		bp	// base ptr / stack frame ptr offset.
-	;
 	uint8_t
 		*m_pMemory,	// stack and data stream. Used for stack and data segment
-		*m_pText	// instruction stream.
+		*m_pText,	// instruction stream.
+		*m_pIP,	// instruction ptr.
+		*m_pSP,	// stack ptr.
+		*m_pBP		// base ptr / stack frame ptr.
 	;
 	char	**m_pstrNatives;	// natives table as stored strings.
 	Map_t
@@ -107,7 +116,7 @@ struct TaghaVM {
 
 void		Tagha_init(struct TaghaVM *vm);
 void		Tagha_load_script_by_name(struct TaghaVM *vm, char *filename);
-bool		Tagha_register_natives(struct TaghaVM *vm, struct NativeInfo *arrNatives);
+bool		Tagha_register_natives(struct TaghaVM *vm, struct NativeInfo arrNatives[]);
 void		Tagha_free(struct TaghaVM *vm);
 void		Tagha_exec(struct TaghaVM *vm);
 void		Tagha_load_libc_natives(struct TaghaVM *vm);
@@ -160,6 +169,7 @@ void		TaghaScript_call_func_by_addr(struct TaghaScript *script, const uint64_t f
 void		*TaghaScript_get_global_by_name(struct TaghaScript *script, const char *strGlobalName);
 
 void		gfree(void **ptr);
+void		TaghaScript_PrintErr(struct TaghaScript *script, const char *funcname, const char *err, ...);
 
 
 

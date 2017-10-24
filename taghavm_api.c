@@ -238,7 +238,7 @@ void Tagha_load_script_by_name(struct TaghaVM *restrict vm, char *restrict filen
 	// open up our script in binary-mode.
 	FILE *pFile = fopen(filename, "rb");
 	if( !pFile ) {
-		printf("[Tagha Error]: File not found: \'%s\'\n", filename);
+		printf("[Tagha Load Script Error]: File not found: \'%s\'\n", filename);
 		return;
 	}
 	
@@ -277,7 +277,7 @@ void Tagha_load_script_by_name(struct TaghaVM *restrict vm, char *restrict filen
 			bytecount += sizeof(uint32_t);
 			
 			// set both the integer and pointer stack pointers to point at the top of the stack.
-			script->sp = script->bp = script->m_uiMemsize-1;
+			script->m_pSP = script->m_pBP = script->m_pMemory + (script->m_uiMemsize-1);
 			
 			bytecount += scripthdr_read_natives_table(&script, &pFile);
 			bytecount += scripthdr_read_func_table(&script, &pFile);
@@ -288,8 +288,9 @@ void Tagha_load_script_by_name(struct TaghaVM *restrict vm, char *restrict filen
 				return;
 			
 			// read in our entry point where our code should begin executing.
-			ignore_warns = fread(&script->ip, sizeof(uint64_t), 1, pFile);
-			printf("Tagha_load_script_by_name :: entry ip starts at %" PRIu64 "\n", script->ip);
+			uint64_t entry;
+			ignore_warns = fread(&entry, sizeof(uint64_t), 1, pFile);
+			printf("Tagha_load_script_by_name :: entry m_pIP starts at %" PRIu64 "\n", entry);
 			bytecount += sizeof(uint64_t);
 			
 			// check if the script is either in safemode or debug mode.
@@ -302,7 +303,7 @@ void Tagha_load_script_by_name(struct TaghaVM *restrict vm, char *restrict filen
 			printf("Tagha_load_script_by_name :: Script Debug Mode: %" PRIu32 "\n", script->m_bDebugMode);
 			bytecount += sizeof(bool);
 			
-			printf("Tagha_load_script_by_name :: final stack size %" PRIu64 "\n", script->sp);
+			printf("Tagha_load_script_by_name :: final stack size %p\n", script->m_pSP);
 			script->m_uiMaxInstrs = 0xfffff;	// helps to stop infinite/runaway loops
 			
 			// header data is finished, subtract the filesize with the bytecount
@@ -320,6 +321,7 @@ void Tagha_load_script_by_name(struct TaghaVM *restrict vm, char *restrict filen
 			
 			// instruction stream is valid, copy every last instruction and data to the last byte.
 			ignore_warns = fread(script->m_pText, sizeof(uint8_t), script->m_uiInstrSize, pFile);
+			script->m_pIP = script->m_pText + entry;
 			
 			// script data has been verified and loaded to memory.
 			// copy script's memory address to VM's script vector.
@@ -329,8 +331,7 @@ void Tagha_load_script_by_name(struct TaghaVM *restrict vm, char *restrict filen
 		}
 		else {	// invalid script, kill the reference and whatever memory the script has allocated.
 			printf("Tagha_load_script_by_name :: unknown file memory format\n");
-			TaghaScript_free(script);
-			script = NULL;
+			TaghaScript_free(script), script = NULL;
 		}
 	}
 	else script = NULL;
@@ -376,7 +377,7 @@ void Tagha_free(struct TaghaVM *vm)
 }
 
 
-bool Tagha_register_natives(struct TaghaVM *restrict vm, struct NativeInfo *restrict arrNatives)
+bool Tagha_register_natives(struct TaghaVM *restrict vm, struct NativeInfo arrNatives[])
 {
 	if( !vm or !arrNatives )
 		return false;
