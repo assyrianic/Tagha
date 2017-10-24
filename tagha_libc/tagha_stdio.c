@@ -1,6 +1,5 @@
 
 #include <stdio.h>
-#include <stdint.h>
 
 
 /* FILE *get_stdout(void); */
