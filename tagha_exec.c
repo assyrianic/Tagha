@@ -430,7 +430,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				addr = script->m_pSP;
 				_TaghaScript_push_int64(script, (uintptr_t)addr);
 				if( debugmode )
-					printf("pushsp: pushed sp : %p | offset: %" PRIu32 "\n", addr, addr-script->m_pMemory);
+					printf("pushsp: pushed sp : %p | offset: %" PRIuPTR "\n", addr, addr-script->m_pMemory);
 				DISPATCH();
 			
 			exec_puship:;
@@ -457,7 +457,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, (uintptr_t)(addr+qb));
 				if( debugmode )
-					printf("pushspadd: added sp with %" PRIu64 ", result: %p | offset: %" PRIu32 "\n", qb, addr+qb, (addr+qb)-script->m_pMemory);
+					printf("pushspadd: added sp with %" PRIu64 ", result: %p | offset: %" PRIuPTR "\n", qb, addr+qb, (addr+qb)-script->m_pMemory);
 				DISPATCH();
 			
 			exec_pushspsub:;
@@ -465,7 +465,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, (uintptr_t)(addr-qb));
 				if( debugmode )
-					printf("pushspsub: subbed sp with %" PRIu64 ", result: %p | offset: %" PRIu32 "\n", qb, (addr-qb), (addr-qb)-script->m_pMemory);
+					printf("pushspsub: subbed sp with %" PRIu64 ", result: %p | offset: %" PRIuPTR "\n", qb, (addr-qb), (addr-qb)-script->m_pMemory);
 				DISPATCH();
 			
 			exec_pushbpadd:;
@@ -473,7 +473,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, (uintptr_t)(addr+qb));
 				if( debugmode )
-					printf("pushbpadd: added bp with %" PRIu64 ", result: %p | offset: %" PRIu32 "\n", qb, (addr+qb), (addr+qb)-script->m_pMemory);
+					printf("pushbpadd: added bp with %" PRIu64 ", result: %p | offset: %" PRIuPTR "\n", qb, (addr+qb), (addr+qb)-script->m_pMemory);
 				DISPATCH();
 			
 			exec_pushbpsub:;
@@ -481,7 +481,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, (uintptr_t)(addr-qb));
 				if( debugmode )
-					printf("pushbpsub: subbed bp with %" PRIu64 ", result: %p | offset: %" PRIu32 "\n", qb, (addr-qb), (addr-qb)-script->m_pMemory);
+					printf("pushbpsub: subbed bp with %" PRIu64 ", result: %p | offset: %" PRIuPTR "\n", qb, (addr-qb), (addr-qb)-script->m_pMemory);
 				DISPATCH();
 			
 			exec_pushipadd:;
@@ -489,7 +489,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, (uintptr_t)(addr+qb));
 				if( debugmode )
-					printf("pushipadd: added ip with %" PRIu64 ", result: %p | offset: %" PRIu32 "\n", qb, (addr+qb), (addr+qb)-script->m_pText);
+					printf("pushipadd: added ip with %" PRIu64 ", result: %p | offset: %" PRIuPTR "\n", qb, (addr+qb), (addr+qb)-script->m_pText);
 				DISPATCH();
 			
 			exec_pushipsub:;
@@ -497,7 +497,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				qb = _TaghaScript_pop_int64(script);
 				_TaghaScript_push_int64(script, (uintptr_t)(addr-qb));
 				if( debugmode )
-					printf("pushipsub: subbed ip with %" PRIu64 ", result: %p | offset: %" PRIu32 "\n", qb, (addr-qb), (addr-qb)-script->m_pText);
+					printf("pushipsub: subbed ip with %" PRIu64 ", result: %p | offset: %" PRIuPTR "\n", qb, (addr-qb), (addr-qb)-script->m_pText);
 				DISPATCH();
 			
 			exec_popq:;

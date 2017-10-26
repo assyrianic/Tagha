@@ -7,7 +7,7 @@ static void native_malloc(struct TaghaScript *restrict script, const uint32_t ar
 	// size_t is 8 bytes on 64-bit systems
 	const uint64_t ptrsize = TaghaScript_pop_int64(script);
 	
-	printf("native_malloc:: allocating size: %llu\n", ptrsize);
+	printf("native_malloc:: allocating size: %" PRIu64 "\n", ptrsize);
 	void *p = malloc(ptrsize);
 	if( p ) {
 		printf("native_malloc:: pointer is VALID.\n");
