@@ -676,8 +676,7 @@ with open('test_gcc_style_asm.tbc', 'wb+') as tbc:
 '''
 test a game-like type of vector calculation.
 
-from Quake engine...
-void VectorInverse (vec3_t v) /* float v[3] */
+void vec_invert(vec3_t v)	/* float v[3] */
 {
 	v[0] = -v[0];
 	v[1] = -v[1];
@@ -686,14 +685,14 @@ void VectorInverse (vec3_t v) /* float v[3] */
 
 int main()
 {
-	float v[3] = { 2.f,3.f,4.f };
-	VectorInverse(v);
+	float v[3] = { 2.f, 3.f, 4.f };
+	vec_invert(v);
 	return 0;
 }
 '''
-'''
+#'''
 with open('test_3d_vecs.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 256);
+	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc);
 	wrt_hdr_funcs(tbc, 'main', 0, 10, 'VecInverse', 1, 98);
 	wrt_hdr_globals(tbc);
@@ -703,43 +702,86 @@ with open('test_3d_vecs.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.halt); #9	exit main
 	
 # main:
-	wrt_pushq(tbc, 24);		#10-18 reserve stack space for local vars.
+	wrt_pushq(tbc, 16);		#10-18 reserve stack space for local vars.
 	wrt_opcode(tbc, opcodes.pushspsub); #19
 	wrt_opcode(tbc, opcodes.popsp); #20
 	
 	wrt_pushl(tbc, 2.0); #21-25
-	wrt_pushq(tbc, 12); #26-34
+	wrt_pushq(tbc, 16); #26-34
 	wrt_opcode(tbc, opcodes.pushbpsub); #35
 	wrt_opcode(tbc, opcodes.storespl); #36
 	
 	wrt_pushl(tbc, 3.0); #37-41
-	wrt_pushq(tbc, 8); #42-50
+	wrt_pushq(tbc, 12); #42-50
 	wrt_opcode(tbc, opcodes.pushbpsub); #51
 	wrt_opcode(tbc, opcodes.storespl); #52
 	
 	wrt_pushl(tbc, 4.0); #53-57
-	wrt_pushq(tbc, 4); #58-66
+	wrt_pushq(tbc, 8); #58-66
 	wrt_opcode(tbc, opcodes.pushbpsub); #67
 	wrt_opcode(tbc, opcodes.storespl); #68
 	
-	wrt_pushq(tbc, 12); #69-77
+	wrt_pushq(tbc, 16); #69-77
 	wrt_opcode(tbc, opcodes.pushbpsub); #78
-	wrt_1op_8byte(tbc, opcodes.call, 98); #79-87
+	wrt_1op_8byte(tbc, opcodes.call, 98);
 	
-	wrt_pushl(tbc, 0); #88-92
-	wrt_1op_4byte(tbc, opcodes.retn, 4); #93-97	# return 0;
+	wrt_pushl(tbc, 0);
+	wrt_1op_4byte(tbc, opcodes.retn, 4); # return 0;
 	
-# VecInverse:
-	wrt_pushq(tbc, 16); #98		dereference v+0
-	wrt_opcode(tbc, opcodes.pushbpadd); # load the pointer
-	wrt_opcode(tbc, opcodes.loadspl);	# dereference it.
-	wrt_opcode(tbc, opcodes.loadspl);	# dereference that to get our data.
+# vec_invert:
+	# v[0] = -v[0];
+	# load up old bp address
+	wrt_pushq(tbc, 16); #98
+	wrt_opcode(tbc, opcodes.pushbpadd);
+	# deref old bp addr and load up the vector's addr
+	# remember that tagha is 64-bit so addr of an addr is load/store spq
+	wrt_opcode(tbc, opcodes.loadspq);
+	wrt_opcode(tbc, opcodes.loadspl); # vector's data itself.
+	
+	# negate it
 	wrt_opcode(tbc, opcodes.negf);
-	wrt_opcode(tbc, opcodes.storespl);	# store the negation result there.
+	
+	# re-retrieve the addr and store the negated result.
+	wrt_pushq(tbc, 16);
+	wrt_opcode(tbc, opcodes.pushbpadd);
+	wrt_opcode(tbc, opcodes.loadspq);
+	wrt_opcode(tbc, opcodes.storespl);
+	
+	# v[1] = -v[1];
+	wrt_pushq(tbc, 16);
+	wrt_opcode(tbc, opcodes.pushbpadd);
+	wrt_opcode(tbc, opcodes.loadspq);
+	wrt_pushq(tbc, 4);
+	wrt_opcode(tbc, opcodes.uaddq);
+	wrt_opcode(tbc, opcodes.loadspl);
+	wrt_opcode(tbc, opcodes.negf);
+	
+	
+	wrt_pushq(tbc, 16);
+	wrt_opcode(tbc, opcodes.pushbpadd);
+	wrt_opcode(tbc, opcodes.loadspq);
+	wrt_pushq(tbc, 4);
+	wrt_opcode(tbc, opcodes.uaddq);
+	wrt_opcode(tbc, opcodes.storespl);
+	
+	# v[2] = -v[2];
+	wrt_pushq(tbc, 16);
+	wrt_opcode(tbc, opcodes.pushbpadd);
+	wrt_opcode(tbc, opcodes.loadspq);
+	wrt_pushq(tbc, 8);
+	wrt_opcode(tbc, opcodes.uaddq);
+	wrt_opcode(tbc, opcodes.loadspl);
+	wrt_opcode(tbc, opcodes.negf);
+	
+	wrt_pushq(tbc, 16);
+	wrt_opcode(tbc, opcodes.pushbpadd);
+	wrt_opcode(tbc, opcodes.loadspq);
+	wrt_pushq(tbc, 8);
+	wrt_opcode(tbc, opcodes.uaddq);
+	wrt_opcode(tbc, opcodes.storespl);
 	
 	wrt_opcode(tbc, opcodes.ret);
-'''
-
+#'''
 
 
 

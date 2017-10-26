@@ -481,8 +481,8 @@ void TaghaScript_PrintErr(struct TaghaScript *restrict script, const char *restr
 	printf("[%sTagha Error%s]: **** %s reported: \'", KRED, KNRM, funcname);
 	vprintf(err, args);
 	va_end(args);
-	printf("\' ****\nCurrent Instr Addr: %s%p%s\nCurrent Stack Addr: %s%p%s\n",
-		KGRN, script->m_pIP, RESET, KGRN, script->m_pSP, RESET);
+	printf("\' ****\nCurrent Instr Addr: %s%p | offset: %" PRIu32 "%s\nCurrent Stack Addr: %s%p | offset: %" PRIu32 "%s\n",
+		KGRN, script->m_pIP, script->m_pIP-script->m_pText, RESET, KGRN, script->m_pSP, script->m_pSP-script->m_pMemory, RESET);
 }
 
 

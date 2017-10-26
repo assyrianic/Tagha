@@ -389,6 +389,8 @@ void Tagha_exec(struct TaghaVM *vm)
 			goto *dispatch[ *script->m_pIP ];
 			
 			exec_nop:;
+				if( debugmode )
+					printf("nop\n");
 				DISPATCH();
 			
 			exec_halt:;
@@ -425,10 +427,10 @@ void Tagha_exec(struct TaghaVM *vm)
 				DISPATCH();
 			
 			exec_pushsp:;	// push m_pSP onto the stack, uses 4 bytes since 'm_pSP' is uint32_t32
-				qa = (uintptr_t)script->m_pSP;
-				_TaghaScript_push_int64(script, qa);
+				addr = script->m_pSP;
+				_TaghaScript_push_int64(script, (uintptr_t)addr);
 				if( debugmode )
-					printf("pushsp: pushed sp : %" PRIu64 "\n", qa);
+					printf("pushsp: pushed sp : %p | offset: %" PRIu32 "\n", addr, addr-script->m_pMemory);
 				DISPATCH();
 			
 			exec_puship:;
@@ -451,51 +453,51 @@ void Tagha_exec(struct TaghaVM *vm)
 				DISPATCH();
 			
 			exec_pushspadd:;
-				qa = (uintptr_t)script->m_pSP;
+				addr = script->m_pSP;
 				qb = _TaghaScript_pop_int64(script);
-				_TaghaScript_push_int64(script, qa+qb);
+				_TaghaScript_push_int64(script, (uintptr_t)(addr+qb));
 				if( debugmode )
-					printf("pushspadd: added sp with %" PRIu64 ", result: %" PRIx64 "\n", qb, qa+qb);
+					printf("pushspadd: added sp with %" PRIu64 ", result: %p | offset: %" PRIu32 "\n", qb, addr+qb, (addr+qb)-script->m_pMemory);
 				DISPATCH();
 			
 			exec_pushspsub:;
-				qa = (uintptr_t)script->m_pSP;
+				addr = script->m_pSP;
 				qb = _TaghaScript_pop_int64(script);
-				_TaghaScript_push_int64(script, qa-qb);
+				_TaghaScript_push_int64(script, (uintptr_t)(addr-qb));
 				if( debugmode )
-					printf("pushspsub: subbed sp with %" PRIu64 ", result: %" PRIx64 "\n", qb, qa-qb);
+					printf("pushspsub: subbed sp with %" PRIu64 ", result: %p | offset: %" PRIu32 "\n", qb, (addr-qb), (addr-qb)-script->m_pMemory);
 				DISPATCH();
 			
 			exec_pushbpadd:;
-				qa = (uintptr_t)script->m_pBP;
+				addr = script->m_pBP;
 				qb = _TaghaScript_pop_int64(script);
-				_TaghaScript_push_int64(script, qa+qb);
+				_TaghaScript_push_int64(script, (uintptr_t)(addr+qb));
 				if( debugmode )
-					printf("pushbpadd: added bp with %" PRIu64 ", result: %" PRIx64 "\n", qb, qa+qb);
+					printf("pushbpadd: added bp with %" PRIu64 ", result: %p | offset: %" PRIu32 "\n", qb, (addr+qb), (addr+qb)-script->m_pMemory);
 				DISPATCH();
 			
 			exec_pushbpsub:;
-				qa = (uintptr_t)script->m_pBP;
+				addr = script->m_pBP;
 				qb = _TaghaScript_pop_int64(script);
-				_TaghaScript_push_int64(script, qa-qb);
+				_TaghaScript_push_int64(script, (uintptr_t)(addr-qb));
 				if( debugmode )
-					printf("pushbpsub: subbed bp with %" PRIu64 ", result: %" PRIx64 "\n", qb, qa-qb);
+					printf("pushbpsub: subbed bp with %" PRIu64 ", result: %p | offset: %" PRIu32 "\n", qb, (addr-qb), (addr-qb)-script->m_pMemory);
 				DISPATCH();
 			
 			exec_pushipadd:;
-				qa = (uintptr_t)script->m_pIP;
+				addr = script->m_pIP;
 				qb = _TaghaScript_pop_int64(script);
-				_TaghaScript_push_int64(script, qa+qb);
+				_TaghaScript_push_int64(script, (uintptr_t)(addr+qb));
 				if( debugmode )
-					printf("pushipadd: added ip with %" PRIu64 ", result: %" PRIx64 "\n", qb, qa+qb);
+					printf("pushipadd: added ip with %" PRIu64 ", result: %p | offset: %" PRIu32 "\n", qb, (addr+qb), (addr+qb)-script->m_pText);
 				DISPATCH();
 			
 			exec_pushipsub:;
-				qa = (uintptr_t)script->m_pIP;
+				addr = script->m_pIP;
 				qb = _TaghaScript_pop_int64(script);
-				_TaghaScript_push_int64(script, qa-qb);
+				_TaghaScript_push_int64(script, (uintptr_t)(addr-qb));
 				if( debugmode )
-					printf("pushipsub: subbed ip with %" PRIu64 ", result: %" PRIx64 "\n", qb, qa-qb);
+					printf("pushipsub: subbed ip with %" PRIu64 ", result: %p | offset: %" PRIu32 "\n", qb, (addr-qb), (addr-qb)-script->m_pText);
 				DISPATCH();
 			
 			exec_popq:;
@@ -506,19 +508,33 @@ void Tagha_exec(struct TaghaVM *vm)
 			
 			exec_popsp:; {
 				uint8_t *p = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
+				if( safemode and (!p or p < script->m_pMemory or (p-script->m_pMemory) >= script->m_uiMemsize) ) {
+					TaghaScript_PrintErr(script, __func__, "exec_popsp :: Invalid memory access!");
+					DISPATCH();
+				}
 				script->m_pSP = p;
 				if( debugmode )
 					printf("popsp: sp is now %p.\n", script->m_pSP);
 				DISPATCH();
 			}
 			exec_popbp:; {
-				script->m_pBP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
+				uint8_t *p = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
+				if( safemode and (!p or p < script->m_pMemory or (p-script->m_pMemory) >= script->m_uiMemsize) ) {
+					TaghaScript_PrintErr(script, __func__, "exec_popbp :: Invalid memory access!");
+					DISPATCH();
+				}
+				script->m_pBP = p;
 				if( debugmode )
 					printf("popbp: bp is now %p.\n", script->m_pBP);
 				DISPATCH();
 			}
 			exec_popip:; {
-				script->m_pIP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
+				uint8_t *p = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
+				if( safemode and (!p or p < script->m_pText or (p-script->m_pText) >= script->m_uiInstrSize) ) {
+					TaghaScript_PrintErr(script, __func__, "exec_popip :: Invalid memory access!");
+					DISPATCH();
+				}
+				script->m_pIP = p;
 				if( debugmode )
 					printf("popip: ip is now at address: %p.\n", script->m_pIP);
 				continue;
@@ -530,10 +546,9 @@ void Tagha_exec(struct TaghaVM *vm)
 					_TaghaScript_push_int64(script, 0);
 					DISPATCH();
 				}
-				qa = *(uint64_t *)addr;
-				_TaghaScript_push_int64(script, qa);
+				_TaghaScript_push_int64(script, *(uint64_t *)addr);
 				if( debugmode )
-					printf("loaded 8-byte data to T.O.S. - %" PRIu64 " from sp offset [%" PRIu64 "]\n", qa, (uint64_t)(addr-script->m_pMemory));
+					printf("loaded 8-byte data to T.O.S. - %" PRIu64 " | offset [%" PRIu64 "]\n", *(uint64_t *)addr, (uint64_t)(addr-script->m_pMemory));
 				DISPATCH();
 			
 			exec_loadspl:;
@@ -543,10 +558,9 @@ void Tagha_exec(struct TaghaVM *vm)
 					_TaghaScript_push_int32(script, 0);
 					DISPATCH();
 				}
-				a = *(uint32_t *)addr;
-				_TaghaScript_push_int32(script, a);
+				_TaghaScript_push_int32(script, *(uint32_t *)addr);
 				if( debugmode )
-					printf("loaded 4-byte data to T.O.S. - %" PRIu32 " from sp offset [%" PRIu64 "]\n", a, (uint64_t)(addr-script->m_pMemory));
+					printf("loaded 4-byte data to T.O.S. - %" PRIu32 " | offset [%" PRIu64 "]\n", *(uint32_t *)addr, (uint64_t)(addr-script->m_pMemory));
 				DISPATCH();
 			
 			exec_loadsps:;
@@ -556,10 +570,9 @@ void Tagha_exec(struct TaghaVM *vm)
 					_TaghaScript_push_short(script, 0);
 					DISPATCH();
 				}
-				sa = *(uint16_t *)addr;
-				_TaghaScript_push_short(script, sa);
+				_TaghaScript_push_short(script, *(uint16_t *)addr);
 				if( debugmode )
-					printf("loaded 2-byte data to T.O.S. - %" PRIu32 " from sp offset [%" PRIu64 "]\n", sa, (uint64_t)(addr-script->m_pMemory));
+					printf("loaded 2-byte data to T.O.S. - %" PRIu32 " | offset [%" PRIu64 "]\n", *(uint16_t *)addr, (uint64_t)(addr-script->m_pMemory));
 				DISPATCH();
 			
 			exec_loadspb:;
@@ -571,7 +584,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				}
 				_TaghaScript_push_byte(script, *addr);
 				if( debugmode )
-					printf("loaded byte data to T.O.S. - %" PRIu32 " from sp offset [%" PRIu64 "]\n", *addr, (uint64_t)(addr-script->m_pMemory));
+					printf("loaded byte data to T.O.S. - %" PRIu32 " | offset [%" PRIu64 "]\n", *addr, (uint64_t)(addr-script->m_pMemory));
 				DISPATCH();
 			
 			exec_storespq:;
@@ -581,10 +594,9 @@ void Tagha_exec(struct TaghaVM *vm)
 					_TaghaScript_pop_int64(script);
 					DISPATCH();
 				}
-				qa = _TaghaScript_pop_int64(script);
-				*(uint64_t *)addr = qa;
+				*(uint64_t *)addr = _TaghaScript_pop_int64(script);
 				if( debugmode )
-					printf("stored 8-byte data from T.O.S. - %" PRIu64 " to sp offset [%" PRIu64 "]\n", qa, (uint64_t)(addr-script->m_pMemory));
+					printf("stored 8-byte data from T.O.S. - %" PRIu64 " | offset [%" PRIu64 "]\n", *(uint64_t *)addr, (uint64_t)(addr-script->m_pMemory));
 				DISPATCH();
 			
 			exec_storespl:;		// store TOS into another part of the data stack.
@@ -594,10 +606,9 @@ void Tagha_exec(struct TaghaVM *vm)
 					_TaghaScript_pop_int32(script);
 					DISPATCH();
 				}
-				a = _TaghaScript_pop_int32(script);
-				*(uint32_t *)addr = a;
+				*(uint32_t *)addr = _TaghaScript_pop_int32(script);
 				if( debugmode )
-					printf("stored 4-byte data from T.O.S. - %" PRIu32 " to sp offset [%" PRIu64 "]\n", a, (uint64_t)(addr-script->m_pMemory));
+					printf("stored 4-byte data from T.O.S. - %" PRIu32 " | offset [%" PRIu64 "]\n", *(uint32_t *)addr, (uint64_t)(addr-script->m_pMemory));
 				DISPATCH();
 			
 			exec_storesps:;
@@ -607,10 +618,9 @@ void Tagha_exec(struct TaghaVM *vm)
 					_TaghaScript_pop_short(script);
 					DISPATCH();
 				}
-				sa = _TaghaScript_pop_short(script);
-				*(uint16_t *)addr = sa;
+				*(uint16_t *)addr = _TaghaScript_pop_short(script);
 				if( debugmode )
-					printf("stored 2-byte data from T.O.S. - %" PRIu32 " to sp offset [%" PRIu64 "]\n", sa, (uint64_t)(addr-script->m_pMemory));
+					printf("stored 2-byte data from T.O.S. - %" PRIu32 " | offset [%" PRIu64 "]\n", *(uint16_t *)addr, (uint64_t)(addr-script->m_pMemory));
 				DISPATCH();
 			
 			exec_storespb:;
@@ -622,7 +632,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				}
 				*addr = _TaghaScript_pop_byte(script);
 				if( debugmode )
-					printf("stored byte data from T.O.S. - %" PRIu32 " to sp offset [%" PRIu64 "]\n", *addr, (uint64_t)(addr-script->m_pMemory));
+					printf("stored byte data from T.O.S. - %" PRIu32 " | offset [%" PRIu64 "]\n", *addr, (uint64_t)(addr-script->m_pMemory));
 				DISPATCH();
 			
 			exec_copyq:;
@@ -630,10 +640,9 @@ void Tagha_exec(struct TaghaVM *vm)
 					TaghaScript_PrintErr(script, __func__, "exec_copyq :: stack overflow!");
 					DISPATCH();
 				}
-				qa = *(uint64_t *)script->m_pSP;
 				if( debugmode )
-					printf("copied 8-byte data from T.O.S. - %" PRIu64 "\n", qa);
-				_TaghaScript_push_int64(script, qa);
+					printf("copying 8-byte data from T.O.S. - %" PRIu64 "\n", *(uint64_t *)script->m_pSP);
+				_TaghaScript_push_int64(script, *(uint64_t *)script->m_pSP);
 				DISPATCH();
 			
 			exec_copyl:;	// copy 4 bytes of top of stack and put as new top of stack.
@@ -641,10 +650,9 @@ void Tagha_exec(struct TaghaVM *vm)
 					TaghaScript_PrintErr(script, __func__, "exec_copyl :: stack overflow!");
 					DISPATCH();
 				}
-				a = *(uint32_t *)script->m_pSP;
 				if( debugmode )
-					printf("copied 4-byte data from T.O.S. - %" PRIu32 "\n", a);
-				_TaghaScript_push_int32(script, a);
+					printf("copying 4-byte data from T.O.S. - %" PRIu32 "\n", *(uint32_t *)script->m_pSP);
+				_TaghaScript_push_int32(script, *(uint32_t *)script->m_pSP);
 				DISPATCH();
 			
 			exec_copys:;
@@ -652,10 +660,9 @@ void Tagha_exec(struct TaghaVM *vm)
 					TaghaScript_PrintErr(script, __func__, "exec_copys :: stack overflow!");
 					DISPATCH();
 				}
-				a = *(uint16_t *)script->m_pSP;
-				_TaghaScript_push_short(script, (uint16_t)a);
 				if( debugmode )
-					printf("copied 2-byte data from T.O.S. - %" PRIu32 "\n", a);
+					printf("copying 2-byte data from T.O.S. - %" PRIu32 "\n", *(uint16_t *)script->m_pSP);
+				_TaghaScript_push_short(script, *(uint16_t *)script->m_pSP);
 				DISPATCH();
 			
 			exec_copyb:;
@@ -663,295 +670,298 @@ void Tagha_exec(struct TaghaVM *vm)
 					TaghaScript_PrintErr(script, __func__, "exec_copyb :: stack overflow!");
 					DISPATCH();
 				}
+				if( debugmode )
+					printf("copying byte of data from T.O.S. - %" PRIu32 "\n", *script->m_pSP);
 				_TaghaScript_push_byte(script, *script->m_pSP);
 				DISPATCH();
 			
 			exec_addq:;
 				qb = _TaghaScript_pop_int64(script);
-				qa = _TaghaScript_pop_int64(script);
+				*(int64_t *)script->m_pSP += (int64_t)qb;
 				if( debugmode )
-					printf("signed 8 byte addition result: %" PRIi64 " == %" PRIi64 " + %" PRIi64 "\n", (int64_t)qa + (int64_t)qb, qa,qb);
-				_TaghaScript_push_int64(script, (int64_t)qa + (int64_t)qb);
+					printf("signed 8 byte addition result: %" PRIi64 "\n", *(int64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, (int64_t)qa + (int64_t)qb);
 				DISPATCH();
 			
 			exec_uaddq:;
 				qb = _TaghaScript_pop_int64(script);
-				qa = _TaghaScript_pop_int64(script);
+				*(uint64_t *)script->m_pSP += qb;
 				if( debugmode )
-					printf("unsigned 8 byte addition result: %" PRIu64 " == %" PRIu64 " + %" PRIu64 "\n", qa+qb, qa,qb);
-				_TaghaScript_push_int64(script, qa+qb);
+					printf("unsigned 8 byte addition result: %" PRIu64 "\n", *(uint64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, qa+qb);
 				DISPATCH();
 			
 			exec_addl:;		// pop 8 bytes, signed addition, and push 4 byte result to top of stack
 				b = _TaghaScript_pop_int32(script);
-				a = _TaghaScript_pop_int32(script);
+				*(int32_t *)script->m_pSP += (int32_t)b;
 				if( debugmode )
-					printf("signed 4 byte addition result: %" PRIi32 " == %" PRIi32 " + %" PRIi32 "\n", (int32_t)a + (int32_t)b, a,b);
-				_TaghaScript_push_int32(script, (int32_t)a + (int32_t)b);
+					printf("signed 4 byte addition result: %" PRIi32 "\n", *(int32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, (int32_t)a + (int32_t)b);
 				DISPATCH();
 			
 			exec_uaddl:;	// In C, all integers in an expression are promoted to int32, if number is bigger then uint32_t32 or int64
 				b = _TaghaScript_pop_int32(script);
-				a = _TaghaScript_pop_int32(script);
+				*(uint32_t *)script->m_pSP += b;
 				if( debugmode )
-					printf("unsigned 4 byte addition result: %" PRIu32 " == %" PRIu32 " + %" PRIu32 "\n", a+b, a,b);
-				_TaghaScript_push_int32(script, a+b);
+					printf("unsigned 4 byte addition result: %" PRIu32 "\n", *(uint32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, a+b);
 				DISPATCH();
 			
 			exec_addf:;
 				fb = _TaghaScript_pop_float(script);
-				fa = _TaghaScript_pop_float(script);
+				*(float *)script->m_pSP += fb;
+				//fa = _TaghaScript_pop_float(script);
 				if( debugmode )
-					printf("4-byte float addition result: %f == %f + %f\n", fa+fb, fa,fb);
-				_TaghaScript_push_float(script, fa+fb);
+					printf("4-byte float addition result: %f\n", *(float *)script->m_pSP);
+				//_TaghaScript_push_float(script, fa+fb);
 				DISPATCH();
 			
 			exec_addf64:;
 				db = _TaghaScript_pop_double(script);
-				da = _TaghaScript_pop_double(script);
+				*(double *)script->m_pSP += db;
 				if( debugmode )
-					printf("8-byte float addition result: %f == %f + %f\n", da+db, da,db);
-				_TaghaScript_push_double(script, da+db);
+					printf("8-byte float addition result: %f\n", *(double *)script->m_pSP);
+				//_TaghaScript_push_double(script, da+db);
 				DISPATCH();
 			
 			exec_subq:;
 				qb = _TaghaScript_pop_int64(script);
-				qa = _TaghaScript_pop_int64(script);
+				*(int64_t *)script->m_pSP -= (int64_t)qb;
 				if( debugmode )
-					printf("signed 8 byte subtraction result: %" PRIi64 " == %" PRIi64 " - %" PRIi64 "\n", (int64_t)qa - (int64_t)qb, qa,qb);
-				_TaghaScript_push_int64(script, (int64_t)qa - (int64_t)qb);
+					printf("signed 8 byte subtraction result: %" PRIi64 "\n", *(int64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, (int64_t)qa - (int64_t)qb);
 				DISPATCH();
 			
 			exec_usubq:;
 				qb = _TaghaScript_pop_int64(script);
-				qa = _TaghaScript_pop_int64(script);
+				*(uint64_t *)script->m_pSP -= qb;
 				if( debugmode )
-					printf("unsigned 8 byte subtraction result: %" PRIu64 " == %" PRIu64 " - %" PRIu64 "\n", qa-qb, qa,qb);
-				_TaghaScript_push_int64(script, qa-qb);
+					printf("unsigned 8 byte subtraction result: %" PRIu64 "\n", *(uint64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, qa-qb);
 				DISPATCH();
 			
 			exec_subl:;
 				b = _TaghaScript_pop_int32(script);
-				a = _TaghaScript_pop_int32(script);
+				*(int32_t *)script->m_pSP -= (int32_t)b;
 				if( debugmode )
-					printf("signed 4 byte subtraction result: %" PRIi32 " == %" PRIi32 " - %" PRIi32 "\n", (int32_t)a - (int32_t)b, a,b);
-				_TaghaScript_push_int32(script, (int32_t)a - (int32_t)b);
+					printf("signed 4 byte subtraction result: %" PRIi32 "\n", *(int32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, (int32_t)a - (int32_t)b);
 				DISPATCH();
 			
 			exec_usubl:;
 				b = _TaghaScript_pop_int32(script);
-				a = _TaghaScript_pop_int32(script);
+				*(uint32_t *)script->m_pSP -= b;
 				if( debugmode )
-					printf("unsigned 4 byte subtraction result: %" PRIu32 " == %" PRIu32 " - %" PRIu32 "\n", a-b, a,b);
-				_TaghaScript_push_int32(script, a-b);
+					printf("unsigned 4 byte subtraction result: %" PRIu32 "\n", *(uint32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, a-b);
 				DISPATCH();
 			
 			exec_subf:;
 				fb = _TaghaScript_pop_float(script);
-				fa = _TaghaScript_pop_float(script);
+				*(float *)script->m_pSP -= fb;
 				if( debugmode )
-					printf("4-byte float subtraction result: %f == %f - %f\n", fa-fb, fa,fb);
-				_TaghaScript_push_float(script, fa-fb);
+					printf("4-byte float subtraction result: %f\n", *(float *)script->m_pSP);
+				//_TaghaScript_push_float(script, fa-fb);
 				DISPATCH();
 			
 			exec_subf64:;
 				db = _TaghaScript_pop_double(script);
-				da = _TaghaScript_pop_double(script);
+				*(double *)script->m_pSP -= db;
 				if( debugmode )
-					printf("8-byte float subtraction result: %f == %f - %f\n", da-db, da,db);
-				_TaghaScript_push_double(script, da-db);
+					printf("8-byte float subtraction result: %f\n", *(double *)script->m_pSP);
+				//_TaghaScript_push_double(script, da-db);
 				DISPATCH();
 			
 			exec_mulq:;
 				qb = _TaghaScript_pop_int64(script);
-				qa = _TaghaScript_pop_int64(script);
+				*(int64_t *)script->m_pSP *= (int64_t)qb;
 				if( debugmode )
-					printf("signed 8 byte mult result: %" PRIi64 " == %" PRIi64 " * %" PRIi64 "\n", (int64_t)qa * (int64_t)qb, qa,qb);
-				_TaghaScript_push_int64(script, (int64_t)qa * (int64_t)qb);
+					printf("signed 8 byte mult result: %" PRIi64 "\n", *(int64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, (int64_t)qa * (int64_t)qb);
 				DISPATCH();
 			
 			exec_umulq:;
 				qb = _TaghaScript_pop_int64(script);
-				qa = _TaghaScript_pop_int64(script);
+				*(uint64_t *)script->m_pSP *= qb;
 				if( debugmode )
-					printf("unsigned 8 byte mult result: %" PRIu64 " == %" PRIu64 " * %" PRIu64 "\n", qa*qb, qa,qb);
-				_TaghaScript_push_int64(script, qa*qb);
+					printf("unsigned 8 byte mult result: %" PRIu64 "\n", *(uint64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, qa*qb);
 				DISPATCH();
 			
 			exec_mull:;
 				b = _TaghaScript_pop_int32(script);
-				a = _TaghaScript_pop_int32(script);
+				*(int32_t *)script->m_pSP *= (int32_t)b;
 				if( debugmode )
-					printf("signed 4 byte mult result: %" PRIi32 " == %" PRIi32 " * %" PRIi32 "\n", (int32_t)a * (int32_t)b, a,b);
-				_TaghaScript_push_int32(script, (int32_t)a * (int32_t)b);
+					printf("signed 4 byte mult result: %" PRIi32 "\n", *(int32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, (int32_t)a * (int32_t)b);
 				DISPATCH();
 			
 			exec_umull:;
 				b = _TaghaScript_pop_int32(script);
-				a = _TaghaScript_pop_int32(script);
+				*(uint32_t *)script->m_pSP *= b;
 				if( debugmode )
-					printf("unsigned 4 byte mult result: %" PRIu32 " == %" PRIu32 " * %" PRIu32 "\n", a*b, a,b);
-				_TaghaScript_push_int32(script, a*b);
+					printf("unsigned 4 byte mult result: %" PRIu32 "\n", *(uint32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, a*b);
 				DISPATCH();
 			
 			exec_mulf:;
 				fb = _TaghaScript_pop_float(script);
-				fa = _TaghaScript_pop_float(script);
+				*(float *)script->m_pSP *= fb;
 				if( debugmode )
-					printf("4-byte float mult result: %f == %f * %f\n", fa*fb, fa,fb);
-				_TaghaScript_push_float(script, fa*fb);
+					printf("4-byte float mult result: %f\n", *(float *)script->m_pSP);
+				//_TaghaScript_push_float(script, fa*fb);
 				DISPATCH();
 			
 			exec_mulf64:;
 				db = _TaghaScript_pop_double(script);
-				da = _TaghaScript_pop_double(script);
+				*(double *)script->m_pSP *= db;
 				if( debugmode )
-					printf("8-byte float mult result: %f == %f * %f\n", da*db, da,db);
-				_TaghaScript_push_double(script, da*db);
+					printf("8-byte float mult result: %f\n", *(double *)script->m_pSP);
+				//_TaghaScript_push_double(script, da*db);
 				DISPATCH();
 			
 			exec_divq:;
 				qb = _TaghaScript_pop_int64(script);
 				if( !qb ) {
-					printf("divq: divide by 0 error.\n");
+					TaghaScript_PrintErr(script, __func__, "divq :: divide by 0 error!");
 					qb = 1;
 				}
-				qa = _TaghaScript_pop_int64(script);
+				*(int64_t *)script->m_pSP /= (int64_t)qb;
 				if( debugmode )
-					printf("signed 8 byte division result: %" PRIi64 " == %" PRIi64 " / %" PRIi64 "\n", (int64_t)qa / (int64_t)qb, qa,qb);
-				_TaghaScript_push_int64(script, (int64_t)qa / (int64_t)qb);
+					printf("signed 8 byte division result: %" PRIi64 "\n", *(int64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, (int64_t)qa / (int64_t)qb);
 				DISPATCH();
 			
 			exec_udivq:;
 				qb = _TaghaScript_pop_int64(script);
 				if( !qb ) {
-					printf("udivq: divide by 0 error.\n");
+					TaghaScript_PrintErr(script, __func__, "udivq :: divide by 0 error!");
 					qb = 1;
 				}
-				qa = _TaghaScript_pop_int64(script);
+				*(uint64_t *)script->m_pSP /= qb;
 				if( debugmode )
-					printf("unsigned 8 byte division result: %" PRIu64 " == %" PRIu64 " / %" PRIu64 "\n", qa/qb, qa,qb);
-				_TaghaScript_push_int64(script, qa/qb);
+					printf("unsigned 8 byte division result: %" PRIu64 "\n", *(uint64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, qa/qb);
 				DISPATCH();
 			
 			exec_divl:;
 				b = _TaghaScript_pop_int32(script);
 				if( !b ) {
-					printf("divl: divide by 0 error.\n");
+					TaghaScript_PrintErr(script, __func__, "divl :: divide by 0 error!");
 					b=1;
 				}
-				a = _TaghaScript_pop_int32(script);
+				*(int32_t *)script->m_pSP /= (int32_t)b;
 				if( debugmode )
-					printf("signed 4 byte division result: %" PRIi32 " == %" PRIi32 " / %" PRIi32 "\n", (int32_t)a / (int32_t)b, a,b);
-				_TaghaScript_push_int32(script, (int32_t)a / (int32_t)b);
+					printf("signed 4 byte division result: %" PRIi32 "\n", *(int32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, (int32_t)a / (int32_t)b);
 				DISPATCH();
 			
 			exec_udivl:;
 				b = _TaghaScript_pop_int32(script);
 				if( !b ) {
-					printf("udivl: divide by 0 error.\n");
+					TaghaScript_PrintErr(script, __func__, "udivl :: divide by 0 error!");
 					b=1;
 				}
-				a = _TaghaScript_pop_int32(script);
+				*(uint32_t *)script->m_pSP /= b;
 				if( debugmode )
-					printf("unsigned 4 byte division result: %" PRIu32 " == %" PRIu32 " / %" PRIu32 "\n", a/b, a,b);
-				_TaghaScript_push_int32(script, a/b);
+					printf("unsigned 4 byte division result: %" PRIu32 "\n", *(uint32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, a/b);
 				DISPATCH();
 			
 			exec_divf:;
 				fb = _TaghaScript_pop_float(script);
 				if( !fb ) {
-					printf("divf: divide by 0.0 error.\n");
+					TaghaScript_PrintErr(script, __func__, "divf :: divide by 0 error!");
 					fb = 1.f;
 				}
-				fa = _TaghaScript_pop_float(script);
+				*(float *)script->m_pSP /= fb;
 				if( debugmode )
-					printf("4-byte float division result: %f == %f / %f\n", fa/fb, fa,fb);
-				_TaghaScript_push_float(script, fa/fb);
+					printf("4-byte float division result: %f\n", *(float *)script->m_pSP);
+				//_TaghaScript_push_float(script, fa/fb);
 				DISPATCH();
 			
 			exec_divf64:;
 				db = _TaghaScript_pop_double(script);
 				if( !db ) {
-					printf("divf64: divide by 0.0 error.\n");
+					TaghaScript_PrintErr(script, __func__, "divf64 :: divide by 0 error!");
 					db=1.0;
 				}
-				da = _TaghaScript_pop_double(script);
+				*(double *)script->m_pSP /= db;
 				if( debugmode )
-					printf("8-byte float division result: %f == %f / %f\n", da/db, da,db);
-				_TaghaScript_push_double(script, da/db);
+					printf("8-byte float division result: %f\n", *(double *)script->m_pSP);
+				//_TaghaScript_push_double(script, da/db);
 				DISPATCH();
 			
 			exec_modq:;
 				qb = _TaghaScript_pop_int64(script);
 				if( !qb ) {
-					printf("modq: divide by 0 error.\n");
+					TaghaScript_PrintErr(script, __func__, "modq :: divide by 0 error!");
 					qb = 1;
 				}
-				qa = _TaghaScript_pop_int64(script);
+				*(int64_t *)script->m_pSP %= (int64_t)qb;
 				if( debugmode )
-					printf("signed 8 byte modulo result: %" PRIi64 " == %" PRIi64 " %% %" PRIi64 "\n", (int64_t)qa % (int64_t)qb, qa,qb);
-				_TaghaScript_push_int64(script, (int64_t)qa % (int64_t)qb);
+					printf("signed 8 byte modulo result: %" PRIi64 "\n", *(int64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, (int64_t)qa % (int64_t)qb);
 				DISPATCH();
 			
 			exec_umodq:;
 				qb = _TaghaScript_pop_int64(script);
 				if( !qb ) {
-					printf("umodq: divide by 0 error.\n");
+					TaghaScript_PrintErr(script, __func__, "umodq :: divide by 0 error!");
 					qb = 1;
 				}
-				qa = _TaghaScript_pop_int64(script);
+				*(uint64_t *)script->m_pSP %= qb;
 				if( debugmode )
-					printf("unsigned 8 byte modulo result: %" PRIu64 " == %" PRIu64 " %% %" PRIu64 "\n", qa % qb, qa,qb);
-				_TaghaScript_push_int64(script, qa % qb);
+					printf("unsigned 8 byte modulo result: %" PRIu64 "\n", *(uint64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, qa % qb);
 				DISPATCH();
 			
 			exec_modl:;
 				b = _TaghaScript_pop_int32(script);
 				if( !b ) {
-					printf("modl: divide by 0 error.\n");
+					TaghaScript_PrintErr(script, __func__, "modl :: divide by 0 error!");
 					b=1;
 				}
-				a = _TaghaScript_pop_int32(script);
+				*(int32_t *)script->m_pSP %= (int32_t)b;
 				if( debugmode )
-					printf("signed 4 byte modulo result: %" PRIi32 " == %" PRIi32 " %% %" PRIi32 "\n", (int32_t)a % (int32_t)b, a,b);
-				_TaghaScript_push_int32(script, (int32_t)a % (int32_t)b);
+					printf("signed 4 byte modulo result: %" PRIi32 "\n", *(int32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, (int32_t)a % (int32_t)b);
 				DISPATCH();
 			
 			exec_umodl:;
 				b = _TaghaScript_pop_int32(script);
 				if( !b ) {
-					printf("umodl: divide by 0 error.\n");
+					TaghaScript_PrintErr(script, __func__, "umodl :: divide by 0 error!");
 					b=1;
 				}
-				a = _TaghaScript_pop_int32(script);
+				*(uint32_t *)script->m_pSP %= b;
 				if( debugmode )
-					printf("unsigned 4 byte modulo result: %" PRIu32 " == %" PRIu32 " %% %" PRIu32 "\n", a % b, a,b);
-				_TaghaScript_push_int32(script, a % b);
+					printf("unsigned 4 byte modulo result: %" PRIu32 "\n", *(uint32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, a % b);
 				DISPATCH();
 			
 			exec_andq:;
 				qb = _TaghaScript_pop_int64(script);
-				qa = _TaghaScript_pop_int64(script);
+				*(uint64_t *)script->m_pSP &= qb;
 				if( safemode )
-					printf("8 byte AND result: %" PRIu64 " == %" PRIu64 " & %" PRIu64 "\n", qa & qb, qa,qb);
-				_TaghaScript_push_int64(script, qa & qb);
+					printf("8 byte AND result: %" PRIu64 "\n", *(uint64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, qa & qb);
 				DISPATCH();
 			
 			exec_orq:;
 				qb = _TaghaScript_pop_int64(script);
-				qa = _TaghaScript_pop_int64(script);
+				*(uint64_t *)script->m_pSP |= qb;
 				if( debugmode )
-					printf("8 byte OR result: %" PRIu64 " == %" PRIu64 " | %" PRIu64 "\n", qa | qb, qa,qb);
-				_TaghaScript_push_int64(script, qa | qb);
+					printf("8 byte OR result: %" PRIu64 "\n", *(uint64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, qa | qb);
 				DISPATCH();
 			
 			exec_xorq:;
 				qb = _TaghaScript_pop_int64(script);
-				qa = _TaghaScript_pop_int64(script);
+				*(uint64_t *)script->m_pSP ^= qb;
 				if( debugmode )
-					printf("8 byte XOR result: %" PRIu64 " == %" PRIu64 " ^ %" PRIu64 "\n", qa ^ qb, qa,qb);
-				_TaghaScript_push_int64(script, qa ^ qb);
+					printf("8 byte XOR result: %" PRIu64 "\n", *(uint64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, qa ^ qb);
 				DISPATCH();
 			
 			exec_notq:;
@@ -963,42 +973,42 @@ void Tagha_exec(struct TaghaVM *vm)
 			
 			exec_shlq:;
 				qb = _TaghaScript_pop_int64(script);
-				qa = _TaghaScript_pop_int64(script);
+				*(uint64_t *)script->m_pSP <<= qb;
 				if( debugmode )
-					printf("8 byte Shift Left result: %" PRIu64 " == %" PRIu64 " << %" PRIu64 "\n", qa << qb, qa,qb);
-				_TaghaScript_push_int64(script, qa << qb);
+					printf("8 byte Shift Left result: %" PRIu64 "\n", *(uint64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, qa << qb);
 				DISPATCH();
 			
 			exec_shrq:;
 				qb = _TaghaScript_pop_int64(script);
-				qa = _TaghaScript_pop_int64(script);
+				*(uint64_t *)script->m_pSP >>= qb;
 				if( debugmode )
-					printf("8 byte Shift Right result: %" PRIu64 " == %" PRIu64 " >> %" PRIu64 "\n", qa >> qb, qa,qb);
-				_TaghaScript_push_int64(script, qa >> qb);
+					printf("8 byte Shift Right result: %" PRIu64 "\n", *(uint64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, qa >> qb);
 				DISPATCH();
 			
 			exec_andl:;
 				b = _TaghaScript_pop_int32(script);
-				a = _TaghaScript_pop_int32(script);
+				*(uint32_t *)script->m_pSP &= b;
 				if( debugmode )
-					printf("4 byte AND result: %" PRIu32 " == %" PRIu32 " & %" PRIu32 "\n", a & b, a,b);
-				_TaghaScript_push_int32(script, a & b);
+					printf("4 byte AND result: %" PRIu32 "\n", *(uint32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, a & b);
 				DISPATCH();
 			
 			exec_orl:;
 				b = _TaghaScript_pop_int32(script);
-				a = _TaghaScript_pop_int32(script);
+				*(uint32_t *)script->m_pSP |= b;
 				if( debugmode )
-					printf("4 byte OR result: %" PRIu32 " == %" PRIu32 " | %" PRIu32 "\n", a | b, a,b);
-				_TaghaScript_push_int32(script, a | b);
+					printf("4 byte OR result: %" PRIu32 "\n", *(uint32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, a | b);
 				DISPATCH();
 			
 			exec_xorl:;
 				b = _TaghaScript_pop_int32(script);
-				a = _TaghaScript_pop_int32(script);
+				*(uint32_t *)script->m_pSP ^= b;
 				if( debugmode )
-					printf("4 byte XOR result: %" PRIu32 " == %" PRIu32 " ^ %" PRIu32 "\n", a ^ b, a,b);
-				_TaghaScript_push_int32(script, a ^ b);
+					printf("4 byte XOR result: %" PRIu32 "\n", *(uint32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, a ^ b);
 				DISPATCH();
 			
 			exec_notl:;
@@ -1010,82 +1020,74 @@ void Tagha_exec(struct TaghaVM *vm)
 			
 			exec_shll:;
 				b = _TaghaScript_pop_int32(script);
-				a = _TaghaScript_pop_int32(script);
+				*(uint32_t *)script->m_pSP <<= b;
 				if( debugmode )
-					printf("4 byte Shift Left result: %" PRIu32 " == %" PRIu32 " << %" PRIu32 "\n", a << b, a,b);
-				_TaghaScript_push_int32(script, a << b);
+					printf("4 byte Shift Left result: %" PRIu32 "\n", *(uint32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, a << b);
 				DISPATCH();
 			
 			exec_shrl:;
 				b = _TaghaScript_pop_int32(script);
-				a = _TaghaScript_pop_int32(script);
+				*(uint32_t *)script->m_pSP >>= b;
 				if( debugmode )
-					printf("4 byte Shift Right result: %" PRIu32 " == %" PRIu32 " >> %" PRIu32 "\n", a >> b, a,b);
-				_TaghaScript_push_int32(script, a >> b);
+					printf("4 byte Shift Right result: %" PRIu32 "\n", *(uint32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, a >> b);
 				DISPATCH();
 			
 			exec_incq:;
-				qa = _TaghaScript_pop_int64(script);
-				++qa;
+				*(uint64_t *)script->m_pSP += 1;
 				if( debugmode )
-					printf("8 byte Increment result: %" PRIu64 "\n", qa);
-				_TaghaScript_push_int64(script, qa);
+					printf("8 byte Increment result: %" PRIu64 "\n", *(uint64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, qa);
 				DISPATCH();
 			
 			exec_incl:;
-				a = _TaghaScript_pop_int32(script);
-				++a;
+				*(uint32_t *)script->m_pSP += 1;
 				if( debugmode )
-					printf("4 byte Increment result: %" PRIu32 "\n", a);
-				_TaghaScript_push_int32(script, a);
+					printf("4 byte Increment result: %" PRIu32 "\n", *(uint32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, a);
 				DISPATCH();
 			
 			exec_incf:;
-				fa = _TaghaScript_pop_float(script);
-				++fa;
+				*(float *)script->m_pSP += 1.f;
 				if( debugmode )
-					printf("4-byte float Increment result: %f\n", fa);
-				_TaghaScript_push_float(script, fa);
+					printf("4-byte float Increment result: %f\n", *(float *)script->m_pSP);
+				//_TaghaScript_push_float(script, fa);
 				DISPATCH();
 			
 			exec_incf64:;
-				da = _TaghaScript_pop_double(script);
-				++da;
+				*(double *)script->m_pSP += 1.0;
 				if( debugmode )
-					printf("8-byte float Increment result: %f\n", da);
-				_TaghaScript_push_double(script, da);
+					printf("8-byte float Increment result: %f\n", *(double *)script->m_pSP);
+				//_TaghaScript_push_double(script, da);
 				DISPATCH();
 			
 			exec_decq:;
-				qa = _TaghaScript_pop_int64(script);
-				--qa;
+				*(uint64_t *)script->m_pSP -= 1;
 				if( debugmode )
-					printf("8 byte Decrement result: %" PRIu64 "\n", qa);
-				_TaghaScript_push_int64(script, qa);
+					printf("8 byte Decrement result: %" PRIu64 "\n", *(uint64_t *)script->m_pSP);
+				//_TaghaScript_push_int64(script, qa);
 				DISPATCH();
 			
 			exec_decl:;
-				a = _TaghaScript_pop_int32(script);
-				--a;
+				*(uint32_t *)script->m_pSP -= 1;
 				if( debugmode )
-					printf("4 byte Decrement result: %" PRIu32 "\n", a);
-				_TaghaScript_push_int32(script, a);
+					printf("4 byte Decrement result: %" PRIu32 "\n", *(uint32_t *)script->m_pSP);
+				//_TaghaScript_push_int32(script, a);
 				DISPATCH();
 			
 			exec_decf:;
-				fa = _TaghaScript_pop_float(script);
-				--fa;
+				*(float *)script->m_pSP -= 1.f;
 				if( debugmode )
-					printf("4-byte float Decrement result: %f\n", fa);
-				_TaghaScript_push_float(script, fa);
+					printf("4-byte float Decrement result: %f\n", *(float *)script->m_pSP);
+				//_TaghaScript_push_float(script, fa);
 				DISPATCH();
 			
 			exec_decf64:;
-				da = _TaghaScript_pop_double(script);
-				--da;
+				*(double *)script->m_pSP -= 1.0;
 				if( debugmode )
-					printf("8-byte float Decrement result: %f\n", da);
-				_TaghaScript_push_double(script, da);
+					printf("8-byte float Decrement result: %f\n", *(double *)script->m_pSP);
+				//_TaghaScript_push_double(script, da);
 				DISPATCH();
 			
 			exec_negq:;
@@ -1578,11 +1580,9 @@ void Tagha_exec(struct TaghaVM *vm)
 				const uint32_t bytes = _TaghaScript_get_imm4(script);
 				// how many arguments pushed as native args
 				const uint32_t argcount = _TaghaScript_get_imm4(script);
-				if( debugmode ) {
-					printf("callnat: Calling func addr: %p ", pfNative);
-					printf("with %" PRIu32 " bytes pushed ", bytes);
-					printf("and %" PRIu32 " args.\n", argcount);
-				}
+				if( debugmode )
+					printf("callnat: Calling func addr: %p with %" PRIu32 " bytes pushed and %" PRIu32 " args.\n", pfNative, bytes, argcount);
+				
 				(*pfNative)(script, argcount, bytes);
 				DISPATCH();
 			}
@@ -1596,11 +1596,9 @@ void Tagha_exec(struct TaghaVM *vm)
 				}
 				const uint32_t bytes = _TaghaScript_get_imm4(script);
 				const uint32_t argcount = _TaghaScript_get_imm4(script);
-				if( debugmode ) {
-					printf("callnats: Calling func addr: %p ", pfNative);
-					printf("with %" PRIu32 " bytes pushed ", bytes);
-					printf("and %" PRIu32 " args.\n", argcount);
-				}
+				if( debugmode )
+					printf("callnats: Calling func addr: %p with %" PRIu32 " bytes pushed and %" PRIu32 " args.\n", pfNative, bytes, argcount);
+				
 				(*pfNative)(script, argcount, bytes);
 				DISPATCH();
 			}
