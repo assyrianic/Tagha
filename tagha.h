@@ -46,15 +46,34 @@ struct TaghaVM;
 struct NativeInfo;
 struct FuncTable;
 struct DataTable;
+union Param;
 
 typedef struct TaghaScript		Script_t, Applet_t, Plugin_t;
 typedef struct TaghaVM			TaghaVM_t, TVM_t;
 typedef struct DataTable		DataTable_t, GlobalTable_t;
 typedef struct FuncTable		FuncTable_t;
 typedef struct NativeInfo		NativeInfo_t;
+typedef union Param				Param_t, Arg_t;
 
 //	API to call C/C++ functions from scripts.
-typedef		void (*fnNative_t)(struct TaghaScript *script, const uint32_t argc, const uint32_t bytes);
+union Param {
+	int8_t Char;
+	int16_t Short;
+	int32_t Int32;
+	int64_t Int64;
+	
+	uint8_t UChar;
+	uint16_t UShort;
+	uint32_t UInt32;
+	uint64_t UInt64;
+	
+	float Float;
+	double Double;
+	void *Pointer;
+	const char *String;
+};
+// TODO: have bytecode give number of bytes to return as well!
+typedef		void (*fnNative_t)(struct TaghaScript *, union Param [], const uint32_t);
 
 struct NativeInfo {
 	const char	*strName;	// use as string literals
@@ -209,7 +228,7 @@ void		TaghaScript_PrintErr(struct TaghaScript *script, const char *funcname, con
 	X(neqq) X(uneqq) X(neql) X(uneql) X(neqf) X(neqf64) \
 	\
 	X(jmp) X(jzq) X(jnzq) X(jzl) X(jnzl) \
-	X(call) X(calls) X(ret) X(retn) X(reset) \
+	X(call) X(calls) X(ret) X(retq) X(retl) X(rets) X(retb) X(reset) \
 	X(pushnataddr) X(callnat) X(callnats) \
 	X(nop) \
 

@@ -4,9 +4,12 @@
 #include <cstddef>
 #include "tagha.h"
 
+/*
+ * Same as hostapp.c but using C++ code to test portability and compatibility.
+*/
 
 /* void print_helloworld(void); */
-static void native_print_helloworld(struct TaghaScript *script, const uint32_t argc, const uint32_t bytes)
+static void native_print_helloworld(Script_t *script, Param_t params[], const uint32_t argc)
 {
 	if( !script )
 		return;
@@ -15,36 +18,35 @@ static void native_print_helloworld(struct TaghaScript *script, const uint32_t a
 }
 
 /* void test_ptr(struct player *p); */
-static void native_test_ptr(struct TaghaScript *script, const uint32_t argc, const uint32_t bytes)
+static void native_test_ptr(Script_t *script, Param_t params[], const uint32_t argc)
 {
 	if( !script )
 		return;
 	
 	struct Player {
-		float	speed;
+		float		speed;
 		uint32_t	health;
 		uint32_t	ammo;
 	} *player=nullptr;
 	
 	// get first arg which is the virtual address to our data.
-	player = reinterpret_cast< struct Player* >(TaghaScript_pop_int64(script));
+	player = reinterpret_cast< struct Player* >(params[0].Pointer);
 	if( !player )
 		return;
 	
 	// debug print to see if our data is accurate.
-	printf("native_test_ptr :: ammo: %" PRIu32 "\n", player->ammo);
-	printf("native_test_ptr :: health: %" PRIu32 "\n", player->health);
-	printf("native_test_ptr :: speed: %f\n", player->speed);
+	printf("native_test_ptr :: ammo: %" PRIu32 " | health: %" PRIu32 " | speed: %f\n", player->ammo, player->health, player->speed);
+	player=nullptr;
 }
 
 /* void callfunc( void (*f)(void) ); */
-static void native_callfunc(struct TaghaScript *script, const uint32_t argc, const uint32_t bytes)
+static void native_callfunc(Script_t *script, Param_t params[], const uint32_t argc)
 {
 	if( !script )
 		return;
 	
 	// addr is the function address.
-	uint64_t addr = TaghaScript_pop_int64(script);
+	uint64_t addr = params[0].UInt64; //TaghaScript_pop_int64(script);
 	printf("native_callfunc :: func ptr addr: %" PRIu64 "\n", addr);
 	// call our function which should push any return value back for us to pop.
 	TaghaScript_call_func_by_addr(script, addr);
@@ -52,24 +54,26 @@ static void native_callfunc(struct TaghaScript *script, const uint32_t argc, con
 }
 
 /* void getglobal(void); */
-static void native_getglobal(struct TaghaScript *script, const uint32_t argc, const uint32_t bytes)
+static void native_getglobal(Script_t *script, Param_t params[], const uint32_t argc)
 {
 	if( !script )
 		return;
 	
-	void *p = TaghaScript_get_global_by_name(script, "i");
-	if( p==nullptr )
+	int *p = (int *)TaghaScript_get_global_by_name(script, "i");
+	if( !p )
 		return;
-	printf("native_getglobal :: i == %i\n", *(int *)p);
+	
+	printf("native_getglobal :: i == %i\n", *p);
+	p=nullptr;
 }
 
 /* void callfuncname( const char *func ); */
-static void native_callfuncname(struct TaghaScript *script, const uint32_t argc, const uint32_t bytes)
+static void native_callfuncname(Script_t *script, Param_t params[], const uint32_t argc)
 {
 	if( !script )
 		return;
 	
-	const char *str = reinterpret_cast< const char* >(TaghaScript_pop_int64(script));
+	const char *str = reinterpret_cast< const char* >(params[0].UInt64);
 	if( !str ) {
 		puts("native_callfuncname reported an ERROR :: **** param 'func' is NULL ****\n");
 		return;

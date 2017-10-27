@@ -2,10 +2,10 @@
 #include <stdlib.h>
 
 /* void *malloc(size_t size); */
-static void native_malloc(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
+static void native_malloc(Script_t *restrict script, Param_t params[], const uint32_t argc)
 {
 	// size_t is 8 bytes on 64-bit systems
-	const uint64_t ptrsize = TaghaScript_pop_int64(script);
+	const uint64_t ptrsize = params[0].UInt64;//TaghaScript_pop_int64(script);
 	
 	printf("native_malloc:: allocating size: %" PRIu64 "\n", ptrsize);
 	void *p = malloc(ptrsize);
@@ -22,9 +22,9 @@ static void native_malloc(struct TaghaScript *restrict script, const uint32_t ar
 }
 
 /* void free(void *ptr); */
-static void native_free(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
+static void native_free(Script_t *restrict script, Param_t params[], const uint32_t argc)
 {
-	void *ptr = (void *)(uintptr_t) TaghaScript_pop_int64(script);
+	void *ptr = params[0].Pointer;//(void *)(uintptr_t) TaghaScript_pop_int64(script);
 	if( ptr ) {
 		printf("native_free :: ptr is VALID, freeing...\n");
 		free(ptr), ptr=NULL;
@@ -32,20 +32,20 @@ static void native_free(struct TaghaScript *restrict script, const uint32_t argc
 }
 
 /* void *calloc(size_t num, size_t size); */
-static void native_calloc(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
+static void native_calloc(Script_t *restrict script, Param_t params[], const uint32_t argc)
 {
-	const uint64_t num = TaghaScript_pop_int64(script);
-	const uint64_t size = TaghaScript_pop_int64(script);
+	const uint64_t num = params[0].UInt64;//TaghaScript_pop_int64(script);
+	const uint64_t size = params[1].UInt64;//TaghaScript_pop_int64(script);
 	
 	void *p = calloc(num, size);
 	TaghaScript_push_int64(script, (uintptr_t)p);
 }
 
 /* void *realloc(void *ptr, size_t size); */
-static void native_realloc(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
+static void native_realloc(Script_t *restrict script, Param_t params[], const uint32_t argc)
 {
-	void *ptr = (void *)(uintptr_t)TaghaScript_pop_int64(script);
-	const uint64_t size = TaghaScript_pop_int64(script);
+	void *ptr = params[0].Pointer;//(void *)(uintptr_t)TaghaScript_pop_int64(script);
+	const uint64_t size = params[1].UInt64;//TaghaScript_pop_int64(script);
 	
 	TaghaScript_push_int64(script, (uintptr_t)realloc(ptr, size));
 }

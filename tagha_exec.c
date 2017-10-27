@@ -131,7 +131,7 @@ static inline void _TaghaScript_push_int32(struct TaghaScript *restrict script, 
 {
 	if( !script )
 		return;
-	uint32_t size = sizeof(uint32_t);
+	uint32_t size = sizeof(uint64_t);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
 		TaghaScript_PrintErr(script, __func__, "stack overflow!");
 		return;
@@ -143,7 +143,7 @@ static inline uint32_t _TaghaScript_pop_int32(struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
-	uint32_t size = sizeof(uint32_t);
+	uint32_t size = sizeof(uint64_t);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {	// we're subtracting, did we integer underflow?
 		TaghaScript_PrintErr(script, __func__, "stack underflow!");
 		return 0;
@@ -157,7 +157,7 @@ static inline void _TaghaScript_push_float(struct TaghaScript *restrict script, 
 {
 	if( !script )
 		return;
-	uint32_t size = sizeof(float);
+	uint32_t size = sizeof(double);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
 		TaghaScript_PrintErr(script, __func__, "stack overflow!");
 		return;
@@ -169,7 +169,7 @@ static inline float _TaghaScript_pop_float(struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
-	uint32_t size = sizeof(float);
+	uint32_t size = sizeof(double);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
 		TaghaScript_PrintErr(script, __func__, "stack underflow!");
 		return 0;
@@ -183,7 +183,7 @@ static inline void _TaghaScript_push_short(struct TaghaScript *restrict script, 
 {
 	if( !script )
 		return;
-	uint32_t size = sizeof(uint16_t);
+	uint32_t size = sizeof(uint64_t);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
 		TaghaScript_PrintErr(script, __func__, "stack overflow!");
 		return;
@@ -195,7 +195,7 @@ static inline uint16_t _TaghaScript_pop_short(struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
-	uint32_t size = sizeof(uint16_t);
+	uint32_t size = sizeof(uint64_t);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
 		TaghaScript_PrintErr(script, __func__, "stack underflow!");
 		return 0;
@@ -209,7 +209,7 @@ static inline void _TaghaScript_push_byte(struct TaghaScript *restrict script, c
 {
 	if( !script )
 		return;
-	uint32_t size = sizeof(uint8_t);
+	uint32_t size = sizeof(uint64_t);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
 		TaghaScript_PrintErr(script, __func__, "stack overflow!");
 		return;
@@ -221,7 +221,7 @@ static inline uint8_t _TaghaScript_pop_byte(struct TaghaScript *script)
 {
 	if( !script )
 		return 0;
-	uint32_t size = sizeof(uint8_t);
+	uint32_t size = sizeof(uint64_t);
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
 		TaghaScript_PrintErr(script, __func__, "stack underflow!");
 		return 0;
@@ -235,17 +235,20 @@ static inline void _TaghaScript_push_nbytes(struct TaghaScript *restrict script,
 {
 	if( !script )
 		return;
+	
+	//uint32_t alignedbytes = (bytesize + 7) & -8;
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-bytesize) >= script->m_uiMemsize ) {
 		TaghaScript_PrintErr(script, __func__, "stack overflow!");
 		return;
 	}
-	script->m_pSP -= bytesize; //(bytesize + 3) & -4;
+	script->m_pSP -= bytesize;
 	memcpy(script->m_pSP, pItem, bytesize);
 }
 static inline void _TaghaScript_pop_nbytes(struct TaghaScript *restrict script, void *restrict pBuffer, const uint32_t bytesize)
 {
 	if( !script )
 		return;
+	//uint32_t alignedbytes = (bytesize + 7) & -8;
 	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+bytesize) >= script->m_uiMemsize ) {
 		TaghaScript_PrintErr(script, __func__, "stack underflow!");
 		return;
@@ -1480,7 +1483,6 @@ void Tagha_exec(struct TaghaVM *vm)
 				
 				_TaghaScript_push_int64(script, (uintptr_t)script->m_pBP);	// push ebp
 				script->m_pBP = script->m_pSP;	// mov ebp, esp;
-				
 				script->m_pIP = script->m_pText+qa;
 				
 				if( debugmode )
@@ -1501,37 +1503,97 @@ void Tagha_exec(struct TaghaVM *vm)
 					printf("returning to address: %p\n", script->m_pIP);
 				continue;
 			
-			exec_retn:; {	// for functions that return something.
-				a = _TaghaScript_get_imm4(script);
-				uint8_t bytebuffer[a];
+			exec_retq:;
+				qa = _TaghaScript_pop_int64(script); // store our needed data to a buffer.
 				if( debugmode )
-					printf("retn :: popping %" PRIu32 " to return\n", a);
-				/* This opcode assumes all the data for return
-				 * is on the near top of stack. In theory, you can
-				 * use this method to return multiple pieces of data.
-				 */
-				_TaghaScript_pop_nbytes(script, bytebuffer, a); // store our needed data to a buffer.
-				if( debugmode )
-					printf("retn :: popped %" PRIu32 " bytes\n", a);
+					printf("retq :: popped %" PRIu64 "\n", qa);
 				// do our usual return code.
 				script->m_pSP = script->m_pBP;	// mov esp, ebp
 				
 				if( debugmode )
-					printf("retn :: sp set to bp, sp == %p\n", script->m_pSP);
+					printf("retq :: sp set to bp, sp == %p\n", script->m_pSP);
 				script->m_pBP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
 				
 				if( debugmode )
-					printf("retn :: popping bp, bp == %p\n", script->m_pBP);
+					printf("retq :: popping bp, bp == %p\n", script->m_pBP);
 				
 				script->m_pIP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);	// pop return address.
 				if( debugmode )
-					printf("retn :: popping ip, ip == %p\n", script->m_pIP);
+					printf("retq :: popping ip, ip == %p\n", script->m_pIP);
 				
-				_TaghaScript_push_nbytes(script, bytebuffer, a);	// push back return data!
+				_TaghaScript_push_int64(script, qa);	// push back return data!
 				if( debugmode )
-					printf("retn :: pushed back %" PRIu32 " bytes\n", a);
+					printf("retq :: pushed back %" PRIu64 "\n", qa);
 				continue;
-			}
+			
+			exec_retl:;
+				a = _TaghaScript_pop_int32(script); // store our needed data to a buffer.
+				if( debugmode )
+					printf("retl :: popped %" PRIu32 "\n", a);
+				// do our usual return code.
+				script->m_pSP = script->m_pBP;	// mov esp, ebp
+				
+				if( debugmode )
+					printf("retl :: sp set to bp, sp == %p\n", script->m_pSP);
+				script->m_pBP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
+				
+				if( debugmode )
+					printf("retl :: popping bp, bp == %p\n", script->m_pBP);
+				
+				script->m_pIP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);	// pop return address.
+				if( debugmode )
+					printf("retl :: popping ip, ip == %p\n", script->m_pIP);
+				
+				_TaghaScript_push_int32(script, a);	// push back return data!
+				if( debugmode )
+					printf("retl :: pushed back %" PRIu32 "\n", a);
+				continue;
+			
+			exec_rets:;
+				a = _TaghaScript_pop_short(script); // store our needed data to a buffer.
+				if( debugmode )
+					printf("rets :: popped %" PRIu32 "\n", a);
+				// do our usual return code.
+				script->m_pSP = script->m_pBP;	// mov esp, ebp
+				
+				if( debugmode )
+					printf("rets :: sp set to bp, sp == %p\n", script->m_pSP);
+				script->m_pBP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
+				
+				if( debugmode )
+					printf("rets :: popping bp, bp == %p\n", script->m_pBP);
+				
+				script->m_pIP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);	// pop return address.
+				if( debugmode )
+					printf("rets :: popping ip, ip == %p\n", script->m_pIP);
+				
+				_TaghaScript_push_short(script, a);	// push back return data!
+				if( debugmode )
+					printf("rets :: pushed back %" PRIu32 "\n", a);
+				continue;
+			
+			exec_retb:;
+				a = _TaghaScript_pop_byte(script); // store our needed data to a buffer.
+				if( debugmode )
+					printf("retb :: popped %" PRIu32 "\n", a);
+				// do our usual return code.
+				script->m_pSP = script->m_pBP;	// mov esp, ebp
+				
+				if( debugmode )
+					printf("retb :: sp set to bp, sp == %p\n", script->m_pSP);
+				script->m_pBP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
+				
+				if( debugmode )
+					printf("retb :: popping bp, bp == %p\n", script->m_pBP);
+				
+				script->m_pIP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);	// pop return address.
+				if( debugmode )
+					printf("retb :: popping ip, ip == %p\n", script->m_pIP);
+				
+				_TaghaScript_push_byte(script, a);	// push back return data!
+				if( debugmode )
+					printf("retb :: pushed back %" PRIu32 "\n", a);
+				continue;
 			
 			exec_pushnataddr:;
 				if( safemode and !script->m_pstrNatives ) {
@@ -1559,14 +1621,12 @@ void Tagha_exec(struct TaghaVM *vm)
 			exec_callnat:; {	// call a native
 				if( safemode and !script->m_pstrNatives ) {
 					TaghaScript_PrintErr(script, __func__, "exec_callnat :: native table is NULL!");
-					script->m_pIP += 12;
-					_TaghaScript_push_int64(script, 0L);
+					script->m_pIP += 8;
 					DISPATCH();
 				}
 				a = _TaghaScript_get_imm4(script);
 				if( safemode and a >= script->m_uiNatives  ) {
 					TaghaScript_PrintErr(script, __func__, "exec_callnat :: native index \'%" PRIu32 "\' is out of bounds!", a);
-					_TaghaScript_push_int64(script, 0L);
 					DISPATCH();
 				}
 				
@@ -1576,14 +1636,15 @@ void Tagha_exec(struct TaghaVM *vm)
 					script->m_pIP += 8;
 					DISPATCH();
 				}
-				// how many bytes to push to native.
-				const uint32_t bytes = _TaghaScript_get_imm4(script);
 				// how many arguments pushed as native args
 				const uint32_t argcount = _TaghaScript_get_imm4(script);
 				if( debugmode )
-					printf("callnat: Calling func addr: %p with %" PRIu32 " bytes pushed and %" PRIu32 " args.\n", pfNative, bytes, argcount);
+					printf("callnat: Calling func addr: %p with %" PRIu32 " args pushed.\n", pfNative, argcount);
 				
-				(*pfNative)(script, argcount, bytes);
+				Param_t params[argcount];
+				memset(params, 0, sizeof(Param_t)*argcount);
+				_TaghaScript_pop_nbytes(script, params, sizeof(Param_t)*argcount);
+				(*pfNative)(script, params, argcount);
 				DISPATCH();
 			}
 			/* support calling natives via function pointers */
@@ -1591,15 +1652,18 @@ void Tagha_exec(struct TaghaVM *vm)
 				pfNative = (fnNative_t)(uintptr_t) _TaghaScript_pop_int64(script);
 				if( safemode and !pfNative ) {
 					TaghaScript_PrintErr(script, __func__, "exec_callnat :: native \'%s\' not registered!", script->m_pstrNatives[a]);
-					script->m_pIP += 8;
+					script->m_pIP += 4;
 					DISPATCH();
 				}
-				const uint32_t bytes = _TaghaScript_get_imm4(script);
 				const uint32_t argcount = _TaghaScript_get_imm4(script);
 				if( debugmode )
-					printf("callnats: Calling func addr: %p with %" PRIu32 " bytes pushed and %" PRIu32 " args.\n", pfNative, bytes, argcount);
+					printf("callnats: Calling func addr: %p with %" PRIu32 " args pushed.\n", pfNative, argcount);
 				
-				(*pfNative)(script, argcount, bytes);
+				Param_t params[argcount];
+				memset(params, 0, sizeof(Param_t)*argcount);
+				_TaghaScript_pop_nbytes(script, params, sizeof(Param_t)*argcount);
+				
+				(*pfNative)(script, params, argcount);
 				DISPATCH();
 			}
 			exec_reset:;

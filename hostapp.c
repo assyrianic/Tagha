@@ -2,13 +2,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
-#include <stdint.h>
 #include "tagha.h"
 
-
+/*
+* This is an example of a host application.
+* Meant to test initializing, evaluating, shutting down VM, and testing natives.
+*/
 
 /* void print_helloworld(void); */
-static void native_print_helloworld(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
+static void native_print_helloworld(Script_t *restrict script, Param_t params[], const uint32_t argc)
 {
 	if( !script )
 		return;
@@ -17,7 +19,7 @@ static void native_print_helloworld(struct TaghaScript *restrict script, const u
 }
 
 /* void test_ptr(struct player *p); */
-static void native_test_ptr(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
+static void native_test_ptr(Script_t *restrict script, Param_t params[], const uint32_t argc)
 {
 	if( !script )
 		return;
@@ -29,26 +31,25 @@ static void native_test_ptr(struct TaghaScript *restrict script, const uint32_t 
 	} *player=NULL;
 	
 	// get first arg which is the virtual address to our data.
-	player = (struct Player *)(uintptr_t)TaghaScript_pop_int64(script);
+	player = (struct Player *)params[0].Pointer;//(uintptr_t)TaghaScript_pop_int64(script);
 	if( !player ) {
-		puts("native_test_ptr reported an ERROR :: **** param 'p' is NULL ****\n");
+		puts("native_test_ptr reported an ERROR :: **** param 'player' is NULL ****\n");
 		return;
 	}
 	
 	// debug print to see if our data is accurate.
-	printf("native_test_ptr :: ammo: %" PRIu32 "\n", player->ammo);
-	printf("native_test_ptr :: health: %" PRIu32 "\n", player->health);
-	printf("native_test_ptr :: speed: %f\n", player->speed);
+	printf("native_test_ptr :: ammo: %" PRIu32 " | health: %" PRIu32 " | speed: %f\n", player->ammo, player->health, player->speed);
+	player=NULL;
 }
 
 /* void callfunc( void (*f)(void) ); */
-static void native_callfunc(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
+static void native_callfunc(Script_t *restrict script, Param_t params[], const uint32_t argc)
 {
 	if( !script )
 		return;
 	
 	// addr is the function address.
-	uint64_t addr = TaghaScript_pop_int64(script);
+	uint64_t addr = params[0].UInt64; //TaghaScript_pop_int64(script);
 	printf("native_callfunc :: func ptr addr: %" PRIu64 "\n", addr);
 	// call our function which should push any return value back for us to pop.
 	TaghaScript_call_func_by_addr(script, addr);
@@ -56,7 +57,7 @@ static void native_callfunc(struct TaghaScript *restrict script, const uint32_t 
 }
 
 /* void getglobal(void); */
-static void native_getglobal(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
+static void native_getglobal(Script_t *restrict script, Param_t params[], const uint32_t argc)
 {
 	if( !script )
 		return;
@@ -68,12 +69,12 @@ static void native_getglobal(struct TaghaScript *restrict script, const uint32_t
 }
 
 /* void callfuncname( const char *func ); */
-static void native_callfuncname(struct TaghaScript *restrict script, const uint32_t argc, const uint32_t bytes)
+static void native_callfuncname(Script_t *restrict script, Param_t params[], const uint32_t argc)
 {
 	if( !script )
 		return;
 	
-	const char *strfunc = (const char *)(uintptr_t)TaghaScript_pop_int64(script);
+	const char *strfunc = params[0].String; //(const char *)(uintptr_t)TaghaScript_pop_int64(script);
 	if( !strfunc ) {
 		puts("native_callfuncname reported an ERROR :: **** param 'func' is NULL ****\n");
 		return;
@@ -87,7 +88,7 @@ static void native_callfuncname(struct TaghaScript *restrict script, const uint3
 int main(int argc, char **argv)
 {
 	if( !argv[1] ) {
-		printf("[TaghaVM Usage]: './TaghaVM' '.tbc file' \n");
+		puts("[TaghaVM Usage]: './TaghaVM' '.tbc file' \n");
 		return 1;
 	}
 	

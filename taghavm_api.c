@@ -170,7 +170,7 @@ static uint32_t scripthdr_read_func_table(Script_t **script, FILE **pFile)
 			bytecount += sizeof(uint32_t);
 			ignore_warns = fread(&pFuncData->m_uiEntry, sizeof(uint32_t), 1, *pFile);
 			bytecount += sizeof(uint32_t);
-			printf("[Tagha Load Script] :: copied Function name \'%s\' | offset: %" PRIu32 "\n", strFunc, pFuncData->m_uiEntry);
+			printf("[Tagha Load Script] :: Copied Function name \'%s\' | offset: %" PRIu32 "\n", strFunc, pFuncData->m_uiEntry);
 			map_insert((*script)->m_pmapFuncs, strFunc, (uintptr_t)pFuncData);
 			strFunc = NULL, pFuncData = NULL;
 		} /* for( uint32_t i=0 ; i<(*script)->m_uiFuncs ; i++ ) */
@@ -240,7 +240,7 @@ static uint32_t scripthdr_read_global_table(Script_t **script, FILE **pFile)
 			globalbytes = pGlobalData->m_uiBytes;
 			{
 				uint8_t initdata[globalbytes];
-				printf("[Tagha Load Script] :: global var byte size: %" PRIu32 "\n", globalbytes);
+				printf("[Tagha Load Script] :: Global var byte size: %" PRIu32 "\n", globalbytes);
 				ignore_warns = fread(initdata, sizeof(uint8_t), globalbytes, *pFile);
 				bytecount += globalbytes;
 				memcpy(pTemp, initdata, globalbytes);
@@ -265,7 +265,7 @@ void Tagha_load_script_by_name(struct TaghaVM *restrict vm, char *restrict filen
 	if( !vm )
 		return;
 	
-	// open up our script in binary-mode.
+	// open up our script in read-only binary mode.
 	FILE *pFile = fopen(filename, "rb");
 	if( !pFile ) {
 		printf("[%sTagha Load Script Error%s]: **** %sFile not found: \'%s\'%s ****\n", KRED, RESET, KGRN, filename, RESET);
