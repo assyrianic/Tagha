@@ -1644,7 +1644,12 @@ void Tagha_exec(struct TaghaVM *vm)
 				Param_t params[argcount];
 				memset(params, 0, sizeof(Param_t)*argcount);
 				_TaghaScript_pop_nbytes(script, params, sizeof(Param_t)*argcount);
-				(*pfNative)(script, params, argcount);
+				
+				Param_t *result = &(Param_t){ .UInt64=0 };
+				(*pfNative)(script, params, &result, argcount);
+				if( result )
+					_TaghaScript_push_nbytes(script, result, sizeof(Param_t));
+				
 				DISPATCH();
 			}
 			/* support calling natives via function pointers */
@@ -1663,7 +1668,11 @@ void Tagha_exec(struct TaghaVM *vm)
 				memset(params, 0, sizeof(Param_t)*argcount);
 				_TaghaScript_pop_nbytes(script, params, sizeof(Param_t)*argcount);
 				
-				(*pfNative)(script, params, argcount);
+				Param_t *result = &(Param_t){ .UInt64=0 };
+				(*pfNative)(script, params, &result, argcount);
+				if( result )
+					_TaghaScript_push_nbytes(script, result, sizeof(Param_t));
+				
 				DISPATCH();
 			}
 			exec_reset:;

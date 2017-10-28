@@ -722,7 +722,6 @@ int main()
 	return 0;
 }
 '''
-#'''
 with open('test_3d_vecs.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc);
@@ -813,7 +812,12 @@ with open('test_3d_vecs.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.storespl);
 	
 	wrt_opcode(tbc, opcodes.ret);
-#'''
+
+
+
+
+
+
 
 
 

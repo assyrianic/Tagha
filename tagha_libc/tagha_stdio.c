@@ -3,21 +3,21 @@
 
 
 /* FILE *get_stdout(void); */
-static void native_get_stdout(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_get_stdout(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	TaghaScript_push_int64( script, (uintptr_t)stdout );
+	(*retval)->Pointer = stdout;
 }
 
 /* FILE *get_stdin(void); */
-static void native_get_stdin(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_get_stdin(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	TaghaScript_push_int64( script, (uintptr_t)stdin );
+	(*retval)->Pointer = stdin;
 }
 
 /* FILE *get_stderr(void); */
-static void native_get_stderr(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_get_stderr(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	TaghaScript_push_int64( script, (uintptr_t)stderr );
+	(*retval)->Pointer = stderr;
 }
 
 /*
@@ -25,32 +25,31 @@ static void native_get_stderr(Script_t *restrict script, Param_t params[], const
  */
 
 /* int remove(const char *filename); */
-static void native_remove(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_remove(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	const char *filename = params[0].String;//(const char *)(uintptr_t)TaghaScript_pop_int64(script);
-	TaghaScript_push_int32( script, remove(filename) );
+	const char *filename = params[0].String;
+	(*retval)->Int32 = remove(filename);
 }
 
 /* int rename(const char *oldname, const char *newname); */
-static void native_rename(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_rename(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	const char *filename = params[0].String;//(const char *)(uintptr_t)TaghaScript_pop_int64(script);
-	const char *newname = params[1].String;//(const char *)(uintptr_t)TaghaScript_pop_int64(script);
-	TaghaScript_push_int32( script, rename(filename, newname) );
+	const char *filename = params[0].String;
+	const char *newname = params[1].String;
+	(*retval)->Int32 = rename(filename, newname);
 }
 
 /* FILE *tmpfile(void); */
-static void native_tmpfile(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_tmpfile(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	FILE *pTemp = tmpfile();
-	TaghaScript_push_int64( script, (uintptr_t)pTemp );
+	(*retval)->Pointer = tmpfile();
 }
 
 /* char *tmpnam(char *str); */
-static void native_tmpnam(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_tmpnam(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	char *str = params[0].Pointer;//(char *)(uintptr_t)TaghaScript_pop_int64(script);
-	TaghaScript_push_int64( script, (uintptr_t)tmpnam(str) );
+	char *str = params[0].Pointer;
+	(*retval)->Pointer = tmpnam(str);
 }
 
 
@@ -59,42 +58,42 @@ static void native_tmpnam(Script_t *restrict script, Param_t params[], const uin
  */
 
 /* int fclose(FILE *stream); */
-static void native_fclose(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_fclose(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
 	if( !script )
 		return;
 	
-	FILE *pFile = params[0].Pointer;//(FILE *)(uintptr_t) TaghaScript_pop_int64(script);
+	FILE *pFile = params[0].Pointer;
 	if( pFile ) {
-		printf("fclose:: closing FILE*\n");
-		TaghaScript_push_int32(script, fclose(pFile));
+		puts("fclose:: closing FILE*\n");
+		(*retval)->Int32 = fclose(pFile);
 		pFile=NULL;
 	}
 	else {
-		printf("fclose:: FILE* is NULL\n");
-		TaghaScript_push_int32(script, -1);
+		puts("fclose:: FILE* is NULL\n");
+		(*retval)->Int32 = -1;
 	}
 }
 
 /* int fflush(FILE *stream); */
-static void native_fflush(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_fflush(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
 	if( !script )
 		return;
 	
-	FILE *pStream = params[0].Pointer;//(FILE *)(uintptr_t) TaghaScript_pop_int64(script);
-	TaghaScript_push_int32(script, fflush(pStream));
+	FILE *pStream = params[0].Pointer;
+	(*retval)->Int32 = fflush(pStream);
 	pStream = NULL;
 }
 
 /* FILE *fopen(const char *filename, const char *modes); */
-static void native_fopen(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_fopen(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
 	if( !script )
 		return;
 	
-	const char *filename = params[0].String;//(const char *)(uintptr_t)TaghaScript_pop_int64(script);
-	const char *mode = params[1].String;////(const char *)(uintptr_t)TaghaScript_pop_int64(script);
+	const char *filename = params[0].String;
+	const char *mode = params[1].String;
 	if( !filename ) {
 		puts("fopen reported an ERROR :: **** param 'filename' is NULL ****\n");
 		goto error;
@@ -105,28 +104,24 @@ static void native_fopen(Script_t *restrict script, Param_t params[], const uint
 	}
 	
 	FILE *pFile = fopen(filename, mode);
-	if( pFile ) {
+	if( pFile )
 		printf("fopen:: opening file \'%s\' with mode: \'%s\'\n", filename, mode);
-		TaghaScript_push_int64(script, (uintptr_t)pFile);
-	}
-	else {
-		printf("fopen: failed to get filename: \'%s\'\n", filename);
-		TaghaScript_push_int64(script, 0);
-	}
+	else printf("fopen: failed to get filename: \'%s\'\n", filename);
+	(*retval)->Pointer = pFile;
 	return;
 error:;
-	TaghaScript_push_int64(script, 0);
+	(*retval)->Pointer = NULL;
 }
 
 /* FILE *freopen(const char *filename, const char *mode, FILE *stream); */
-static void native_freopen(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_freopen(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
 	if( !script )
 		return;
 	
-	const char *filename = params[0].String;//(const char *)(uintptr_t)TaghaScript_pop_int64(script);
-	const char *mode = params[1].String;//(const char *)(uintptr_t)TaghaScript_pop_int64(script);
-	FILE *pStream = params[2].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
+	const char *filename = params[0].String;
+	const char *mode = params[1].String;
+	FILE *pStream = params[2].Pointer;
 	
 	if( !filename ) {
 		puts("freopen reported an ERROR :: **** param 'filename' is NULL ****\n");
@@ -140,27 +135,25 @@ static void native_freopen(Script_t *restrict script, Param_t params[], const ui
 	}
 	
 	FILE *pFile = freopen(filename, mode, pStream);
-	if( pFile ) {
+	if( pFile )
 		printf("freopen:: opening file \'%s\' with mode: \'%s\'\n", filename, mode);
-		TaghaScript_push_int64(script, (uintptr_t)pFile);
-	}
-	else {
-		printf("freopen: failed to get filename: \'%s\'\n", filename);
-		TaghaScript_push_int64(script, 0);
-	}
+	else printf("freopen: failed to get filename: \'%s\'\n", filename);
+	(*retval)->Pointer = pFile;
 	return;
 error:;
-	TaghaScript_push_int64(script, 0);
+	(*retval)->Pointer = NULL;
 }
 
 /* void setbuf(FILE *stream, char *buffer); */
-static void native_setbuf(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_setbuf(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
 	if( !script )
 		return;
 	
-	FILE *pStream = params[0].Pointer;//(FILE *)(uintptr_t) TaghaScript_pop_int64(script);
-	char *pBuffer = params[1].Pointer;//(char *)(uintptr_t) TaghaScript_pop_int64(script);
+	FILE *pStream = params[0].Pointer;
+	char *pBuffer = params[1].Pointer;
+	*retval = NULL;
+	
 	if( !pStream ) {
 		puts("setbuf reported an ERROR :: **** param 'stream' is NULL ****\n");
 		return;
@@ -171,11 +164,11 @@ static void native_setbuf(Script_t *restrict script, Param_t params[], const uin
 void string_format(const char *str);
 
 /* int printf(const char *fmt, ...); */
-static void native_printf(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_printf(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	const char *str = params[0].String;//(const char *)(uintptr_t)TaghaScript_pop_int64(script);
+	const char *str = params[0].String;
 	if( !str ) {
-		TaghaScript_push_int32(script, -1);
+		(*retval)->Int32 = -1;
 		puts("native_printf reported an ERROR :: **** param 'fmt' is NULL ****\n");
 		return;
 	}
@@ -256,7 +249,7 @@ static void native_printf(Script_t *restrict script, Param_t params[], const uin
 					
 				default:
 					puts("invalid format\n");
-					TaghaScript_push_int32(script, -1);
+					(*retval)->Int32 = -1;
 					return;
 			} /* switch( *iter ) */
 		} /* if( *iter=='%' ) */
@@ -264,179 +257,179 @@ static void native_printf(Script_t *restrict script, Param_t params[], const uin
 		chrs++, iter++;
 	} /* while( *iter ) */
 	iter = NULL;
-	TaghaScript_push_int32(script, (uint32_t)chrs);
+	(*retval)->Int32 = chrs;
 }
 
 /* int puts(const char *s); */
-static void native_puts(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_puts(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	const char *str = params[0].String; //(const char *)(uintptr_t)TaghaScript_pop_int64(script);
+	const char *str = params[0].String;
 	if( !str ) {
-		TaghaScript_push_int32(script, -1);
+		(*retval)->Int32 = -1;
 		puts("native_puts reported an ERROR :: **** param 's' is NULL ****\n");
 		return;
 	}
-	
 	// push back the value of the return val of puts.
-	TaghaScript_push_int32(script, puts(str));
+	(*retval)->Int32 = puts(str);
 	str = NULL;
 }
 
 /* int setvbuf(FILE *stream, char *buffer, int mode, size_t size); */
-static void native_setvbuf(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_setvbuf(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	FILE *stream = params[0].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
-	char *buffer = params[1].Pointer;//(char *)(uintptr_t)TaghaScript_pop_int64(script);
-	int32_t mode = params[2].Int32;//TaghaScript_pop_int32(script);
-	uint64_t size = params[3].Int64;//TaghaScript_pop_int64(script);
+	FILE *stream = params[0].Pointer;
+	char *buffer = params[1].Pointer;
+	int32_t mode = params[2].Int32;
+	uint64_t size = params[3].Int64;
 	if( !stream ) {
 		puts("setvbuf reported an ERROR :: **** param 'stream' is NULL ****\n");
-		goto error;
+		(*retval)->Int32 = -1;
+		return;
 	}
 	// push back the value of the return val of puts.
-	TaghaScript_push_int32(script, setvbuf(stream, buffer, mode, size));
-	return;
-error:;
-	TaghaScript_push_int32(script, (uint32_t)-1);
+	(*retval)->Int32 = setvbuf(stream, buffer, mode, size);
 }
 
 /* int fgetc(FILE *stream); */
-static void native_fgetc(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_fgetc(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	FILE *stream = params[0].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
-	TaghaScript_push_int32(script, fgetc(stream));
+	FILE *stream = params[0].Pointer;
+	(*retval)->Int32 = fgetc(stream);
 }
 
 /* char *fgets(char *str, int num, FILE *stream); */
-static void native_fgets(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_fgets(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	char *str = params[0].Pointer;//(char *)(uintptr_t)TaghaScript_pop_int64(script);
-	int num = params[1].Int32;//TaghaScript_pop_int32(script);
-	FILE *stream = params[2].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
-	TaghaScript_push_int64(script, (uintptr_t)fgets(str, num, stream));
+	char *str = params[0].Pointer;
+	int num = params[1].Int32;
+	FILE *stream = params[2].Pointer;
+	(*retval)->Pointer = fgets(str, num, stream);
 }
 
 /* int fputc(int character, FILE *stream); */
-static void native_fputc(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_fputc(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	int character = params[0].Int32;//TaghaScript_pop_int32(script);
-	FILE *stream = params[1].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
-	TaghaScript_push_int32(script, fputc(character, stream));
+	int character = params[0].Int32;
+	FILE *stream = params[1].Pointer;
+	(*retval)->Int32 = fputc(character, stream);
 }
 
 /* int fputs(const char *str, FILE *stream); */
-static void native_fputs(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_fputs(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	const char *str = params[0].String;//(const char *)(uintptr_t)TaghaScript_pop_int64(script);
-	FILE *stream = params[1].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
-	TaghaScript_push_int32(script, fputs(str, stream));
+	const char *str = params[0].String;
+	FILE *stream = params[1].Pointer;
+	(*retval)->Int32 = fputs(str, stream);
 }
 
 /* int getc(FILE *stream); */
-static void native_getc(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_getc(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	FILE *stream = params[0].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
-	TaghaScript_push_int32(script, getc(stream));
+	FILE *stream = params[0].Pointer;
+	(*retval)->Int32 = getc(stream);
 }
 
 /* int getchar(void); */
-static void native_getchar(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_getchar(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	TaghaScript_push_int32(script, getchar());
+	(*retval)->Int32 = getchar();
 }
 
 /* int putc(int character, FILE *stream); */
-static void native_putc(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_putc(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	int character = params[0].Int32;//TaghaScript_pop_int32(script);
-	FILE *stream = params[1].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
-	TaghaScript_push_int32(script, putc(character, stream));
+	int character = params[0].Int32;
+	FILE *stream = params[1].Pointer;
+	(*retval)->Int32 = putc(character, stream);
 }
 
 /* int putchar(int character); */
-static void native_putchar(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_putchar(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	int character = params[0].Int32;//TaghaScript_pop_int32(script);
-	TaghaScript_push_int32(script, putchar(character));
+	int character = params[0].Int32;
+	(*retval)->Int32 = putchar(character);
 }
 
 /* int ungetc(int character, FILE *stream); */
-static void native_ungetc(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_ungetc(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	int character = params[0].Int32;//TaghaScript_pop_int32(script);
-	FILE *stream = params[1].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
-	TaghaScript_push_int32(script, ungetc(character, stream));
+	int character = params[0].Int32;
+	FILE *stream = params[1].Pointer;
+	(*retval)->Int32 = ungetc(character, stream);
 }
 
 /* size_t fread(void *ptr, size_t size, size_t count, FILE *stream); */
-static void native_fread(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_fread(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	void *ptr = params[0].Pointer;//(void *)(uintptr_t)TaghaScript_pop_int64(script);
-	uint64_t size = params[1].UInt64;//TaghaScript_pop_int64(script);
-	uint64_t count = params[2].UInt64;//TaghaScript_pop_int64(script);
-	FILE *stream = params[3].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
-	TaghaScript_push_int64(script, fread(ptr, size, count, stream));
+	void *ptr = params[0].Pointer;
+	uint64_t size = params[1].UInt64;
+	uint64_t count = params[2].UInt64;
+	FILE *stream = params[3].Pointer;
+	(*retval)->UInt64 = fread(ptr, size, count, stream);
 }
 
 /* size_t fwrite(const void *ptr, size_t size, size_t count, FILE *stream); */
-static void native_fwrite(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_fwrite(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	const void *ptr = params[0].Pointer;//(const void *)(uintptr_t)TaghaScript_pop_int64(script);
-	uint64_t size = params[1].UInt64;//TaghaScript_pop_int64(script);
-	uint64_t count = params[2].UInt64;//TaghaScript_pop_int64(script);
-	FILE *stream = params[3].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
-	TaghaScript_push_int64(script, fwrite(ptr, size, count, stream));
+	const void *ptr = params[0].Pointer;
+	uint64_t size = params[1].UInt64;
+	uint64_t count = params[2].UInt64;
+	FILE *stream = params[3].Pointer;
+	(*retval)->UInt64 = fwrite(ptr, size, count, stream);
 }
 
 /* int fseek(FILE *stream, long int offset, int origin); */
-static void native_fseek(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_fseek(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	FILE *stream = params[0].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
-	uint64_t offset = params[1].UInt64;//TaghaScript_pop_int64(script);
-	uint32_t origin = params[2].UInt32;//TaghaScript_pop_int32(script);
-	TaghaScript_push_int32(script, fseek(stream, offset, origin));
+	FILE *stream = params[0].Pointer;
+	uint64_t offset = params[1].UInt64;
+	uint32_t origin = params[2].UInt32;
+	(*retval)->Int32 = fseek(stream, offset, origin);
 }
 
 /* long int ftell(FILE *stream); */
-static void native_ftell(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_ftell(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	FILE *stream = params[0].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
-	TaghaScript_push_int64(script, (uint64_t)ftell(stream));
+	FILE *stream = params[0].Pointer;
+	(*retval)->Int64 = ftell(stream);
 }
 
 /* void rewind(FILE *stream); */
-static void native_rewind(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_rewind(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	FILE *stream = params[0].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
+	FILE *stream = params[0].Pointer;
 	rewind(stream);
+	*retval = NULL;
 }
 
 /* void clearerr(FILE *stream); */
-static void native_clearerr(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_clearerr(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	FILE *stream = params[0].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
+	FILE *stream = params[0].Pointer;
 	clearerr(stream);
+	*retval = NULL;
 }
 
 /* int feof(FILE *stream); */
-static void native_feof(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_feof(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	FILE *stream = params[0].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
-	TaghaScript_push_int32(script, feof(stream));
+	FILE *stream = params[0].Pointer;
+	(*retval)->Int32 = feof(stream);
 }
 
 /* int ferror(FILE *stream); */
-static void native_ferror(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_ferror(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	FILE *stream = params[0].Pointer;//(FILE *)(uintptr_t)TaghaScript_pop_int64(script);
-	TaghaScript_push_int32(script, ferror(stream));
+	FILE *stream = params[0].Pointer;
+	(*retval)->Int32 = ferror(stream);
 }
 
 /* void perror(const char *str); */
-static void native_perror(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_perror(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
-	const char *str = params[0].String;//(const char *)(uintptr_t)TaghaScript_pop_int64(script);
+	const char *str = params[0].String;
 	perror(str);
+	*retval = NULL;
 }
 
 

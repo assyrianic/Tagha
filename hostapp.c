@@ -10,16 +10,17 @@
 */
 
 /* void print_helloworld(void); */
-static void native_print_helloworld(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_print_helloworld(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
 	if( !script )
 		return;
 	
 	puts("native_print_helloworld :: hello world from bytecode!\n");
+	*retval = NULL;
 }
 
 /* void test_ptr(struct player *p); */
-static void native_test_ptr(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_test_ptr(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
 	if( !script )
 		return;
@@ -31,7 +32,7 @@ static void native_test_ptr(Script_t *restrict script, Param_t params[], const u
 	} *player=NULL;
 	
 	// get first arg which is the virtual address to our data.
-	player = (struct Player *)params[0].Pointer;//(uintptr_t)TaghaScript_pop_int64(script);
+	player = (struct Player *)params[0].Pointer;
 	if( !player ) {
 		puts("native_test_ptr reported an ERROR :: **** param 'player' is NULL ****\n");
 		return;
@@ -40,24 +41,26 @@ static void native_test_ptr(Script_t *restrict script, Param_t params[], const u
 	// debug print to see if our data is accurate.
 	printf("native_test_ptr :: ammo: %" PRIu32 " | health: %" PRIu32 " | speed: %f\n", player->ammo, player->health, player->speed);
 	player=NULL;
+	*retval = NULL;
 }
 
 /* void callfunc( void (*f)(void) ); */
-static void native_callfunc(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_callfunc(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
 	if( !script )
 		return;
 	
 	// addr is the function address.
-	uint64_t addr = params[0].UInt64; //TaghaScript_pop_int64(script);
+	uint64_t addr = params[0].UInt64;
 	printf("native_callfunc :: func ptr addr: %" PRIu64 "\n", addr);
 	// call our function which should push any return value back for us to pop.
 	TaghaScript_call_func_by_addr(script, addr);
 	printf("native_callfunc :: invoking.\n");
+	*retval = NULL;
 }
 
 /* void getglobal(void); */
-static void native_getglobal(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_getglobal(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
 	if( !script )
 		return;
@@ -66,15 +69,16 @@ static void native_getglobal(Script_t *restrict script, Param_t params[], const 
 	if( !p )
 		return;
 	printf("native_getglobal :: i == %i\n", *p);
+	*retval = NULL;
 }
 
 /* void callfuncname( const char *func ); */
-static void native_callfuncname(Script_t *restrict script, Param_t params[], const uint32_t argc)
+static void native_callfuncname(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
 {
 	if( !script )
 		return;
 	
-	const char *strfunc = params[0].String; //(const char *)(uintptr_t)TaghaScript_pop_int64(script);
+	const char *strfunc = params[0].String;
 	if( !strfunc ) {
 		puts("native_callfuncname reported an ERROR :: **** param 'func' is NULL ****\n");
 		return;
@@ -82,6 +86,7 @@ static void native_callfuncname(Script_t *restrict script, Param_t params[], con
 	
 	TaghaScript_call_func_by_name(script, strfunc);
 	printf("native_callfuncname :: finished calling script : \'%s\'\n", strfunc);
+	*retval = NULL;
 }
 
 

@@ -9,16 +9,17 @@
 */
 
 /* void print_helloworld(void); */
-static void native_print_helloworld(Script_t *script, Param_t params[], const uint32_t argc)
+static void native_print_helloworld(Script_t *script, Param_t params[], union Param **retval, const uint32_t argc)
 {
 	if( !script )
 		return;
 	
 	puts("native_print_helloworld :: hello world from bytecode!\n");
+	*retval = nullptr;
 }
 
 /* void test_ptr(struct player *p); */
-static void native_test_ptr(Script_t *script, Param_t params[], const uint32_t argc)
+static void native_test_ptr(Script_t *script, Param_t params[], union Param **retval, const uint32_t argc)
 {
 	if( !script )
 		return;
@@ -37,24 +38,26 @@ static void native_test_ptr(Script_t *script, Param_t params[], const uint32_t a
 	// debug print to see if our data is accurate.
 	printf("native_test_ptr :: ammo: %" PRIu32 " | health: %" PRIu32 " | speed: %f\n", player->ammo, player->health, player->speed);
 	player=nullptr;
+	*retval = nullptr;
 }
 
 /* void callfunc( void (*f)(void) ); */
-static void native_callfunc(Script_t *script, Param_t params[], const uint32_t argc)
+static void native_callfunc(Script_t *script, Param_t params[], union Param **retval, const uint32_t argc)
 {
 	if( !script )
 		return;
 	
 	// addr is the function address.
-	uint64_t addr = params[0].UInt64; //TaghaScript_pop_int64(script);
+	uint64_t addr = params[0].UInt64;
 	printf("native_callfunc :: func ptr addr: %" PRIu64 "\n", addr);
 	// call our function which should push any return value back for us to pop.
 	TaghaScript_call_func_by_addr(script, addr);
 	printf("native_callfunc :: invoking.\n");
+	*retval = nullptr;
 }
 
 /* void getglobal(void); */
-static void native_getglobal(Script_t *script, Param_t params[], const uint32_t argc)
+static void native_getglobal(Script_t *script, Param_t params[], union Param **retval, const uint32_t argc)
 {
 	if( !script )
 		return;
@@ -65,10 +68,11 @@ static void native_getglobal(Script_t *script, Param_t params[], const uint32_t 
 	
 	printf("native_getglobal :: i == %i\n", *p);
 	p=nullptr;
+	*retval = nullptr;
 }
 
 /* void callfuncname( const char *func ); */
-static void native_callfuncname(Script_t *script, Param_t params[], const uint32_t argc)
+static void native_callfuncname(Script_t *script, Param_t params[], union Param **retval, const uint32_t argc)
 {
 	if( !script )
 		return;
@@ -80,6 +84,7 @@ static void native_callfuncname(Script_t *script, Param_t params[], const uint32
 	}
 	TaghaScript_call_func_by_name(script, str);
 	printf("native_callfuncname :: finished calling script : \'%s\'\n", str);
+	*retval = nullptr;
 }
 
 

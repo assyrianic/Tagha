@@ -73,7 +73,7 @@ union Param {
 	const char *String;
 };
 // TODO: have bytecode give number of bytes to return as well!
-typedef		void (*fnNative_t)(struct TaghaScript *, union Param [], const uint32_t);
+typedef		void (*fnNative_t)(struct TaghaScript *, union Param [], union Param **, const uint32_t);
 
 struct NativeInfo {
 	const char	*strName;	// use as string literals
@@ -159,32 +159,6 @@ uint32_t	TaghaScript_funcs(const struct TaghaScript *script);
 uint32_t	TaghaScript_globals(const struct TaghaScript *script);
 bool		TaghaScript_safemode_active(const struct TaghaScript *script);
 bool		TaghaScript_debug_active(const struct TaghaScript *script);
-
-
-void		TaghaScript_push_longfloat(struct TaghaScript *script, const long double val);
-long double	TaghaScript_pop_longfloat(struct TaghaScript *script);
-
-void		TaghaScript_push_int64(struct TaghaScript *script, const uint64_t val);
-uint64_t	TaghaScript_pop_int64(struct TaghaScript *script);
-
-void		TaghaScript_push_double(struct TaghaScript *script, const double val);
-double		TaghaScript_pop_double(struct TaghaScript *script);
-
-void		TaghaScript_push_int32(struct TaghaScript *script, const uint32_t val);
-uint32_t	TaghaScript_pop_int32(struct TaghaScript *script);
-
-void		TaghaScript_push_float(struct TaghaScript *script, const float val);
-float		TaghaScript_pop_float(struct TaghaScript *script);
-
-void		TaghaScript_push_short(struct TaghaScript *script, const uint16_t val);
-uint16_t	TaghaScript_pop_short(struct TaghaScript *script);
-
-void		TaghaScript_push_byte(struct TaghaScript *script, const uint8_t val);
-uint8_t		TaghaScript_pop_byte(struct TaghaScript *script);
-
-void		TaghaScript_push_nbytes(struct TaghaScript *script, void *pItem, const uint32_t bytesize);
-void		TaghaScript_pop_nbytes(struct TaghaScript *script, void *pBuffer, const uint32_t bytesize);
-
 
 void		TaghaScript_call_func_by_name(struct TaghaScript *script, const char *strFunc);
 void		TaghaScript_call_func_by_addr(struct TaghaScript *script, const uint64_t func_addr);

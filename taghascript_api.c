@@ -94,193 +94,6 @@ void TaghaScript_reset(struct TaghaScript *script)
 }
 
 
-
-void TaghaScript_push_longfloat(struct TaghaScript *restrict script, const long double val)
-{
-	if( !script )
-		return;
-	
-	// long doubles are usually 12 or 16 bytes, adjust for both.
-	uint32_t size = sizeof(long double);
-	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack overflow!");
-		return;
-	}
-	script->m_pSP -= size;
-	*(long double *)script->m_pSP = val;
-}
-
-long double TaghaScript_pop_longfloat(struct TaghaScript *script)
-{
-	if( !script )
-		return 0;
-	
-	uint32_t size = sizeof(long double);
-	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack underflow!");
-		return 0;
-	}
-	long double val = *(long double *)script->m_pSP;
-	script->m_pSP += size;
-	return val;
-}
-
-void TaghaScript_push_int64(struct TaghaScript *restrict script, const uint64_t val)
-{
-	if( !script )
-		return;
-	uint32_t size = sizeof(uint64_t);
-	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack overflow!");
-		return;
-	}
-	script->m_pSP -= size;
-	*(uint64_t *)script->m_pSP = val;
-}
-uint64_t TaghaScript_pop_int64(struct TaghaScript *script)
-{
-	if( !script )
-		return 0L;
-	uint32_t size = sizeof(uint64_t);
-	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack underflow!");
-		return 0L;
-	}
-	uint64_t val = *(uint64_t *)script->m_pSP;
-	script->m_pSP += size;
-	return val;
-}
-
-void TaghaScript_push_double(struct TaghaScript *restrict script, const double val)
-{
-	if( !script )
-		return;
-	uint32_t size = sizeof(double);
-	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack overflow!");
-		return;
-	}
-	script->m_pSP -= size;
-	*(double *)script->m_pSP = val;
-}
-double TaghaScript_pop_double(struct TaghaScript *script)
-{
-	if( !script )
-		return 0;
-	uint32_t size = sizeof(double);
-	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack underflow!");
-		return 0;
-	}
-	double val = *(double *)script->m_pSP;
-	script->m_pSP += size;
-	return val;
-}
-
-void TaghaScript_push_int32(struct TaghaScript *restrict script, const uint32_t val)
-{
-	if( !script )
-		return;
-	uint32_t size = sizeof(uint32_t);
-	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack overflow!");
-		return;
-	}
-	script->m_pSP -= size;
-	*(uint32_t *)script->m_pSP = val;
-}
-uint32_t TaghaScript_pop_int32(struct TaghaScript *script)
-{
-	if( !script )
-		return 0;
-	uint32_t size = sizeof(uint32_t);
-	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack underflow!");
-		return 0;
-	}
-	uint32_t val = *(uint32_t *)script->m_pSP;
-	script->m_pSP += size;
-	return val;
-}
-
-void TaghaScript_push_float(struct TaghaScript *restrict script, const float val)
-{
-	if( !script )
-		return;
-	uint32_t size = sizeof(float);
-	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack overflow!");
-		return;
-	}
-	script->m_pSP -= size;
-	*(float *)script->m_pSP = val;
-}
-float TaghaScript_pop_float(struct TaghaScript *script)
-{
-	if( !script )
-		return 0;
-	uint32_t size = sizeof(float);
-	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack underflow!");
-		return 0;
-	}
-	float val = *(float *)script->m_pSP;
-	script->m_pSP += size;
-	return val;
-}
-
-void TaghaScript_push_short(struct TaghaScript *restrict script, const uint16_t val)
-{
-	if( !script )
-		return;
-	uint32_t size = sizeof(uint16_t);
-	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack overflow!");
-		return;
-	}
-	script->m_pSP -= size;
-	*(uint16_t *)script->m_pSP = val;
-}
-uint16_t TaghaScript_pop_short(struct TaghaScript *script)
-{
-	if( !script )
-		return 0;
-	uint32_t size = sizeof(uint16_t);
-	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack underflow!");
-		return 0;
-	}
-	uint16_t val = *(uint16_t *)script->m_pSP;
-	script->m_pSP += size;
-	return val;
-}
-
-void TaghaScript_push_byte(struct TaghaScript *restrict script, const uint8_t val)
-{
-	if( !script )
-		return;
-	uint32_t size = sizeof(uint8_t);
-	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-size) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack overflow!");
-		return;
-	}
-	script->m_pSP -= size;
-	*(uint8_t *)script->m_pSP = val;
-}
-uint8_t TaghaScript_pop_byte(struct TaghaScript *script)
-{
-	if( !script )
-		return 0;
-	uint32_t size = sizeof(uint8_t);
-	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+size) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack underflow!");
-		return 0;
-	}
-	uint8_t val = *(uint8_t *)script->m_pSP;
-	script->m_pSP += size;
-	return val;
-}
-
 void TaghaScript_push_nbytes(struct TaghaScript *restrict script, void *restrict pItem, const uint32_t bytesize)
 {
 	if( !script )
@@ -291,36 +104,8 @@ void TaghaScript_push_nbytes(struct TaghaScript *restrict script, void *restrict
 	}
 	script->m_pSP -= bytesize;
 	memcpy(script->m_pSP, pItem, bytesize);
-	/*
-	for( uint32_t i=bytesize-1 ; i<bytesize ; i-- )
-		script->m_pMemory[--script->m_pSP] = ((uint8_t *)pItem)[i];
-	*/
 }
-void TaghaScript_pop_nbytes(struct TaghaScript *restrict script, void *restrict pBuffer, const uint32_t bytesize)
-{
-	if( !script )
-		return;
-	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)+bytesize) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack underflow!");
-		return;
-	}
-	memcpy(pBuffer, script->m_pSP, bytesize);
-	script->m_pSP += bytesize;
-	/*
-	for( uint32_t i=0 ; i<bytesize ; i++ )
-		((uint8_t *)pBuffer)[i] = script->m_pMemory[script->m_pSP++];
-	*/
-}
-/*
-uint8_t *TaghaScript_addr2ptr(struct TaghaScript *restrict script, const uint64_t stk_address)
-{
-	if( !script or !script->m_pMemory )
-		return NULL;
-	else if( stk_address >= script->m_uiMemsize )
-		return NULL;
-	return( script->m_pMemory + stk_address );
-}
-*/
+
 void TaghaScript_call_func_by_name(struct TaghaScript *restrict script, const char *restrict strFunc)
 {
 	if( !script or !strFunc )
@@ -336,13 +121,16 @@ void TaghaScript_call_func_by_name(struct TaghaScript *restrict script, const ch
 		if( debugmode )
 			printf("TaghaScript_call_func_by_name :: calling address offset: %" PRIu32 "\n", func_addr);
 		
-		TaghaScript_push_int64(script, (uintptr_t)script->m_pIP+1);	// save return address.
+		script->m_pSP -= 8;
+		*(uint64_t *)script->m_pSP = (uintptr_t)script->m_pIP+1; // save return address.
+		
 		if( debugmode )
 			printf("TaghaScript_call_func_by_name :: return addr: %p\n", script->m_pIP+1);
 		
 		script->m_pIP = script->m_pText + func_addr;	// jump to instruction
 		
-		TaghaScript_push_int64(script, (uintptr_t)script->m_pBP);	// push ebp;
+		script->m_pSP -= 8;
+		*(uint64_t *)script->m_pSP = (uintptr_t)script->m_pBP;	// push ebp;
 		if( debugmode )
 			printf("TaghaScript_call_func_by_name :: pushing bp: %p\n", script->m_pBP);
 		script->m_pBP = script->m_pSP;	// mov ebp, esp;
@@ -359,10 +147,12 @@ void TaghaScript_call_func_by_addr(struct TaghaScript *script, const uint64_t fu
 	else if( script->m_uiInstrSize >= func_addr )
 		return;
 	
-	TaghaScript_push_int64(script, (uintptr_t)script->m_pIP+1);	// save return address.
+	script->m_pSP -= 8;
+	*(uint64_t *)script->m_pSP = (uintptr_t)script->m_pIP+1; // save return address.
 	script->m_pIP = script->m_pText + func_addr;	// jump to instruction
 	
-	TaghaScript_push_int64(script, (uintptr_t)script->m_pBP);	// push ebp;
+	script->m_pSP -= 8;
+	*(uint64_t *)script->m_pSP = (uintptr_t)script->m_pBP;	// push ebp;
 	script->m_pBP = script->m_pSP;	// mov ebp, esp;
 }
 
