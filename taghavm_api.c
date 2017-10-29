@@ -19,11 +19,11 @@ void Tagha_init(struct TaghaVM *restrict vm)
 		return;
 	
 	// initialize our Script vector and Natives hashmap.
-	vm->m_pvecScripts = malloc(sizeof(Vec_t));
-	if( !vm->m_pvecScripts )
-		printf("[%sTagha Init Error%s]: **** %sUnable to initialize Script Vector%s ****\n", KRED, RESET, KGRN, RESET);
-	else vector_init(vm->m_pvecScripts);
-	
+	//vm->m_pvecScripts = malloc(sizeof(Vec_t));
+	//if( !vm->m_pvecScripts )
+	//	printf("[%sTagha Init Error%s]: **** %sUnable to initialize Script Vector%s ****\n", KRED, RESET, KGRN, RESET);
+	//else vector_init(vm->m_pvecScripts);
+	vm->pScript = NULL;
 	vm->m_pmapNatives = malloc(sizeof(Map_t));
 	if( !vm->m_pmapNatives )
 		printf("[%sTagha Init Error%s]: **** %sUnable to initialize Native Map%s ****\n", KRED, RESET, KGRN, RESET);
@@ -50,7 +50,7 @@ static bool is_tbc_file(const char *filename)
 	// iterate to end of string and then check backwards.
 	while( *p )
 		p++;
-	return( (p[-3]=='t' and p[-2]=='b' and p[-1]=='c') or (p[-3]=='T' and p[-2]=='B' and p[-1]=='C') );
+	return( (*(p-3)=='t' and *(p-2)=='b' and *(p-1)=='c') or (*(p-3)=='T' and *(p-2)=='B' and *(p-1)=='C') and *(p-4)=='.' );
 }
 
 // need this to determine m_pText's final size.
@@ -354,7 +354,7 @@ void Tagha_load_script_by_name(struct TaghaVM *restrict vm, char *restrict filen
 			
 			// script data has been verified and loaded to memory.
 			// copy script's memory address to VM's script vector.
-			vector_add(vm->m_pvecScripts, script);
+			vm->pScript = script; //vector_add(vm->m_pvecScripts, script);
 			script = NULL;
 			printf("\n");
 		}
@@ -377,6 +377,7 @@ void Tagha_free(struct TaghaVM *vm)
 	// iterate through our script vector and free
 	// each script individually. Then set each vector index
 	// to NULL so we don't leave a trace of it.
+	/*
 	if( vm->m_pvecScripts ) {
 		Vec_t *vecbuffer=vm->m_pvecScripts;
 		uint32_t nScripts = vector_count(vecbuffer);
@@ -397,6 +398,11 @@ void Tagha_free(struct TaghaVM *vm)
 		gfree((void **)&vm->m_pvecScripts);
 		vecbuffer = NULL;
 	}
+	*/
+	if( vm->pScript ) {
+		TaghaScript_free(vm->pScript), vm->pScript=NULL;
+	}
+	
 	// since the VMs native hashmap has nothing allocated,
 	// we just free the hashmap's internal data and then the hashmap itself.
 	if( vm->m_pmapNatives ) {

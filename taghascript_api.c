@@ -93,69 +93,6 @@ void TaghaScript_reset(struct TaghaScript *script)
 	
 }
 
-
-void TaghaScript_push_nbytes(struct TaghaScript *restrict script, void *restrict pItem, const uint32_t bytesize)
-{
-	if( !script )
-		return;
-	if( script->m_bSafeMode and ((script->m_pSP-script->m_pMemory)-bytesize) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack overflow!");
-		return;
-	}
-	script->m_pSP -= bytesize;
-	memcpy(script->m_pSP, pItem, bytesize);
-}
-
-void TaghaScript_call_func_by_name(struct TaghaScript *restrict script, const char *restrict strFunc)
-{
-	if( !script or !strFunc )
-		return;
-	else if( !script->m_pmapFuncs )
-		return;
-	
-	struct FuncTable *pFuncs = (struct FuncTable *)(uintptr_t)map_find(script->m_pmapFuncs, strFunc);
-	if( pFuncs ) {
-		bool debugmode = script->m_bDebugMode;
-		uint32_t func_addr = pFuncs->m_uiEntry;
-		
-		if( debugmode )
-			printf("TaghaScript_call_func_by_name :: calling address offset: %" PRIu32 "\n", func_addr);
-		
-		script->m_pSP -= 8;
-		*(uint64_t *)script->m_pSP = (uintptr_t)script->m_pIP+1; // save return address.
-		
-		if( debugmode )
-			printf("TaghaScript_call_func_by_name :: return addr: %p\n", script->m_pIP+1);
-		
-		script->m_pIP = script->m_pText + func_addr;	// jump to instruction
-		
-		script->m_pSP -= 8;
-		*(uint64_t *)script->m_pSP = (uintptr_t)script->m_pBP;	// push ebp;
-		if( debugmode )
-			printf("TaghaScript_call_func_by_name :: pushing bp: %p\n", script->m_pBP);
-		script->m_pBP = script->m_pSP;	// mov ebp, esp;
-		
-		if( debugmode )
-			printf("TaghaScript_call_func_by_name :: bp set to sp: %p\n", script->m_pBP);
-	}
-	pFuncs=NULL;
-}
-void TaghaScript_call_func_by_addr(struct TaghaScript *script, const uint64_t func_addr)
-{
-	if( !script )
-		return;
-	else if( script->m_uiInstrSize >= func_addr )
-		return;
-	
-	script->m_pSP -= 8;
-	*(uint64_t *)script->m_pSP = (uintptr_t)script->m_pIP+1; // save return address.
-	script->m_pIP = script->m_pText + func_addr;	// jump to instruction
-	
-	script->m_pSP -= 8;
-	*(uint64_t *)script->m_pSP = (uintptr_t)script->m_pBP;	// push ebp;
-	script->m_pBP = script->m_pSP;	// mov ebp, esp;
-}
-
 void *TaghaScript_get_global_by_name(struct TaghaScript *restrict script, const char *restrict strGlobalName)
 {
 	void *p = NULL;
@@ -225,9 +162,7 @@ bool TaghaScript_debug_active(const struct TaghaScript *script)
 
 void TaghaScript_debug_print_memory(const struct TaghaScript *script)
 {
-	if( !script )
-		return;
-	else if( !script->m_pMemory )
+	if( !script or !script->m_pMemory )
 		return;
 	
 	printf("DEBUG ...---===---... Printing Memory...\n");

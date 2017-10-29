@@ -8,7 +8,7 @@ def enum(*sequential, **named) -> object:
 	enums = dict(zip(sequential, range(len(sequential))), **named);
 	return type('Enum', (), enums);
 
-opcodes = enum('halt', 'pushq', 'pushl', 'pushs', 'pushb', 'pushsp', 'puship', 'pushbp', 'pushoffset', 'pushspadd', 'pushspsub', 'pushbpadd', 'pushbpsub', 'pushipadd', 'pushipsub', 'popq', 'popsp', 'popip', 'popbp', 'storespq', 'storespl', 'storesps', 'storespb', 'loadspq', 'loadspl', 'loadsps', 'loadspb', 'copyq', 'copyl', 'copys', 'copyb', 'addq', 'uaddq', 'addl', 'uaddl', 'addf', 'subq', 'usubq', 'subl', 'usubl', 'subf', 'mulq', 'umulq', 'mull', 'umull', 'mulf', 'divq', 'udivq', 'divl', 'udivl', 'divf', 'modq', 'umodq', 'modl', 'umodl', 'addf64', 'subf64', 'mulf64', 'divf64', 'andl', 'orl', 'xorl', 'notl', 'shll', 'shrl', 'andq', 'orq', 'xorq', 'notq', 'shlq', 'shrq', 'incq', 'incl', 'incf', 'decq', 'decl', 'decf', 'negq', 'negl', 'negf', 'incf64', 'decf64', 'negf64', 'ltq', 'ltl', 'ultq', 'ultl', 'ltf', 'gtq', 'gtl', 'ugtq', 'ugtl', 'gtf', 'cmpq', 'cmpl', 'ucmpq', 'ucmpl', 'compf', 'leqq', 'uleqq', 'leql', 'uleql', 'leqf', 'geqq', 'ugeqq', 'geql', 'ugeql', 'geqf', 'ltf64', 'gtf64', 'cmpf64', 'leqf64', 'geqf64', 'neqq', 'uneqq', 'neql', 'uneql', 'neqf', 'neqf64', 'jmp', 'jzq', 'jnzq', 'jzl', 'jnzl', 'call', 'calls', 'ret', 'retq', 'retl', 'rets', 'retb', 'reset', 'pushnataddr', 'callnat', 'callnats', 'nop');
+opcodes = enum('halt', 'pushq', 'pushl', 'pushs', 'pushb', 'pushsp', 'puship', 'pushbp', 'pushoffset', 'pushspadd', 'pushspsub', 'pushbpadd', 'pushbpsub', 'pushipadd', 'pushipsub', 'popq', 'popsp', 'popip', 'popbp', 'storespq', 'storespl', 'storesps', 'storespb', 'loadspq', 'loadspl', 'loadsps', 'loadspb', 'copyq', 'copyl', 'copys', 'copyb', 'addq', 'uaddq', 'addl', 'uaddl', 'addf', 'subq', 'usubq', 'subl', 'usubl', 'subf', 'mulq', 'umulq', 'mull', 'umull', 'mulf', 'divq', 'udivq', 'divl', 'udivl', 'divf', 'modq', 'umodq', 'modl', 'umodl', 'addf64', 'subf64', 'mulf64', 'divf64', 'andl', 'orl', 'xorl', 'notl', 'shll', 'shrl', 'andq', 'orq', 'xorq', 'notq', 'shlq', 'shrq', 'incq', 'incl', 'incf', 'decq', 'decl', 'decf', 'negq', 'negl', 'negf', 'incf64', 'decf64', 'negf64', 'ltq', 'ltl', 'ultq', 'ultl', 'ltf', 'gtq', 'gtl', 'ugtq', 'ugtl', 'gtf', 'cmpq', 'cmpl', 'ucmpq', 'ucmpl', 'compf', 'leqq', 'uleqq', 'leql', 'uleql', 'leqf', 'geqq', 'ugeqq', 'geql', 'ugeql', 'geqf', 'ltf64', 'gtf64', 'cmpf64', 'leqf64', 'geqf64', 'neqq', 'uneqq', 'neql', 'uneql', 'neqf', 'neqf64', 'jmp', 'jmps', 'jzq', 'jnzq', 'jzl', 'jnzl', 'call', 'calls', 'ret', 'retq', 'retl', 'rets', 'retb', 'reset', 'pushnataddr', 'callnat', 'callnats', 'nop');
 
 
 g_dictLabels = {};
@@ -282,20 +282,23 @@ with open('test_func_call.tbc', 'wb+') as tbc:
 with open('test_call_opcodes.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'func1', 0, 20, 'func2', 0, 26);
+	wrt_hdr_funcs(tbc, 'func1', 0, 21, 'func2', 0, 26);
 	wrt_hdr_globals(tbc);
 	wrt_hdr_footer(tbc, entry=0);
 	
-	wrt_1op_8byte(tbc, opcodes.call, 20);
-	wrt_pushq(tbc, 26);
-	wrt_opcode(tbc, opcodes.calls);
-	wrt_opcode(tbc, opcodes.halt);
+	wrt_1op_8byte(tbc, opcodes.call, 21); #0-8
 	
-	wrt_pushl(tbc, 0x0a0b0c0d);
-	wrt_opcode(tbc, opcodes.ret);
+	wrt_pushq(tbc, 9); #9-17
+	wrt_opcode(tbc, opcodes.pushipadd); #18
+	wrt_opcode(tbc, opcodes.calls); #19
 	
-	wrt_pushl(tbc, 0xffff);
-	wrt_opcode(tbc, opcodes.ret);
+	wrt_opcode(tbc, opcodes.halt); #20
+	
+	wrt_pushl(tbc, 0x0a0b0c0d); #21-25
+	wrt_opcode(tbc, opcodes.ret); #26
+	
+	wrt_pushl(tbc, 0xffff); #27-31
+	wrt_opcode(tbc, opcodes.ret); #32
 
 with open('test_retn_func.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 64);
@@ -578,36 +581,6 @@ with open('test_globalvars.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.retl);	# return 0;
 
 
-
-'''
-void f() {
-}
-
-int main()
-{
-	void (*z)(void);
-	callfunc(z);
-	return 0;
-}
-'''
-with open('test_funcptr_native.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 64);
-	wrt_hdr_natives(tbc, 'callfunc');
-	wrt_hdr_funcs(tbc, 'main', 0, 16, 'f', 1, 0);
-	wrt_hdr_globals(tbc);
-	wrt_hdr_footer(tbc, entry=6);
-	
-	wrt_pushl(tbc, 0); #0-4	push 'f''s func address
-	wrt_opcode(tbc, opcodes.retl); #5		return 0
-	
-	wrt_1op_8byte(tbc, opcodes.call, 16); #6-14	call main
-	wrt_opcode(tbc, opcodes.halt); #15	exit main
-	
-	wrt_pushq(tbc, 0); #16
-	wrt_callnat(tbc, 0, 1);
-	wrt_pushl(tbc, 0);
-	wrt_opcode(tbc, opcodes.retl);	# return 0;
-
 '''
 int i;
 int f(void) {
@@ -637,34 +610,6 @@ with open('test_loadgbl.tbc', 'wb+') as tbc:
 	wrt_pushl(tbc, 0);
 	wrt_opcode(tbc, opcodes.retl);	# return 0;
 
-'''
-void f() {
-}
-
-int main()
-{
-	void (*z)(void);
-	callfunc(z);
-	return 0;
-}
-'''
-with open('test_call_func_by_name.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 64);
-	wrt_hdr_natives(tbc, 'callfuncname');
-	wrt_hdr_funcs(tbc, 'main', 0, 16, 'f', 1, 0);
-	wrt_hdr_globals(tbc, 'str00001', 0, len('f')+1, 'f');
-	wrt_hdr_footer(tbc, entry=6);
-	
-	wrt_pushl(tbc, 0); #0-4	push 'f''s func address
-	wrt_opcode(tbc, opcodes.retl); #5	return 0
-	
-	wrt_1op_8byte(tbc, opcodes.call, 16); #6-14	call main
-	wrt_opcode(tbc, opcodes.halt); #15	exit main
-	
-	wrt_1op_8byte(tbc, opcodes.pushoffset, 0);
-	wrt_callnat(tbc, 0, 1);
-	wrt_pushl(tbc, 0);
-	wrt_opcode(tbc, opcodes.retl);	# return 0;
 
 '''
 test GCC-style assembler generated code.
@@ -725,7 +670,7 @@ int main()
 with open('test_3d_vecs.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'main', 0, 10, 'VecInverse', 1, 94);
+	wrt_hdr_funcs(tbc, 'main', 0, 10, 'vec_invert', 1, 94);
 	wrt_hdr_globals(tbc);
 	wrt_hdr_footer(tbc, entry=0);
 	

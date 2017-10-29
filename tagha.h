@@ -53,10 +53,11 @@ typedef struct TaghaVM			TaghaVM_t, TVM_t;
 typedef struct DataTable		DataTable_t, GlobalTable_t;
 typedef struct FuncTable		FuncTable_t;
 typedef struct NativeInfo		NativeInfo_t;
-typedef union Param				Param_t, Arg_t;
+typedef union Param				Param_t, Arg_t, Val_t;
 
 //	API to call C/C++ functions from scripts.
 union Param {
+	bool Bool;
 	int8_t Char;
 	int16_t Short;
 	int32_t Int32;
@@ -72,7 +73,6 @@ union Param {
 	void *Pointer;
 	const char *String;
 };
-// TODO: have bytecode give number of bytes to return as well!
 typedef		void (*fnNative_t)(struct TaghaScript *, union Param [], union Param **, const uint32_t);
 
 struct NativeInfo {
@@ -126,7 +126,9 @@ struct TaghaScript {
 };
 
 struct TaghaVM {
-	Vec_t	*m_pvecScripts;	// vector to store all loaded scripts.
+	// TODO: Replace script vector with dictionary so we can access scripts by name!
+	//Vec_t	*m_pvecScripts;	// vector to store all loaded scripts.
+	struct TaghaScript *pScript;
 	Map_t	*m_pmapNatives;	// hashmap that stores the native's script name and the C/C++ function pointer bound to it.
 };
 
@@ -144,7 +146,7 @@ void		Tagha_exec(struct TaghaVM *vm);
 void		Tagha_load_libc_natives(struct TaghaVM *vm);
 void		Tagha_load_self_natives(struct TaghaVM *vm);
 
-// taghascript_api.c 
+// taghascript_api.c
 void		TaghaScript_debug_print_ptrs(const struct TaghaScript *script);
 void		TaghaScript_debug_print_memory(const struct TaghaScript *script);
 void		TaghaScript_debug_print_instrs(const struct TaghaScript *script);
@@ -160,10 +162,8 @@ uint32_t	TaghaScript_globals(const struct TaghaScript *script);
 bool		TaghaScript_safemode_active(const struct TaghaScript *script);
 bool		TaghaScript_debug_active(const struct TaghaScript *script);
 
-void		TaghaScript_call_func_by_name(struct TaghaScript *script, const char *strFunc);
-void		TaghaScript_call_func_by_addr(struct TaghaScript *script, const uint64_t func_addr);
-
 void		*TaghaScript_get_global_by_name(struct TaghaScript *script, const char *strGlobalName);
+
 void		TaghaScript_PrintErr(struct TaghaScript *script, const char *funcname, const char *err, ...);
 
 
@@ -201,7 +201,7 @@ void		TaghaScript_PrintErr(struct TaghaScript *script, const char *funcname, con
 	X(ltf64) X(gtf64) X(cmpf64) X(leqf64) X(geqf64) \
 	X(neqq) X(uneqq) X(neql) X(uneql) X(neqf) X(neqf64) \
 	\
-	X(jmp) X(jzq) X(jnzq) X(jzl) X(jnzl) \
+	X(jmp) X(jmps) X(jzq) X(jnzq) X(jzl) X(jnzl) \
 	X(call) X(calls) X(ret) X(retq) X(retl) X(rets) X(retb) X(reset) \
 	X(pushnataddr) X(callnat) X(callnats) \
 	X(nop) \

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 /* void *malloc(size_t size); */
-static void native_malloc(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
+static void native_malloc(Script_t *restrict script, Param_t params[], Param_t **restrict retval, const uint32_t argc)
 {
 	// size_t is 8 bytes on 64-bit systems
 	const uint64_t ptrsize = params[0].UInt64;
@@ -16,7 +16,7 @@ static void native_malloc(Script_t *restrict script, Param_t params[], union Par
 }
 
 /* void free(void *ptr); */
-static void native_free(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
+static void native_free(Script_t *restrict script, Param_t params[], Param_t **restrict retval, const uint32_t argc)
 {
 	void *ptr = params[0].Pointer;
 	if( ptr ) {
@@ -27,7 +27,7 @@ static void native_free(Script_t *restrict script, Param_t params[], union Param
 }
 
 /* void *calloc(size_t num, size_t size); */
-static void native_calloc(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
+static void native_calloc(Script_t *restrict script, Param_t params[], Param_t **restrict retval, const uint32_t argc)
 {
 	const uint64_t num = params[0].UInt64;
 	const uint64_t size = params[1].UInt64;
@@ -36,7 +36,7 @@ static void native_calloc(Script_t *restrict script, Param_t params[], union Par
 }
 
 /* void *realloc(void *ptr, size_t size); */
-static void native_realloc(Script_t *restrict script, Param_t params[], union Param **restrict retval, const uint32_t argc)
+static void native_realloc(Script_t *restrict script, Param_t params[], Param_t **restrict retval, const uint32_t argc)
 {
 	void *ptr = params[0].Pointer;
 	const uint64_t size = params[1].UInt64;

@@ -137,6 +137,7 @@ static inline void _TaghaScript_push_int32(struct TaghaScript *restrict script, 
 		return;
 	}
 	script->m_pSP -= size;
+	*(uint64_t *)script->m_pSP = 0;
 	*(uint32_t *)script->m_pSP = val;
 }
 static inline uint32_t _TaghaScript_pop_int32(struct TaghaScript *script)
@@ -163,6 +164,7 @@ static inline void _TaghaScript_push_float(struct TaghaScript *restrict script, 
 		return;
 	}
 	script->m_pSP -= size;
+	*(uint64_t *)script->m_pSP = 0;
 	*(float *)script->m_pSP = val;
 }
 static inline float _TaghaScript_pop_float(struct TaghaScript *script)
@@ -189,6 +191,7 @@ static inline void _TaghaScript_push_short(struct TaghaScript *restrict script, 
 		return;
 	}
 	script->m_pSP -= size;
+	*(uint64_t *)script->m_pSP = 0;
 	*(uint16_t *)script->m_pSP = val;
 }
 static inline uint16_t _TaghaScript_pop_short(struct TaghaScript *script)
@@ -215,6 +218,7 @@ static inline void _TaghaScript_push_byte(struct TaghaScript *restrict script, c
 		return;
 	}
 	script->m_pSP -= size;
+	*(uint64_t *)script->m_pSP = 0;
 	*script->m_pSP = val;
 }
 static inline uint8_t _TaghaScript_pop_byte(struct TaghaScript *script)
@@ -328,12 +332,10 @@ static inline uint8_t _TaghaScript_peek_byte(struct TaghaScript *script)
 void Tagha_exec(struct TaghaVM *vm)
 {
 	//printf("instruction set size == %" PRIu32 "\n", nop);
-	if( !vm )
-		return;
-	else if( !vm->m_pvecScripts )
+	if( !vm or !vm->pScript ) //!vm->m_pvecScripts )
 		return;
 	
-	uint32_t nScripts = vector_count(vm->m_pvecScripts);
+	//uint32_t nScripts = vector_count(vm->m_pvecScripts);
 	struct TaghaScript *script = NULL;
 	
 	// our value temporaries
@@ -361,12 +363,10 @@ void Tagha_exec(struct TaghaVM *vm)
 	
 #define DISPATCH()	++script->m_pIP; continue
 	
-	for( uint32_t x=0 ; x<nScripts ; x++ ) {
-		script = vector_get(vm->m_pvecScripts, x);
-		if( !script )
-			continue;
-		else if( !script->m_pText )
-			continue;
+	//for( uint32_t x=0 ; x<nScripts ; x++ ) {
+		script = vm->pScript; //vector_get(vm->m_pvecScripts, x);
+		if( !script or !script->m_pText )
+			return; //continue;
 		
 		while( 1 ) {
 			script->m_uiMaxInstrs--;
@@ -376,12 +376,12 @@ void Tagha_exec(struct TaghaVM *vm)
 			safemode = script->m_bSafeMode;
 			debugmode = script->m_bDebugMode;
 			if( safemode ) {
-				if( script->m_pIP - script->m_pText >= script->m_uiInstrSize ) {
+				if( script->m_pIP < script->m_pText or script->m_pIP - script->m_pText >= script->m_uiInstrSize ) {
 					TaghaScript_PrintErr(script, __func__, "instruction address out of bounds!");
 					goto *dispatch[halt];
 				}
 				else if( *script->m_pIP > nop ) {
-					TaghaScript_PrintErr(script, __func__, "illegal instruction exception!  instruction == \'%" PRIu32 "\'", *script->m_pIP);
+					TaghaScript_PrintErr(script, __func__, "illegal instruction exception! | instruction == \'%" PRIu32 "\'", *script->m_pIP);
 					goto *dispatch[halt];
 				}
 			}
@@ -393,13 +393,14 @@ void Tagha_exec(struct TaghaVM *vm)
 			
 			exec_nop:;
 				if( debugmode )
-					printf("nop\n");
+					puts("nop\n");
 				DISPATCH();
 			
 			exec_halt:;
-				printf("========================= [script done] =========================\n\n");
-				if( debugmode )
+				if( debugmode ) {
+					puts("========================= [script done] =========================\n\n");
 					TaghaScript_debug_print_memory(script);
+				}
 				break;
 			
 			exec_pushq:;
@@ -702,7 +703,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				//_TaghaScript_push_int32(script, (int32_t)a + (int32_t)b);
 				DISPATCH();
 			
-			exec_uaddl:;	// In C, all integers in an expression are promoted to int32, if number is bigger then uint32_t32 or int64
+			exec_uaddl:;	// In C, all integers in an expression are promoted to int32, if number is smaller then int32.
 				b = _TaghaScript_pop_int32(script);
 				*(uint32_t *)script->m_pSP += b;
 				if( debugmode )
@@ -1410,10 +1411,15 @@ void Tagha_exec(struct TaghaVM *vm)
 				DISPATCH();
 			
 			exec_jmp:;		// addresses are word sized bytes.
-				qa = _TaghaScript_get_imm8(script);
-				script->m_pIP = script->m_pMemory+qa;
+				script->m_pIP = script->m_pMemory + _TaghaScript_get_imm8(script);
 				if( debugmode )
-					printf("jmping to instruction address: %p\n", script->m_pIP);
+					printf("jmp: instruction address: %p\n", script->m_pIP);
+				continue;
+			
+			exec_jmps:;
+				script->m_pIP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
+				if( debugmode )
+					printf("jmps: instruction address: %p\n", script->m_pIP);
 				continue;
 			
 			exec_jzq:;
@@ -1460,7 +1466,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				_TaghaScript_push_int64(script, (uintptr_t)script->m_pIP+1);	// save return address.
 				if( debugmode )
 					printf("call :: return addr: %p\n", script->m_pIP+1);
-				script->m_pIP = script->m_pText+qa;
+				script->m_pIP = script->m_pText + qa;
 				
 				_TaghaScript_push_int64(script, (uintptr_t)script->m_pBP);	// push ebp;
 				if( debugmode )
@@ -1472,9 +1478,9 @@ void Tagha_exec(struct TaghaVM *vm)
 				continue;
 			
 			exec_calls:;	// support local function pointers
-				qa = _TaghaScript_pop_int64(script);	// get func address
+				addr = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);	// get func address
 				if( debugmode )
-					printf("calls: calling address: %" PRIu64 "\n", qa);
+					printf("calls: calling address: %p | offset: %" PRIuPTR "\n", addr, addr-script->m_pText);
 				
 				_TaghaScript_push_int64(script, (uintptr_t)script->m_pIP+1);	// save return address.
 				
@@ -1483,7 +1489,7 @@ void Tagha_exec(struct TaghaVM *vm)
 				
 				_TaghaScript_push_int64(script, (uintptr_t)script->m_pBP);	// push ebp
 				script->m_pBP = script->m_pSP;	// mov ebp, esp;
-				script->m_pIP = script->m_pText+qa;
+				script->m_pIP = addr;
 				
 				if( debugmode )
 					printf("bp is: %p\n", script->m_pBP);
@@ -1581,12 +1587,12 @@ void Tagha_exec(struct TaghaVM *vm)
 				
 				if( debugmode )
 					printf("retb :: sp set to bp, sp == %p\n", script->m_pSP);
-				script->m_pBP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);
+				script->m_pBP = (uint8_t *)(uintptr_t) _TaghaScript_pop_int64(script);
 				
 				if( debugmode )
 					printf("retb :: popping bp, bp == %p\n", script->m_pBP);
 				
-				script->m_pIP = (uint8_t *)(uintptr_t)_TaghaScript_pop_int64(script);	// pop return address.
+				script->m_pIP = (uint8_t *)(uintptr_t) _TaghaScript_pop_int64(script);	// pop return address.
 				if( debugmode )
 					printf("retb :: popping ip, ip == %p\n", script->m_pIP);
 				
@@ -1599,14 +1605,14 @@ void Tagha_exec(struct TaghaVM *vm)
 				if( safemode and !script->m_pstrNatives ) {
 					TaghaScript_PrintErr(script, __func__, "exec_pushnataddr :: native table is NULL!");
 					script->m_pIP += 4;
-					_TaghaScript_push_int64(script, 0L);
+					_TaghaScript_push_int64(script, 0);
 					DISPATCH();
 				}
 				// match native name to get an index.
 				a = _TaghaScript_get_imm4(script);
 				if( safemode and a >= script->m_uiNatives  ) {
 					TaghaScript_PrintErr(script, __func__, "exec_pushnataddr :: native index \'%" PRIu32 "\' is out of bounds!", a);
-					_TaghaScript_push_int64(script, 0L);
+					_TaghaScript_push_int64(script, 0);
 					DISPATCH();
 				}
 				pfNative = (fnNative_t)(uintptr_t)map_find(vm->m_pmapNatives, script->m_pstrNatives[a]);
@@ -1630,7 +1636,7 @@ void Tagha_exec(struct TaghaVM *vm)
 					DISPATCH();
 				}
 				
-				pfNative = (fnNative_t) (uintptr_t)map_find(vm->m_pmapNatives, script->m_pstrNatives[a]);
+				pfNative = (fnNative_t)(uintptr_t) map_find(vm->m_pmapNatives, script->m_pstrNatives[a]);
 				if( safemode and !pfNative ) {
 					TaghaScript_PrintErr(script, __func__, "exec_callnat :: native \'%s\' not registered!", script->m_pstrNatives[a]);
 					script->m_pIP += 8;
@@ -1678,9 +1684,9 @@ void Tagha_exec(struct TaghaVM *vm)
 			exec_reset:;
 				TaghaScript_reset(script);
 				if( debugmode )
-					printf("reset: Zero'd out Memory and stack pointers\n");
+					puts("reset: Zero'd out Memory and stack pointers\n");
 				DISPATCH();
 		} /* while( 1 ) */
-	} /* for( ... ) */
+	//} /* for( ... ) */
 	script = NULL;
 }
