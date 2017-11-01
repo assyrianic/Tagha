@@ -52,7 +52,7 @@ static void native_getglobal(Script_t *restrict script, Param_t params[], Param_
 int main(int argc, char **argv)
 {
 	if( !argv[1] ) {
-		puts("[TaghaVM Usage]: './TaghaVM' '.tbc file' \n");
+		printf("[TaghaVM Usage]: '%s' '.tbc file' \n", argv[0]);
 		return 1;
 	}
 	
