@@ -197,9 +197,7 @@ bool map_insert(Map_t *restrict map, const char *restrict szKey, const uint64_t 
 
 uint64_t map_find(const Map_t *restrict map, const char *restrict szKey)
 {
-	if( !map )
-		return 0;
-	else if( !map->table )
+	if( !map || !map->table )
 		return 0;
 	/*
 	 * if Map_tionary pointer is const, you only

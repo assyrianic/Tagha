@@ -33,31 +33,31 @@ static void native_dbug_print_instrs(Script_t *restrict script, Param_t params[]
 /* void *script_get_global_by_name(const Script_t *restrict script, const char *restrict str); */
 static void native_get_global_by_name(Script_t *restrict script, Param_t params[], Param_t **restrict retval, const uint32_t argc)
 {
-	Script_t *applet = params[0].Pointer;
-	if( !applet )
+	Script_t *other = params[0].Pointer;
+	if( !other )
 		puts("script_get_global_by_name reported: 'applet' is NULL!\n");
 	const char *restrict strglobal = params[1].String;
 	if( !strglobal )
 		puts("script_get_global_by_name reported: 'strglobal' is NULL!\n");
-	(*retval)->Pointer = TaghaScript_get_global_by_name(applet, strglobal);
+	(*retval)->Pointer = TaghaScript_get_global_by_name(other, strglobal);
 }
 
 /* uint32_t script_get_stk_size(const Script_t *restrict script); */
 static void native_get_stk_size(Script_t *restrict script, Param_t params[], Param_t **restrict retval, const uint32_t argc)
 {
-	Script_t *applet = params[0].Pointer;
-	if( !applet )
+	Script_t *other = params[0].Pointer;
+	if( !other )
 		puts("script_get_stk_size reported: 'applet' is NULL!\n");
-	(*retval)->UInt32 = TaghaScript_stacksize(applet);
+	(*retval)->UInt32 = TaghaScript_stacksize(other);
 }
 
 /* uint32_t script_get_instr_size(const Script_t *restrict script); */
 static void native_get_instr_size(Script_t *restrict script, Param_t params[], Param_t **restrict retval, const uint32_t argc)
 {
-	Script_t *applet = params[0].Pointer;
-	if( !applet )
+	Script_t *other = params[0].Pointer;
+	if( !other )
 		puts("script_get_instr_size reported: 'applet' is NULL!\n");
-	(*retval)->UInt32 = TaghaScript_instrsize(applet);
+	(*retval)->UInt32 = TaghaScript_instrsize(other);
 }
 
 

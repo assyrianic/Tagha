@@ -73,14 +73,28 @@ int main(int argc, char **argv)
 	//for( i=argc-1 ; i ; i-- )
 	Tagha_load_script_by_name(&vm, argv[1]);
 	
-	Tagha_exec(&vm);
+	Tagha_exec(&vm, NULL);
+	
+	/* // tested with test_3d_vecs.tbc
+	float vect[3]={ 10.f, 15.f, 20.f };
+	Tagha_call_script_func(&vm, "vec_invert", 1, (Val_t){ .Pointer=vect });
+	printf("vect[3]=={ %f , %f, %f }\n", vect[0], vect[1], vect[2]);
+	*/
+	
+	/* // For testing with "test_func_add.tbc".
+	Tagha_call_script_func(&vm, "func_add", 2, (Val_t){ .UInt32=5 }, (Val_t){ .UInt32=6 });
+	Val_t result = TaghaScript_pop_value(Tagha_get_script(&vm));
+	printf("factorial result == %" PRIu32 "\n", result.UInt32);
+	*/
+	
 	/*
 	int32_t x;
 	do {
 		printf("0 or less to exit.\n");
 		scanf("%i", &x);
 	}
-	while( x>0 );*/
+	while( x>0 );
+	*/
 	
 	Tagha_free(&vm);
 	return 0;

@@ -51,8 +51,8 @@ union Param;
 typedef struct TaghaScript		Script_t, Applet_t, Plugin_t;
 typedef struct TaghaVM			TaghaVM_t, TVM_t;
 typedef struct DataTable		DataTable_t, GlobalTable_t;
-typedef struct FuncTable		FuncTable_t;
-typedef struct NativeInfo		NativeInfo_t;
+typedef struct FuncTable		FuncTable_t, ProcTable_t;
+typedef struct NativeInfo		NativeInfo_t, NativeData_t;
 typedef union Param				Param_t, Arg_t, Val_t;
 
 //	API to call C/C++ functions from scripts.
@@ -128,7 +128,7 @@ struct TaghaScript {
 struct TaghaVM {
 	// TODO: Replace script vector with dictionary so we can access scripts by name!
 	//Vec_t	*m_pvecScripts;	// vector to store all loaded scripts.
-	struct TaghaScript *pScript;
+	struct TaghaScript	*m_pScript;
 	Map_t	*m_pmapNatives;	// hashmap that stores the native's script name and the C/C++ function pointer bound to it.
 };
 
@@ -137,21 +137,32 @@ void		Tagha_init(struct TaghaVM *vm);
 void		Tagha_load_script_by_name(struct TaghaVM *vm, char *filename);
 bool		Tagha_register_natives(struct TaghaVM *vm, struct NativeInfo arrNatives[]);
 void		Tagha_free(struct TaghaVM *vm);
+void		Tagha_call_script_func(struct TaghaVM *vm, const char *strFunc, const uint8_t args, ...);
+Script_t	*Tagha_get_script(const struct TaghaVM *vm);
+void		Tagha_set_script(struct TaghaVM *vm, struct TaghaScript *script);
 void		gfree(void **ptr);
 
+
 // tagha_exec.c
-void		Tagha_exec(struct TaghaVM *vm);
+void		Tagha_exec(struct TaghaVM *vm, uint8_t *oldbp);
+
 
 // tagha_libc.c
 void		Tagha_load_libc_natives(struct TaghaVM *vm);
 void		Tagha_load_self_natives(struct TaghaVM *vm);
 
+
 // taghascript_api.c
+Script_t	*TaghaScript_from_file(const char *filename);
 void		TaghaScript_debug_print_ptrs(const struct TaghaScript *script);
 void		TaghaScript_debug_print_memory(const struct TaghaScript *script);
 void		TaghaScript_debug_print_instrs(const struct TaghaScript *script);
 void		TaghaScript_reset(struct TaghaScript *script);
 void		TaghaScript_free(struct TaghaScript *script);
+
+void		*TaghaScript_get_global_by_name(struct TaghaScript *script, const char *strGlobalName);
+void		TaghaScript_push_value(struct TaghaScript *script, const union Param value);
+union Param TaghaScript_pop_value(struct TaghaScript *script);
 
 uint32_t	TaghaScript_stacksize(const struct TaghaScript *script);
 uint32_t	TaghaScript_instrsize(const struct TaghaScript *script);
@@ -161,8 +172,6 @@ uint32_t	TaghaScript_funcs(const struct TaghaScript *script);
 uint32_t	TaghaScript_globals(const struct TaghaScript *script);
 bool		TaghaScript_safemode_active(const struct TaghaScript *script);
 bool		TaghaScript_debug_active(const struct TaghaScript *script);
-
-void		*TaghaScript_get_global_by_name(struct TaghaScript *script, const char *strGlobalName);
 
 void		TaghaScript_PrintErr(struct TaghaScript *script, const char *funcname, const char *err, ...);
 
@@ -202,7 +211,7 @@ void		TaghaScript_PrintErr(struct TaghaScript *script, const char *funcname, con
 	X(neqq) X(uneqq) X(neql) X(uneql) X(neqf) X(neqf64) \
 	\
 	X(jmp) X(jmps) X(jzq) X(jnzq) X(jzl) X(jnzl) \
-	X(call) X(calls) X(ret) X(retq) X(retl) X(rets) X(retb) X(reset) \
+	X(call) X(calls) X(ret) X(retq) X(retl) X(rets) X(retb) \
 	X(pushnataddr) X(callnat) X(callnats) \
 	X(nop) \
 

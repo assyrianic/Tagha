@@ -68,11 +68,9 @@ int main(int argc, char **argv)
 	Tagha_register_natives(&vm, host_natives);
 	Tagha_load_libc_natives(&vm);
 	
-	//uint32_t i;
-	//for( i=argc-1 ; i ; i-- )
 	Tagha_load_script_by_name(&vm, argv[1]);
 	
-	Tagha_exec(&vm);
+	Tagha_exec(&vm, nullptr);
 	Tagha_free(&vm);
 	return 0;
 }
