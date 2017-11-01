@@ -2,7 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstddef>
-#include "tagha.h"
+#include "tagha.hpp"
 
 /*
  * Same as hostapp.c but using C++ code to test portability and compatibility.
@@ -39,7 +39,8 @@ static void native_test_ptr(Script_t *script, Param_t params[], Param_t **retval
 static void native_getglobal(Script_t *script, Param_t params[], Param_t **retval, const uint32_t argc)
 {
 	*retval = nullptr;
-	int *p = (int *)TaghaScript_get_global_by_name(script, "i");
+	TaghaScriptCPP Script = TaghaScriptCPP(script);
+	int *p = (int *)Script.get_global_by_name("i");
 	if( !p )
 		return;
 	
@@ -55,22 +56,17 @@ int main(int argc, char **argv)
 		printf("[TaghaVM Usage]: './TaghaVM' '.tbc file' \n");
 		return 1;
 	}
-	
-	struct TaghaVM vm;
-	Tagha_init(&vm);
-	
+	TaghaVMCPP *VM = new TaghaVMCPP();
 	NativeInfo_t host_natives[] = {
 		{"test", native_test_ptr},
 		{"printHW", native_print_helloworld},
 		{"getglobal", native_getglobal},
 		{NULL, NULL}
 	};
-	Tagha_register_natives(&vm, host_natives);
-	Tagha_load_libc_natives(&vm);
-	
-	Tagha_load_script_by_name(&vm, argv[1]);
-	
-	Tagha_exec(&vm, nullptr);
-	Tagha_free(&vm);
-	return 0;
+	VM->register_natives(host_natives);
+	VM->load_libc_natives();
+	VM->load_script_by_name(argv[1]);
+	VM->exec(NULL);
+	VM->del();
+	delete VM;
 }

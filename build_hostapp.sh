@@ -3,8 +3,8 @@ cd "$(dirname "$0")"
 clang-3.5	-Os hostapp.c -L. -ltaghaclang -o TaghaClang
 gcc			-Os hostapp.c -L. -ltaghagcc -o TaghaGCC
 
-clang-3.5	-std=c++11 -Os hostcppapp.cpp -L. -ltaghaclang -o TaghaClang++
-g++			-std=c++11 -Os hostcppapp.cpp -L. -ltaghagcc -o TaghaGCCg++
+clang-3.5	-std=c++11 -g -Os tagha_cpp.cpp hostcppapp.cpp -L. -ltaghaclang -o TaghaClang++
+g++			-std=c++11 -g -Os tagha_cpp.cpp hostcppapp.cpp -L. -ltaghagcc -o TaghaGCCg++
 #-S for asm output, -g for debug, -Os for optimization by size, -Ofast		-pg profiling
 # -Wall
 

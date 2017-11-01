@@ -137,7 +137,7 @@ void		Tagha_init(struct TaghaVM *vm);
 void		Tagha_load_script_by_name(struct TaghaVM *vm, char *filename);
 bool		Tagha_register_natives(struct TaghaVM *vm, struct NativeInfo arrNatives[]);
 void		Tagha_free(struct TaghaVM *vm);
-void		Tagha_call_script_func(struct TaghaVM *vm, const char *strFunc, const uint8_t args, ...);
+void		Tagha_call_script_func(struct TaghaVM *vm, const char *strFunc);
 Script_t	*Tagha_get_script(const struct TaghaVM *vm);
 void		Tagha_set_script(struct TaghaVM *vm, struct TaghaScript *script);
 void		gfree(void **ptr);

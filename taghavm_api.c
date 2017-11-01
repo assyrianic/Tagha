@@ -91,7 +91,7 @@ bool Tagha_register_natives(struct TaghaVM *restrict vm, struct NativeInfo arrNa
 	return true;
 }
 
-void Tagha_call_script_func(struct TaghaVM *restrict vm, const char *restrict strFunc, const uint8_t args, ...)
+void Tagha_call_script_func(struct TaghaVM *restrict vm, const char *restrict strFunc)
 {
 	// We need the VM system in order to call scripts, why?
 	// Because the exec function needs the VM system in order to check for native functions.
@@ -114,16 +114,6 @@ void Tagha_call_script_func(struct TaghaVM *restrict vm, const char *restrict st
 		return;
 	}
 	
-	// push the function arguments.
-	if( args ) {
-		Val_t buffer;
-		va_list varargs;
-		va_start(varargs, args);
-		for( uint8_t i=0 ; i<args ; i++ ) {
-			buffer = va_arg(varargs, Val_t);
-			TaghaScript_push_value(script, buffer);
-		}
-	}
 	// save return address.
 	script->m_pSP -= 8;
 	*(uint64_t *)script->m_pSP = (uintptr_t)script->m_pIP+1;
