@@ -53,7 +53,7 @@ static void native_getglobal(Script_t *script, Param_t params[], Param_t **retva
 int main(int argc, char **argv)
 {
 	if( !argv[1] ) {
-		printf("[TaghaVM Usage]: './TaghaVM' '.tbc file' \n");
+		printf("[TaghaVM Usage]: '%s' '.tbc file' \n", argv[0]);
 		return 1;
 	}
 	TaghaVMCPP *VM = new TaghaVMCPP();
