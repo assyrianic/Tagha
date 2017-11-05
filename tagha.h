@@ -73,7 +73,7 @@ union Param {
 	void *Pointer;
 	const char *String;
 };
-typedef		void (*fnNative_t)(struct TaghaScript *, union Param [], union Param **, const uint32_t);
+typedef		void (*fnNative_t)(struct TaghaScript *, union Param [], union Param **, const uint32_t, struct TaghaVM *);
 
 struct NativeInfo {
 	const char	*strName;	// use as string literals
@@ -127,7 +127,6 @@ struct TaghaScript {
 
 struct TaghaVM {
 	// TODO: Replace script vector with dictionary so we can access scripts by name!
-	//Vec_t	*m_pvecScripts;	// vector to store all loaded scripts.
 	struct TaghaScript	*m_pScript;
 	Map_t	*m_pmapNatives;	// hashmap that stores the native's script name and the C/C++ function pointer bound to it.
 };
@@ -213,6 +212,7 @@ void		TaghaScript_PrintErr(struct TaghaScript *script, const char *funcname, con
 	X(jmp) X(jmps) X(jzq) X(jnzq) X(jzl) X(jnzl) \
 	X(call) X(calls) X(ret) X(retq) X(retl) X(rets) X(retb) \
 	X(pushnataddr) X(callnat) X(callnats) \
+	/*X(float2dbl) X(dbl2float) X(float2int) X(int2float) X(dbl2long) X(long2dbl)*/ \
 	X(nop) \
 
 #define X(x) x,

@@ -6,15 +6,7 @@
 #include <stdarg.h>
 #include "tagha.h"
 
-static bool is_c_file(const char *filename);
-static bool is_tbc_file(const char *filename);
-static uint64_t get_file_size(FILE *pFile);
-static uint32_t scripthdr_read_natives_table(Script_t **script, FILE **pFile);
-static uint32_t scripthdr_read_func_table(Script_t **script, FILE **pFile);
-static uint32_t scripthdr_read_global_table(Script_t **script, FILE **pFile);
-
-
-void Tagha_init(struct TaghaVM *restrict vm)
+void Tagha_init(struct TaghaVM *vm)
 {
 	if( !vm )
 		return;
@@ -58,6 +50,32 @@ void Tagha_load_script_by_name(struct TaghaVM *restrict vm, char *restrict filen
 	
 	// allocate our script.
 	vm->m_pScript = TaghaScript_from_file(filename);
+	
+	struct TaghaScript *script = vm->m_pScript;
+	// do some initial libc setup for our script.
+	// set up our standard streams
+	if( script and script->m_pmapGlobals ) {
+		struct DataTable *pGlobals = (struct DataTable *)(uintptr_t) map_find(script->m_pmapGlobals, "stdin");
+		if( pGlobals ) {
+			*(uint64_t *)(script->m_pMemory + pGlobals->m_uiOffset) = (uintptr_t)stdin;
+			printf("set offset: %u to stdin: %p\n", pGlobals->m_uiOffset, stdin);
+		}
+		pGlobals = (struct DataTable *)(uintptr_t) map_find(script->m_pmapGlobals, "stderr");
+		if( pGlobals ) {
+			*(uint64_t *)(script->m_pMemory + pGlobals->m_uiOffset) = (uintptr_t)stderr;
+			printf("set offset: %u to stderr: %p\n", pGlobals->m_uiOffset, stderr);
+		}
+		pGlobals = (struct DataTable *)(uintptr_t) map_find(script->m_pmapGlobals, "stdout");
+		if( pGlobals ) {
+			*(uint64_t *)(script->m_pMemory + pGlobals->m_uiOffset) = (uintptr_t)stdout;
+			printf("set offset: %u to stdout: %p\n", pGlobals->m_uiOffset, stdout);
+		}
+		pGlobals = (struct DataTable *)(uintptr_t) map_find(script->m_pmapGlobals, "myself");
+		if( pGlobals ) {
+			*(uint64_t *)(script->m_pMemory + pGlobals->m_uiOffset) = (uintptr_t)script;
+			printf("set offset: %u to script_self: %p\n", pGlobals->m_uiOffset, script);
+		}
+	}
 }
 
 
@@ -79,15 +97,15 @@ void Tagha_free(struct TaghaVM *vm)
 }
 
 
-bool Tagha_register_natives(struct TaghaVM *restrict vm, struct NativeInfo arrNatives[])
+bool Tagha_register_natives(struct TaghaVM *vm, struct NativeInfo arrNatives[])
 {
 	if( !vm or !arrNatives )
 		return false;
 	else if( !vm->m_pmapNatives )
 		return false;
 	
-	for( uint32_t i=0 ; arrNatives[i].pFunc != NULL ; i++ )
-		map_insert(vm->m_pmapNatives, arrNatives[i].strName, (uintptr_t)arrNatives[i].pFunc);
+	for( NativeInfo_t *natives = arrNatives ; natives->pFunc and natives->strName ; natives++ )
+		map_insert(vm->m_pmapNatives, natives->strName, (uintptr_t)natives->pFunc);
 	return true;
 }
 

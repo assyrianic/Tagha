@@ -6,6 +6,11 @@
 #include <stdarg.h>
 #include "tagha.h"
 
+static uint64_t get_file_size(FILE *pFile);
+static uint32_t scripthdr_read_natives_table(Script_t **script, FILE **pFile);
+static uint32_t scripthdr_read_func_table(Script_t **script, FILE **pFile);
+static uint32_t scripthdr_read_global_table(Script_t **script, FILE **pFile);
+
 
 // need this to determine m_pText's final size.
 static uint64_t get_file_size(FILE *pFile)
@@ -210,7 +215,7 @@ static uint32_t scripthdr_read_global_table(Script_t **script, FILE **pFile)
 	return bytecount;
 }
 
-struct TaghaScript *TaghaScript_from_file(const char *filename)
+struct TaghaScript *TaghaScript_from_file(const char *restrict filename)
 {
 	if( !filename )
 		return NULL;
@@ -411,7 +416,7 @@ void *TaghaScript_get_global_by_name(struct TaghaScript *restrict script, const 
 	return p;
 }
 
-void TaghaScript_push_value(struct TaghaScript *restrict script, const union Param value)
+void TaghaScript_push_value(struct TaghaScript *script, const union Param value)
 {
 	if( !script or !script->m_pMemory )
 		return;
@@ -424,7 +429,7 @@ void TaghaScript_push_value(struct TaghaScript *restrict script, const union Par
 	memcpy(script->m_pSP, &value, 8);
 }
 
-union Param TaghaScript_pop_value(struct TaghaScript *restrict script)
+union Param TaghaScript_pop_value(struct TaghaScript *script)
 {
 	Val_t val={ .UInt64=0L };
 	if( !script or !script->m_pMemory )
@@ -437,7 +442,6 @@ union Param TaghaScript_pop_value(struct TaghaScript *restrict script)
 	script->m_pSP += 8;
 	return val;
 }
-
 
 uint32_t TaghaScript_stacksize(const struct TaghaScript *script)
 {
@@ -501,7 +505,7 @@ void TaghaScript_debug_print_ptrs(const struct TaghaScript *script)
 }
 void TaghaScript_debug_print_instrs(const struct TaghaScript *script)
 {
-	if( !script )
+	if( !script or !script->m_pText )
 		return;
 	
 	uint32_t size = script->m_uiInstrSize;

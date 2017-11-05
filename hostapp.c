@@ -10,14 +10,14 @@
 */
 
 /* void print_helloworld(void); */
-static void native_print_helloworld(Script_t *restrict script, Param_t params[], Param_t **restrict retval, const uint32_t argc)
+static void native_print_helloworld(Script_t *script, Param_t params[], Param_t **restrict retval, const uint32_t argc, TaghaVM_t *env)
 {
 	puts("native_print_helloworld :: hello world from bytecode!\n");
 	*retval = NULL;
 }
 
 /* void test_ptr(struct player *p); */
-static void native_test_ptr(Script_t *restrict script, Param_t params[], Param_t **restrict retval, const uint32_t argc)
+static void native_test_ptr(Script_t *script, Param_t params[], Param_t **restrict retval, const uint32_t argc, TaghaVM_t *env)
 {
 	struct Player {
 		float		speed;
@@ -39,7 +39,7 @@ static void native_test_ptr(Script_t *restrict script, Param_t params[], Param_t
 }
 
 /* void getglobal(void); */
-static void native_getglobal(Script_t *restrict script, Param_t params[], Param_t **restrict retval, const uint32_t argc)
+static void native_getglobal(Script_t *script, Param_t params[], Param_t **restrict retval, const uint32_t argc, TaghaVM_t *env)
 {
 	*retval = NULL;
 	int *p = TaghaScript_get_global_by_name(script, "i");
@@ -65,28 +65,28 @@ int main(int argc, char **argv)
 		{"getglobal", native_getglobal},
 		{NULL, NULL}
 	};
-	
 	Tagha_register_natives(&vm, host_natives);
 	Tagha_load_libc_natives(&vm);
+	Tagha_load_self_natives(&vm);
 	
 	//uint32_t i;
 	//for( i=argc-1 ; i ; i-- )
 	Tagha_load_script_by_name(&vm, argv[1]);
-	
 	Tagha_exec(&vm, NULL);
-	
+	/*
 	// tested with test_3d_vecs.tbc
 	float vect[3]={ 10.f, 15.f, 20.f };
 	TaghaScript_push_value(Tagha_get_script(&vm), (Val_t){ .Pointer=vect });
 	Tagha_call_script_func(&vm, "vec_invert");
 	printf("vect[3]=={ %f , %f, %f }\n", vect[0], vect[1], vect[2]);
-	
+	*/
 	
 	/* // For testing with "test_func_add.tbc".
-	TaghaScript_push_value(Tagha_get_script(&vm), (Val_t){ .UInt32=6 });	// param b
-	TaghaScript_push_value(Tagha_get_script(&vm), (Val_t){ .UInt32=5 });	// param a
-	Tagha_call_script_func(&vm, "func_add");
-	Val_t result = TaghaScript_pop_value(Tagha_get_script(&vm));
+	Script_t *script = Tagha_get_script(&vm);
+	//TaghaScript_push_value(script, (Val_t){ .UInt32=6 });	// param b
+	TaghaScript_push_value(script, (Val_t){ .UInt32=8 });	// param a
+	Tagha_call_script_func(&vm, "factorial");
+	Val_t result = TaghaScript_pop_value(script);
 	printf("factorial result == %" PRIu32 "\n", result.UInt32);
 	*/
 	

@@ -801,6 +801,51 @@ with open('test_add_func.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.ret);
 
 
+'''
+Purpose: test out stdin.
+
+int main()
+{
+	char string[256];
+	puts("Please enter a long string: ");
+	fgets(string, 256, stdin);
+}
+'''
+with open('test_stdin.tbc', 'wb+') as tbc:
+	wrt_hdr(tbc, 512);
+	wrt_hdr_natives(tbc, 'fgets', 'puts');
+	wrt_hdr_funcs(tbc, 'main', 0, 10);
+	wrt_hdr_globals(tbc,
+		'stdin', 0, 8, 0,
+		'str00001', 8, len('Please enter a long string: ')+1, 'Please enter a long string: '
+	);
+	wrt_hdr_footer(tbc, entry=0);
+	
+	wrt_1op_8byte(tbc, opcodes.call, 10); #0-8	call main
+	wrt_opcode(tbc, opcodes.halt); #9	exit main
+	
+# main:
+	# char string[256];
+	wrt_pushq(tbc, 256);
+	wrt_opcode(tbc, opcodes.pushspsub);
+	wrt_opcode(tbc, opcodes.popsp);
+	
+	# puts("Please enter a long string: ");
+	wrt_1op_8byte(tbc, opcodes.pushoffset, 8);
+	wrt_callnat(tbc, 1, 1);
+	
+	# fgets(string, 256, stdin);
+	wrt_1op_8byte(tbc, opcodes.pushoffset, 0);	# push stack address where stdout ptr resides
+	wrt_opcode(tbc, opcodes.loadspq);		# deref stack address so stdout ptr's value is on TOS.
+	wrt_pushl(tbc, 255);	# push the size of our string buffer
+	wrt_pushq(tbc, 256);
+	wrt_opcode(tbc, opcodes.pushbpsub); # push string buffer itself
+	wrt_callnat(tbc, 0, 3);
+	
+	wrt_pushl(tbc, 0);
+	wrt_opcode(tbc, opcodes.retl);
+
+
 
 
 
