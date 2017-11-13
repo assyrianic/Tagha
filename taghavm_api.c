@@ -52,29 +52,16 @@ void Tagha_load_script_by_name(struct TaghaVM *restrict vm, char *restrict filen
 	vm->m_pScript = TaghaScript_from_file(filename);
 	
 	struct TaghaScript *script = vm->m_pScript;
+	
 	// do some initial libc setup for our script.
-	// set up our standard streams
+	// set up our standard I/O streams
+	// and global self-referencing script pointer
+	// Downside is that the script side host var MUST be a pointer.
 	if( script and script->m_pmapGlobals ) {
-		struct DataTable *pGlobals = (struct DataTable *)(uintptr_t) map_find(script->m_pmapGlobals, "stdin");
-		if( pGlobals ) {
-			*(uint64_t *)(script->m_pMemory + pGlobals->m_uiOffset) = (uintptr_t)stdin;
-			printf("set offset: %u to stdin: %p\n", pGlobals->m_uiOffset, stdin);
-		}
-		pGlobals = (struct DataTable *)(uintptr_t) map_find(script->m_pmapGlobals, "stderr");
-		if( pGlobals ) {
-			*(uint64_t *)(script->m_pMemory + pGlobals->m_uiOffset) = (uintptr_t)stderr;
-			printf("set offset: %u to stderr: %p\n", pGlobals->m_uiOffset, stderr);
-		}
-		pGlobals = (struct DataTable *)(uintptr_t) map_find(script->m_pmapGlobals, "stdout");
-		if( pGlobals ) {
-			*(uint64_t *)(script->m_pMemory + pGlobals->m_uiOffset) = (uintptr_t)stdout;
-			printf("set offset: %u to stdout: %p\n", pGlobals->m_uiOffset, stdout);
-		}
-		pGlobals = (struct DataTable *)(uintptr_t) map_find(script->m_pmapGlobals, "myself");
-		if( pGlobals ) {
-			*(uint64_t *)(script->m_pMemory + pGlobals->m_uiOffset) = (uintptr_t)script;
-			printf("set offset: %u to script_self: %p\n", pGlobals->m_uiOffset, script);
-		}
+		TaghaScript_bind_global_ptr(script, "stdin", stdin);
+		TaghaScript_bind_global_ptr(script, "stderr", stderr);
+		TaghaScript_bind_global_ptr(script, "stdout", stdout);
+		TaghaScript_bind_global_ptr(script, "myself", script);
 	}
 }
 
@@ -177,6 +164,611 @@ void gfree(void **ptr)
 	*ptr = NULL;
 }
 
+// Code by sourcemod/AlliedModders LLC
+#define LADJUST			0x00000001		/* left adjustment */
+#define ZEROPAD			0x00000002		/* zero (as opposed to blank) pad */
+#define UPPERDIGITS		0x00000004		/* make alpha digits uppercase */
+#define NOESCAPE		0x00000008		/* do not escape strings (they are only escaped if a database connection is provided) */
+#define to_digit(c)		((c) - '0')
+#define is_digit(c)		((unsigned)to_digit(c) <= 9)
+
+// minor edit is removing database string AND 'maxlen' is changed from a reference to a pointer.
+static bool AddString(char **buf_p, size_t *maxlen, const char *string, int width, int prec, int flags)
+{
+	int size = 0;
+	char *buf;
+	static char nlstr[] = {'(','n','u','l','l',')','\0'};
+
+	buf = *buf_p;
+
+	if (string == NULL)
+	{
+		string = nlstr;
+		prec = -1;
+		flags |= NOESCAPE;
+	}
+
+	if (prec >= 0)
+	{
+		for (size = 0; size < prec; size++) 
+		{
+			if (string[size] == '\0')
+			{
+				break;
+			}
+		}
+	}
+	else
+	{
+		while (string[size++]);
+		size--;
+	}
+
+	if (size > (int)*maxlen)
+	{
+		size = *maxlen;
+	}
+
+	width -= size;
+	*maxlen -= size;
+
+	while (size--)
+	{
+		*buf++ = *string++;
+	}
+
+	while ((width-- > 0) && *maxlen)
+	{
+		*buf++ = ' ';
+		--*maxlen;
+	}
+
+	*buf_p = buf;
+	return true;
+}
+
+#include <float.h>
+void AddFloat(char **buf_p, size_t *maxlen, double fval, int width, int prec, int flags)
+{
+	int digits;					// non-fraction part digits
+	double tmp;					// temporary
+	char *buf = *buf_p;			// output buffer pointer
+	int val;					// temporary
+	int sign = 0;				// 0: positive, 1: negative
+	int fieldlength;			// for padding
+	int significant_digits = 0;	// number of significant digits written
+	const int MAX_SIGNIFICANT_DIGITS = 16;
+	
+	double pow(double base, double exponent);
+	double log10(double x);
+
+	if (fval != fval)
+	{
+		AddString(buf_p, maxlen, "NaN", width, prec, flags | NOESCAPE);
+		return;
+	}
+
+	// default precision
+	if (prec < 0)
+	{
+		prec = 6;
+	}
+
+	// get the sign
+	if (fval < 0)
+	{
+		fval = -fval;
+		sign = 1;
+	}
+
+	// compute whole-part digits count
+	//digits = (int)log10(fval) + 1;
+
+	// Only print 0.something if 0 < fval < 1
+	if (digits < 1)
+	{
+		digits = 1;
+	}
+
+	// compute the field length
+	fieldlength = digits + prec + ((prec > 0) ? 1 : 0) + sign;
+
+	// minus sign BEFORE left padding if padding with zeros
+	if (sign && *maxlen && (flags & ZEROPAD))
+	{
+		*buf++ = '-';
+		--*maxlen;
+	}
+
+	// right justify if required
+	if ((flags & LADJUST) == 0)
+	{
+		while ((fieldlength < width) && *maxlen)
+		{
+			*buf++ = (flags & ZEROPAD) ? '0' : ' ';
+			width--;
+			--*maxlen;
+		}
+	}
+
+	// minus sign AFTER left padding if padding with spaces
+	if (sign && maxlen && !(flags & ZEROPAD))
+	{
+		*buf++ = '-';
+		--*maxlen;
+	}
+
+	// write the whole part
+	//tmp = pow(10.0, digits-1);
+	while ((digits--) && *maxlen)
+	{
+		if (++significant_digits > MAX_SIGNIFICANT_DIGITS)
+		{
+			*buf++ = '0';
+		}
+		else
+		{
+			val = (int)(fval / tmp);
+			*buf++ = '0' + val;
+			fval -= val * tmp;
+			tmp *= 0.1;
+		}
+		--*maxlen;
+	}
+
+	// write the fraction part
+	if (*maxlen && prec)
+	{
+		*buf++ = '.';
+		--*maxlen;
+	}
+
+	//tmp = pow(10.0, prec);
+
+	fval *= tmp;
+	while (prec-- && *maxlen)
+	{
+		if (++significant_digits > MAX_SIGNIFICANT_DIGITS)
+		{
+			*buf++ = '0';
+		}
+		else
+		{
+			tmp *= 0.1;
+			val = (int)(fval / tmp);
+			*buf++ = '0' + val;
+			fval -= val * tmp;
+		}
+		--*maxlen;
+	}
+
+	// left justify if required
+	if (flags & LADJUST)
+	{
+		while ((fieldlength < width) && *maxlen)
+		{
+			// right-padding only with spaces, ZEROPAD is ignored
+			*buf++ = ' ';
+			width--;
+			--*maxlen;
+		}
+	}
+
+	// update parent's buffer pointer
+	*buf_p = buf;
+}
+
+void AddBinary(char **buf_p, size_t *maxlen, uint64_t val, int width, int flags)
+{
+	char text[64];
+	int digits;
+	char *buf;
+
+	digits = 0;
+	do
+	{
+		if (val & 1)
+		{
+			text[digits++] = '1';
+		}
+		else
+		{
+			text[digits++] = '0';
+		}
+		val >>= 1;
+	} while (val);
+
+	buf = *buf_p;
+
+	if (!(flags & LADJUST))
+	{
+		while (digits < width && *maxlen)
+		{
+			*buf++ = (flags & ZEROPAD) ? '0' : ' ';
+			width--;
+			--*maxlen;
+		}
+	}
+
+	while (digits-- && *maxlen)
+	{
+		*buf++ = text[digits];
+		width--;
+		--*maxlen;
+	}
+
+	if (flags & LADJUST)
+	{
+		while (width-- && *maxlen)
+		{
+			*buf++ = (flags & ZEROPAD) ? '0' : ' ';
+			--*maxlen;
+		}
+	}
+
+	*buf_p = buf;
+}
+
+void AddUInt(char **buf_p, size_t *maxlen, uint64_t val, int width, int flags)
+{
+	char text[64];
+	int digits;
+	char *buf;
+
+	digits = 0;
+	do
+	{
+		text[digits++] = '0' + val % 10;
+		val /= 10;
+	} while (val);
+
+	buf = *buf_p;
+
+	if (!(flags & LADJUST))
+	{
+		while (digits < width && *maxlen)
+		{
+			*buf++ = (flags & ZEROPAD) ? '0' : ' ';
+			width--;
+			--*maxlen;
+		}
+	}
+
+	while (digits-- && *maxlen)
+	{
+		*buf++ = text[digits];
+		width--;
+		--*maxlen;
+	}
+
+	if (flags & LADJUST)
+	{
+		while (width-- && *maxlen)
+		{
+			*buf++ = (flags & ZEROPAD) ? '0' : ' ';
+			--*maxlen;
+		}
+	}
+
+	*buf_p = buf;
+}
+
+void AddInt(char **buf_p, size_t *maxlen, int64_t val, int width, int flags)
+{
+	char text[64];
+	int digits;
+	int signedVal;
+	char *buf;
+	uint64_t unsignedVal;
+
+	digits = 0;
+	signedVal = val;
+	if (val < 0)
+	{
+		/* we want the unsigned version */
+		unsignedVal = llabs(val);
+	}
+	else
+	{
+		unsignedVal = val;
+	}
+
+	do
+	{
+		text[digits++] = '0' + unsignedVal % 10;
+		unsignedVal /= 10;
+	} while (unsignedVal);
+
+	if (signedVal < 0)
+	{
+		text[digits++] = '-';
+	}
+
+	buf = *buf_p;
+
+	if (!(flags & LADJUST))
+	{
+		while ((digits < width) && *maxlen)
+		{
+			*buf++ = (flags & ZEROPAD) ? '0' : ' ';
+			width--;
+			--*maxlen;
+		}
+	}
+
+	while (digits-- && *maxlen)
+	{
+		*buf++ = text[digits];
+		width--;
+		--*maxlen;
+	}
+
+	if (flags & LADJUST)
+	{
+		while (width-- && *maxlen)
+		{
+			*buf++ = (flags & ZEROPAD) ? '0' : ' ';
+			--*maxlen;
+		}
+	}
+
+	*buf_p = buf;
+}
+
+void AddHex(char **buf_p, size_t *maxlen, uint64_t val, int width, int flags)
+{
+	char text[64];
+	int digits;
+	char *buf;
+	char digit;
+	int hexadjust;
+
+	if (flags & UPPERDIGITS)
+	{
+		hexadjust = 'A' - '9' - 1;
+	}
+	else
+	{
+		hexadjust = 'a' - '9' - 1;
+	}
+
+	digits = 0;
+	do 
+	{
+		digit = ('0' + val % 16);
+		if (digit > '9')
+		{
+			digit += hexadjust;
+		}
+
+		text[digits++] = digit;
+		val /= 16;
+	} while(val);
+
+	buf = *buf_p;
+
+	if (!(flags & LADJUST))
+	{
+		while (digits < width && *maxlen)
+		{
+			*buf++ = (flags & ZEROPAD) ? '0' : ' ';
+			width--;
+			--*maxlen;
+		}
+	}
+
+	while (digits-- && *maxlen)
+	{
+		*buf++ = text[digits];
+		width--;
+		--*maxlen;
+	}
+
+	if (flags & LADJUST)
+	{
+		while (width-- && *maxlen)
+		{
+			*buf++ = (flags & ZEROPAD) ? '0' : ' ';
+			--*maxlen;
+		}
+	}
+
+	*buf_p = buf;
+}
+
+int32_t gnprintf(char *buffer,
+			  size_t maxlen,
+			  const char *format,
+			  void *params[],
+			  uint32_t numparams,
+			  uint32_t *restrict curparam)
+{
+	if (!buffer || !maxlen)
+	{
+		return -1;
+	}
+
+	int arg = 0;
+	char *buf_p;
+	char ch;
+	int flags;
+	int width;
+	int prec;
+	int n;
+	char sign;
+	const char *fmt;
+	size_t llen = maxlen - 1;
+
+	buf_p = buffer;
+	fmt = format;
+
+	while (true)
+	{
+		// run through the format string until we hit a '%' or '\0'
+		for (ch = *fmt; llen && ((ch = *fmt) != '\0') && (ch != '%'); fmt++)
+		{
+			*buf_p++ = ch;
+			llen--;
+		}
+		if ((ch == '\0') || (llen <= 0))
+		{
+			goto done;
+		}
+
+		// skip over the '%'
+		fmt++;
+
+		// reset formatting state
+		flags = 0;
+		width = 0;
+		prec = -1;
+		sign = '\0';
+
+rflag:
+		ch = *fmt++;
+reswitch:
+		switch(ch)
+		{
+			case '-':
+			{
+				flags |= LADJUST;
+				goto rflag;
+			}
+			case '.':
+			{
+				n = 0;
+				while(is_digit((ch = *fmt++)))
+				{
+					n = 10 * n + (ch - '0');
+				}
+				prec = (n < 0) ? -1 : n;
+				goto reswitch;
+			}
+			case '0':
+			{
+				flags |= ZEROPAD;
+				goto rflag;
+			}
+			case '1' ... '9':
+			{
+				n = 0;
+				do
+				{
+					n = 10 * n + (ch - '0');
+					ch = *fmt++;
+				} while(is_digit(ch));
+				width = n;
+				goto reswitch;
+			}
+			case 'c':
+			{
+				if (!llen)
+				{
+					goto done;
+				}
+				char *c = (char *)params[*curparam];
+				++*curparam;
+				*buf_p++ = *c;
+				llen--;
+				arg++;
+				break;
+			}
+			case 'b':
+			{
+				int64_t *value = (int64_t *)params[*curparam];
+				++*curparam;
+				AddBinary(&buf_p, &llen, *value, width, flags);
+				arg++;
+				break;
+			}
+			case 'd': case 'i':
+			{
+				int32_t *value = (int32_t *)params[*curparam];
+				++*curparam;
+				AddInt(&buf_p, &llen, *value, width, flags);
+				arg++;
+				break;
+			}
+			case 'u':
+			{
+				uint32_t *value = (uint32_t *)params[*curparam];
+				++*curparam;
+				AddUInt(&buf_p, &llen, *value, width, flags);
+				arg++;
+				break;
+			}
+			case 'f':
+			{
+				double *value = (double *)params[*curparam];
+				++*curparam;
+				AddFloat(&buf_p, &llen, *value, width, prec, flags);
+				arg++;
+				break;
+			}
+			case 's':
+			{
+				const char *str = (const char *)params[*curparam];
+				++*curparam;
+				AddString(&buf_p, &llen, str, width, prec, flags);
+				arg++;
+				break;
+			}
+			case 'X':
+			{
+				uint32_t *value = (uint32_t *)params[*curparam];
+				++*curparam;
+				flags |= UPPERDIGITS;
+				AddHex(&buf_p, &llen, *value, width, flags);
+				arg++;
+				break;
+			}
+			case 'x':
+			{
+				uint32_t *value = (uint32_t *)params[*curparam];
+				++*curparam;
+				AddHex(&buf_p, &llen, *value, width, flags);
+				arg++;
+				break;
+			}
+			case '%':
+			{
+				if (!llen)
+				{
+					goto done;
+				}
+				*buf_p++ = ch;
+				llen--;
+				break;
+			}
+			case '\0':
+			{
+				if (!llen)
+				{
+					goto done;
+				}
+				*buf_p++ = '%';
+				llen--;
+				goto done;
+			}
+			default:
+			{
+				if (!llen)
+				{
+					goto done;
+				}
+				*buf_p++ = ch;
+				llen--;
+				break;
+			}
+		}
+	}
+
+done:
+	*buf_p = '\0';
+	
+	return (maxlen - llen - 1);
+}
+/////////////////////////////////////////////////////////////////////////////////
 
 
 

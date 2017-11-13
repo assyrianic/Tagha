@@ -38,6 +38,11 @@ static void native_get_global_by_name(Script_t *script, Param_t params[], Param_
 		(*retval)->Pointer = NULL;
 		return;
 	}
+	else if( !strcmp(other->m_strName, script->m_strName) ) {
+		puts("script_get_global_by_name reported: 'script' can't be the same file as calling script!\n");
+		(*retval)->Pointer = NULL;
+		return;
+	}
 	const char *restrict strglobal = params[1].String;
 	if( !strglobal ) {
 		puts("script_get_global_by_name reported: 'str' is NULL!\n");
@@ -72,6 +77,7 @@ static void native_get_script_from_file(Script_t *script, Param_t params[], Para
 	if( !filename )
 		puts("get_script_from_file reported: 'filename' is NULL!\n");
 	(*retval)->Pointer = TaghaScript_from_file(filename);
+	filename = NULL;
 }
 
 /* void	script_free(Script_t *script); */
@@ -83,16 +89,24 @@ static void native_script_free(Script_t *script, Param_t params[], Param_t **res
 		puts("script_free reported: 'script' cannot be the same ptr as calling script!\n");
 		return;
 	}
-	TaghaScript_free(params[0].Pointer);
+	else if( !strcmp(other->m_strName, script->m_strName) ) {
+		puts("script_free reported: 'script' can't be the same file as calling script!\n");
+		return;
+	}
+	TaghaScript_free(other);
 }
 
-/* void script_callfunc(Script_t *script, const char *strFunc); */
+/* void script_callfunc(Script_t *restrict script, const char *restrict strFunc); */
 static void native_script_callfunc(Script_t *script, Param_t params[], Param_t **restrict retval, const uint32_t argc, TaghaVM_t *env)
 {
 	*retval = NULL;
 	Script_t *other = params[0].Pointer;
 	if( other==script ) {
 		puts("script_callfunc reported: 'script' cannot be the same ptr as calling script!\n");
+		return;
+	}
+	else if( !strcmp(other->m_strName, script->m_strName) ) {
+		puts("script_callfunc reported: 'script' can't be the same file as calling script!\n");
 		return;
 	}
 	const char *strFunc = params[1].String;
@@ -114,15 +128,25 @@ static void native_script_push_value(Script_t *script, Param_t params[], Param_t
 		puts("script_push_value reported: 'script' cannot be the same ptr as calling script!\n");
 		return;
 	}
+	else if( !strcmp(other->m_strName, script->m_strName) ) {
+		puts("script_push_value reported: 'script' can't be the same file as calling script!\n");
+		return;
+	}
 	TaghaScript_push_value(other, params[1]);
 }
 
-/* void script_pop_value(Script_t *script); */
+/* Val_t script_pop_value(Script_t *script); */
 static void native_script_pop_value(Script_t *script, Param_t params[], Param_t **restrict retval, const uint32_t argc, TaghaVM_t *env)
 {
 	Script_t *restrict other = params[0].Pointer;
 	if( other==script ) {
 		puts("script_push_value reported: 'script' cannot be the same ptr as calling script!\n");
+		(*retval)->UInt64 = 0;
+		return;
+	}
+	else if( !strcmp(other->m_strName, script->m_strName) ) {
+		puts("script_push_value reported: 'script' can't be the same file as calling script!\n");
+		(*retval)->UInt64 = 0;
 		return;
 	}
 	**retval = TaghaScript_pop_value(other);

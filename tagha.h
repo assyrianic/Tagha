@@ -73,7 +73,7 @@ union Param {
 	void *Pointer;
 	const char *String;
 };
-typedef		void (*fnNative_t)(struct TaghaScript *, union Param [], union Param **, const uint32_t, struct TaghaVM *);
+typedef	void (*fnNative_t)(struct TaghaScript *, union Param [], union Param **, const uint32_t, struct TaghaVM *);
 
 struct NativeInfo {
 	const char	*strName;	// use as string literals
@@ -101,6 +101,7 @@ struct DataTable {
 
 
 struct TaghaScript {
+	char m_strName[32];	// script's name
 	uint8_t
 		*m_pMemory,	// stack and data stream. Used for stack and data segment
 		*m_pText,	// instruction stream.
@@ -160,8 +161,9 @@ void		TaghaScript_reset(struct TaghaScript *script);
 void		TaghaScript_free(struct TaghaScript *script);
 
 void		*TaghaScript_get_global_by_name(struct TaghaScript *script, const char *strGlobalName);
+bool		TaghaScript_bind_global_ptr(struct TaghaScript *script, const char *strGlobalName, void *pVar);
 void		TaghaScript_push_value(struct TaghaScript *script, const union Param value);
-union Param TaghaScript_pop_value(struct TaghaScript *script);
+union Param	TaghaScript_pop_value(struct TaghaScript *script);
 
 uint32_t	TaghaScript_stacksize(const struct TaghaScript *script);
 uint32_t	TaghaScript_instrsize(const struct TaghaScript *script);
@@ -173,7 +175,6 @@ bool		TaghaScript_safemode_active(const struct TaghaScript *script);
 bool		TaghaScript_debug_active(const struct TaghaScript *script);
 
 void		TaghaScript_PrintErr(struct TaghaScript *script, const char *funcname, const char *err, ...);
-
 
 
 

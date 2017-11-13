@@ -4,6 +4,9 @@ import sys;
 import ctypes;
 import struct;
 
+# Leave the references empty and build rest of bytecode
+# Fill in references afterwards when you know their positions.
+
 def enum(*sequential, **named) -> object:
 	enums = dict(zip(sequential, range(len(sequential))), **named);
 	return type('Enum', (), enums);
@@ -376,6 +379,19 @@ with open('test_factorial_recurs.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.umull);
 	wrt_opcode(tbc, opcodes.retl);
 
+'''
+struct Player {
+	float		speed;
+	uint32_t	health;
+	uint32_t	ammo;
+};
+
+void main(void)
+{
+	struct Player pl = { 300.f, 100, 50 };
+	test(&pl);
+}
+'''
 with open('test_native.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc, 'test');
@@ -582,23 +598,15 @@ with open('test_globalvars.tbc', 'wb+') as tbc:
 
 
 '''
-int i;
-int f(void) {
-	return i;
-}
-float e;
-
-int main(void)
+int main()
 {
-	int l = 5;
-	printf( "%i\n", f()+l );
-	return 0;
+	getglobal();
 }
 '''
 with open('test_loadgbl.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 64);
 	wrt_hdr_natives(tbc, 'getglobal');
-	wrt_hdr_funcs(tbc, 'main', 0, 6);
+	wrt_hdr_funcs(tbc, 'main', 0, 10);
 	wrt_hdr_globals(tbc, 'i', 0, 4, 4294967196);
 	wrt_hdr_footer(tbc, entry=0);
 	
@@ -614,13 +622,13 @@ with open('test_loadgbl.tbc', 'wb+') as tbc:
 '''
 test GCC-style assembler generated code.
 main:
-        pushq   %rbp
-        movq    %rsp, %rbp
-        movl    $5, -4(%rbp)
-        movb    $-1, -5(%rbp)
-        movl    $0, %eax
-        popq    %rbp
-        ret
+		pushq	%rbp
+		movq	%rsp, %rbp
+		movl	$5, -4(%rbp)
+		movb	$-1, -5(%rbp)
+		movl	$0, %eax
+		popq	%rbp
+		ret
 '''
 with open('test_gcc_style_asm.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 64);
@@ -842,6 +850,128 @@ with open('test_stdin.tbc', 'wb+') as tbc:
 	wrt_opcode(tbc, opcodes.pushbpsub); # push string buffer itself
 	wrt_callnat(tbc, 0, 3);
 	
+	wrt_pushl(tbc, 0);
+	wrt_opcode(tbc, opcodes.retl);
+
+
+'''
+Purpose: test self natives for retrieving data script to script.
+We need for script's to be able to retrieve data from one another.
+
+struct TaghaScript;
+typedef struct TaghaScript	Script_t;
+
+Script_t	*get_script_from_file(const char *filename);
+void		script_free(Script_t *script);
+void		script_callfunc(Script_t *restrict script, const char *restrict strFunc);
+void		*script_get_global_by_name(const Script_t *restrict script, const char *restrict str);
+void		script_push_value(Script_t *script, const Val_t value);
+Val_t		script_pop_value(Script_t *script);
+
+Script_t *myself;	// myself refers to the script running this code.
+
+int main()
+{
+	Script_t *t = get_script_from_file("test_factorial_recurs.tbc");
+	if( !t )
+		return 0;
+	
+	script_push_value(t, (Val_t){ .UInt32=4 });
+	script_callfunc(t, "factorial");
+	Val_t val = script_pop_value(t);
+	printf("%u\n", val.UInt32);
+	
+	script_free(t), t = NULL;
+	return 0;
+}
+'''
+with open('test_interplugin_com.tbc', 'wb+') as tbc:
+	wrt_hdr(tbc, 256);
+	wrt_hdr_natives(tbc,
+		'get_script_from_file',
+		'script_free',
+		'script_callfunc',
+		'script_get_global_by_name',
+		'script_push_value',
+		'script_pop_value',
+		'printf'
+	);
+	wrt_hdr_funcs(tbc, 'main', 0, 10);
+	wrt_hdr_globals(tbc,
+		'myself', 0, 8, 0, # 8 bytes
+		'strFORMAT', 8, len('%u\n')+1, '%u\n', # 3 bytes
+		'strFILENAME', 12, len('test_factorial_recurs.tbc')+1, 'test_factorial_recurs.tbc', # 26 bytes
+		'strFUNCNAME', 38, len('factorial')+1, 'factorial'
+	);
+	wrt_hdr_footer(tbc, entry=0);
+	
+	wrt_1op_8byte(tbc, opcodes.call, 10); #0-8	call main
+	wrt_opcode(tbc, opcodes.halt); #9	exit main
+	
+	wrt_pushq(tbc, 16); #10-18 # make room for Val_t val and Script_t *t.
+	wrt_opcode(tbc, opcodes.pushspsub); #19
+	wrt_opcode(tbc, opcodes.popsp); #20
+	
+	# Script_t *t = get_script_from_file("test_factorial_recurs.tbc");
+	wrt_1op_8byte(tbc, opcodes.pushoffset, 12); #21-29
+	wrt_callnat(tbc, 0, 1); #30-38
+	
+	wrt_pushq(tbc, 8); #39-47
+	wrt_opcode(tbc, opcodes.pushbpsub); #48 # save our script pointer.
+	wrt_opcode(tbc, opcodes.storespq); #49
+	
+	# if( !t ) // t==0
+	wrt_pushq(tbc, 8); #50-58
+	wrt_opcode(tbc, opcodes.pushbpsub); #59
+	wrt_opcode(tbc, opcodes.loadspq); #60
+	wrt_1op_8byte(tbc, opcodes.jnzq, 76); #61-69
+	
+	# return 0;
+	wrt_pushl(tbc, 0); #70-74
+	wrt_opcode(tbc, opcodes.retl); #75
+	
+	# script_push_value(t, (Val_t){ .UInt32=4 });
+	wrt_pushl(tbc, 4); # load unsigned 4
+	wrt_pushq(tbc, 8);
+	wrt_opcode(tbc, opcodes.pushbpsub); # load 't' script ptr
+	wrt_opcode(tbc, opcodes.loadspq);
+	wrt_callnat(tbc, 4, 2); # do the call
+	
+	# script_callfunc(t, "factorial");
+	wrt_1op_8byte(tbc, opcodes.pushoffset, 38); # load func name str
+	wrt_pushq(tbc, 8);
+	wrt_opcode(tbc, opcodes.pushbpsub); # load 't' script ptr
+	wrt_opcode(tbc, opcodes.loadspq);
+	wrt_callnat(tbc, 2, 2); # do the call
+	
+	# Val_t val = script_pop_value(t);
+	wrt_pushq(tbc, 8);
+	wrt_opcode(tbc, opcodes.pushbpsub); # load 't' script ptr
+	wrt_opcode(tbc, opcodes.loadspq);
+	wrt_callnat(tbc, 5, 1);
+	
+	wrt_pushq(tbc, 16);
+	wrt_opcode(tbc, opcodes.pushbpsub);
+	wrt_opcode(tbc, opcodes.storespq);
+	
+	# printf("%u\n", val.UInt32);
+	wrt_pushq(tbc, 16);
+	wrt_opcode(tbc, opcodes.pushbpsub);
+	wrt_opcode(tbc, opcodes.loadspq);
+	wrt_1op_8byte(tbc, opcodes.pushoffset, 8);
+	wrt_callnat(tbc, 6, 2);
+	
+	# script_free(t), t = NULL;
+	wrt_pushq(tbc, 8);
+	wrt_opcode(tbc, opcodes.pushbpsub); # load 't' script ptr
+	wrt_opcode(tbc, opcodes.loadspq);
+	wrt_callnat(tbc, 1, 1);
+	wrt_pushq(tbc, 0);
+	wrt_pushq(tbc, 8);
+	wrt_opcode(tbc, opcodes.pushbpsub); # set 't' to NULL
+	wrt_opcode(tbc, opcodes.storespq);
+	
+	# return 0;
 	wrt_pushl(tbc, 0);
 	wrt_opcode(tbc, opcodes.retl);
 

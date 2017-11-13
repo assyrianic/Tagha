@@ -104,6 +104,11 @@ TaghaVMCPP::TaghaVMCPP()
 	Tagha_init(this->vm);
 }
 
+TaghaVMCPP::TaghaVMCPP(TaghaVM_t *vm)
+{
+	this->vm = vm;
+}
+
 void TaghaVMCPP::del()
 {
 	Tagha_free(this->vm);

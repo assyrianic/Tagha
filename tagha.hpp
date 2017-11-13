@@ -35,6 +35,7 @@ struct TaghaVMCPP {
 	TaghaVM_t *vm;
 	
 	TaghaVMCPP();
+	TaghaVMCPP(TaghaVM_t *);
 	void del();
 	void load_script_by_name(char *filename);
 	bool register_natives(NativeInfo_t arrNatives[]);

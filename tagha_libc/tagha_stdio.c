@@ -128,8 +128,6 @@ static void native_setbuf(Script_t *script, Param_t params[], Param_t **restrict
 	setbuf(pStream, pBuffer);
 }
 
-void string_format(const char *str);
-
 /* int printf(const char *fmt, ...); */
 static void native_printf(Script_t *script, Param_t params[], Param_t **restrict retval, const uint32_t argc, TaghaVM_t *env)
 {

@@ -383,8 +383,8 @@ void Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp)
 	script = vm->m_pScript;
 	if( !script or !script->m_pText )
 		return;
-	else if( !oldbp and map_find(script->m_pmapFuncs, "main")==0 ) {
-		TaghaScript_PrintErr(script, __func__, "Cannot freely execute script that's missing 'main()'!");
+	else if( !oldbp and !map_find(script->m_pmapFuncs, "main") ) {
+		TaghaScript_PrintErr(script, __func__, "Cannot freely execute script missing 'main()'!");
 		return;
 	}
 	
@@ -469,7 +469,7 @@ void Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp)
 				printf("pushbp: pushed bp : %p\n", script->m_pBP);
 			DISPATCH();
 		
-		exec_pushoffset:;	// think of this like LEA (load effective address) for global vars.
+		exec_pushoffset:;	// think of this like LEA (load effective address)
 			qa = _TaghaScript_get_imm8(script);
 			_TaghaScript_push_int64(script, (uintptr_t)(script->m_pMemory + qa));
 			if( debugmode )
@@ -1613,7 +1613,7 @@ void Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp)
 			pfNative = (fnNative_t)(uintptr_t) map_find(vm->m_pmapNatives, script->m_pstrNatives[a]);
 			if( safemode and !pfNative ) {
 				TaghaScript_PrintErr(script, __func__, "exec_callnat :: native \'%s\' not registered!", script->m_pstrNatives[a]);
-				script->m_pIP += 8;
+				script->m_pIP += 4;
 				DISPATCH();
 			}
 			// how many arguments pushed as native args
@@ -1621,6 +1621,8 @@ void Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp)
 			if( debugmode )
 				printf("callnat: Calling func addr: %p with %" PRIu32 " args pushed.\n", pfNative, argcount);
 			
+			// ERROR: you can't initialize an array of variable size.
+			// have no choice but to use memset.
 			Param_t params[argcount];
 			memset(params, 0, sizeof(Param_t)*argcount);
 			_TaghaScript_pop_nbytes(script, params, sizeof(Param_t)*argcount);

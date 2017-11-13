@@ -5,6 +5,16 @@
 #include <stdio.h>
 #include "ds.h"
 
+/*
+static int strcmp(register const char *restrict s1, register const char *restrict s2)
+{
+	while (*s1 == *s2++)
+		if (*s1++ == 0)
+			return (0);
+	return( *(const unsigned char *)s1 - *(const unsigned char *)(s2 - 1) );
+}
+*/
+
 void vector_init(Vec_t *v)
 {
 	if( !v )
@@ -141,7 +151,7 @@ void map_free(Map_t *map)
 	kvnode_t
 		*kv = NULL,
 		*next = NULL
-		;
+	;
 	for( uint32_t i=0 ; i<map->size ; i++ ) {
 		for( kv = map->table[i] ; kv ; kv = next ) {
 			next = kv->pNext;
@@ -259,7 +269,7 @@ uint64_t map_len(const Map_t *map)
 // Rehashing increases Map_tionary size by a factor of 2
 void map_rehash(Map_t *map)
 {
-	if( !map )
+	if( !map || !map->table )
 		return;
 	
 	uint32_t old_size = map->size;

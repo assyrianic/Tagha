@@ -16,7 +16,7 @@ static void native_print_helloworld(Script_t *script, Param_t params[], Param_t 
 	*retval = NULL;
 }
 
-/* void test_ptr(struct player *p); */
+/* void test(struct Player *p); */
 static void native_test_ptr(Script_t *script, Param_t params[], Param_t **restrict retval, const uint32_t argc, TaghaVM_t *env)
 {
 	struct Player {
@@ -29,7 +29,7 @@ static void native_test_ptr(Script_t *script, Param_t params[], Param_t **restri
 	// get first arg which is the virtual address to our data.
 	player = (struct Player *)params[0].Pointer;
 	if( !player ) {
-		puts("native_test_ptr reported an ERROR :: **** param 'player' is NULL ****\n");
+		puts("native_test_ptr reported an ERROR :: **** param 'p' is NULL ****\n");
 		return;
 	}
 	
