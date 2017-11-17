@@ -9,7 +9,7 @@ Tagha is a **WIP** minimal yet complex stack-based virtual machine and scripting
 * Host can call script functions, with pushing and retrieving data!
 * Host can retrieve script global variables.
 * Host can bind its own global variables as a pointer to a script global variable.
-* Very small memory usage: around 60-80kb of memory.
+* Very small memory usage: executable itself is 60-80kb.
 * No dependencies except libc!
 
 ## Installation/Building
