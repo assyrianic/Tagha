@@ -72,6 +72,19 @@ union Param {
 	double Double;
 	void *Pointer;
 	const char *String;
+	
+	int8_t *CharPtr;
+	int16_t *ShortPtr;
+	int32_t *Int32Ptr;
+	int64_t *Int64Ptr;
+	
+	uint8_t *UCharPtr;
+	uint16_t *UShortPtr;
+	uint32_t *UInt32Ptr;
+	uint64_t *UInt64Ptr;
+	
+	float *FloatPtr;
+	double *DoublePtr;
 };
 typedef	void (*fnNative_t)(struct TaghaScript *, union Param [], union Param **, const uint32_t, struct TaghaVM *);
 
@@ -99,9 +112,8 @@ struct DataTable {
 	uint32_t	m_uiOffset;	// TODO: make this into uint64?
 };
 
-
 struct TaghaScript {
-	char m_strName[32];	// script's name
+	char m_strName[64];	// script's name
 	uint8_t
 		*m_pMemory,	// stack and data stream. Used for stack and data segment
 		*m_pText,	// instruction stream.
@@ -210,10 +222,10 @@ void		TaghaScript_PrintErr(struct TaghaScript *script, const char *funcname, con
 	X(ltf64) X(gtf64) X(cmpf64) X(leqf64) X(geqf64) \
 	X(neqq) X(uneqq) X(neql) X(uneql) X(neqf) X(neqf64) \
 	\
-	X(jmp) X(jmps) X(jzq) X(jnzq) X(jzl) X(jnzl) \
+	X(jmp) X(jmps) X(jz) X(jnz) \
 	X(call) X(calls) X(ret) X(retq) X(retl) X(rets) X(retb) \
 	X(pushnataddr) X(callnat) X(callnats) \
-	/*X(float2dbl) X(dbl2float) X(float2int) X(int2float) X(dbl2long) X(long2dbl)*/ \
+	\
 	X(nop) \
 
 #define X(x) x,

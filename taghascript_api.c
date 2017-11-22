@@ -240,7 +240,7 @@ struct TaghaScript *TaghaScript_from_file(const char *restrict filename)
 		return NULL;
 	
 	memset(script, 0, sizeof(struct TaghaScript));
-	strncpy(script->m_strName, filename, 32);
+	strncpy(script->m_strName, filename, 64);
 	
 	uint64_t filesize = get_file_size(pFile);
 	uint32_t bytecount = 0;	// bytecount is for separating the header data from the actual instruction stream.
@@ -260,9 +260,9 @@ struct TaghaScript *TaghaScript_from_file(const char *restrict filename)
 	ignore_warns = fread(&script->m_uiMemsize, sizeof(uint32_t), 1, pFile);
 	printf("[Tagha Load Script] :: Memory Size: %" PRIu32 "\n", script->m_uiMemsize);
 	
-	// have a default size of 64 bytes for memory.
+	// have a default size of 1024 bytes for memory.
 	if( !script->m_uiMemsize )
-		script->m_uiMemsize = 64;
+		script->m_uiMemsize = 1024;
 	script->m_pMemory = calloc(script->m_uiMemsize, sizeof(uint8_t));
 	
 	// scripts NEED memory, if memory is invalid then we can't use the script.

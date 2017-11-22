@@ -128,83 +128,73 @@ static void native_setbuf(Script_t *script, Param_t params[], Param_t **restrict
 	setbuf(pStream, pBuffer);
 }
 
+
+/*
+ * File Access
+ */
+
+int32_t gnprintf(char *buffer, size_t maxlen, const char *format, Val_t params[], uint32_t numparams, uint32_t *curparam);
+
+/* int fprintf(FILE *stream, const char *format, ...); */
+static void native_fprintf(Script_t *script, Param_t params[], Param_t **restrict retval, const uint32_t argc, TaghaVM_t *env)
+{
+	FILE *stream = params[0].Pointer;
+	if( !stream ) {
+		(*retval)->Int32 = -1;
+		puts("fprintf reported an ERROR :: **** param 'stream' is NULL ****\n");
+		return;
+	}
+	
+	const char *format = params[1].String;
+	if( !format ) {
+		(*retval)->Int32 = -1;
+		puts("fprintf reported an ERROR :: **** param 'format' is NULL ****\n");
+		return;
+	}
+	
+	char data_buffer[1024] = {0};
+	uint32_t param = 2;
+	gnprintf(data_buffer, 1024, format, params, argc-2, &param);
+	data_buffer[1023] = 0;
+	(*retval)->Int32 = fprintf(stream, "%s", data_buffer);
+}
+
+/* int fscanf(FILE *stream, const char *format, ...); */
+static void native_fscanf(Script_t *script, Param_t params[], Param_t **restrict retval, const uint32_t argc, TaghaVM_t *env)
+{
+	FILE *stream = params[0].Pointer;
+	if( !stream ) {
+		(*retval)->Int32 = -1;
+		puts("fscanf reported an ERROR :: **** param 'stream' is NULL ****\n");
+		return;
+	}
+	
+	const char *format = params[1].String;
+	if( !format ) {
+		(*retval)->Int32 = -1;
+		puts("fscanf reported an ERROR :: **** param 'format' is NULL ****\n");
+		return;
+	}
+	
+	(*retval)->Int32 = -1;
+}
+
 /* int printf(const char *fmt, ...); */
 static void native_printf(Script_t *script, Param_t params[], Param_t **restrict retval, const uint32_t argc, TaghaVM_t *env)
 {
 	const char *str = params[0].String;
 	if( !str ) {
 		(*retval)->Int32 = -1;
-		puts("native_printf reported an ERROR :: **** param 'fmt' is NULL ****\n");
+		puts("printf reported an ERROR :: **** param 'fmt' is NULL ****\n");
 		return;
 	}
 	
-	char *iter=(char *)str;
-	uint8_t param = 1;
-	
-	int32_t chrs=0;
-	while( *iter ) {
-		if( *iter=='%' ) {
-			iter++;
-			char data_buffer[1024];
-			memset(data_buffer, 0, sizeof data_buffer);
-			switch( *iter ) {
-				case '%':
-					printf("%%"), chrs++;
-					break;
-					
-				case 'f': case 'F':
-					chrs += sprintf(data_buffer, "%f", params[param++].Double);
-					break;
-					
-				case 'e': case 'E':
-					chrs += sprintf(data_buffer, "%e", params[param++].Double);
-					break;
-					
-				case 'a': case 'A':
-					chrs += sprintf(data_buffer, "%a", params[param++].Double);
-					break;
-					
-				case 'i': case 'd':
-					chrs += sprintf(data_buffer, "%i", params[param++].Int32);
-					break;
-					
-				case 'u':
-					chrs += sprintf(data_buffer, "%u", params[param++].UInt32);
-					break;
-					
-				case 'x': case 'X':
-					chrs += sprintf(data_buffer, "%x", params[param++].UInt32);
-					break;
-					
-				case 'o':
-					chrs += sprintf(data_buffer, "%o", params[param++].UInt32);
-					break;
-					
-				case 'c':
-					chrs += sprintf(data_buffer, "%c", params[param++].UInt32);
-					break;
-					
-				case 'p':
-					chrs += sprintf(data_buffer, "%p", params[param++].Pointer);
-					break;
-					
-				case 's':
-					chrs += sprintf(data_buffer, "%s", params[param++].String);
-					break;
-					
-				default:
-					puts("invalid format\n");
-					(*retval)->Int32 = -1;
-					return;
-			} /* switch( *iter ) */
-			if( data_buffer[0] )
-				printf("%s", data_buffer);
-		} /* if( *iter=='%' ) */
-		else putchar(*iter);
-		chrs++, iter++;
-	} /* while( *iter ) */
-	iter = NULL;
-	(*retval)->Int32 = chrs;
+	char data_buffer[1024] = {0};
+	uint32_t param = 1;
+	int32_t res = gnprintf(data_buffer, 1024, str, params, argc-1, &param);
+	data_buffer[1023] = 0;
+	printf("%s", data_buffer);
+	(*retval)->Int32 = res;
 }
 
 /* int puts(const char *s); */

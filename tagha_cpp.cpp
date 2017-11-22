@@ -42,6 +42,11 @@ void *TaghaScriptCPP::get_global_by_name(const char *strGlobalName)
 	return TaghaScript_get_global_by_name(this->script, strGlobalName);
 }
 
+bool TaghaScriptCPP::bind_global_ptr(const char *strGlobalName, void *pVar)
+{
+	return TaghaScript_bind_global_ptr(this->script, strGlobalName, pVar);
+}
+
 void TaghaScriptCPP::push_value(const Val_t value)
 {
 	TaghaScript_push_value(this->script, value);

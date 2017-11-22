@@ -19,6 +19,7 @@ struct TaghaScriptCPP {
 	void debug_print_instrs();
 	void reset();
 	void *get_global_by_name(const char *strGlobalName);
+	bool bind_global_ptr(const char *strGlobalName, void *pVar);
 	void push_value(const Val_t value);
 	Val_t pop_value();
 	uint32_t stacksize();

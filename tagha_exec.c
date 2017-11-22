@@ -1436,40 +1436,22 @@ void Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp)
 				printf("jmps: instruction address: %p\n", script->m_pIP);
 			continue;
 		
-		exec_jzq:;
+		exec_jz:;
 			qa = _TaghaScript_pop_int64(script);
 			qb = _TaghaScript_get_imm8(script);
 			script->m_pIP = (!qa) ? script->m_pText+qb : script->m_pIP+1;
 			
 			if( debugmode )
-				printf("jzq'ing to instruction address: %p\n", script->m_pIP);
+				printf("jz'ing to instruction address: %p\n", script->m_pIP);
 			continue;
 		
-		exec_jnzq:;
+		exec_jnz:;
 			qa = _TaghaScript_pop_int64(script);
 			qb = _TaghaScript_get_imm8(script);
 			script->m_pIP = (qa) ? script->m_pText+qb : script->m_pIP+1;
 			
 			if( debugmode )
-				printf("jnzq'ing to instruction address: %p\n", script->m_pIP);
-			continue;
-		
-		exec_jzl:;	// check if the first 4 bytes on stack are zero, if yes then jump it.
-			a = _TaghaScript_pop_int32(script);
-			qb = _TaghaScript_get_imm8(script);
-			script->m_pIP = (!a) ? script->m_pText+qb : script->m_pIP+1;
-			
-			if( debugmode )
-				printf("jzl'ing to instruction address: %p\n", script->m_pIP);	//opcode2str[script->m_pText[script->m_pIP]]
-			continue;
-		
-		exec_jnzl:;
-			a = _TaghaScript_pop_int32(script);
-			qb = _TaghaScript_get_imm8(script);
-			script->m_pIP = (a) ? script->m_pText+qb : script->m_pIP+1;
-			
-			if( debugmode )
-				printf("jnzl'ing to instruction address: %p\n", script->m_pIP);
+				printf("jnz'ing to instruction address: %p\n", script->m_pIP);
 			continue;
 		
 		exec_call:;		// support functions
@@ -1530,7 +1512,7 @@ void Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp)
 				break;
 			continue;
 		
-		exec_retl:; // returns int or float value
+		exec_retl:;	// returns int or float value
 			a = _TaghaScript_pop_int32(script);		// store our needed data to a buffer.
 			if( debugmode )
 				printf("retl :: popped %" PRIu32 "\n", a);

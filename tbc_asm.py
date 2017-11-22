@@ -11,59 +11,7 @@ def enum(*sequential, **named) -> object:
 	enums = dict(zip(sequential, range(len(sequential))), **named);
 	return type('Enum', (), enums);
 
-opcodes = enum('halt', 'pushq', 'pushl', 'pushs', 'pushb', 'pushsp', 'puship', 'pushbp', 'pushoffset', 'pushspadd', 'pushspsub', 'pushbpadd', 'pushbpsub', 'pushipadd', 'pushipsub', 'popq', 'popsp', 'popip', 'popbp', 'storespq', 'storespl', 'storesps', 'storespb', 'loadspq', 'loadspl', 'loadsps', 'loadspb', 'copyq', 'copyl', 'copys', 'copyb', 'addq', 'uaddq', 'addl', 'uaddl', 'addf', 'subq', 'usubq', 'subl', 'usubl', 'subf', 'mulq', 'umulq', 'mull', 'umull', 'mulf', 'divq', 'udivq', 'divl', 'udivl', 'divf', 'modq', 'umodq', 'modl', 'umodl', 'addf64', 'subf64', 'mulf64', 'divf64', 'andl', 'orl', 'xorl', 'notl', 'shll', 'shrl', 'andq', 'orq', 'xorq', 'notq', 'shlq', 'shrq', 'incq', 'incl', 'incf', 'decq', 'decl', 'decf', 'negq', 'negl', 'negf', 'incf64', 'decf64', 'negf64', 'ltq', 'ltl', 'ultq', 'ultl', 'ltf', 'gtq', 'gtl', 'ugtq', 'ugtl', 'gtf', 'cmpq', 'cmpl', 'ucmpq', 'ucmpl', 'compf', 'leqq', 'uleqq', 'leql', 'uleql', 'leqf', 'geqq', 'ugeqq', 'geql', 'ugeql', 'geqf', 'ltf64', 'gtf64', 'cmpf64', 'leqf64', 'geqf64', 'neqq', 'uneqq', 'neql', 'uneql', 'neqf', 'neqf64', 'jmp', 'jmps', 'jzq', 'jnzq', 'jzl', 'jnzl', 'call', 'calls', 'ret', 'retq', 'retl', 'rets', 'retb', 'pushnataddr', 'callnat', 'callnats', 'nop');
-
-
-g_dictLabels = {};
-
-
-def is_potential_identifier(c:str) -> bool:
-	return( (c >= 'a' and c <= 'z')
-		or (c >= 'A' and c <= 'Z')
-		or c == '_'
-		or (c >= '0' and c <= '9')
-		or c >= chr(255) );
-
-def is_alphabetic(c:str) -> bool:
-	return( (c >= 'a' and c <= 'z')
-		or (c >= 'A' and c <= 'Z')
-		or c == '_'
-		or c >= chr(255) );
-
-def is_whitespace(c:str) -> bool:
-	return( c == '\t' or c == '\r' or c == '\v' or c == '\f' or c == '\n' );
-	
-def is_hex(c:str) -> bool:
-	return( (c >= 'a' and c <= 'f') or (c >= 'A' and c <= 'F') or (c >= '0' and c <= '9') );
-
-def is_octal(c:str) -> bool:
-	return( c >= '0' and c <= '7' );
-
-def is_numeric(c:str) -> bool:
-	return( c >= '0' and c <= '9' );
-
-
-def prep_file(filename:str) -> list:
-	lstLines=[];
-	with open(filename, 'r+') as objFile:
-		strTok = "";
-		for line in objFile.readlines():
-			for char in line:
-				if char==';':	# remove comments
-					break;
-				strTok += char;
-			
-			lstLines.append(strTok);
-			strTok = "";
-		
-	return lstLines;
-
-
-def asmlify(lines:list) -> list:
-	iAddr=0;
-	# first pass: resolve the label references.
-	for line in lines:
-		print(line);
+opcodes = enum('halt', 'pushq', 'pushl', 'pushs', 'pushb', 'pushsp', 'puship', 'pushbp', 'pushoffset', 'pushspadd', 'pushspsub', 'pushbpadd', 'pushbpsub', 'pushipadd', 'pushipsub', 'popq', 'popsp', 'popip', 'popbp', 'storespq', 'storespl', 'storesps', 'storespb', 'loadspq', 'loadspl', 'loadsps', 'loadspb', 'copyq', 'copyl', 'copys', 'copyb', 'addq', 'uaddq', 'addl', 'uaddl', 'addf', 'subq', 'usubq', 'subl', 'usubl', 'subf', 'mulq', 'umulq', 'mull', 'umull', 'mulf', 'divq', 'udivq', 'divl', 'udivl', 'divf', 'modq', 'umodq', 'modl', 'umodl', 'addf64', 'subf64', 'mulf64', 'divf64', 'andl', 'orl', 'xorl', 'notl', 'shll', 'shrl', 'andq', 'orq', 'xorq', 'notq', 'shlq', 'shrq', 'incq', 'incl', 'incf', 'decq', 'decl', 'decf', 'negq', 'negl', 'negf', 'incf64', 'decf64', 'negf64', 'ltq', 'ltl', 'ultq', 'ultl', 'ltf', 'gtq', 'gtl', 'ugtq', 'ugtl', 'gtf', 'cmpq', 'cmpl', 'ucmpq', 'ucmpl', 'compf', 'leqq', 'uleqq', 'leql', 'uleql', 'leqf', 'geqq', 'ugeqq', 'geql', 'ugeql', 'geqf', 'ltf64', 'gtf64', 'cmpf64', 'leqf64', 'geqf64', 'neqq', 'uneqq', 'neql', 'uneql', 'neqf', 'neqf64', 'jmp', 'jmps', 'jz', 'jnz', 'call', 'calls', 'ret', 'retq', 'retl', 'rets', 'retb', 'pushnataddr', 'callnat', 'callnats', 'nop');
 
 
 def wrt_hdr(f, memsize:int) -> None:
@@ -356,7 +304,7 @@ with open('test_factorial_recurs.tbc', 'wb+') as tbc:
 	wrt_pushl(tbc, 1); #26-30
 	# i <= 1 ?
 	wrt_opcode(tbc, opcodes.uleql); #31
-	wrt_1op_8byte(tbc, opcodes.jzl, 47); #32-40
+	wrt_1op_8byte(tbc, opcodes.jz, 47); #32-40
 	wrt_pushl(tbc, 1); #41-45
 	wrt_opcode(tbc, opcodes.retl); #46
 	
@@ -581,7 +529,7 @@ with open('test_globalvars.tbc', 'wb+') as tbc:
 	wrt_hdr_globals(tbc, 'i', 0, 4, 0, 'e', 4, 4, 0.0, 'str00001', 8, len('%i\n')+1, '%i\n');
 	wrt_hdr_footer(tbc, entry=11);
 	
-	wrt_1op_8byte(tbc, opcodes.pushoffset, 0); #0-8	push 'i''s address
+	wrt_1op_8byte(tbc, opcodes.pushoffset, 0); #0-8	push 'i's address
 	wrt_opcode(tbc, opcodes.loadspl); #9 load 'i' by address to TOS.
 	wrt_opcode(tbc, opcodes.retl); #10		return 'i'
 	
@@ -663,6 +611,9 @@ test a game-like type of vector calculation.
 
 void vec_invert(float v[3])
 {
+	if( !v )
+		return;
+	
 	v[0] = -v[0];
 	v[1] = -v[1];
 	v[2] = -v[2];
@@ -861,12 +812,12 @@ We need for script's to be able to retrieve data from one another.
 struct TaghaScript;
 typedef struct TaghaScript	Script_t;
 
-Script_t	*get_script_from_file(const char *filename);
-void		script_free(Script_t *script);
-void		script_callfunc(Script_t *restrict script, const char *restrict strFunc);
-void		*script_get_global_by_name(const Script_t *restrict script, const char *restrict str);
-void		script_push_value(Script_t *script, const Val_t value);
-Val_t		script_pop_value(Script_t *script);
+Script_t *get_script_from_file(const char *filename);
+void script_free(Script_t *script);
+void script_callfunc(Script_t *restrict script, const char *restrict strFunc);
+void *script_get_global_by_name(const Script_t *restrict script, const char *restrict str);
+void script_push_value(Script_t *script, const Val_t value);
+Val_t script_pop_value(Script_t *script);
 
 Script_t *myself;	// myself refers to the script running this code.
 
@@ -924,7 +875,7 @@ with open('test_interplugin_com.tbc', 'wb+') as tbc:
 	wrt_pushq(tbc, 8); #50-58
 	wrt_opcode(tbc, opcodes.pushbpsub); #59
 	wrt_opcode(tbc, opcodes.loadspq); #60
-	wrt_1op_8byte(tbc, opcodes.jnzq, 76); #61-69
+	wrt_1op_8byte(tbc, opcodes.jnz, 76); #61-69
 	
 	# return 0;
 	wrt_pushl(tbc, 0); #70-74
@@ -974,7 +925,6 @@ with open('test_interplugin_com.tbc', 'wb+') as tbc:
 	# return 0;
 	wrt_pushl(tbc, 0);
 	wrt_opcode(tbc, opcodes.retl);
-
 
 
 
