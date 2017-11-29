@@ -454,40 +454,25 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp)
 			}
 			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			char *nativestr;
-			if( addrmode & Immediate ) {
-				if( safemode and a.UInt64 >= script->m_uiNatives  ) {
-					TaghaScript_PrintErr(script, __func__, "exec_callnat :: native index \'%" PRIu64 "\' is out of bounds!", a.UInt64);
-					script->m_Regs[rip].UInt32Ptr++;
-					continue;
-				}
-				nativestr = script->m_pstrNatives[a.UInt64];
-			}
-			else if( addrmode & Register ) {
-				if( safemode and script->m_Regs[a.UInt64].UInt64 >= script->m_uiNatives  ) {
-					TaghaScript_PrintErr(script, __func__, "exec_callnat :: native index \'%" PRIu64 "\' is out of bounds!", script->m_Regs[a.UInt64].UInt64);
-					script->m_Regs[rip].UInt32Ptr++;
-					continue;
-				}
-				nativestr = script->m_pstrNatives[script->m_Regs[a.UInt64].UInt64];
-			}
+			uint64_t index;
+			
+			if( addrmode & Immediate )
+				index = a.UInt64;
+			else if( addrmode & Register )
+				index = script->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
-				uint64_t i = *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
-				if( safemode and i >= script->m_uiNatives  ) {
-					TaghaScript_PrintErr(script, __func__, "exec_callnat :: native index \'%" PRIu64 "\' is out of bounds!", i);
-					script->m_Regs[rip].UInt32Ptr++;
-					continue;
-				}
-				nativestr = script->m_pstrNatives[i];
+				index = *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
-				if( safemode and *a.UInt64Ptr >= script->m_uiNatives  ) {
-					TaghaScript_PrintErr(script, __func__, "exec_callnat :: native index \'%" PRIu64 "\' is out of bounds!", *a.UInt64Ptr);
-					script->m_Regs[rip].UInt32Ptr++;
-					continue;
-				}
-				nativestr = script->m_pstrNatives[*a.UInt64Ptr];
+			else if( addrmode & Direct )
+				index = *a.UInt64Ptr;
+			
+			if( safemode and index >= script->m_uiNatives  ) {
+				TaghaScript_PrintErr(script, __func__, "exec_callnat :: native index \'%" PRIu64 "\' is out of bounds!", index);
+				script->m_Regs[rip].UInt32Ptr++;
+				continue;
 			}
+			nativestr = script->m_pstrNatives[index];
 			
 			pfNative = (fnNative_t)(uintptr_t) map_find(vm->m_pmapNatives, nativestr);
 			if( safemode and !pfNative ) {
@@ -507,9 +492,8 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp)
 			memcpy(params, script->m_Regs[rsp].SelfPtr, sizeof(Param_t)*argcount);
 			script->m_Regs[rsp].SelfPtr += argcount;
 			printf("exec_callnat :: calling C function '%s'\n", nativestr);
-			Param_t *result = &(Param_t){ .UInt64=0 };
-			(*pfNative)(script, params, &result, argcount, vm);
-			script->m_Regs[ras] = (result != NULL) ? *result : script->m_Regs[ras];
+			script->m_Regs[ras].UInt64 = 0;
+			(*pfNative)(script, params, script->m_Regs+ras, argcount, vm);
 			continue;
 		}
 		

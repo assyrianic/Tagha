@@ -441,13 +441,6 @@ bool TaghaScript_bind_global_ptr(struct TaghaScript *restrict script, const char
 	return false;
 }
 
-void TaghaScript_push_reg_value(struct TaghaScript *script, const enum RegID reg, const union CValue value)
-{
-	if( !script or !script->m_pMemory )
-		return;
-	
-	script->m_Regs[reg] = value;
-}
 
 void TaghaScript_push_value(struct TaghaScript *script, const union CValue value)
 {

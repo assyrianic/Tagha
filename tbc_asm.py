@@ -339,41 +339,37 @@ with open('test_factorial.tbc', 'wb+') as tbc:
 	wrt_hdr_globals(tbc);
 	wrt_hdr_footer(tbc, entry=0);
 	
-# factorial:
+# factorial:	# CHANGE TO USE STACK AND OTHER REGISTERS.
 	# sub rsp, 16
 	wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16); #0-17
 	
-	# mov DWORD PTR [rbp-4], res
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Register|FourBytes, rbp, res, -4); #18-39
-	
 # if( i<=1 )
-	# cmp DWORD PTR [rbp-4], 1
-	wrt_two_op_code(tbc, opcodes.ucmpm, RegIndirect|Immediate|FourBytes, rbp, 1, -4); #40-61
-	
-	# jz offset:92
-	wrt_one_op_code(tbc, opcodes.jz, Immediate, 92); #62-71
+	# cmp DWORD PTR [rbp+16], 1
+	wrt_two_op_code(tbc, opcodes.ucmpm, RegIndirect|Immediate|FourBytes, rbp, 1, 16); #18-39
+	# jz offset:70
+	wrt_one_op_code(tbc, opcodes.jnz, Immediate, 70); #40-49
 	
 # return 1;
 	# mov ras, 1
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 1); #72-89
+	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 1); #50-67
 	# ret
-	wrt_non_op_code(tbc, opcodes.ret, 0); #90-91
+	wrt_non_op_code(tbc, opcodes.ret, 0); #68-69
 	
 # return i * factorial(i-1);
-	# mov ras, DWORD PTR [rbp-4]
-	wrt_two_op_code(tbc, opcodes.movr, RegIndirect|FourBytes, ras, rbp, -4); #92-111
+	# mov ras, DWORD PTR [rbp+16]
+	wrt_two_op_code(tbc, opcodes.movr, RegIndirect|FourBytes, ras, rbp, 16); #70
 	
 	# sub ras, 1
 	wrt_two_op_code(tbc, opcodes.usubr, Immediate, ras, 1);
 	
-	# mov res, ras
-	wrt_two_op_code(tbc, opcodes.movr, Register, res, ras);
+	# push ras
+	wrt_one_op_code(tbc, opcodes.push, Register, ras);
 	
 	# call factorial
 	wrt_one_op_code(tbc, opcodes.call, Immediate, 0);
 	
-	# mul ras, DWORD PTR [rbp-4], ret
-	wrt_two_op_code(tbc, opcodes.umulr, RegIndirect|FourBytes, ras, rbp, -4);
+	# mul ras, DWORD PTR [rbp+16], ret
+	wrt_two_op_code(tbc, opcodes.umulr, RegIndirect|FourBytes, ras, rbp, 16);
 	wrt_non_op_code(tbc, opcodes.ret, 0);
 
 
@@ -480,7 +476,6 @@ with open('test_loadgbl.tbc', 'wb+') as tbc:
 	wrt_non_op_code(tbc, opcodes.halt, 0); #10-11
 	
 # main:
-	
 	wrt_callnat(tbc, Immediate, 0, 0);
 	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0);
 	wrt_non_op_code(tbc, opcodes.ret, 0);
@@ -634,7 +629,7 @@ int main()
 	if( !t )
 		return 0;
 	
-	script_push_value(t, (Val_t){ .UInt32=4 });
+	script_push_value(t, (Val_t){ .UInt32=7 });
 	script_callfunc(t, "factorial");
 	Val_t val = script_pop_value(t);
 	printf("%u\n", val.UInt32);
@@ -675,30 +670,31 @@ with open('test_interplugin_com.tbc', 'wb+') as tbc:
 	wrt_one_op_code(tbc, opcodes.push, Register, rbs); #52-61
 	# returned ptr is in ras register.
 	wrt_callnat(tbc, Immediate, 1, 0); #62-75
+	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Register|EightBytes, rbp, ras, -16); #76-97
 	
 	# if( !t )
-	wrt_two_op_code(tbc, opcodes.ucmpr, Immediate, ras, 0); #76-93
-	wrt_one_op_code(tbc, opcodes.jnz, Immediate, 124); #94-103
+	wrt_two_op_code(tbc, opcodes.ucmpm, RegIndirect|Immediate|EightBytes, rbp, 0, -16); #98-119
+	# jump if t is not 0
+	wrt_one_op_code(tbc, opcodes.jnz, Immediate, 150); #120-129
 	
 	# return 0;
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0); #104-121
-	wrt_non_op_code(tbc, opcodes.ret, 0); #122-123
+	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0); #130-147
+	wrt_non_op_code(tbc, opcodes.ret, 0); #148-149
 	
-	# script_push_value(t, (Val_t){ .UInt32=4 });
-	wrt_one_op_code(tbc, opcodes.push, Immediate, 4); #124
-	wrt_one_op_code(tbc, opcodes.push, Register, ras);
+	# script_push_value(t, (Val_t){ .UInt32=7 });
+	wrt_one_op_code(tbc, opcodes.push, Immediate, 7); #150
+	wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbp, -16);
 	wrt_callnat(tbc, Immediate, 2, 4);
 	
 	# script_callfunc(t, "factorial");
-	# save 't' ptr to a different register.
-	wrt_two_op_code(tbc, opcodes.movr, Register, rcs, ras);
 	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rbp, -201);
+	
 	wrt_one_op_code(tbc, opcodes.push, Register, rbs);
-	wrt_one_op_code(tbc, opcodes.push, Register, ras);
+	wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbp, -16);
 	wrt_callnat(tbc, Immediate, 2, 2);
 	
 	# Val_t val = script_pop_value(t);
-	wrt_one_op_code(tbc, opcodes.push, Register, rcs);
+	wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbp, -16);
 	wrt_callnat(tbc, Immediate, 1, 5);
 	
 	# printf("%u\n", val.UInt32);
@@ -708,10 +704,10 @@ with open('test_interplugin_com.tbc', 'wb+') as tbc:
 	wrt_callnat(tbc, Immediate, 2, 6);
 	
 	# script_free(t), t=NULL;
-	wrt_one_op_code(tbc, opcodes.push, Register, rcs);
+	wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbp, -16);
 	wrt_callnat(tbc, Immediate, 1, 1);
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, rcs, 0);
+	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Immediate|EightBytes, rbp, 0, -16);
 	
 	# return 0;
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0); #93-155
+	#wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0); #93-155
 	wrt_non_op_code(tbc, opcodes.ret, 0); #156-157

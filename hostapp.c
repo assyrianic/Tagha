@@ -10,21 +10,19 @@
 */
 
 /* void print_helloworld(void); */
-static void native_print_helloworld(Script_t *script, Param_t params[], Param_t **restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_print_helloworld(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
 {
 	puts("native_print_helloworld :: hello world from bytecode!\n");
-	*retval = NULL;
 }
 
 /* void test(struct Player *p); */
-static void native_test(Script_t *script, Param_t params[], Param_t **restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_test(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
 {
 	struct Player {
 		float		speed;
 		uint32_t	health;
 		uint32_t	ammo;
 	} *player=NULL;
-	*retval = NULL;
 	
 	// get first arg which is the virtual address to our data.
 	player = (struct Player *)params[0].Ptr;
@@ -39,9 +37,8 @@ static void native_test(Script_t *script, Param_t params[], Param_t **restrict r
 }
 
 /* void getglobal(void); */
-static void native_getglobal(Script_t *script, Param_t params[], Param_t **restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_getglobal(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
 {
-	*retval = NULL;
 	int *p = TaghaScript_get_global_by_name(script, "i");
 	if( !p )
 		return;
@@ -84,8 +81,7 @@ int main(int argc, char **argv)
 	/* // For testing with "factorial.tbc".
 	Script_t *script = Tagha_get_script(&vm);
 	//TaghaScript_push_value(script, (Val_t){ .UInt32=6 });	// param b
-	//TaghaScript_push_value(script, (Val_t){ .UInt32=8 });	// param a
-	TaghaScript_push_reg_value(script, res, (Val_t){ .UInt32=8 });
+	TaghaScript_push_value(script, (Val_t){ .UInt32=7 });	// param a
 	Tagha_call_script_func(&vm, "factorial");
 	Val_t result = TaghaScript_pop_value(script);
 	printf("factorial result == %" PRIu32 "\n", result.UInt32);

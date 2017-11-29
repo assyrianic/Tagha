@@ -1,5 +1,5 @@
-#ifndef TAGHA_HPP_INCLUDED
-	#define TAGHA_HPP_INCLUDED
+#ifndef TAGHA_H_INCLUDED
+	#define TAGHA_H_INCLUDED
 
 
 #ifdef __cplusplus
@@ -23,8 +23,6 @@ extern "C" {
 #define RESET	"\033[0m"	// Reset obviously
 
 
-enum RegID;
-enum AddrMode;
 struct TaghaScript;
 struct TaghaVM;
 struct NativeInfo;
@@ -38,8 +36,6 @@ typedef struct DataTable		DataTable_t, GlobalTable_t;
 typedef struct FuncTable		FuncTable_t, ProcTable_t;
 typedef struct NativeInfo		NativeInfo_t, NativeData_t;
 typedef union CValue			Param_t, Arg_t, Val_t;
-typedef enum AddrMode			AddrMode_t;
-typedef enum RegID				RegID_t;
 
 
 
@@ -64,7 +60,7 @@ union CValue {
 };
 
 //	API for scripts to call C/C++ host functions.
-typedef		void (*fnNative_t)(struct TaghaScript *, union CValue [], union CValue **, const uint32_t, struct TaghaVM *);
+typedef		void (*fnNative_t)(struct TaghaScript *, union CValue [], union CValue *, const uint32_t, struct TaghaVM *);
 
 struct NativeInfo {
 	const char	*strName;	// use as string literals
@@ -185,8 +181,6 @@ void		TaghaScript_free(struct TaghaScript *script);
 
 void		*TaghaScript_get_global_by_name(struct TaghaScript *script, const char *strGlobalName);
 bool		TaghaScript_bind_global_ptr(struct TaghaScript *script, const char *strGlobalName, void *pVar);
-void		TaghaScript_push_reg_value(struct TaghaScript *script, const enum RegID reg, const union CValue value);
-union CValue	TaghaScript_give_reg_value(struct TaghaScript *script, const enum RegID reg);
 void		TaghaScript_push_value(struct TaghaScript *script, const union CValue value);
 union CValue	TaghaScript_pop_value(struct TaghaScript *script);
 
@@ -254,4 +248,4 @@ enum InstrSet{ INSTR_SET };
 }
 #endif
 
-#endif	// TAGHA_HPP_INCLUDED
+#endif	// TAGHA_H_INCLUDED
