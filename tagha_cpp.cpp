@@ -1,164 +1,140 @@
 #include "tagha.hpp"
 
-TaghaScriptCPP::TaghaScriptCPP()
+
+void TaghaScript_::del()
 {
-	this->script = new Script_t;
-	if( !this->script )
-		return;
+	TaghaScript_free((struct TaghaScript *)this);
 }
 
-TaghaScriptCPP::TaghaScriptCPP(Script_t *script)
+void TaghaScript_::debug_print_ptrs()
 {
-	this->script = script;
+	TaghaScript_debug_print_ptrs((struct TaghaScript *)this);
 }
 
-void TaghaScriptCPP::del()
+void TaghaScript_::debug_print_memory()
 {
-	TaghaScript_free(this->script);
+	TaghaScript_debug_print_memory((struct TaghaScript *)this);
 }
 
-void TaghaScriptCPP::debug_print_ptrs()
+void TaghaScript_::debug_print_instrs()
 {
-	TaghaScript_debug_print_ptrs(this->script);
+	TaghaScript_debug_print_instrs((struct TaghaScript *)this);
 }
 
-void TaghaScriptCPP::debug_print_memory()
+void TaghaScript_::reset()
 {
-	TaghaScript_debug_print_memory(this->script);
+	TaghaScript_reset((struct TaghaScript *)this);
 }
 
-void TaghaScriptCPP::debug_print_instrs()
+void *TaghaScript_::get_global_by_name(const char *strGlobalName)
 {
-	TaghaScript_debug_print_instrs(this->script);
+	return TaghaScript_get_global_by_name((struct TaghaScript *)this, strGlobalName);
 }
 
-void TaghaScriptCPP::reset()
+bool TaghaScript_::bind_global_ptr(const char *strGlobalName, void *pVar)
 {
-	TaghaScript_reset(this->script);
+	return TaghaScript_bind_global_ptr((struct TaghaScript *)this, strGlobalName, pVar);
 }
 
-void *TaghaScriptCPP::get_global_by_name(const char *strGlobalName)
+void TaghaScript_::push_value(const Val_t value)
 {
-	return TaghaScript_get_global_by_name(this->script, strGlobalName);
+	TaghaScript_push_value((struct TaghaScript *)this, value);
 }
 
-bool TaghaScriptCPP::bind_global_ptr(const char *strGlobalName, void *pVar)
+Val_t TaghaScript_::pop_value()
 {
-	return TaghaScript_bind_global_ptr(this->script, strGlobalName, pVar);
+	return TaghaScript_pop_value((struct TaghaScript *)this);
 }
 
-void TaghaScriptCPP::push_value(const Val_t value)
+uint32_t TaghaScript_::memsize()
 {
-	TaghaScript_push_value(this->script, value);
+	return TaghaScript_memsize((struct TaghaScript *)this);
 }
 
-Val_t TaghaScriptCPP::pop_value()
+uint32_t TaghaScript_::instrsize()
 {
-	return TaghaScript_pop_value(this->script);
+	return TaghaScript_instrsize((struct TaghaScript *)this);
 }
 
-uint32_t TaghaScriptCPP::memsize()
+uint32_t TaghaScript_::maxinstrs()
 {
-	return TaghaScript_memsize(this->script);
+	return TaghaScript_maxinstrs((struct TaghaScript *)this);
 }
 
-uint32_t TaghaScriptCPP::instrsize()
+uint32_t TaghaScript_::nativecount()
 {
-	return TaghaScript_instrsize(this->script);
+	return TaghaScript_nativecount((struct TaghaScript *)this);
 }
 
-uint32_t TaghaScriptCPP::maxinstrs()
+uint32_t TaghaScript_::funccount()
 {
-	return TaghaScript_maxinstrs(this->script);
+	return TaghaScript_funcs((struct TaghaScript *)this);
 }
 
-uint32_t TaghaScriptCPP::nativecount()
+uint32_t TaghaScript_::globalcount()
 {
-	return TaghaScript_nativecount(this->script);
+	return TaghaScript_globals((struct TaghaScript *)this);
 }
 
-uint32_t TaghaScriptCPP::funccount()
+bool TaghaScript_::safemode_active()
 {
-	return TaghaScript_funcs(this->script);
+	return TaghaScript_safemode_active((struct TaghaScript *)this);
 }
 
-uint32_t TaghaScriptCPP::globalcount()
+bool TaghaScript_::debug_active()
 {
-	return TaghaScript_globals(this->script);
-}
-
-bool TaghaScriptCPP::safemode_active()
-{
-	return TaghaScript_safemode_active(this->script);
-}
-
-bool TaghaScriptCPP::debug_active()
-{
-	return TaghaScript_debug_active(this->script);
+	return TaghaScript_debug_active((struct TaghaScript *)this);
 }
 
 
-
-
-TaghaVMCPP::TaghaVMCPP()
+TaghaVM_::TaghaVM_()
 {
-	this->vm = new TaghaVM_t;
-	if( !this->vm )
-		return;
-	
-	Tagha_init(this->vm);
+	Tagha_init((struct TaghaVM *)this);
 }
 
-TaghaVMCPP::TaghaVMCPP(TaghaVM_t *vm)
+void TaghaVM_::del()
 {
-	this->vm = vm;
+	Tagha_free((struct TaghaVM *)this);
 }
 
-void TaghaVMCPP::del()
+void TaghaVM_::load_script_by_name(char *filename)
 {
-	Tagha_free(this->vm);
-	delete this->vm;
-	this->vm = nullptr;
+	Tagha_load_script_by_name((struct TaghaVM *)this, filename);
 }
 
-void TaghaVMCPP::load_script_by_name(char *filename)
+bool TaghaVM_::register_natives(NativeInfo_ arrNatives[])
 {
-	Tagha_load_script_by_name(this->vm, filename);
+	return Tagha_register_natives((struct TaghaVM *)this, (struct NativeInfo *)arrNatives);
 }
 
-bool TaghaVMCPP::register_natives(NativeInfo_t arrNatives[])
+int32_t TaghaVM_::call_script_func(const char *strFunc)
 {
-	return Tagha_register_natives(this->vm, arrNatives);
+	return Tagha_call_script_func((struct TaghaVM *)this, strFunc);
 }
 
-int32_t TaghaVMCPP::call_script_func(const char *strFunc)
+TaghaScript_ *TaghaVM_::get_script()
 {
-	return Tagha_call_script_func(this->vm, strFunc);
+	return (TaghaScript_ *)Tagha_get_script((struct TaghaVM *)this);
 }
 
-Script_t *TaghaVMCPP::get_script()
+void TaghaVM_::set_script(TaghaScript_ *script)
 {
-	return Tagha_get_script(this->vm);
+	Tagha_set_script((struct TaghaVM *)this, (struct TaghaScript *)script);
 }
 
-void TaghaVMCPP::set_script(Script_t *script)
+void TaghaVM_::exec(uint8_t *oldbp)
 {
-	Tagha_set_script(this->vm, script);
+	Tagha_exec((struct TaghaVM *)this, oldbp);
 }
 
-void TaghaVMCPP::exec(uint8_t *oldbp)
+void TaghaVM_::load_libc_natives()
 {
-	Tagha_exec(this->vm, oldbp);
+	Tagha_load_libc_natives((struct TaghaVM *)this);
 }
 
-void TaghaVMCPP::load_libc_natives()
+void TaghaVM_::load_self_natives()
 {
-	Tagha_load_libc_natives(this->vm);
-}
-
-void TaghaVMCPP::load_self_natives()
-{
-	Tagha_load_self_natives(this->vm);
+	Tagha_load_self_natives((struct TaghaVM *)this);
 }
 
 

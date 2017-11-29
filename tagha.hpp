@@ -5,14 +5,34 @@
 #include "tagha.h"
 
 
-struct TaghaScriptCPP;
-struct TaghaVMCPP;
+struct TaghaScript_;
+struct TaghaVM_;
+struct NativeInfo_;
 
-struct TaghaScriptCPP {
-	Script_t *script;
+struct TaghaScript_ {
+	char m_strName[64];	// script's name
+	uint8_t
+		*m_pMemory,	// stack and data stream. Used for stack and data segment
+		*m_pText	// instruction stream.
+	;
+	union CValue m_Regs[regsize];
+	char	**m_pstrNatives;	// natives table as stored strings.
+	struct hashmap
+		*m_pmapFuncs,	// stores the functions compiled to script.
+		*m_pmapGlobals	// stores global vars like string literals or variables.
+	;
+	uint32_t
+		m_uiMemsize,	// size of m_pMemory
+		m_uiInstrSize,	// size of m_pText
+		m_uiMaxInstrs,	// max amount of instrs a script can execute.
+		m_uiNatives,	// amount of natives the script uses.
+		m_uiFuncs,	// how many functions the script has.
+		m_uiGlobals	// how many globals variables the script has.
+	;
+	bool	m_bSafeMode : 1;	// does the script want bounds checking?
+	bool	m_bDebugMode : 1;	// print debug info.
+	uint8_t	m_ucZeroFlag : 1;	// conditional zero flag.
 	
-	TaghaScriptCPP();
-	TaghaScriptCPP(Script_t *);
 	void del();
 	void debug_print_ptrs();
 	void debug_print_memory();
@@ -32,21 +52,30 @@ struct TaghaScriptCPP {
 	bool debug_active();
 };
 
-struct TaghaVMCPP {
-	TaghaVM_t *vm;
+struct TaghaVM_ {
+	struct TaghaScript	*m_pScript;
+	struct hashmap		*m_pmapNatives;
 	
-	TaghaVMCPP();
-	TaghaVMCPP(TaghaVM_t *);
+	TaghaVM_(void);
 	void del();
 	void load_script_by_name(char *filename);
-	bool register_natives(NativeInfo_t arrNatives[]);
+	bool register_natives(NativeInfo_ arrNatives[]);
 	int32_t call_script_func(const char *strFunc);
-	Script_t *get_script();
-	void set_script(Script_t *script);
+	TaghaScript_ *get_script();
+	void set_script(TaghaScript_ *script);
 	void exec(uint8_t *oldbp);
 	void load_libc_natives();
 	void load_self_natives();
 };
+
+
+typedef		void (*fnNative_)(struct TaghaScript_ *, union CValue [], union CValue *, const uint32_t, struct TaghaVM_ *);
+
+struct NativeInfo_ {
+	const char	*strName;	// use as string literals
+	fnNative_	pFunc;
+};
+
 
 #endif	// TAGHA_HPP_INCLUDED
 

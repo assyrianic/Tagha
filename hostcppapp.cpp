@@ -9,13 +9,13 @@
 */
 
 /* void print_helloworld(void); */
-static void native_print_helloworld(Script_t *script, Param_t params[], Param_t *retval, const uint32_t argc, TaghaVM_t *env)
+static void native_print_helloworld(TaghaScript_ *script, Param_t params[], Param_t *retval, const uint32_t argc, TaghaVM_ *env)
 {
 	puts("native_print_helloworld :: hello world from bytecode!\n");
 }
 
 /* void test_ptr(struct player *p); */
-static void native_test_ptr(Script_t *script, Param_t params[], Param_t *retval, const uint32_t argc, TaghaVM_t *env)
+static void native_test_ptr(TaghaScript_ *script, Param_t params[], Param_t *retval, const uint32_t argc, TaghaVM_ *env)
 {
 	struct Player {
 		float		speed;
@@ -34,10 +34,9 @@ static void native_test_ptr(Script_t *script, Param_t params[], Param_t *retval,
 }
 
 /* void getglobal(void); */
-static void native_getglobal(Script_t *script, Param_t params[], Param_t *retval, const uint32_t argc, TaghaVM_t *env)
+static void native_getglobal(TaghaScript_ *script, Param_t params[], Param_t *retval, const uint32_t argc, TaghaVM_ *env)
 {
-	TaghaScriptCPP Script = TaghaScriptCPP(script);
-	int *p = (int *)Script.get_global_by_name("i");
+	int *p = (int *)script->get_global_by_name("i");
 	if( !p )
 		return;
 	
@@ -52,8 +51,8 @@ int main(int argc, char **argv)
 		printf("[TaghaVM Usage]: '%s' '.tbc file' \n", argv[0]);
 		return 1;
 	}
-	TaghaVMCPP *VM = new TaghaVMCPP();
-	NativeInfo_t host_natives[] = {
+	TaghaVM_ *VM = new TaghaVM_();
+	NativeInfo_ host_natives[] = {
 		{"test", native_test_ptr},
 		{"printHW", native_print_helloworld},
 		{"getglobal", native_getglobal},
@@ -68,7 +67,7 @@ int main(int argc, char **argv)
 	/*
 	// tested with test_3d_vecs.tbc
 	float vect[3]={ 10.f, 15.f, 20.f };
-	TaghaScriptCPP Script = TaghaScriptCPP(VM->get_script());
+	Taghascript Script = Taghascript(VM->get_script());
 	Script.push_value((Val_t){ .Pointer=vect });
 	VM->call_script_func("vec_invert");
 	printf("vect[3]=={ %f , %f, %f }\n", vect[0], vect[1], vect[2]);
