@@ -5,12 +5,13 @@ Tagha is a **WIP** minimal yet complex register-based virtual machine and script
 [See the Wiki for API references, Opcodes reference, Tutorials, and more](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki)
 
 ## (Current) Features:
-* Scripts can call Host functions (natives).
+* Scripts can call Host functions (called natives).
 * Host can call script functions, with pushing and retrieving data!
 * Host can retrieve script global variables.
 * Host can bind its own global variables as a pointer to a script global variable.
 * Very small memory usage: executable itself is 60-80kb.
 * No dependencies except libc!
+* easy to use, seamless C++ wrapper.
 
 ## Installation/Building
 download or git clone the project. The build scripts in the project give you the option to build Tagha as a static or shared library.
