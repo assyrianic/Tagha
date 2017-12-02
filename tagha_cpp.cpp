@@ -36,12 +36,12 @@ bool TaghaScript_::bind_global_ptr(const char *strGlobalName, void *pVar)
 	return TaghaScript_bind_global_ptr((struct TaghaScript *)this, strGlobalName, pVar);
 }
 
-void TaghaScript_::push_value(const Val_t value)
+void TaghaScript_::push_value(const CValue_t value)
 {
 	TaghaScript_push_value((struct TaghaScript *)this, value);
 }
 
-Val_t TaghaScript_::pop_value()
+CValue_t TaghaScript_::pop_value()
 {
 	return TaghaScript_pop_value((struct TaghaScript *)this);
 }
@@ -122,9 +122,9 @@ void TaghaVM_::set_script(TaghaScript_ *script)
 	Tagha_set_script((struct TaghaVM *)this, (struct TaghaScript *)script);
 }
 
-void TaghaVM_::exec(uint8_t *oldbp)
+void TaghaVM_::exec(uint8_t *oldbp, int argc, CValue_t argv[])
 {
-	Tagha_exec((struct TaghaVM *)this, oldbp);
+	Tagha_exec((struct TaghaVM *)this, oldbp, argc, argv);
 }
 
 void TaghaVM_::load_libc_natives()

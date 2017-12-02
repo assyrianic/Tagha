@@ -132,7 +132,7 @@ static void native_setbuf(Script_t *script, Param_t params[], Param_t *restrict 
  * File Access
  */
 
-int32_t gnprintf(char *buffer, size_t maxlen, const char *format, Val_t params[], uint32_t numparams, uint32_t *curparam);
+int32_t gnprintf(char *buffer, size_t maxlen, const char *format, CValue_t params[], uint32_t numparams, uint32_t *curparam);
 
 /* int fprintf(FILE *stream, const char *format, ...); */
 static void native_fprintf(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
@@ -187,13 +187,11 @@ static void native_printf(Script_t *script, Param_t params[], Param_t *restrict 
 		puts("printf reported an ERROR :: **** param 'fmt' is NULL ****\n");
 		return;
 	}
-	
-	char data_buffer[1024] = {0};
+	char data_buffer[4096] = {0};
 	uint32_t param = 1;
-	int32_t res = gnprintf(data_buffer, 1024, str, params, argc-1, &param);
-	data_buffer[1023] = 0;
+	retval->Int32 = gnprintf(data_buffer, 4096, str, params, argc-1, &param);
+	data_buffer[4095] = 0;	// make sure we null terminator.
 	printf("%s", data_buffer);
-	retval->Int32 = res;
 }
 
 /* int puts(const char *s); */

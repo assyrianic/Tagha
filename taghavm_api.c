@@ -119,7 +119,7 @@ int32_t Tagha_call_script_func(struct TaghaVM *restrict vm, const char *restrict
 	}
 	
 	// save return address.
-	(*--script->m_Regs[rsp].SelfPtr).UInt64 = (uintptr_t)script->m_Regs[rip].UCharPtr+1;
+	(--script->m_Regs[rsp].SelfPtr)->UInt64 = (uintptr_t)script->m_Regs[rip].UCharPtr+1;
 	
 	// jump to the function entry address.
 	script->m_Regs[rip].UCharPtr = script->m_pText + pFuncTable->m_uiEntry;
@@ -134,10 +134,10 @@ int32_t Tagha_call_script_func(struct TaghaVM *restrict vm, const char *restrict
 	uint8_t *oldBP = script->m_Regs[rbp].UCharPtr;
 	
 	// push bp and copy sp to bp.
-	(*--script->m_Regs[rsp].SelfPtr).UInt64 = (uintptr_t)script->m_Regs[rbp].UCharPtr;
-	script->m_Regs[rbp].UCharPtr = script->m_Regs[rsp].UCharPtr;
+	(--script->m_Regs[rsp].SelfPtr)->UInt64 = (uintptr_t)script->m_Regs[rbp].UCharPtr;
+	script->m_Regs[rbp] = script->m_Regs[rsp];
 	
-	return Tagha_exec(vm, oldBP);
+	return Tagha_exec(vm, oldBP, 0, NULL);
 }
 
 Script_t *Tagha_get_script(const struct TaghaVM *vm)
@@ -620,13 +620,13 @@ void AddOctal(char **buf_p, size_t *maxlen, uint64_t val, int width, int flags)
 }
 
 //		Edits done:
-// void* array is changed to Val_t.
+// void* array is changed to CValue_t.
 // removed pPhrases, pOutPutLength, and pFailPhrase.
 // Added extra formats for other data like '%p' for pointers.
 int32_t gnprintf(char *buffer,
 					size_t maxlen,
 					const char *format,
-					Val_t params[],
+					CValue_t params[],
 					uint32_t numparams,
 					uint32_t *restrict curparam)
 {

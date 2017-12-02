@@ -450,13 +450,13 @@ void TaghaScript_push_value(struct TaghaScript *script, const union CValue value
 		TaghaScript_PrintErr(script, __func__, "stack overflow!");
 		return;
 	}
-	(*--script->m_Regs[rsp].SelfPtr).UInt64 = 0;
+	(--script->m_Regs[rsp].SelfPtr)->UInt64 = 0;
 	*script->m_Regs[rsp].SelfPtr = value;
 }
 
 union CValue TaghaScript_pop_value(struct TaghaScript *script)
 {
-	Val_t val={ .UInt64=0L };
+	CValue_t val={ .UInt64=0L };
 	if( !script or !script->m_pMemory ) {
 		printf("[%sTaghaScript Pop%s]: **** %sScript is NULL%s ****\n", KRED, RESET, KGRN, RESET);
 		return val;

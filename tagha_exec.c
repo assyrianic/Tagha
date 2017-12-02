@@ -83,7 +83,7 @@ static int8_t FourBytes2Char(const int64_t i)
 }
 
 //#include <unistd.h>	// sleep() func
-int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp)
+int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, union CValue argv[])
 {
 	if( !vm or !vm->m_pScript )
 		return -1;
@@ -117,9 +117,22 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp)
 	if( !script or !script->m_pText or !script->m_pmapFuncs )
 		return -1;
 	
-	else if( !oldbp and !map_find(script->m_pmapFuncs, "main") ) {
-		TaghaScript_PrintErr(script, __func__, "Cannot freely execute script missing 'main()'!");
-		return -1;
+	else if( !oldbp ) {
+		if( !map_find(script->m_pmapFuncs, "main") ) {
+			TaghaScript_PrintErr(script, __func__, "Cannot freely execute script missing 'main()'.");
+			return -1;
+		}
+		// if we have args at all, push them to stack.
+		if( argc>0 ) {
+			// pushing argc and argv - int main(int argc, char **argv);
+			(--script->m_Regs[rsp].SelfPtr)->UInt64 = (uintptr_t)argv;
+			(--script->m_Regs[rsp].SelfPtr)->Int64 = argc;
+			printf("Tagha_exec :: pushed argc: %i and pushed argv %s\n", argc, argv[0].String);
+		}
+		else {
+			(--script->m_Regs[rsp].SelfPtr)->UInt64 = 0;
+			(--script->m_Regs[rsp].SelfPtr)->UInt64 = 0;
+		}
 	}
 	
 	int32_t offset;
@@ -152,7 +165,7 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp)
 		sleep(1);
 #endif
 		
-		puts(opcode2str[instr]);
+		printf("opcode == '%s' | ", opcode2str[instr]);
 		print_addrmode(addrmode);
 		goto *dispatch[instr];
 		
@@ -167,15 +180,15 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp)
 		exec_push:; {
 			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				(*--script->m_Regs[rsp].SelfPtr).UInt64 = a.UInt64;
+				(--script->m_Regs[rsp].SelfPtr)->UInt64 = a.UInt64;
 			else if( addrmode & Register )
-				*--script->m_Regs[rsp].SelfPtr = script->m_Regs[a.UInt64];
+				(--script->m_Regs[rsp].SelfPtr)->UInt64 = script->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
-				(*--script->m_Regs[rsp].SelfPtr).UInt64 = *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
+				(--script->m_Regs[rsp].SelfPtr)->UInt64 = *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & Direct )
-				(*--script->m_Regs[rsp].SelfPtr).UInt64 = *a.UInt64Ptr;
+				(--script->m_Regs[rsp].SelfPtr)->UInt64 = *a.UInt64Ptr;
 			continue;
 		}
 		exec_pop:; {
@@ -419,8 +432,8 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp)
 		
 		exec_call:; {
 			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
-			(*--script->m_Regs[rsp].SelfPtr).UInt64= script->m_Regs[rip].UInt64;	// push rip
-			(*--script->m_Regs[rsp].SelfPtr).UInt64 = script->m_Regs[rbp].UInt64;	// push rbp
+			(--script->m_Regs[rsp].SelfPtr)->UInt64 = script->m_Regs[rip].UInt64;	// push rip
+			(--script->m_Regs[rsp].SelfPtr)->UInt64 = script->m_Regs[rbp].UInt64;	// push rbp
 			script->m_Regs[rbp] = script->m_Regs[rsp];	// mov rbp, rsp
 			if( addrmode & Immediate )
 				script->m_Regs[rip].UCharPtr = script->m_pText + a.UInt64;
@@ -491,7 +504,7 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp)
 			memset(params, 0, sizeof(Param_t)*argcount);
 			memcpy(params, script->m_Regs[rsp].SelfPtr, sizeof(Param_t)*argcount);
 			script->m_Regs[rsp].SelfPtr += argcount;
-			printf("exec_callnat :: calling C function '%s'\n", nativestr);
+			printf("exec_callnat :: calling C function '%s'.\n", nativestr);
 			script->m_Regs[ras].UInt64 = 0;
 			(*pfNative)(script, params, script->m_Regs+ras, argcount, vm);
 			continue;

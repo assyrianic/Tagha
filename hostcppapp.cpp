@@ -62,13 +62,19 @@ int main(int argc, char **argv)
 	VM->load_libc_natives();
 	VM->load_self_natives();
 	VM->load_script_by_name(argv[1]);
-	VM->exec(nullptr);
+	
+	int argcount = 2;
+	CValue_t args[argcount+1];
+	args[0].Str = argv[1],
+	args[1].String = "kektus",
+	args[2].Str = nullptr;
+	VM->exec(nullptr, argcount, args);
 	
 	/*
 	// tested with test_3d_vecs.tbc
 	float vect[3]={ 10.f, 15.f, 20.f };
 	Taghascript Script = Taghascript(VM->get_script());
-	Script.push_value((Val_t){ .Pointer=vect });
+	Script.push_value((CValue_t){ .Pointer=vect });
 	VM->call_script_func("vec_invert");
 	printf("vect[3]=={ %f , %f, %f }\n", vect[0], vect[1], vect[2]);
 	*/

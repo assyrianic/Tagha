@@ -40,8 +40,8 @@ struct TaghaScript_ {
 	void reset();
 	void *get_global_by_name(const char *strGlobalName);
 	bool bind_global_ptr(const char *strGlobalName, void *pVar);
-	void push_value(const Val_t value);
-	Val_t pop_value();
+	void push_value(const CValue_t value);
+	CValue_t pop_value();
 	uint32_t memsize();
 	uint32_t instrsize();
 	uint32_t maxinstrs();
@@ -63,7 +63,7 @@ struct TaghaVM_ {
 	int32_t call_script_func(const char *strFunc);
 	TaghaScript_ *get_script();
 	void set_script(TaghaScript_ *script);
-	void exec(uint8_t *oldbp);
+	void exec(uint8_t *oldbp, int argc, CValue_t argv[]);
 	void load_libc_natives();
 	void load_self_natives();
 };

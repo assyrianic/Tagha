@@ -69,6 +69,10 @@ static void native_get_script_from_file(Script_t *script, Param_t params[], Para
 	const char *restrict filename = params[0].String;
 	if( !filename )
 		puts("get_script_from_file reported: 'filename' is NULL!\n");
+	else if( !strcmp(filename, script->m_strName) ) {
+		puts("get_script_from_file reported: 'filename' can't be the same file as calling script!\n");
+		return;
+	}
 	retval->Ptr = TaghaScript_from_file(filename);
 	filename = NULL;
 }
@@ -111,7 +115,7 @@ static void native_script_callfunc(Script_t *script, Param_t params[], Param_t *
 	env->m_pScript = script;
 }
 
-/* void script_push_value(Script_t *script, const Val_t value); */
+/* void script_push_value(Script_t *script, const CValue_t value); */
 static void native_script_push_value(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
 {
 	Script_t *restrict other = params[0].Ptr;
@@ -126,7 +130,7 @@ static void native_script_push_value(Script_t *script, Param_t params[], Param_t
 	TaghaScript_push_value(other, params[1]);
 }
 
-/* Val_t script_pop_value(Script_t *script); */
+/* CValue_t script_pop_value(Script_t *script); */
 static void native_script_pop_value(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
 {
 	Script_t *restrict other = params[0].Ptr;

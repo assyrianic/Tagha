@@ -303,11 +303,11 @@ with open('test_puts_helloworld.tbc', 'wb+') as tbc:
 	wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16);
 	
 	# lea ras, [rbp-47] ;load the offset of the string to ras
-	# we're using -47 because the memory size of the script is 64.
+	# we're using -31 because the memory size of the script is 64.
 	# that means stack starts at the 63rd index of the memory.
-	# we called main which increments the stack by 16 bytes, 63-16 leaves 47.
+	# we called main which increments the stack by 32 bytes, 63-32 leaves 31.
 	# we're using negative because offsets are always added with signed numbers.
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -47);
+	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -31);
 	
 	# mov QWORD PTR [rbp-16], ras
 	# "push" the address in 'ras' to stack.
@@ -374,6 +374,11 @@ with open('test_factorial.tbc', 'wb+') as tbc:
 
 
 '''
+struct Player {
+	float speed;
+	unsigned health, ammo;
+};
+
 void main(void)
 {
 	struct Player pl = { 300.f, 100, 50 };
@@ -589,17 +594,17 @@ with open('test_stdin.tbc', 'wb+') as tbc:
 	wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 256); #12-29
 	
 	# puts("Please enter a long string: ");
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -487);
+	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -471);
 	wrt_one_op_code(tbc, opcodes.push, Register, ras);
 	wrt_callnat(tbc, Immediate, 1, 0);
 	
 	# fgets(string, 256, stdin);
 	# stdin
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -495);
+	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -479);
 	wrt_one_op_code(tbc, opcodes.push, RegIndirect, ras, 0);
 	# 256
 	wrt_one_op_code(tbc, opcodes.push, Immediate, 256);
-	# string
+	# string - lea ras, [rbp-256]
 	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -256);
 	wrt_one_op_code(tbc, opcodes.push, Register, ras);
 	wrt_callnat(tbc, Immediate, 3, 1);
@@ -620,8 +625,8 @@ Script_t *get_script_from_file(const char *filename);
 void script_free(Script_t *script);
 void script_callfunc(Script_t *restrict script, const char *restrict strFunc);
 void *script_get_global_by_name(const Script_t *restrict script, const char *restrict str);
-void script_push_value(Script_t *script, const Val_t value);
-Val_t script_pop_value(Script_t *script);
+void script_push_value(Script_t *script, const CValue_t value);
+CValue_t script_pop_value(Script_t *script);
 Script_t *myself;	// myself refers to the script running this code.
 int main()
 {
@@ -629,9 +634,9 @@ int main()
 	if( !t )
 		return 0;
 	
-	script_push_value(t, (Val_t){ .UInt32=7 });
+	script_push_value(t, (CValue_t){ .UInt32=7 });
 	script_callfunc(t, "factorial");
-	Val_t val = script_pop_value(t);
+	CValue_t val = script_pop_value(t);
 	printf("%u\n", val.UInt32);
 	
 	script_free(t), t = NULL;
@@ -649,7 +654,7 @@ with open('test_interplugin_com.tbc', 'wb+') as tbc:
 		'script_pop_value',
 		'printf'
 	);
-	wrt_hdr_funcs(tbc, 'main', 0, 10);
+	wrt_hdr_funcs(tbc, 'main', 0, 12);
 	wrt_hdr_globals(tbc,
 		'myself', 0, 8, 0, # 8 bytes
 		'strFORMAT', 8, len('%u\n')+1, '%u\n', # 3 bytes
@@ -666,7 +671,7 @@ with open('test_interplugin_com.tbc', 'wb+') as tbc:
 	# Script_t *t = get_script_from_file("test_factorial_recurs.tbc");
 	wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16); #12-29
 	
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rbp, -227); #30-51
+	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rbp, -211); #30-51
 	wrt_one_op_code(tbc, opcodes.push, Register, rbs); #52-61
 	# returned ptr is in ras register.
 	wrt_callnat(tbc, Immediate, 1, 0); #62-75
@@ -681,25 +686,25 @@ with open('test_interplugin_com.tbc', 'wb+') as tbc:
 	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0); #130-147
 	wrt_non_op_code(tbc, opcodes.ret, 0); #148-149
 	
-	# script_push_value(t, (Val_t){ .UInt32=7 });
+	# script_push_value(t, (CValue_t){ .UInt32=7 });
 	wrt_one_op_code(tbc, opcodes.push, Immediate, 7); #150
 	wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbp, -16);
 	wrt_callnat(tbc, Immediate, 2, 4);
 	
 	# script_callfunc(t, "factorial");
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rbp, -201);
+	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rbp, -185);
 	
 	wrt_one_op_code(tbc, opcodes.push, Register, rbs);
 	wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbp, -16);
 	wrt_callnat(tbc, Immediate, 2, 2);
 	
-	# Val_t val = script_pop_value(t);
+	# CValue_t val = script_pop_value(t);
 	wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbp, -16);
 	wrt_callnat(tbc, Immediate, 1, 5);
 	
 	# printf("%u\n", val.UInt32);
 	wrt_one_op_code(tbc, opcodes.push, Register, ras);
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rbp, -231);
+	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rbp, -215);
 	wrt_one_op_code(tbc, opcodes.push, Register, rbs);
 	wrt_callnat(tbc, Immediate, 2, 6);
 	
@@ -711,3 +716,46 @@ with open('test_interplugin_com.tbc', 'wb+') as tbc:
 	# return 0;
 	#wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0); #93-155
 	wrt_non_op_code(tbc, opcodes.ret, 0); #156-157
+
+
+
+
+'''
+Purpose: test main's function parameters like argv.
+
+int main(int argc, char *argv[])
+{
+	printf("%s\n", argv[0]);
+	return 0;
+}
+'''
+with open('test_main_args.tbc', 'wb+') as tbc:
+	wrt_hdr(tbc, 128);
+	wrt_hdr_natives(tbc, 'printf');
+	wrt_hdr_funcs(tbc, 'main', 0, 12);
+	wrt_hdr_globals(tbc,
+		'strFORMAT', 0, len('%i\n')+1, '%i\n'
+	);
+	wrt_hdr_footer(tbc, entry=0);
+	
+	# call main
+	wrt_one_op_code(tbc, opcodes.call, Immediate, 12); #0-9
+	wrt_non_op_code(tbc, opcodes.halt, 0); #10-11
+	
+# main:
+	#wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16);
+	
+	# load address of argv, then add 1 and dereference it
+	wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, rbs, rbp, 16);
+	#wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, rbs, rbp, 24);
+	#wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, rbs, rbs, 8);
+	wrt_one_op_code(tbc, opcodes.push, Register, rbs);
+	
+	# load our string literal
+	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rcs, rbp, -95);
+	wrt_one_op_code(tbc, opcodes.push, Register, rcs);
+	# printf("%s\n", argv[0]);
+	wrt_callnat(tbc, Immediate, 2, 0);
+	
+	#wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0);
+	wrt_non_op_code(tbc, opcodes.ret, 0); 

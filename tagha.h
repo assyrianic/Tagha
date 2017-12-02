@@ -35,7 +35,7 @@ typedef struct TaghaVM			TaghaVM_t, TVM_t;
 typedef struct DataTable		DataTable_t, GlobalTable_t;
 typedef struct FuncTable		FuncTable_t, ProcTable_t;
 typedef struct NativeInfo		NativeInfo_t, NativeData_t;
-typedef union CValue			Param_t, Arg_t, Val_t;
+typedef union CValue			Param_t, CValue_t;
 
 
 
@@ -56,6 +56,7 @@ union CValue {
 	
 	void *Ptr, **PtrPtr;
 	const char *String, **StringPtr;
+	char *Str, **StrPtr;
 	union CValue *SelfPtr;
 };
 
@@ -163,7 +164,7 @@ void		gfree(void **ptr);
 
 
 // tagha_exec.c
-int32_t		Tagha_exec(struct TaghaVM *vm, uint8_t *oldbp);
+int32_t		Tagha_exec(struct TaghaVM *vm, uint8_t *oldbp, int argc, CValue_t argv[]);
 
 
 // tagha_libc.c

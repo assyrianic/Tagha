@@ -66,25 +66,30 @@ int main(int argc, char **argv)
 	Tagha_load_libc_natives(&vm);
 	Tagha_load_self_natives(&vm);
 	
-	//uint32_t i;
-	//for( i=argc-1 ; i ; i-- )
 	Tagha_load_script_by_name(&vm, argv[1]);
-	Tagha_exec(&vm, NULL);
+	
+	// keep compatible with 32-bit and 64-bit systems by
+	// using CValue data instead of using a ptr to char ptr.
+	int argcount = 2;
+	CValue_t args[argcount+1];
+	args[0].Str = argv[1],
+	args[1].Str = "kektus",
+	args[2].Str = NULL;
+	Tagha_exec(&vm, NULL, argcount, args);
 	
 	/* // tested with test_3d_vecs.tbc
 	float vect[3]={ 10.f, 15.f, 20.f };
-	TaghaScript_push_value(Tagha_get_script(&vm), (Val_t){ .Ptr=vect });
+	TaghaScript_push_value(Tagha_get_script(&vm), (CValue_t){ .Ptr=vect });
 	Tagha_call_script_func(&vm, "VecInvert");
 	printf("vect[3]=={ %f , %f, %f }\n", vect[0], vect[1], vect[2]);
 	*/
 	
 	/* // For testing with "factorial.tbc".
 	Script_t *script = Tagha_get_script(&vm);
-	//TaghaScript_push_value(script, (Val_t){ .UInt32=6 });	// param b
-	TaghaScript_push_value(script, (Val_t){ .UInt32=7 });	// param a
+	//TaghaScript_push_value(script, (CValue_t){ .UInt32=6 });	// param b
+	TaghaScript_push_value(script, (CValue_t){ .UInt32=7 });	// param a
 	Tagha_call_script_func(&vm, "factorial");
-	Val_t result = TaghaScript_pop_value(script);
-	printf("factorial result == %" PRIu32 "\n", result.UInt32);
+	printf("factorial result == %" PRIu32 "\n", TaghaScript_pop_value(script).UInt32);
 	*/
 	
 	/*
