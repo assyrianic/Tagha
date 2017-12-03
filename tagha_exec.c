@@ -53,9 +53,6 @@ void print_reg_data(const struct TaghaScript *script)
 	puts("\n\tPRINTING REGISTER DATA ==========================\n");
 	for( uint8_t i=0 ; i<regsize ; i++ )
 		printf("register[%s] == %" PRIu64 "\n", regid_to_str(i), script->m_Regs[i].UInt64);
-	
-	printf("RSP value == %" PRIu64 "\n", script->m_Regs[rsp].SelfPtr->UInt64);
-	printf("RBP value == %" PRIu64 "\n", script->m_Regs[rbp].SelfPtr->UInt64);
 	puts("\tEND OF PRINTING REGISTER DATA ===============\n");
 }
 
@@ -82,6 +79,30 @@ static int8_t FourBytes2Char(const int64_t i)
 	return val;
 }
 
+// prevent buffer overflow attacks by making sure script memory is bounds checked.
+static bool ptr_outofbounds(struct TaghaScript *restrict script, void *restrict vptr, const enum AddrMode datasize)
+{
+	if( !script or !script->m_pMemory )
+		return true;
+	
+	uint8_t *mem = script->m_pMemory;
+	uint8_t *ptr = (uint8_t *)vptr;
+	if( ptr<mem )
+		return true;
+	
+	uint32_t memsize = script->m_uiMemsize;
+	if( datasize & Byte )
+		return ptr-mem >= memsize;
+	else if( datasize & TwoBytes )
+		return (ptr+1)-mem >= memsize;
+	else if( datasize & FourBytes )
+		return (ptr+3)-mem >= memsize;
+	else if( datasize & EightBytes )
+		return (ptr+7)-mem >= memsize;
+	
+	return false;
+}
+
 //#include <unistd.h>	// sleep() func
 int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, union CValue argv[])
 {
@@ -90,9 +111,10 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 	
 	struct TaghaScript *script=NULL;
 	fnNative_t	pfNative = NULL;
-	bool		safemode;
-	bool		debugmode;
-	
+	bool
+		safemode,
+		debugmode
+	;
 	uint8_t
 		instr,
 		addrmode	// what addressing mode to use
@@ -123,11 +145,13 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			return -1;
 		}
 		// if we have args at all, push them to stack.
-		if( argc>0 ) {
+		// PATCH: argv refers to outside memory.
+		//		if safemode is on, argv is disabled.
+		if( argc>0 and !script->m_bSafeMode ) {
 			// pushing argc and argv - int main(int argc, char **argv);
 			(--script->m_Regs[rsp].SelfPtr)->UInt64 = (uintptr_t)argv;
 			(--script->m_Regs[rsp].SelfPtr)->Int64 = argc;
-			printf("Tagha_exec :: pushed argc: %i and pushed argv %s\n", argc, argv[0].String);
+			printf("Tagha_exec :: pushed argc: %i and pushed argv %p\n", argc, argv);
 		}
 		else {
 			(--script->m_Regs[rsp].SelfPtr)->UInt64 = 0;
@@ -164,7 +188,6 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 #ifdef _UNISTD_H
 		sleep(1);
 #endif
-		
 		printf("opcode == '%s' | ", opcode2str[instr]);
 		print_addrmode(addrmode);
 		goto *dispatch[instr];
@@ -185,10 +208,25 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				(--script->m_Regs[rsp].SelfPtr)->UInt64 = script->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						(--script->m_Regs[rsp].SelfPtr)->UInt64 = 0;
+						continue;
+					}
+				}
 				(--script->m_Regs[rsp].SelfPtr)->UInt64 = *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct )
+			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UInt64Ptr, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						(--script->m_Regs[rsp].SelfPtr)->UInt64 = 0;
+						continue;
+					}
+				}
 				(--script->m_Regs[rsp].SelfPtr)->UInt64 = *a.UInt64Ptr;
+			}
 			continue;
 		}
 		exec_pop:; {
@@ -197,10 +235,25 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].UInt64 = (*script->m_Regs[rsp].SelfPtr++).UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						script->m_Regs[rsp].SelfPtr++;
+						continue;
+					}
+				}
 				*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) = (*script->m_Regs[rsp].SelfPtr++).UInt64;
 			}
-			else if( addrmode & (Direct|Immediate) )
+			else if( addrmode & (Direct|Immediate) ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UInt64Ptr, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						script->m_Regs[rsp].SelfPtr++;
+						continue;
+					}
+				}
 				*a.UInt64Ptr = (*script->m_Regs[rsp].SelfPtr++).UInt64;
+			}
 			continue;
 		}
 		exec_neg:; {
@@ -209,6 +262,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].UInt64 = -script->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					*(script->m_Regs[a.UInt64].CharPtr+offset) = -*(script->m_Regs[a.UInt64].CharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -219,6 +278,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					*(int64_t *)(script->m_Regs[a.UInt64].CharPtr+offset) = -*(int64_t *)(script->m_Regs[a.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & (Direct|Immediate) ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					*a.CharPtr = -*a.CharPtr;
 				else if( addrmode & TwoBytes )
@@ -237,6 +302,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].UInt64 += 1;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					*(script->m_Regs[a.UInt64].UCharPtr+offset) += 1;
 				else if( addrmode & TwoBytes )
@@ -247,6 +318,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) += 1;
 			}
 			else if( addrmode & (Direct|Immediate) ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					*a.UCharPtr += 1;
 				else if( addrmode & TwoBytes )
@@ -264,6 +341,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].UInt64 -= 1;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					*(script->m_Regs[a.UInt64].UCharPtr+offset) -= 1;
 				else if( addrmode & TwoBytes )
@@ -274,6 +357,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) -= 1;
 			}
 			else if( addrmode & (Direct|Immediate) ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					*a.UCharPtr -= 1;
 				else if( addrmode & TwoBytes )
@@ -291,6 +380,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].UInt64 = ~script->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					*(script->m_Regs[a.UInt64].UCharPtr+offset) = ~*(script->m_Regs[a.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -301,6 +396,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) = ~*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & (Direct|Immediate) ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					*a.UCharPtr = ~*a.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -313,79 +414,6 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			continue;
 		}
 		
-		exec_long2int:; {
-			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
-			if( addrmode & Register )
-				script->m_Regs[a.UInt64].Int32 = FourBytes2Int(script->m_Regs[a.UInt64].Int64);
-			else if( addrmode & RegIndirect ) {
-				offset = *script->m_Regs[rip].Int32Ptr++;
-				*(int32_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) = FourBytes2Int(*(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset));
-			}
-			else if( addrmode & (Direct|Immediate) )
-				*a.Int32Ptr = FourBytes2Int(*a.Int64Ptr);
-			continue;
-		}
-		exec_long2short:; {
-			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
-			if( addrmode & Register )
-				script->m_Regs[a.UInt64].Short = FourBytes2Short(script->m_Regs[a.UInt64].Int64);
-			else if( addrmode & RegIndirect ) {
-				offset = *script->m_Regs[rip].Int32Ptr++;
-				*(int16_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) = FourBytes2Short(*(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset));
-			}
-			else if( addrmode & (Direct|Immediate) )
-				*a.ShortPtr = FourBytes2Short(*a.Int64Ptr);
-			continue;
-		}
-		exec_long2byte:; {
-			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
-			if( addrmode & Register )
-				script->m_Regs[a.UInt64].Char = FourBytes2Char(script->m_Regs[a.UInt64].Int64);
-			else if( addrmode & RegIndirect ) {
-				offset = *script->m_Regs[rip].Int32Ptr++;
-				*(script->m_Regs[a.UInt64].CharPtr+offset) = FourBytes2Char(*(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset));
-			}
-			else if( addrmode & (Direct|Immediate) )
-				*a.CharPtr = FourBytes2Char(*a.Int64Ptr);
-			continue;
-		}
-		exec_int2long:; {
-			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
-			if( addrmode & Register )
-				script->m_Regs[a.UInt64].Int64 = (int64_t) script->m_Regs[a.UInt64].Int32;
-			else if( addrmode & RegIndirect ) {
-				offset = *script->m_Regs[rip].Int32Ptr++;
-				*(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) = (int64_t) *(int32_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
-			}
-			else if( addrmode & (Direct|Immediate) )
-				*a.Int64Ptr = (int64_t) *a.Int32Ptr;
-			continue;
-		}
-		exec_short2long:; {
-			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
-			if( addrmode & Register )
-				script->m_Regs[a.UInt64].Int64 = (int64_t) script->m_Regs[a.UInt64].Short;
-			else if( addrmode & RegIndirect ) {
-				offset = *script->m_Regs[rip].Int32Ptr++;
-				*(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) = (int64_t) *(int16_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
-			}
-			else if( addrmode & (Direct|Immediate) )
-				*a.Int64Ptr = (int64_t) *a.ShortPtr;
-			continue;
-		}
-		exec_byte2long:; {
-			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
-			if( addrmode & Register )
-				script->m_Regs[a.UInt64].Int64 = (int64_t)script->m_Regs[a.UInt64].Char;
-			else if( addrmode & RegIndirect ) {
-				offset = *script->m_Regs[rip].Int32Ptr++;
-				*(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) = (int64_t) *(script->m_Regs[a.UInt64].CharPtr+offset);
-			}
-			else if( addrmode & (Direct|Immediate) )
-				*a.Int64Ptr = (int64_t) *a.CharPtr;
-			continue;
-		}
-		
 		exec_jmp:; {
 			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
@@ -394,10 +422,23 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[rip].UCharPtr = script->m_pText + script->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				script->m_Regs[rip].UCharPtr = script->m_pText + *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct )
+			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UInt64Ptr, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				script->m_Regs[rip].UCharPtr = script->m_pText + *a.UInt64Ptr;
+			}
 			continue;
 		}
 		
@@ -409,10 +450,23 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[rip].UCharPtr = (script->m_ucZeroFlag) ? script->m_pText + script->m_Regs[a.UInt64].UInt64 : script->m_Regs[rip].UCharPtr;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				script->m_Regs[rip].UCharPtr = (script->m_ucZeroFlag) ? script->m_pText + *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) : script->m_Regs[rip].UCharPtr;
 			}
-			else if( addrmode & Direct )
+			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UInt64Ptr, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				script->m_Regs[rip].UCharPtr = (script->m_ucZeroFlag) ? script->m_pText + *a.UInt64Ptr : script->m_Regs[rip].UCharPtr;
+			}
 			continue;
 		}
 		exec_jnz:; {
@@ -423,10 +477,23 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[rip].UCharPtr = (!script->m_ucZeroFlag) ? script->m_pText + script->m_Regs[a.UInt64].UInt64 : script->m_Regs[rip].UCharPtr;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				script->m_Regs[rip].UCharPtr = (!script->m_ucZeroFlag) ? script->m_pText + *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) : script->m_Regs[rip].UCharPtr;
 			}
-			else if( addrmode & Direct )
+			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UInt64Ptr, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				script->m_Regs[rip].UCharPtr = (!script->m_ucZeroFlag) ? script->m_pText + *a.UInt64Ptr : script->m_Regs[rip].UCharPtr;
+			}
 			continue;
 		}
 		
@@ -441,10 +508,23 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[rip].UCharPtr = script->m_pText + script->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				script->m_Regs[rip].UCharPtr = script->m_pText + *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct )
+			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UInt64Ptr, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				script->m_Regs[rip].UCharPtr = script->m_pText + *a.UInt64Ptr;
+			}
 			continue;
 		}
 		exec_ret:; {
@@ -475,10 +555,25 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				index = script->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						script->m_Regs[rip].UInt32Ptr++;
+						continue;
+					}
+				}
 				index = *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct )
+			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UInt64Ptr, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						script->m_Regs[rip].UInt32Ptr++;
+						continue;
+					}
+				}
 				index = *a.UInt64Ptr;
+			}
 			
 			if( safemode and index >= script->m_uiNatives  ) {
 				TaghaScript_PrintErr(script, __func__, "exec_callnat :: native index \'%" PRIu64 "\' is out of bounds!", index);
@@ -519,6 +614,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].UInt64 = script->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar = *(script->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -529,6 +630,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_Regs[a.UInt64].UInt64 = *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar = *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -545,7 +652,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {	// moving value to register-based address
 				offset = *script->m_Regs[rip].Int32Ptr++;
-				printf("movm :: offset == %i\n", offset);
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) { // value is immediate constant
 					if( addrmode & Byte )
 						*(script->m_Regs[a.UInt64].UCharPtr+offset) = b.UChar;
@@ -568,6 +680,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {	// moving value to direct address
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr = b.UChar;
@@ -591,7 +709,7 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			}
 			continue;
 		}
-		exec_lea:; {
+		exec_lea:; {	// load effective address
 			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Register )
@@ -604,6 +722,21 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].UInt64 = b.UInt64;
 			continue;
 		}
+		/*
+		exec_leo:; {	// load effective offset - loads a memory offset.
+			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
+			if( addrmode & (Direct|Immediate) )
+				script->m_Regs[a.UInt64].UInt64 = (uintptr_t)(script->m_pMemory + b.UInt64);
+			else if( addrmode & Register )
+				script->m_Regs[a.UInt64].UInt64 = (uintptr_t)(script->m_pMemory + script->m_Regs[b.UInt64].UInt64);
+			else if( addrmode & RegIndirect ) {
+				offset = *script->m_Regs[rip].Int32Ptr++;
+				script->m_Regs[a.UInt64].UInt64 = (uintptr_t)(script->m_pMemory + script->m_Regs[b.UInt64].UInt64 + offset);
+			}
+			continue;
+		}
+		*/
 		exec_addr:; {	// dest is reg, src is reg/memory/imm
 			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
@@ -613,6 +746,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].Int64 += script->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].Char += *(script->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -623,6 +762,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_Regs[a.UInt64].Int64 += *(int64_t *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].Char += *b.CharPtr;
 				else if( addrmode & TwoBytes )
@@ -639,6 +784,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*(script->m_Regs[a.UInt64].CharPtr+offset) += b.Char;
@@ -661,6 +812,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.CharPtr += b.Char;
@@ -693,6 +850,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].UInt64 += script->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar += *(script->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -703,6 +866,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_Regs[a.UInt64].UInt64 += *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar += *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -718,8 +887,14 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
+				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					offset = *script->m_Regs[rip].Int32Ptr++;
 					if( addrmode & Byte )
 						*(script->m_Regs[a.UInt64].UCharPtr+offset) += b.UChar;
 					else if( addrmode & TwoBytes )
@@ -741,6 +916,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr += b.UChar;
@@ -774,6 +955,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].Int64 -= script->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].Char -= *(script->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -784,6 +971,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_Regs[a.UInt64].Int64 -= *(int64_t *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].Char -= *b.CharPtr;
 				else if( addrmode & TwoBytes )
@@ -800,6 +993,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*(script->m_Regs[a.UInt64].CharPtr+offset) -= b.Char;
@@ -822,6 +1021,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.CharPtr -= b.Char;
@@ -854,6 +1059,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].UInt64 -= script->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar -= *(script->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -864,6 +1075,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_Regs[a.UInt64].UInt64 -= *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar -= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -880,6 +1097,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*(script->m_Regs[a.UInt64].UCharPtr+offset) -= b.UChar;
@@ -902,6 +1125,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr -= b.UChar;
@@ -935,6 +1164,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].Int64 *= script->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].Char *= *(script->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -945,6 +1180,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_Regs[a.UInt64].Int64 *= *(int64_t *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].Char *= *b.CharPtr;
 				else if( addrmode & TwoBytes )
@@ -961,6 +1202,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*(script->m_Regs[a.UInt64].CharPtr+offset) *= b.Char;
@@ -983,6 +1230,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.CharPtr *= b.Char;
@@ -1015,6 +1268,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].UInt64 *= script->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar *= *(script->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -1025,6 +1284,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_Regs[a.UInt64].UInt64 *= *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar *= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -1041,6 +1306,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*(script->m_Regs[a.UInt64].UCharPtr+offset) *= b.UChar;
@@ -1063,6 +1334,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr *= b.UChar;
@@ -1102,6 +1379,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte ) {
 					if( !*(script->m_Regs[b.UInt64].CharPtr+offset) )
 						*(script->m_Regs[b.UInt64].CharPtr+offset) = 1;
@@ -1124,6 +1407,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte ) {
 					if( !*b.CharPtr )
 						*b.CharPtr = 1;
@@ -1152,6 +1441,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( !b.UInt64 )
 						b.UInt64 = 1;
@@ -1180,6 +1475,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( !b.UInt64 )
 						b.UInt64 = 1;
@@ -1224,6 +1525,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte ) {
 					if( !*(script->m_Regs[b.UInt64].UCharPtr+offset) )
 						*(script->m_Regs[b.UInt64].UCharPtr+offset) = 1;
@@ -1246,6 +1553,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte ) {
 					if( !*b.UCharPtr )
 						*b.UCharPtr = 1;
@@ -1274,6 +1587,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( !b.UInt64 )
 						b.UInt64 = 1;
@@ -1302,6 +1621,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( !b.UInt64 )
 						b.UInt64 = 1;
@@ -1347,6 +1672,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte ) {
 					if( !*(script->m_Regs[b.UInt64].CharPtr+offset) )
 						*(script->m_Regs[b.UInt64].CharPtr+offset) = 1;
@@ -1369,6 +1700,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & (Direct|Immediate) ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte ) {
 					if( !*b.CharPtr )
 						*b.CharPtr = 1;
@@ -1397,6 +1734,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( !b.UInt64 )
 						b.UInt64 = 1;
@@ -1425,6 +1768,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( !b.UInt64 )
 						b.UInt64 = 1;
@@ -1469,6 +1818,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte ) {
 					if( !*(script->m_Regs[b.UInt64].UCharPtr+offset) )
 						*(script->m_Regs[b.UInt64].UCharPtr+offset) = 1;
@@ -1491,6 +1846,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte ) {
 					if( !*b.UCharPtr )
 						*b.UCharPtr = 1;
@@ -1519,6 +1880,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( !b.UInt64 )
 						b.UInt64 = 1;
@@ -1547,6 +1914,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( !b.UInt64 )
 						b.UInt64 = 1;
@@ -1586,6 +1959,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].UInt64 >>= script->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar >>= *(script->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -1596,6 +1975,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_Regs[a.UInt64].UInt64 >>= *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar >>= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -1612,6 +1997,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*(script->m_Regs[a.UInt64].UCharPtr+offset) >>= b.UChar;
@@ -1634,6 +2025,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr >>= b.UChar;
@@ -1667,6 +2064,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].UInt64 <<= script->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar <<= *(script->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -1677,6 +2080,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_Regs[a.UInt64].UInt64 <<= *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar <<= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -1693,6 +2102,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*(script->m_Regs[a.UInt64].UCharPtr+offset) <<= b.UChar;
@@ -1715,6 +2130,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr <<= b.UChar;
@@ -1748,6 +2169,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].UInt64 &= script->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar &= *(script->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -1758,6 +2185,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_Regs[a.UInt64].UInt64 &= *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar &= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -1774,6 +2207,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*(script->m_Regs[a.UInt64].UCharPtr+offset) &= b.UChar;
@@ -1796,6 +2235,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr &= b.UChar;
@@ -1829,6 +2274,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].UInt64 |= script->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar |= *(script->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -1839,6 +2290,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_Regs[a.UInt64].UInt64 |= *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar |= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -1855,6 +2312,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*(script->m_Regs[a.UInt64].UCharPtr+offset) |= b.UChar;
@@ -1877,6 +2340,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr |= b.UChar;
@@ -1910,6 +2379,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].UInt64 ^= script->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar ^= *(script->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -1920,6 +2395,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_Regs[a.UInt64].UInt64 ^= *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar ^= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -1936,6 +2417,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*(script->m_Regs[a.UInt64].UCharPtr+offset) ^= b.UChar;
@@ -1958,6 +2445,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr ^= b.UChar;
@@ -1991,6 +2484,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_ucZeroFlag = script->m_Regs[a.UInt64].Int64 < script->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Char < *(script->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -2001,6 +2500,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Int64 < *(int64_t *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Char < *b.CharPtr;
 				else if( addrmode & TwoBytes )
@@ -2017,6 +2522,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_ucZeroFlag = *(script->m_Regs[a.UInt64].CharPtr+offset) < b.Char;
@@ -2039,6 +2550,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_ucZeroFlag = *a.CharPtr < b.Char;
@@ -2071,6 +2588,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_ucZeroFlag = script->m_Regs[a.UInt64].UInt64 < script->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].UChar < *(script->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -2081,6 +2604,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].UInt64 < *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].UChar < *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -2097,6 +2626,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_ucZeroFlag = *(script->m_Regs[a.UInt64].UCharPtr+offset) < b.UChar;
@@ -2119,6 +2654,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_ucZeroFlag = *a.UCharPtr < b.UChar;
@@ -2152,6 +2693,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_ucZeroFlag = script->m_Regs[a.UInt64].Int64 > script->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Char > *(script->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -2162,6 +2709,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Int64 > *(int64_t *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Char > *b.CharPtr;
 				else if( addrmode & TwoBytes )
@@ -2178,6 +2731,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_ucZeroFlag = *(script->m_Regs[a.UInt64].CharPtr+offset) > b.Char;
@@ -2200,6 +2759,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_ucZeroFlag = *a.CharPtr > b.Char;
@@ -2232,6 +2797,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_ucZeroFlag = script->m_Regs[a.UInt64].UInt64 > script->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].UChar > *(script->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -2242,6 +2813,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].UInt64 > *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].UChar > *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -2258,6 +2835,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_ucZeroFlag = *(script->m_Regs[a.UInt64].UCharPtr+offset) > b.UChar;
@@ -2280,6 +2863,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_ucZeroFlag = *a.UCharPtr > b.UChar;
@@ -2313,6 +2902,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_ucZeroFlag = script->m_Regs[a.UInt64].Int64 == script->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Char == *(script->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -2323,6 +2918,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Int64 == *(int64_t *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Char == *b.CharPtr;
 				else if( addrmode & TwoBytes )
@@ -2339,6 +2940,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_ucZeroFlag = *(script->m_Regs[a.UInt64].CharPtr+offset) == b.Char;
@@ -2361,6 +2968,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_ucZeroFlag = *a.CharPtr == b.Char;
@@ -2393,6 +3006,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_ucZeroFlag = script->m_Regs[a.UInt64].UInt64 == script->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].UChar == *(script->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -2403,6 +3022,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].UInt64 == *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].UChar == *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -2419,6 +3044,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_ucZeroFlag = *(script->m_Regs[a.UInt64].UCharPtr+offset) == b.UChar;
@@ -2441,6 +3072,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_ucZeroFlag = *a.UCharPtr == b.UChar;
@@ -2474,6 +3111,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_ucZeroFlag = script->m_Regs[a.UInt64].Int64 != script->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Char != *(script->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -2484,6 +3127,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Int64 != *(int64_t *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Char != *b.CharPtr;
 				else if( addrmode & TwoBytes )
@@ -2500,6 +3149,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_ucZeroFlag = *(script->m_Regs[a.UInt64].CharPtr+offset) != b.Char;
@@ -2522,6 +3177,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_ucZeroFlag = *a.CharPtr != b.Char;
@@ -2554,6 +3215,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_ucZeroFlag = script->m_Regs[a.UInt64].UInt64 != script->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].UChar != *(script->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
@@ -2564,6 +3231,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].UInt64 != *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Byte )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].UChar != *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -2580,6 +3253,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_ucZeroFlag = *(script->m_Regs[a.UInt64].UCharPtr+offset) != b.UChar;
@@ -2602,6 +3281,12 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_ucZeroFlag = *a.UCharPtr != b.UChar;
@@ -2644,10 +3329,22 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, FourBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				float temp = (float) *(int32_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 				*(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) = temp;
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.Int32Ptr, FourBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				float temp = (float) *a.Int32Ptr;
 				*a.FloatPtr = temp;
 			}
@@ -2667,10 +3364,22 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				double temp = (double) *(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 				*(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) = temp;
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.Int64Ptr, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				double temp = (double) *a.Int64Ptr;
 				*a.DoublePtr = temp;
 			}
@@ -2693,10 +3402,22 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				temp = (double) *(float *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 				*(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) = temp;
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.DoublePtr, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				temp = (double) *a.FloatPtr;
 				*a.DoublePtr = 0;
 				*a.DoublePtr = temp;
@@ -2719,11 +3440,23 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				temp = (float) *(double *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 				*(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) = 0;
 				*(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) = temp;
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.DoublePtr, EightBytes) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				temp = (float) *a.DoublePtr;
 				*a.FloatPtr = 0;
 				*a.FloatPtr = temp;
@@ -2740,14 +3473,25 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].Double += script->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
-				// everything smaller than EightBytes is assumed float.
-				if( addrmode & (Byte|TwoBytes|FourBytes) )
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes )
 					script->m_Regs[a.UInt64].Float += *(float *)(script->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].Double += *(double *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
-				if( addrmode & (Byte|TwoBytes|FourBytes) )
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes )
 					script->m_Regs[a.UInt64].Float += *b.FloatPtr;
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].Double += *b.DoublePtr;
@@ -2759,28 +3503,42 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes ) {
 						*(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) += b.Float;
-					else if( addrmode & EightBytes )
+					}
+					else if( addrmode & EightBytes ) {
 						*(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) += b.Double;
+					}
 				}
 				else if( addrmode & Register ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						*(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) += script->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
 						*(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) += script->m_Regs[b.UInt64].Double;
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						*a.FloatPtr += b.Float;
 					else if( addrmode & EightBytes )
 						*a.DoublePtr += b.Double;
 				}
 				else if( addrmode & Register ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						*a.FloatPtr += script->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
 						*a.DoublePtr += script->m_Regs[b.UInt64].Double;
@@ -2797,14 +3555,25 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].Double -= script->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
-				// everything smaller than EightBytes is assumed float.
-				if( addrmode & (Byte|TwoBytes|FourBytes) )
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes )
 					script->m_Regs[a.UInt64].Float -= *(float *)(script->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].Double -= *(double *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
-				if( addrmode & (Byte|TwoBytes|FourBytes) )
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes )
 					script->m_Regs[a.UInt64].Float -= *b.FloatPtr;
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].Double -= *b.DoublePtr;
@@ -2816,28 +3585,40 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						*(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) -= b.Float;
 					else if( addrmode & EightBytes )
 						*(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) -= b.Double;
 				}
 				else if( addrmode & Register ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						*(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) -= script->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
 						*(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) -= script->m_Regs[b.UInt64].Double;
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						*a.FloatPtr -= b.Float;
 					else if( addrmode & EightBytes )
 						*a.DoublePtr -= b.Double;
 				}
 				else if( addrmode & Register ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						*a.FloatPtr -= script->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
 						*a.DoublePtr -= script->m_Regs[b.UInt64].Double;
@@ -2854,14 +3635,25 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].Double *= script->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
-				// everything smaller than EightBytes is assumed float.
-				if( addrmode & (Byte|TwoBytes|FourBytes) )
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes )
 					script->m_Regs[a.UInt64].Float *= *(float *)(script->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].Double *= *(double *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
-				if( addrmode & (Byte|TwoBytes|FourBytes) )
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes )
 					script->m_Regs[a.UInt64].Float *= *b.FloatPtr;
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].Double *= *b.DoublePtr;
@@ -2873,28 +3665,40 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						*(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) *= b.Float;
 					else if( addrmode & EightBytes )
 						*(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) *= b.Double;
 				}
 				else if( addrmode & Register ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						*(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) *= script->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
 						*(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) *= script->m_Regs[b.UInt64].Double;
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						*a.FloatPtr *= b.Float;
 					else if( addrmode & EightBytes )
 						*a.DoublePtr *= b.Double;
 				}
 				else if( addrmode & Register ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						*a.FloatPtr *= script->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
 						*a.DoublePtr *= script->m_Regs[b.UInt64].Double;
@@ -2917,7 +3721,13 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
-				if( addrmode & (Byte|TwoBytes|FourBytes) ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes ) {
 					if( !*(float *)(script->m_Regs[b.UInt64].CharPtr+offset) )
 						*(float *)(script->m_Regs[b.UInt64].CharPtr+offset) = 1.f;
 					script->m_Regs[a.UInt64].Float /= *(float *)(script->m_Regs[b.UInt64].CharPtr+offset);
@@ -2929,7 +3739,13 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
-				if( addrmode & (Byte|TwoBytes|FourBytes) ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes ) {
 					if( !*b.FloatPtr )
 						*b.FloatPtr = 1.f;
 					script->m_Regs[a.UInt64].Float /= *b.FloatPtr;
@@ -2947,8 +3763,14 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) ) {
+					if( addrmode & FourBytes ) {
 						if( !b.Float )
 							b.Float = 1.f;
 						*(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) /= b.Float;
@@ -2960,7 +3782,7 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					}
 				}
 				else if( addrmode & Register ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) ) {
+					if( addrmode & FourBytes ) {
 						if( !b.Float )
 							b.Float = 1.f;
 						*(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) /= script->m_Regs[b.UInt64].Float;
@@ -2973,8 +3795,14 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) ) {
+					if( addrmode & FourBytes ) {
 						if( !b.Float )
 							b.Float = 1.f;
 						*a.FloatPtr /= b.Float;
@@ -2986,7 +3814,7 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 					}
 				}
 				else if( addrmode & Register ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) ) {
+					if( addrmode & FourBytes ) {
 						if( !script->m_Regs[b.UInt64].Float )
 							script->m_Regs[b.UInt64].Float = 1.f;
 						*a.FloatPtr /= script->m_Regs[b.UInt64].Float;
@@ -3006,13 +3834,25 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_Regs[a.UInt64].Double = -script->m_Regs[a.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
-				if( addrmode & (Byte|TwoBytes|FourBytes) )
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes )
 					*(float *)(script->m_Regs[a.UInt64].CharPtr+offset) = -*(float *)(script->m_Regs[a.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
 					*(double *)(script->m_Regs[a.UInt64].CharPtr+offset) = -*(double *)(script->m_Regs[a.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & (Direct|Immediate) ) {
-				if( addrmode & (Byte|TwoBytes|FourBytes) )
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes )
 					*a.FloatPtr = -*a.FloatPtr;
 				else if( addrmode & EightBytes )
 					*a.DoublePtr = -*a.DoublePtr;
@@ -3028,14 +3868,25 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_ucZeroFlag = script->m_Regs[a.UInt64].Double < script->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
-				// everything smaller than EightBytes is assumed float.
-				if( addrmode & (Byte|TwoBytes|FourBytes) )
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Float < *(float *)(script->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Double < *(double *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
-				if( addrmode & (Byte|TwoBytes|FourBytes) )
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Float < *b.FloatPtr;
 				else if( addrmode & EightBytes )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Double < *b.DoublePtr;
@@ -3047,28 +3898,40 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						script->m_ucZeroFlag = *(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) < b.Float;
 					else if( addrmode & EightBytes )
 						script->m_ucZeroFlag = *(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) < b.Double;
 				}
 				else if( addrmode & Register ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						script->m_ucZeroFlag = *(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) < script->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
 						script->m_ucZeroFlag = *(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) < script->m_Regs[b.UInt64].Double;
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						script->m_ucZeroFlag = *a.FloatPtr < b.Float;
 					else if( addrmode & EightBytes )
 						script->m_ucZeroFlag = *a.DoublePtr < b.Double;
 				}
 				else if( addrmode & Register ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						script->m_ucZeroFlag = *a.FloatPtr < script->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
 						script->m_ucZeroFlag = *a.DoublePtr < script->m_Regs[b.UInt64].Double;
@@ -3085,14 +3948,25 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_ucZeroFlag = script->m_Regs[a.UInt64].Double > script->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
-				// everything smaller than EightBytes is assumed float unless you want float16 support.
-				if( addrmode & (Byte|TwoBytes|FourBytes) )
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Float > *(float *)(script->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Double > *(double *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
-				if( addrmode & (Byte|TwoBytes|FourBytes) )
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Float > *b.FloatPtr;
 				else if( addrmode & EightBytes )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Double > *b.DoublePtr;
@@ -3104,28 +3978,40 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].UCharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						script->m_ucZeroFlag = *(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) > b.Float;
 					else if( addrmode & EightBytes )
 						script->m_ucZeroFlag = *(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) > b.Double;
 				}
 				else if( addrmode & Register ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						script->m_ucZeroFlag = *(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) > script->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
 						script->m_ucZeroFlag = *(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) > script->m_Regs[b.UInt64].Double;
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.UCharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						script->m_ucZeroFlag = *a.FloatPtr > b.Float;
 					else if( addrmode & EightBytes )
 						script->m_ucZeroFlag = *a.DoublePtr > b.Double;
 				}
 				else if( addrmode & Register ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						script->m_ucZeroFlag = *a.FloatPtr > script->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
 						script->m_ucZeroFlag = *a.DoublePtr > script->m_Regs[b.UInt64].Double;
@@ -3142,14 +4028,25 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_ucZeroFlag = script->m_Regs[a.UInt64].Double == script->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
-				// everything smaller than EightBytes is assumed float.
-				if( addrmode & (Byte|TwoBytes|FourBytes) )
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Float == *(float *)(script->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Double == *(double *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
-				if( addrmode & (Byte|TwoBytes|FourBytes) )
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Float == *b.FloatPtr;
 				else if( addrmode & EightBytes )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Double == *b.DoublePtr;
@@ -3161,28 +4058,40 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						script->m_ucZeroFlag = *(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) == b.Float;
 					else if( addrmode & EightBytes )
 						script->m_ucZeroFlag = *(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) == b.Double;
 				}
 				else if( addrmode & Register ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						script->m_ucZeroFlag = *(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) == script->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
 						script->m_ucZeroFlag = *(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) == script->m_Regs[b.UInt64].Double;
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						script->m_ucZeroFlag = *a.FloatPtr == b.Float;
 					else if( addrmode & EightBytes )
 						script->m_ucZeroFlag = *a.DoublePtr == b.Double;
 				}
 				else if( addrmode & Register ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						script->m_ucZeroFlag = *a.FloatPtr == script->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
 						script->m_ucZeroFlag = *a.DoublePtr == script->m_Regs[b.UInt64].Double;
@@ -3199,14 +4108,25 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 				script->m_ucZeroFlag = script->m_Regs[a.UInt64].Double != script->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
-				// everything smaller than EightBytes is assumed float.
-				if( addrmode & (Byte|TwoBytes|FourBytes) )
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[b.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Float != *(float *)(script->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Double != *(double *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & Direct ) {
-				if( addrmode & (Byte|TwoBytes|FourBytes) )
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, b.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
+				if( addrmode & FourBytes )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Float != *b.FloatPtr;
 				else if( addrmode & EightBytes )
 					script->m_ucZeroFlag = script->m_Regs[a.UInt64].Double != *b.DoublePtr;
@@ -3218,28 +4138,40 @@ int Tagha_exec(struct TaghaVM *restrict vm, uint8_t *restrict oldbp, int argc, u
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, script->m_Regs[a.UInt64].CharPtr+offset, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						script->m_ucZeroFlag = *(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) != b.Float;
 					else if( addrmode & EightBytes )
 						script->m_ucZeroFlag = *(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) != b.Double;
 				}
 				else if( addrmode & Register ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						script->m_ucZeroFlag = *(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) != script->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
 						script->m_ucZeroFlag = *(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) != script->m_Regs[b.UInt64].Double;
 				}
 			}
 			else if( addrmode & Direct ) {
+				if( !oldbp and safemode ) {
+					if( ptr_outofbounds(script, a.CharPtr, addrmode) ) {
+						TaghaScript_PrintErr(script, __func__, "%s :: invalid memory access", opcode2str[instr]);
+						continue;
+					}
+				}
 				if( addrmode & Immediate ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						script->m_ucZeroFlag = *a.FloatPtr != b.Float;
 					else if( addrmode & EightBytes )
 						script->m_ucZeroFlag = *a.DoublePtr != b.Double;
 				}
 				else if( addrmode & Register ) {
-					if( addrmode & (Byte|TwoBytes|FourBytes) )
+					if( addrmode & FourBytes )
 						script->m_ucZeroFlag = *a.FloatPtr != script->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
 						script->m_ucZeroFlag = *a.DoublePtr != script->m_Regs[b.UInt64].Double;

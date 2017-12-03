@@ -12,7 +12,7 @@ def enum(*sequential, **named) -> object:
 	return type('Enum', (), enums);
 
 
-opcodes = enum('halt', 'push', 'pop', 'neg', 'inc', 'dec', 'bnot', 'long2int', 'long2short', 'long2byte', 'int2long', 'short2long', 'byte2long', 'jmp', 'jz', 'jnz', 'call', 'ret', 'callnat', 'movr', 'movm', 'lea', 'addr', 'addm', 'uaddr', 'uaddm', 'subr', 'subm', 'usubr', 'usubm', 'mulr', 'mulm', 'umulr', 'umulm', 'divr', 'divm', 'udivr', 'udivm', 'modr', 'modm', 'umodr', 'umodm', 'shrr', 'shrm', 'shlr', 'shlm', 'andr', 'andm', 'orr', 'orm', 'xorr', 'xorm', 'ltr', 'ltm', 'ultr', 'ultm', 'gtr', 'gtm', 'ugtr', 'ugtm', 'cmpr', 'cmpm', 'ucmpr', 'ucmpm', 'neqr', 'neqm', 'uneqr', 'uneqm', 'reset', 'int2float', 'int2dbl', 'float2dbl', 'dbl2float','faddr', 'faddm', 'fsubr', 'fsubm', 'fmulr', 'fmulm', 'fdivr', 'fdivm', 'fneg', 'fltr', 'fltm', 'fgtr', 'fgtm', 'fcmpr', 'fcmpm', 'fneqr', 'fneqm', 'nop');
+opcodes = enum('halt', 'push', 'pop', 'neg', 'inc', 'dec', 'bnot', 'jmp', 'jz', 'jnz', 'call', 'ret', 'callnat', 'movr', 'movm', 'lea', 'addr', 'addm', 'uaddr', 'uaddm', 'subr', 'subm', 'usubr', 'usubm', 'mulr', 'mulm', 'umulr', 'umulm', 'divr', 'divm', 'udivr', 'udivm', 'modr', 'modm', 'umodr', 'umodm', 'shrr', 'shrm', 'shlr', 'shlm', 'andr', 'andm', 'orr', 'orm', 'xorr', 'xorm', 'ltr', 'ltm', 'ultr', 'ultm', 'gtr', 'gtm', 'ugtr', 'ugtm', 'cmpr', 'cmpm', 'ucmpr', 'ucmpm', 'neqr', 'neqm', 'uneqr', 'uneqm', 'reset', 'int2float', 'int2dbl', 'float2dbl', 'dbl2float','faddr', 'faddm', 'fsubr', 'fsubm', 'fmulr', 'fmulm', 'fdivr', 'fdivm', 'fneg', 'fltr', 'fltm', 'fgtr', 'fgtm', 'fcmpr', 'fcmpm', 'fneqr', 'fneqm', 'nop');
 
 Immediate	= 1;
 Register	= 2;
@@ -171,7 +171,7 @@ int main()
 }
 '''
 with open('test_endian.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 64);
+	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc);
 	wrt_hdr_funcs(tbc, 'main', 0, 12);
 	wrt_hdr_globals(tbc, 'i', 0, 4, 0x0a0b0c0d);
@@ -197,7 +197,7 @@ int main()
 }
 '''
 with open('test_floatops.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 64);
+	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc);
 	wrt_hdr_funcs(tbc, 'main', 0, 12);
 	wrt_hdr_globals(tbc);
@@ -240,7 +240,7 @@ int main()
 }
 '''
 with open('test_pointers.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 64);
+	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc);
 	wrt_hdr_funcs(tbc, 'main', 0, 12);
 	wrt_hdr_globals(tbc);
@@ -286,7 +286,7 @@ int main()
 }
 '''
 with open('test_puts_helloworld.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 64);
+	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc, 'puts');
 	wrt_hdr_funcs(tbc, 'main', 0, 12);
 	wrt_hdr_globals(tbc, 'str00001', 0, len('hello world\n')+1, 'hello world\n');
@@ -303,11 +303,11 @@ with open('test_puts_helloworld.tbc', 'wb+') as tbc:
 	wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16);
 	
 	# lea ras, [rbp-47] ;load the offset of the string to ras
-	# we're using -31 because the memory size of the script is 64.
-	# that means stack starts at the 63rd index of the memory.
-	# we called main which increments the stack by 32 bytes, 63-32 leaves 31.
+	# we're using -96 because the memory size of the script is 128.
+	# that means stack starts at the 127th index of the memory.
+	# we called main which increments the stack by 32 bytes, 127-32 leaves 95.
 	# we're using negative because offsets are always added with signed numbers.
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -31);
+	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -95);
 	
 	# mov QWORD PTR [rbp-16], ras
 	# "push" the address in 'ras' to stack.
@@ -386,7 +386,7 @@ void main(void)
 }
 '''
 with open('test_native.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 64);
+	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc, 'test');
 	wrt_hdr_funcs(tbc, 'main', 0, 12);
 	wrt_hdr_globals(tbc);
@@ -427,7 +427,7 @@ void main(void)
 }
 '''
 with open('test_native_funcptr.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 64);
+	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc, 'test');
 	wrt_hdr_funcs(tbc, 'main', 0, 12);
 	wrt_hdr_globals(tbc);
@@ -470,7 +470,7 @@ int main()
 }
 '''
 with open('test_loadgbl.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 64);
+	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc, 'getglobal');
 	wrt_hdr_funcs(tbc, 'main', 0, 12);
 	wrt_hdr_globals(tbc, 'i', 0, 4, 4294967196);
@@ -503,7 +503,7 @@ int main()
 }
 '''
 with open('test_3d_vecs.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 64);
+	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc);
 	wrt_hdr_funcs(tbc, 'main', 0, 12, 'VecInvert', 1, 158);
 	wrt_hdr_globals(tbc);
@@ -734,9 +734,9 @@ with open('test_main_args.tbc', 'wb+') as tbc:
 	wrt_hdr_natives(tbc, 'printf');
 	wrt_hdr_funcs(tbc, 'main', 0, 12);
 	wrt_hdr_globals(tbc,
-		'strFORMAT', 0, len('%i\n')+1, '%i\n'
+		'strFORMAT', 0, len('%s\n')+1, '%s\n'
 	);
-	wrt_hdr_footer(tbc, entry=0);
+	wrt_hdr_footer(tbc, entry=0, modes=2);
 	
 	# call main
 	wrt_one_op_code(tbc, opcodes.call, Immediate, 12); #0-9
@@ -746,15 +746,15 @@ with open('test_main_args.tbc', 'wb+') as tbc:
 	#wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16);
 	
 	# load address of argv, then add 1 and dereference it
-	wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, rbs, rbp, 16);
-	#wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, rbs, rbp, 24);
-	#wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, rbs, rbs, 8);
+	#wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, rbs, rbp, 16);
+	wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, rbs, rbp, 24);
+	wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, rbs, rbs, 8);
 	wrt_one_op_code(tbc, opcodes.push, Register, rbs);
 	
 	# load our string literal
 	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rcs, rbp, -95);
 	wrt_one_op_code(tbc, opcodes.push, Register, rcs);
-	# printf("%s\n", argv[0]);
+	# printf("%s\n", argv[1]);
 	wrt_callnat(tbc, Immediate, 2, 0);
 	
 	#wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0);

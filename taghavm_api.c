@@ -154,9 +154,10 @@ void Tagha_set_script(struct TaghaVM *vm, struct TaghaScript *script)
 
 void gfree(void **ptr)
 {
-	if( *ptr )
+	if( *ptr != NULL ) {
 		free(*ptr);
-	*ptr = NULL;
+		*ptr = NULL;
+	}
 }
 
 // Code from SourceMod

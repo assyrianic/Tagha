@@ -207,9 +207,6 @@ void		TaghaScript_PrintErr(struct TaghaScript *script, const char *funcname, con
 	X(push) X(pop) \
 	/* unary arithmetic and bitwise ops */ \
 	X(neg) X(inc) X(dec) X(bnot) \
-	/* conversion ops */ \
-	X(long2int) X(long2short) X(long2byte) \
-	X(int2long) X(short2long) X(byte2long) \
 	/* jump ops */ \
 	X(jmp) X(jz) X(jnz) \
 	\

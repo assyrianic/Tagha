@@ -134,6 +134,18 @@ static void native_exit(Script_t *script, Param_t params[], Param_t *restrict re
 	printf("Exiting with status: %i\n", params[0].Int32);
 }
 
+/* int system(const char *command); */
+static void native_system(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+{
+	const char *command = params[0].String;
+	if( !command ) {
+		puts("system reported :: **** param 'command' is NULL ****\n");
+		retval->Int32 = -1;
+		return;
+	}
+	retval->Int32 = system(command);
+}
+
 
 
 void Tagha_load_stdlib_natives(struct TaghaVM *vm)
@@ -156,6 +168,7 @@ void Tagha_load_stdlib_natives(struct TaghaVM *vm)
 		{"strtoull", native_strtoull},
 		{"abort", native_abort},
 		{"exit", native_exit},
+		{"system", native_system},
 		{NULL, NULL}
 	};
 	Tagha_register_natives(vm, libc_stdlib_natives);
