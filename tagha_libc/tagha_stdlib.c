@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 /* void *malloc(size_t size); */
-static void native_malloc(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_malloc(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	// size_t is 8 bytes on 64-bit systems
 	const uint64_t ptrsize = params[0].UInt64;
@@ -16,7 +16,7 @@ static void native_malloc(Script_t *script, Param_t params[], Param_t *restrict 
 }
 
 /* void free(void *ptr); */
-static void native_free(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_free(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	void *ptr = params[0].Ptr;
 	if( ptr ) {
@@ -26,7 +26,7 @@ static void native_free(Script_t *script, Param_t params[], Param_t *restrict re
 }
 
 /* void *calloc(size_t num, size_t size); */
-static void native_calloc(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_calloc(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const uint64_t num = params[0].UInt64;
 	const uint64_t size = params[1].UInt64;
@@ -35,7 +35,7 @@ static void native_calloc(Script_t *script, Param_t params[], Param_t *restrict 
 }
 
 /* void *realloc(void *ptr, size_t size); */
-static void native_realloc(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_realloc(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	void *ptr = params[0].Ptr;
 	const uint64_t size = params[1].UInt64;
@@ -44,19 +44,19 @@ static void native_realloc(Script_t *script, Param_t params[], Param_t *restrict
 }
 
 /* void srand(unsigned int seed); */
-static void native_srand(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_srand(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	srand(params[0].UInt32);
 }
 
 /* int rand(void); */
-static void native_rand(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_rand(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	retval->Int32 = rand();
 }
 
 /* double strtod(const char *str, char **endptr); */
-static void native_strtod(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_strtod(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -67,7 +67,7 @@ static void native_strtod(Script_t *script, Param_t params[], Param_t *restrict 
 }
 
 /* float strtof(const char *str, char **endptr); */
-static void native_strtof(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_strtof(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -78,7 +78,7 @@ static void native_strtof(Script_t *script, Param_t params[], Param_t *restrict 
 }
 
 /* long int strtol(const char *str, char **endptr, int base); */
-static void native_strtol(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_strtol(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -89,7 +89,7 @@ static void native_strtol(Script_t *script, Param_t params[], Param_t *restrict 
 }
 
 /* long long int strtoll(const char *str, char **endptr, int base); */
-static void native_strtoll(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_strtoll(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -100,7 +100,7 @@ static void native_strtoll(Script_t *script, Param_t params[], Param_t *restrict
 }
 
 /* unsigned long int strtoul(const char *str, char **endptr, int base); */
-static void native_strtoul(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_strtoul(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -111,7 +111,7 @@ static void native_strtoul(Script_t *script, Param_t params[], Param_t *restrict
 }
 
 /* unsigned long long int strtoull(const char *str, char **endptr, int base); */
-static void native_strtoull(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_strtoull(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -122,20 +122,20 @@ static void native_strtoull(Script_t *script, Param_t params[], Param_t *restric
 }
 
 /* void abort(void); */
-static void native_abort(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_abort(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	*script->m_Regs[rip].UCharPtr = halt;
 }
 
 /* void exit(int status); */
-static void native_exit(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_exit(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	*script->m_Regs[rip].UCharPtr = halt;
 	printf("Exiting with status: %i\n", params[0].Int32);
 }
 
 /* int system(const char *command); */
-static void native_system(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_system(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const char *command = params[0].String;
 	if( !command ) {
@@ -153,7 +153,7 @@ void Tagha_load_stdlib_natives(struct TaghaVM *vm)
 	if( !vm )
 		return;
 	
-	NativeInfo_t libc_stdlib_natives[] = {
+	NativeInfo libc_stdlib_natives[] = {
 		{"malloc", native_malloc},
 		{"free", native_free},
 		{"calloc", native_calloc},
@@ -171,7 +171,7 @@ void Tagha_load_stdlib_natives(struct TaghaVM *vm)
 		{"system", native_system},
 		{NULL, NULL}
 	};
-	Tagha_register_natives(vm, libc_stdlib_natives);
+	Tagha_RegisterNatives(vm, libc_stdlib_natives);
 }
 
 

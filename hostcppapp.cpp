@@ -9,13 +9,13 @@
 */
 
 /* void print_helloworld(void); */
-static void native_print_helloworld(TaghaScript_ *script, Param_t params[], Param_t *retval, const uint32_t argc, TaghaVM_ *env)
+static void native_print_helloworld(TaghaScript_ *script, CValue params[], CValue *retval, const uint32_t argc, TaghaVM_ *env)
 {
 	puts("native_print_helloworld :: hello world from bytecode!\n");
 }
 
 /* void test_ptr(struct player *p); */
-static void native_test_ptr(TaghaScript_ *script, Param_t params[], Param_t *retval, const uint32_t argc, TaghaVM_ *env)
+static void native_test_ptr(TaghaScript_ *script, CValue params[], CValue *retval, const uint32_t argc, TaghaVM_ *env)
 {
 	struct Player {
 		float		speed;
@@ -34,9 +34,9 @@ static void native_test_ptr(TaghaScript_ *script, Param_t params[], Param_t *ret
 }
 
 /* void getglobal(void); */
-static void native_getglobal(TaghaScript_ *script, Param_t params[], Param_t *retval, const uint32_t argc, TaghaVM_ *env)
+static void native_getglobal(TaghaScript_ *script, CValue params[], CValue *retval, const uint32_t argc, TaghaVM_ *env)
 {
-	int *p = (int *)script->get_global_by_name("i");
+	int *p = (int *)script->GetGlobalByName("i");
 	if( !p )
 		return;
 	
@@ -51,34 +51,34 @@ int main(int argc, char **argv)
 		printf("[TaghaVM Usage]: '%s' '.tbc file' \n", argv[0]);
 		return 1;
 	}
-	TaghaVM_ *VM = new TaghaVM_();
+	TaghaVM_ *vm = new TaghaVM_();
 	NativeInfo_ host_natives[] = {
 		{"test", native_test_ptr},
 		{"printHW", native_print_helloworld},
 		{"getglobal", native_getglobal},
 		{NULL, NULL}
 	};
-	VM->register_natives(host_natives);
-	VM->load_libc_natives();
-	VM->load_self_natives();
-	VM->load_script_by_name(argv[1]);
+	vm->RegisterNatives(host_natives);
+	vm->LoadLibCNatives();
+	vm->LoadSelfNatives();
+	vm->LoadScriptByName(argv[1]);
 	
-	int argcount = 2;
-	CValue_t args[argcount+1];
+	int argcount = 3;
+	CValue args[argcount];
 	args[0].Str = argv[1],
 	args[1].String = "kektus",
 	args[2].Str = nullptr;
-	VM->exec(nullptr, argcount, args);
+	vm->Exec(argcount, args);
 	
 	/*
 	// tested with test_3d_vecs.tbc
 	float vect[3]={ 10.f, 15.f, 20.f };
-	Taghascript Script = Taghascript(VM->get_script());
-	Script.push_value((CValue_t){ .Pointer=vect });
-	VM->call_script_func("vec_invert");
+	Taghascript Script = Taghascript(VM->GetScript());
+	Script.PushValue((CValue){ .Pointer=vect });
+	VM->CallScriptFunc("vec_invert");
 	printf("vect[3]=={ %f , %f, %f }\n", vect[0], vect[1], vect[2]);
 	*/
 	
-	VM->del();
-	delete VM;
+	vm->Delete();
+	delete vm;
 }

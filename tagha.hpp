@@ -11,12 +11,12 @@ struct NativeInfo_;
 
 struct TaghaScript_ {
 	char m_strName[64];	// script's name
+	union CValue m_Regs[regsize];
 	uint8_t
 		*m_pMemory,	// stack and data stream. Used for stack and data segment
 		*m_pText	// instruction stream.
 	;
-	union CValue m_Regs[regsize];
-	char	**m_pstrNatives;	// natives table as stored strings.
+	char	**m_pstrNativeCalls;	// natives table as stored strings.
 	struct hashmap
 		*m_pmapFuncs,	// stores the functions compiled to script.
 		*m_pmapGlobals	// stores global vars like string literals or variables.
@@ -31,25 +31,25 @@ struct TaghaScript_ {
 	;
 	bool	m_bSafeMode : 1;	// does the script want bounds checking?
 	bool	m_bDebugMode : 1;	// print debug info.
-	uint8_t	m_ucZeroFlag : 1;	// conditional zero flag.
+	bool	m_bZeroFlag : 1;	// conditional zero flag.
 	
-	void del();
-	void debug_print_ptrs();
-	void debug_print_memory();
-	void debug_print_instrs();
-	void reset();
-	void *get_global_by_name(const char *strGlobalName);
-	bool bind_global_ptr(const char *strGlobalName, void *pVar);
-	void push_value(const CValue_t value);
-	CValue_t pop_value();
-	uint32_t memsize();
-	uint32_t instrsize();
-	uint32_t maxinstrs();
-	uint32_t nativecount();
-	uint32_t funccount();
-	uint32_t globalcount();
-	bool safemode_active();
-	bool debug_active();
+	void Delete();
+	void PrintPtrs();
+	void PrintMem();
+	void PrintInstrs();
+	void Reset();
+	void *GetGlobalByName(const char *strGlobalName);
+	bool BindGlobalPtr(const char *strGlobalName, void *pVar);
+	void PushValue(const CValue value);
+	CValue PopValue();
+	uint32_t GetMemSize();
+	uint32_t GetInstrSize();
+	uint32_t GetMaxInstrs();
+	uint32_t GetNativeCount();
+	uint32_t GetFuncCount();
+	uint32_t GetGlobalsCount();
+	bool IsSafemodeActive();
+	bool IsDebugActive();
 };
 
 struct TaghaVM_ {
@@ -57,15 +57,15 @@ struct TaghaVM_ {
 	struct hashmap		*m_pmapNatives;
 	
 	TaghaVM_(void);
-	void del();
-	void load_script_by_name(char *filename);
-	bool register_natives(NativeInfo_ arrNatives[]);
-	int32_t call_script_func(const char *strFunc);
-	TaghaScript_ *get_script();
-	void set_script(TaghaScript_ *script);
-	void exec(uint8_t *oldbp, int argc, CValue_t argv[]);
-	void load_libc_natives();
-	void load_self_natives();
+	void Delete();
+	void LoadScriptByName(char *filename);
+	bool RegisterNatives(NativeInfo_ arrNatives[]);
+	int32_t CallScriptFunc(const char *strFunc);
+	TaghaScript_ *GetScript();
+	void SetScript(TaghaScript_ *script);
+	void Exec(int argc, CValue argv[]);
+	void LoadLibCNatives();
+	void LoadSelfNatives();
 };
 
 

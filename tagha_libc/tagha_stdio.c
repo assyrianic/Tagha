@@ -7,14 +7,14 @@
  */
 
 /* int remove(const char *filename); */
-static void native_remove(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_remove(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const char *filename = params[0].String;
 	retval->Int32 = remove(filename);
 }
 
 /* int rename(const char *oldname, const char *newname); */
-static void native_rename(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_rename(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const char *filename = params[0].String;
 	const char *newname = params[1].String;
@@ -22,13 +22,13 @@ static void native_rename(Script_t *script, Param_t params[], Param_t *restrict 
 }
 
 /* FILE *tmpfile(void); */
-static void native_tmpfile(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_tmpfile(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	retval->Ptr = tmpfile();
 }
 
 /* char *tmpnam(char *str); */
-static void native_tmpnam(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_tmpnam(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	char *str = params[0].Ptr;
 	retval->Ptr = tmpnam(str);
@@ -40,7 +40,7 @@ static void native_tmpnam(Script_t *script, Param_t params[], Param_t *restrict 
  */
 
 /* int fclose(FILE *stream); */
-static void native_fclose(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_fclose(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	FILE *pFile = params[0].Ptr;
 	if( pFile ) {
@@ -55,7 +55,7 @@ static void native_fclose(Script_t *script, Param_t params[], Param_t *restrict 
 }
 
 /* int fflush(FILE *stream); */
-static void native_fflush(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_fflush(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	FILE *pStream = params[0].Ptr;
 	retval->Int32 = fflush(pStream);
@@ -63,7 +63,7 @@ static void native_fflush(Script_t *script, Param_t params[], Param_t *restrict 
 }
 
 /* FILE *fopen(const char *filename, const char *modes); */
-static void native_fopen(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_fopen(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const char *filename = params[0].String;
 	const char *mode = params[1].String;
@@ -87,7 +87,7 @@ error:;
 }
 
 /* FILE *freopen(const char *filename, const char *mode, FILE *stream); */
-static void native_freopen(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_freopen(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const char *filename = params[0].String;
 	const char *mode = params[1].String;
@@ -115,7 +115,7 @@ error:;
 }
 
 /* void setbuf(FILE *stream, char *buffer); */
-static void native_setbuf(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_setbuf(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	FILE *pStream = params[0].Ptr;
 	char *pBuffer = params[1].Ptr;
@@ -132,10 +132,10 @@ static void native_setbuf(Script_t *script, Param_t params[], Param_t *restrict 
  * File Access
  */
 
-int32_t gnprintf(char *buffer, size_t maxlen, const char *format, CValue_t params[], uint32_t numparams, uint32_t *curparam);
+int32_t gnprintf(char *buffer, size_t maxlen, const char *format, CValue params[], uint32_t numparams, uint32_t *curparam);
 
 /* int fprintf(FILE *stream, const char *format, ...); */
-static void native_fprintf(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_fprintf(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	FILE *stream = params[0].Ptr;
 	if( !stream ) {
@@ -159,7 +159,7 @@ static void native_fprintf(Script_t *script, Param_t params[], Param_t *restrict
 }
 
 /* int fscanf(FILE *stream, const char *format, ...); */
-static void native_fscanf(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_fscanf(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	FILE *stream = params[0].Ptr;
 	if( !stream ) {
@@ -179,7 +179,7 @@ static void native_fscanf(Script_t *script, Param_t params[], Param_t *restrict 
 }
 
 /* int printf(const char *fmt, ...); */
-static void native_printf(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_printf(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -195,7 +195,7 @@ static void native_printf(Script_t *script, Param_t params[], Param_t *restrict 
 }
 
 /* int puts(const char *s); */
-static void native_puts(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_puts(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -209,7 +209,7 @@ static void native_puts(Script_t *script, Param_t params[], Param_t *restrict re
 }
 
 /* int setvbuf(FILE *stream, char *buffer, int mode, size_t size); */
-static void native_setvbuf(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_setvbuf(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	FILE *stream = params[0].Ptr;
 	char *buffer = params[1].Ptr;
@@ -229,14 +229,14 @@ static void native_setvbuf(Script_t *script, Param_t params[], Param_t *restrict
 }
 
 /* int fgetc(FILE *stream); */
-static void native_fgetc(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_fgetc(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	FILE *stream = params[0].Ptr;
 	retval->Int32 = fgetc(stream);
 }
 
 /* char *fgets(char *str, int num, FILE *stream); */
-static void native_fgets(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_fgets(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	char *str = params[0].Ptr;
 	int num = params[1].Int32;
@@ -245,7 +245,7 @@ static void native_fgets(Script_t *script, Param_t params[], Param_t *restrict r
 }
 
 /* int fputc(int character, FILE *stream); */
-static void native_fputc(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_fputc(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	int character = params[0].Int32;
 	FILE *stream = params[1].Ptr;
@@ -253,7 +253,7 @@ static void native_fputc(Script_t *script, Param_t params[], Param_t *restrict r
 }
 
 /* int fputs(const char *str, FILE *stream); */
-static void native_fputs(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_fputs(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const char *str = params[0].String;
 	FILE *stream = params[1].Ptr;
@@ -261,20 +261,20 @@ static void native_fputs(Script_t *script, Param_t params[], Param_t *restrict r
 }
 
 /* int getc(FILE *stream); */
-static void native_getc(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_getc(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	FILE *stream = params[0].Ptr;
 	retval->Int32 = getc(stream);
 }
 
 /* int getchar(void); */
-static void native_getchar(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_getchar(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	retval->Int32 = getchar();
 }
 
 /* int putc(int character, FILE *stream); */
-static void native_putc(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_putc(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	int character = params[0].Int32;
 	FILE *stream = params[1].Ptr;
@@ -282,14 +282,14 @@ static void native_putc(Script_t *script, Param_t params[], Param_t *restrict re
 }
 
 /* int putchar(int character); */
-static void native_putchar(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_putchar(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	int character = params[0].Int32;
 	retval->Int32 = putchar(character);
 }
 
 /* int ungetc(int character, FILE *stream); */
-static void native_ungetc(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_ungetc(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	int character = params[0].Int32;
 	FILE *stream = params[1].Ptr;
@@ -297,7 +297,7 @@ static void native_ungetc(Script_t *script, Param_t params[], Param_t *restrict 
 }
 
 /* size_t fread(void *ptr, size_t size, size_t count, FILE *stream); */
-static void native_fread(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_fread(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	void *ptr = params[0].Ptr;
 	uint64_t size = params[1].UInt64;
@@ -307,7 +307,7 @@ static void native_fread(Script_t *script, Param_t params[], Param_t *restrict r
 }
 
 /* size_t fwrite(const void *ptr, size_t size, size_t count, FILE *stream); */
-static void native_fwrite(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_fwrite(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const void *ptr = params[0].Ptr;
 	uint64_t size = params[1].UInt64;
@@ -317,7 +317,7 @@ static void native_fwrite(Script_t *script, Param_t params[], Param_t *restrict 
 }
 
 /* int fseek(FILE *stream, long int offset, int origin); */
-static void native_fseek(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_fseek(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	FILE *stream = params[0].Ptr;
 	uint64_t offset = params[1].UInt64;
@@ -326,42 +326,42 @@ static void native_fseek(Script_t *script, Param_t params[], Param_t *restrict r
 }
 
 /* long int ftell(FILE *stream); */
-static void native_ftell(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_ftell(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	FILE *stream = params[0].Ptr;
 	retval->Int64 = ftell(stream);
 }
 
 /* void rewind(FILE *stream); */
-static void native_rewind(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_rewind(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	FILE *stream = params[0].Ptr;
 	rewind(stream);
 }
 
 /* void clearerr(FILE *stream); */
-static void native_clearerr(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_clearerr(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	FILE *stream = params[0].Ptr;
 	clearerr(stream);
 }
 
 /* int feof(FILE *stream); */
-static void native_feof(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_feof(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	FILE *stream = params[0].Ptr;
 	retval->Int32 = feof(stream);
 }
 
 /* int ferror(FILE *stream); */
-static void native_ferror(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_ferror(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	FILE *stream = params[0].Ptr;
 	retval->Int32 = ferror(stream);
 }
 
 /* void perror(const char *str); */
-static void native_perror(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_perror(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const char *str = params[0].String;
 	perror(str);
@@ -374,7 +374,7 @@ void Tagha_load_stdio_natives(struct TaghaVM *vm)
 	if( !vm )
 		return;
 	
-	NativeInfo_t libc_stdio_natives[] = {
+	NativeInfo libc_stdio_natives[] = {
 		{"remove", native_remove},
 		{"rename", native_rename},
 		{"tmpfile", native_tmpfile},
@@ -406,7 +406,7 @@ void Tagha_load_stdio_natives(struct TaghaVM *vm)
 		{"perror", native_perror},
 		{NULL, NULL}
 	};
-	Tagha_register_natives(vm, libc_stdio_natives);
+	Tagha_RegisterNatives(vm, libc_stdio_natives);
 }
 
 

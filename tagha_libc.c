@@ -4,27 +4,27 @@
 #include "tagha_libc/tagha_stdlib.c"
 
 /* void debug_print_self_memory(void); */
-static void native_dbug_print_mem(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_dbug_print_mem(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
-	TaghaScript_debug_print_memory(script);
+	TaghaScript_PrintMem(script);
 }
 
 /* void debug_print_self_ptrs(void); */
-static void native_dbug_print_ptrs(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_dbug_print_ptrs(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
-	TaghaScript_debug_print_ptrs(script);
+	TaghaScript_PrintPtrs(script);
 }
 
 /* void debug_print_self_instrs(void); */
-static void native_dbug_print_instrs(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+static void native_dbug_print_instrs(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
-	TaghaScript_debug_print_instrs(script);
+	TaghaScript_PrintInstrs(script);
 }
 
-/* void *script_get_global_by_name(const Script_t *restrict script, const char *restrict str); */
-static void native_get_global_by_name(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+/* void *script_get_global_by_name(const TaghaScript *restrict script, const char *restrict str); */
+static void native_get_global_by_name(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
-	Script_t *restrict other = params[0].Ptr;
+	TaghaScript *restrict other = params[0].Ptr;
 	if( !other ) {
 		puts("script_get_global_by_name reported: 'script' is NULL!\n");
 		return;
@@ -42,29 +42,29 @@ static void native_get_global_by_name(Script_t *script, Param_t params[], Param_
 		puts("script_get_global_by_name reported: 'str' is NULL!\n");
 		return;
 	}
-	retval->Ptr = TaghaScript_get_global_by_name(other, strglobal);
+	retval->Ptr = TaghaScript_GetGlobalByName(other, strglobal);
 }
 
-/* uint32_t script_get_mem_size(const Script_t *restrict script); */
-static void native_get_mem_size(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+/* uint32_t script_get_mem_size(const TaghaScript *restrict script); */
+static void native_get_mem_size(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
-	Script_t *restrict other = params[0].Ptr;
+	TaghaScript *restrict other = params[0].Ptr;
 	if( !other )
 		puts("script_get_mem_size reported: 'script' is NULL!\n");
-	retval->UInt32 = TaghaScript_memsize(other);
+	retval->UInt32 = TaghaScript_GetMemSize(other);
 }
 
-/* uint32_t script_get_instr_size(const Script_t *restrict script); */
-static void native_get_instr_size(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+/* uint32_t script_get_instr_size(const TaghaScript *restrict script); */
+static void native_get_instr_size(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
-	Script_t *restrict other = params[0].Ptr;
+	TaghaScript *restrict other = params[0].Ptr;
 	if( !other )
 		puts("script_get_instr_size reported: 'script' is NULL!\n");
-	retval->UInt32 = TaghaScript_instrsize(other);
+	retval->UInt32 = TaghaScript_GetInstrSize(other);
 }
 
-/* Script_t	*get_script_from_file(const char *filename); */
-static void native_get_script_from_file(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+/* TaghaScript	*get_script_from_file(const char *filename); */
+static void native_get_script_from_file(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	const char *restrict filename = params[0].String;
 	if( !filename )
@@ -73,14 +73,14 @@ static void native_get_script_from_file(Script_t *script, Param_t params[], Para
 		puts("get_script_from_file reported: 'filename' can't be the same file as calling script!\n");
 		return;
 	}
-	retval->Ptr = TaghaScript_from_file(filename);
+	retval->Ptr = TaghaScript_FromFile(filename);
 	filename = NULL;
 }
 
-/* void	script_free(Script_t *script); */
-static void native_script_free(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+/* void	script_free(TaghaScript *script); */
+static void native_script_free(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
-	Script_t *restrict other = params[0].Ptr;
+	TaghaScript *restrict other = params[0].Ptr;
 	if( other==script ) {
 		puts("script_free reported: 'script' cannot be the same ptr as calling script!\n");
 		return;
@@ -89,14 +89,14 @@ static void native_script_free(Script_t *script, Param_t params[], Param_t *rest
 		puts("script_free reported: 'script' can't be the same file as calling script!\n");
 		return;
 	}
-	TaghaScript_free(other);
+	TaghaScript_Free(other);
 }
 
-/* int32_t script_callfunc(Script_t *restrict script, const char *restrict strFunc); */
-static void native_script_callfunc(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+/* int32_t script_callfunc(TaghaScript *restrict script, const char *restrict strFunc); */
+static void native_script_callfunc(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
 	retval->Int32 = -1;
-	Script_t *other = params[0].Ptr;
+	TaghaScript *other = params[0].Ptr;
 	if( other==script ) {
 		puts("script_callfunc reported: 'script' cannot be the same ptr as calling script!\n");
 		return;
@@ -111,14 +111,14 @@ static void native_script_callfunc(Script_t *script, Param_t params[], Param_t *
 		return;
 	}
 	env->m_pScript = other;
-	retval->Int32 = Tagha_call_script_func(env, strFunc);
+	retval->Int32 = Tagha_CallScriptFunc(env, strFunc);
 	env->m_pScript = script;
 }
 
-/* void script_push_value(Script_t *script, const CValue_t value); */
-static void native_script_push_value(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+/* void script_push_value(TaghaScript *script, const CValue value); */
+static void native_script_push_value(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
-	Script_t *restrict other = params[0].Ptr;
+	TaghaScript *restrict other = params[0].Ptr;
 	if( other==script ) {
 		puts("script_push_value reported: 'script' cannot be the same ptr as calling script!\n");
 		return;
@@ -127,13 +127,13 @@ static void native_script_push_value(Script_t *script, Param_t params[], Param_t
 		puts("script_push_value reported: 'script' can't be the same file as calling script!\n");
 		return;
 	}
-	TaghaScript_push_value(other, params[1]);
+	TaghaScript_PushValue(other, params[1]);
 }
 
-/* CValue_t script_pop_value(Script_t *script); */
-static void native_script_pop_value(Script_t *script, Param_t params[], Param_t *restrict retval, const uint32_t argc, TaghaVM_t *env)
+/* CValue script_pop_value(TaghaScript *script); */
+static void native_script_pop_value(struct TaghaScript *script, union CValue params[], union CValue *restrict retval, const uint32_t argc, struct TaghaVM *env)
 {
-	Script_t *restrict other = params[0].Ptr;
+	TaghaScript *restrict other = params[0].Ptr;
 	if( other==script ) {
 		puts("script_push_value reported: 'script' cannot be the same ptr as calling script!\n");
 		return;
@@ -142,12 +142,12 @@ static void native_script_pop_value(Script_t *script, Param_t params[], Param_t 
 		puts("script_push_value reported: 'script' can't be the same file as calling script!\n");
 		return;
 	}
-	*retval = TaghaScript_pop_value(other);
+	*retval = TaghaScript_PopValue(other);
 }
 
 
 
-void Tagha_load_libc_natives(struct TaghaVM *vm)
+void Tagha_LoadLibCNatives(struct TaghaVM *vm)
 {
 	if( !vm )
 		return;
@@ -156,12 +156,12 @@ void Tagha_load_libc_natives(struct TaghaVM *vm)
 	Tagha_load_stdlib_natives(vm);
 }
 
-void Tagha_load_self_natives(struct TaghaVM *vm)
+void Tagha_LoadSelfNatives(struct TaghaVM *vm)
 {
 	if( !vm )
 		return;
 	
-	NativeInfo_t libc_self_natives[] = {
+	NativeInfo libc_self_natives[] = {
 		{"debug_print_self_memory", native_dbug_print_mem},
 		{"debug_print_self_ptrs", native_dbug_print_ptrs},
 		{"debug_print_self_instrs", native_dbug_print_instrs},
@@ -175,7 +175,7 @@ void Tagha_load_self_natives(struct TaghaVM *vm)
 		{"script_pop_value", native_script_pop_value},
 		{NULL, NULL}
 	};
-	Tagha_register_natives(vm, libc_self_natives);
+	Tagha_RegisterNatives(vm, libc_self_natives);
 }
 
 

@@ -15,7 +15,7 @@ static int strcmp(register const char *restrict s1, register const char *restric
 }
 */
 
-void vector_init(Vec_t *v)
+void vector_init(struct vector *v)
 {
 	if( !v )
 		return;
@@ -24,14 +24,14 @@ void vector_init(Vec_t *v)
 	v->size = v->count = 0;
 }
 
-uint32_t vector_count(const Vec_t *v)
+uint32_t vector_count(const struct vector *v)
 {
 	if( !v )
 		return 0;
 	return v->count;
 }
 
-void vector_add(Vec_t *restrict v, void *restrict e)
+void vector_add(struct vector *restrict v, void *restrict e)
 {
 	if( !v )
 		return;
@@ -51,7 +51,7 @@ void vector_add(Vec_t *restrict v, void *restrict e)
 	v->count++;
 }
 
-void vector_set(Vec_t *restrict v, const uint32_t index, void *restrict e)
+void vector_set(struct vector *restrict v, const uint32_t index, void *restrict e)
 {
 	if( !v or index >= v->count )
 		return;
@@ -59,7 +59,7 @@ void vector_set(Vec_t *restrict v, const uint32_t index, void *restrict e)
 	v->data[index] = e;
 }
 
-void *vector_get(const Vec_t *v, const uint32_t index)
+void *vector_get(const struct vector *v, const uint32_t index)
 {
 	if( !v or index >= v->count )
 		return NULL;
@@ -67,7 +67,7 @@ void *vector_get(const Vec_t *v, const uint32_t index)
 	return v->data[index];
 }
 
-void vector_delete(Vec_t *v, const uint32_t index)
+void vector_delete(struct vector *v, const uint32_t index)
 {
 	if( !v or index >= v->count )
 		return;
@@ -78,7 +78,7 @@ void vector_delete(Vec_t *v, const uint32_t index)
 	v->count--;
 }
 
-void vector_free(Vec_t *v)
+void vector_free(struct vector *v)
 {
 	if( !v or !v->data )
 		return;
@@ -128,7 +128,7 @@ uint64_t int64hash(uint64_t x)
 }
 
 
-void map_init(Map_t *map)
+void map_init(struct hashmap *map)
 {
 	if( !map )
 		return;
@@ -137,18 +137,18 @@ void map_init(Map_t *map)
 	map->size = map->count = 0;
 }
 
-void map_free(Map_t *map)
+void map_free(struct hashmap *map)
 {
 	if( !map || !map->table )
 		return;
 	
 	/*
-	 * If the Map_tionary pointer is not "const", then
-	 * you have to make two traversing kvnode_t pointers
+	 * If the struct hashmapionary pointer is not "const", then
+	 * you have to make two traversing struct kvnode pointers
 	 * or else you'll get a nice little segfault ;)
 	 * not sure why but whatever makes the code work I guess.
 	*/
-	kvnode_t
+	struct kvnode
 		*kv = NULL,
 		*next = NULL
 	;
@@ -165,14 +165,14 @@ void map_free(Map_t *map)
 	map_init(map);
 }
 
-bool map_insert(Map_t *restrict map, const char *restrict szKey, const uint64_t pData)
+bool map_insert(struct hashmap *restrict map, const char *restrict szKey, const uint64_t pData)
 {
 	if( !map )
 		return false;
 	
 	if( map->size == 0 ) {
 		map->size = 8;
-		map->table = calloc(map->size, sizeof(kvnode_t));
+		map->table = calloc(map->size, sizeof(struct kvnode));
 		
 		if( !map->table ) {
 			printf("**** Memory Allocation Error **** map_insert::map->table is NULL\n");
@@ -182,15 +182,15 @@ bool map_insert(Map_t *restrict map, const char *restrict szKey, const uint64_t 
 	}
 	else if( map->count >= map->size ) {
 		map_rehash(map);
-		//printf("**** Rehashed Map_tionary ****\n");
-		//printf("**** Map_tionary Size is now %llu ****\n", map->size);
+		//printf("**** Rehashed struct hashmapionary ****\n");
+		//printf("**** struct hashmapionary Size is now %llu ****\n", map->size);
 	}
 	else if( map_has_key(map, szKey) ) {
 		printf("map_insert::map already has entry!\n");
 		return false;
 	}
 	
-	kvnode_t *node = malloc( sizeof(kvnode_t) );
+	struct kvnode *node = malloc( sizeof(struct kvnode) );
 	if( !node ) {
 		printf("**** Memory Allocation Error **** map_insert::node is NULL\n");
 		return false;
@@ -205,16 +205,16 @@ bool map_insert(Map_t *restrict map, const char *restrict szKey, const uint64_t 
 	return true;
 }
 
-uint64_t map_find(const Map_t *restrict map, const char *restrict szKey)
+uint64_t map_find(const struct hashmap *restrict map, const char *restrict szKey)
 {
 	if( !map || !map->table )
 		return 0;
 	/*
-	 * if Map_tionary pointer is const, you only
-	 * need to use one traversing kvnode_t
+	 * if struct hashmapionary pointer is const, you only
+	 * need to use one traversing struct kvnode
 	 * pointer without worrying of a segfault
 	*/
-	kvnode_t *kv;
+	struct kvnode *kv;
 	uint32_t hash = gethash32(szKey) % map->size;
 	for( kv = map->table[hash] ; kv ; kv = kv->pNext )
 		if( !strcmp(kv->strKey, szKey) )
@@ -222,7 +222,7 @@ uint64_t map_find(const Map_t *restrict map, const char *restrict szKey)
 	return 0;
 }
 
-void map_delete(Map_t *restrict map, const char *restrict szKey)
+void map_delete(struct hashmap *restrict map, const char *restrict szKey)
 {
 	if( !map )
 		return;
@@ -231,7 +231,7 @@ void map_delete(Map_t *restrict map, const char *restrict szKey)
 		return;
 	
 	uint32_t hash = gethash32(szKey) % map->size;
-	kvnode_t
+	struct kvnode
 		*kv = NULL,
 		*next = NULL
 		;
@@ -245,12 +245,12 @@ void map_delete(Map_t *restrict map, const char *restrict szKey)
 	}
 }
 
-bool map_has_key(const Map_t *restrict map, const char *restrict szKey)
+bool map_has_key(const struct hashmap *restrict map, const char *restrict szKey)
 {
 	if( !map || !map->table )
 		return false;
 	
-	kvnode_t *prev;
+	struct kvnode *prev;
 	uint32_t hash = gethash32(szKey) % map->size;
 	for( prev = map->table[hash] ; prev ; prev = prev->pNext )
 		if( !strcmp(prev->strKey, szKey) )
@@ -259,15 +259,15 @@ bool map_has_key(const Map_t *restrict map, const char *restrict szKey)
 	return false;
 }
 
-uint64_t map_len(const Map_t *map)
+uint64_t map_len(const struct hashmap *map)
 {
 	if( !map )
 		return 0L;
 	return map->count;
 }
 
-// Rehashing increases Map_tionary size by a factor of 2
-void map_rehash(Map_t *map)
+// Rehashing increases struct hashmapionary size by a factor of 2
+void map_rehash(struct hashmap *map)
 {
 	if( !map || !map->table )
 		return;
@@ -276,8 +276,8 @@ void map_rehash(Map_t *map)
 	map->size <<= 1;
 	map->count = 0;
 	
-	kvnode_t **curr, **temp;
-	temp = calloc(map->size, sizeof(kvnode_t));
+	struct kvnode **curr, **temp;
+	temp = calloc(map->size, sizeof(struct kvnode));
 	if( !temp ) {
 		printf("**** Memory Allocation Error **** map_insert::temp is NULL\n");
 		map->size = 0;
@@ -287,7 +287,7 @@ void map_rehash(Map_t *map)
 	curr = map->table;
 	map->table = temp;
 	
-	kvnode_t
+	struct kvnode
 		*kv = NULL,
 		*next = NULL
 		;
@@ -308,12 +308,12 @@ void map_rehash(Map_t *map)
 	curr = NULL;
 }
 
-const char *map_get_key(const Map_t *restrict map, const char *restrict szKey)
+const char *map_get_key(const struct hashmap *restrict map, const char *restrict szKey)
 {
 	if( !map || !map->table )
 		return NULL;
 	
-	kvnode_t *prev;
+	struct kvnode *prev;
 	uint32_t hash = gethash32(szKey) % map->size;
 	for( prev = map->table[hash] ; prev ; prev = prev->pNext )
 		if( !strcmp(prev->strKey, szKey) )
@@ -325,14 +325,14 @@ const char *map_get_key(const Map_t *restrict map, const char *restrict szKey)
 
 
 /*
-bool map_insert_int(Map_t *restrict map, const uint64_t key, void *restrict pData)
+bool map_insert_int(struct hashmap *restrict map, const uint64_t key, void *restrict pData)
 {
 	if( !map )
 		return false;
 	
 	if( map->size == 0 ) {
 		map->size = 8;
-		map->table = calloc(map->size, sizeof(kvnode_t));
+		map->table = calloc(map->size, sizeof(struct kvnode));
 		
 		if( !map->table ) {
 			printf("**** Memory Allocation Error **** map_insert_int::map->table is NULL\n");
@@ -342,15 +342,15 @@ bool map_insert_int(Map_t *restrict map, const uint64_t key, void *restrict pDat
 	}
 	else if( map->count >= map->size ) {
 		map_rehash(map);
-		//printf("**** Rehashed Map_tionary ****\n");
-		//printf("**** Map_tionary Size is now %llu ****\n", map->size);
+		//printf("**** Rehashed struct hashmapionary ****\n");
+		//printf("**** struct hashmapionary Size is now %llu ****\n", map->size);
 	}
 	else if( map_has_key_int(map, key) ) {
 		printf("map_insert_int::map already has entry!\n");
 		return false;
 	}
 	
-	kvnode_t *node = malloc( sizeof(kvnode_t) );
+	struct kvnode *node = malloc( sizeof(struct kvnode) );
 	if( !node ) {
 		printf("**** Memory Allocation Error **** map_insert_int::node is NULL\n");
 		return false;
@@ -365,14 +365,14 @@ bool map_insert_int(Map_t *restrict map, const uint64_t key, void *restrict pDat
 	return true;
 }
 
-void *map_find_int(const Map_t *map, const uint64_t key)
+void *map_find_int(const struct hashmap *map, const uint64_t key)
 {
 	if( !map )
 		return NULL;
 	else if( !map->table )
 		return NULL;
 	
-	kvnode_t *kv;
+	struct kvnode *kv;
 	uint64_t hash = int64hash(key) % map->size;
 	for( kv = map->table[hash] ; kv ; kv = kv->pNext )
 		if( kv->i64Key==key )
@@ -381,7 +381,7 @@ void *map_find_int(const Map_t *map, const uint64_t key)
 	return NULL;
 }
 
-void map_delete_int(Map_t *map, const uint64_t key)
+void map_delete_int(struct hashmap *map, const uint64_t key)
 {
 	if( !map )
 		return;
@@ -390,7 +390,7 @@ void map_delete_int(Map_t *map, const uint64_t key)
 		return;
 	
 	uint64_t hash = int64hash(key) % map->size;
-	kvnode_t
+	struct kvnode
 		*kv = NULL,
 		*next = NULL
 	;
@@ -403,12 +403,12 @@ void map_delete_int(Map_t *map, const uint64_t key)
 		}
 	}
 }
-bool map_has_key_int(const Map_t *map, const uint64_t key)
+bool map_has_key_int(const struct hashmap *map, const uint64_t key)
 {
 	if( !map )
 		return false;
 	
-	kvnode_t *prev;
+	struct kvnode *prev;
 	uint64_t hash = int64hash(key) % map->size;
 	for( prev = map->table[hash] ; prev ; prev = prev->pNext )
 		if( prev->i64Key==key )
@@ -417,7 +417,7 @@ bool map_has_key_int(const Map_t *map, const uint64_t key)
 	return false;
 }
 
-void map_rehash_int(Map_t *map)
+void map_rehash_int(struct hashmap *map)
 {
 	if( !map )
 		return;
@@ -426,8 +426,8 @@ void map_rehash_int(Map_t *map)
 	map->size <<= 1;
 	map->count = 0;
 	
-	kvnode_t **curr, **temp;
-	temp = calloc(map->size, sizeof(kvnode_t));
+	struct kvnode **curr, **temp;
+	temp = calloc(map->size, sizeof(struct kvnode));
 	if( !temp ) {
 		printf("**** Memory Allocation Error **** map_insert::temp is NULL\n");
 		map->size = 0;
@@ -437,7 +437,7 @@ void map_rehash_int(Map_t *map)
 	curr = map->table;
 	map->table = temp;
 	
-	kvnode_t
+	struct kvnode
 		*kv = NULL,
 		*next = NULL
 	;

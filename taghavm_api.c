@@ -6,14 +6,14 @@
 #include <stdarg.h>
 #include "tagha.h"
 
-void Tagha_init(struct TaghaVM *vm)
+void Tagha_Init(struct TaghaVM *vm)
 {
 	if( !vm )
 		return;
 	
 	vm->m_pScript = NULL;
 	
-	vm->m_pmapNatives = malloc(sizeof(Map_t));
+	vm->m_pmapNatives = malloc(sizeof(struct hashmap));
 	if( !vm->m_pmapNatives )
 		printf("[%sTagha Init Error%s]: **** %sUnable to initialize Native Map%s ****\n", KRED, RESET, KGRN, RESET);
 	else map_init(vm->m_pmapNatives);
@@ -43,13 +43,13 @@ static bool is_tbc_file(const char *filename)
 }
 
 
-void Tagha_load_script_by_name(struct TaghaVM *restrict vm, char *restrict filename)
+void Tagha_LoadScriptByName(struct TaghaVM *restrict vm, char *restrict filename)
 {
 	if( !vm )
 		return;
 	
 	// allocate our script.
-	vm->m_pScript = TaghaScript_from_file(filename);
+	vm->m_pScript = TaghaScript_FromFile(filename);
 	
 	struct TaghaScript *script = vm->m_pScript;
 	
@@ -58,21 +58,21 @@ void Tagha_load_script_by_name(struct TaghaVM *restrict vm, char *restrict filen
 	// and global self-referencing script pointer
 	// Downside is that the script side host var MUST be a pointer.
 	if( script and script->m_pmapGlobals ) {
-		TaghaScript_bind_global_ptr(script, "stdin", stdin);
-		TaghaScript_bind_global_ptr(script, "stderr", stderr);
-		TaghaScript_bind_global_ptr(script, "stdout", stdout);
-		TaghaScript_bind_global_ptr(script, "myself", script);
+		TaghaScript_BindGlobalPtr(script, "stdin", stdin);
+		TaghaScript_BindGlobalPtr(script, "stderr", stderr);
+		TaghaScript_BindGlobalPtr(script, "stdout", stdout);
+		TaghaScript_BindGlobalPtr(script, "myself", script);
 	}
 }
 
 
-void Tagha_free(struct TaghaVM *vm)
+void Tagha_Free(struct TaghaVM *vm)
 {
 	if( !vm )
 		return;
 	
 	if( vm->m_pScript )
-		TaghaScript_free(vm->m_pScript), vm->m_pScript=NULL;
+		TaghaScript_Free(vm->m_pScript), vm->m_pScript=NULL;
 	
 	// since the VMs native hashmap has nothing allocated,
 	// we just free the hashmap's internal data and then the hashmap itself.
@@ -83,19 +83,19 @@ void Tagha_free(struct TaghaVM *vm)
 }
 
 
-bool Tagha_register_natives(struct TaghaVM *vm, struct NativeInfo arrNatives[])
+bool Tagha_RegisterNatives(struct TaghaVM *vm, struct NativeInfo arrNatives[])
 {
 	if( !vm or !arrNatives )
 		return false;
 	else if( !vm->m_pmapNatives )
 		return false;
 	
-	for( NativeInfo_t *natives = arrNatives ; natives->pFunc and natives->strName ; natives++ )
+	for( NativeInfo *natives = arrNatives ; natives->pFunc and natives->strName ; natives++ )
 		map_insert(vm->m_pmapNatives, natives->strName, (uintptr_t)natives->pFunc);
 	return true;
 }
 
-int32_t Tagha_call_script_func(struct TaghaVM *restrict vm, const char *restrict strFunc)
+int32_t Tagha_CallScriptFunc(struct TaghaVM *restrict vm, const char *restrict strFunc)
 {
 	// We need the VM system in order to call scripts, why?
 	// Because the exec function needs the VM system in order to check for native functions.
@@ -125,27 +125,19 @@ int32_t Tagha_call_script_func(struct TaghaVM *restrict vm, const char *restrict
 	script->m_Regs[rip].UCharPtr = script->m_pText + pFuncTable->m_uiEntry;
 	pFuncTable = NULL;
 	
-	/* Save bp in a separate variable so that we can remember what stack frame we began with.
-	 * When the stack frame reverts back to saved bp variable, that means the function ended in the frame it first began.
-	 * This is so the VM can appropriately call recursive functions or else
-	 * the first 'ret' opcode would kill the entire call process.
-	 * Not a big deal for non-recursive function but script function calling should accomodate for all types of functions.
-	*/
-	uint8_t *oldBP = script->m_Regs[rbp].UCharPtr;
-	
 	// push bp and copy sp to bp.
 	(--script->m_Regs[rsp].SelfPtr)->UInt64 = (uintptr_t)script->m_Regs[rbp].UCharPtr;
 	script->m_Regs[rbp] = script->m_Regs[rsp];
 	
-	return Tagha_exec(vm, oldBP, 0, NULL);
+	return Tagha_Exec(vm, 0, NULL);
 }
 
-Script_t *Tagha_get_script(const struct TaghaVM *vm)
+TaghaScript *Tagha_GetScript(const struct TaghaVM *vm)
 {
 	return !vm ? NULL : vm->m_pScript;
 }
 
-void Tagha_set_script(struct TaghaVM *vm, struct TaghaScript *script)
+void Tagha_SetScript(struct TaghaVM *vm, struct TaghaScript *script)
 {
 	if( !vm )
 		return;
@@ -621,13 +613,13 @@ void AddOctal(char **buf_p, size_t *maxlen, uint64_t val, int width, int flags)
 }
 
 //		Edits done:
-// void* array is changed to CValue_t.
+// void* array is changed to CValue.
 // removed pPhrases, pOutPutLength, and pFailPhrase.
 // Added extra formats for other data like '%p' for pointers.
 int32_t gnprintf(char *buffer,
 					size_t maxlen,
 					const char *format,
-					CValue_t params[],
+					CValue params[],
 					uint32_t numparams,
 					uint32_t *restrict curparam)
 {
