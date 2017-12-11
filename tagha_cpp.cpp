@@ -138,6 +138,10 @@ void TaghaVM_::LoadSelfNatives()
 }
 
 
+TaghaScript_ *TaghaScriptBuildFromFile(const char *filename)
+{
+	return (TaghaScript_ *)TaghaScript_BuildFromFile(filename);
+}
 
 
 

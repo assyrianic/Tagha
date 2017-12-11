@@ -33,8 +33,8 @@ void PrintAddrMode(const enum AddrMode mode)
 		strncat(str, "Register|", 150);
 	if( mode & RegIndirect )
 		strncat(str, "RegIndirect|", 150);
-	if( mode & Direct )
-		strncat(str, "Direct|", 150);
+	if( mode & IPRelative )
+		strncat(str, "IPRelative|", 150);
 	if( mode & Byte )
 		strncat(str, "Byte|", 150);
 	if( mode & TwoBytes )
@@ -55,6 +55,7 @@ void PrintRegData(const struct TaghaScript *script)
 		printf("register[%s] == %" PRIu64 "\n", RegIDToStr(i), script->m_Regs[i].UInt64);
 	puts("\tEND OF PRINTING REGISTER DATA ===============\n");
 }
+
 
 //#include <unistd.h>	// sleep() func
 int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
@@ -109,11 +110,11 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 		safemode = script->m_bSafeMode;
 		debugmode = script->m_bDebugMode;
 		if( safemode ) {
-			if( script->m_Regs[rip].UCharPtr < script->m_pText ) {
+			if( script->m_Regs[rip].UCharPtr < script->m_pMemory ) {
 				TaghaScript_PrintErr(script, __func__, "instruction address out of lower bounds!");
 				goto *dispatch[halt];
 			}
-			else if( script->m_Regs[rip].UCharPtr - script->m_pText >= script->m_uiInstrSize ) {
+			else if( script->m_Regs[rip].UCharPtr > script->m_pTextSegment ) {
 				TaghaScript_PrintErr(script, __func__, "instruction address out of upper bounds!");
 				goto *dispatch[halt];
 			}
@@ -143,12 +144,18 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 			continue;
 		
 		exec_halt:;
-			TaghaScript_PrintMem(script);
-			PrintRegData(script);
-			return script->m_Regs[ras].UInt64;
+			if( debugmode ) {
+				TaghaScript_PrintMem(script);
+				PrintRegData(script);
+			}
+			return script->m_Regs[ras].Int32;
 		
 		exec_push:; {
 			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
+			if( script->m_Regs[rsp].SelfPtr-1 < script->m_pStackSegment ) {
+				TaghaScript_PrintErr(script, __func__, "Stack Overflow!");
+				continue;
+			}
 			if( addrmode & Immediate )
 				(--script->m_Regs[rsp].SelfPtr)->UInt64 = a.UInt64;
 			else if( addrmode & Register )
@@ -157,20 +164,24 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				offset = *script->m_Regs[rip].Int32Ptr++;
 				(--script->m_Regs[rsp].SelfPtr)->UInt64 = *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				(--script->m_Regs[rsp].SelfPtr)->UInt64 = *a.UInt64Ptr;
 			}
 			continue;
 		}
 		exec_pop:; {
 			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
+			if( script->m_Regs[rsp].SelfPtr+1 > (script->m_pMemory + (script->m_uiMemsize-1)) ) {
+				TaghaScript_PrintErr(script, __func__, "Stack Underflow!");
+				continue;
+			}
 			if( addrmode & Register )
 				script->m_Regs[a.UInt64].UInt64 = (*script->m_Regs[rsp].SelfPtr++).UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
 				*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) = (*script->m_Regs[rsp].SelfPtr++).UInt64;
 			}
-			else if( addrmode & (Direct|Immediate) ) {
+			else if( addrmode & (IPRelative|Immediate) ) {
 				*a.UInt64Ptr = (*script->m_Regs[rsp].SelfPtr++).UInt64;
 			}
 			continue;
@@ -190,7 +201,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					*(int64_t *)(script->m_Regs[a.UInt64].CharPtr+offset) = -*(int64_t *)(script->m_Regs[a.UInt64].CharPtr+offset);
 			}
-			else if( addrmode & (Direct|Immediate) ) {
+			else if( addrmode & (IPRelative|Immediate) ) {
 				if( addrmode & Byte )
 					*a.CharPtr = -*a.CharPtr;
 				else if( addrmode & TwoBytes )
@@ -218,7 +229,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) += 1;
 			}
-			else if( addrmode & (Direct|Immediate) ) {
+			else if( addrmode & (IPRelative|Immediate) ) {
 				if( addrmode & Byte )
 					*a.UCharPtr += 1;
 				else if( addrmode & TwoBytes )
@@ -245,7 +256,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) -= 1;
 			}
-			else if( addrmode & (Direct|Immediate) ) {
+			else if( addrmode & (IPRelative|Immediate) ) {
 				if( addrmode & Byte )
 					*a.UCharPtr -= 1;
 				else if( addrmode & TwoBytes )
@@ -272,7 +283,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) = ~*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & (Direct|Immediate) ) {
+			else if( addrmode & (IPRelative|Immediate) ) {
 				if( addrmode & Byte )
 					*a.UCharPtr = ~*a.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -288,15 +299,15 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 		exec_jmp:; {
 			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				script->m_Regs[rip].UCharPtr = script->m_pText + a.UInt64;
+				script->m_Regs[rip].UCharPtr = script->m_pMemory + a.UInt64;
 			else if( addrmode & Register )
-				script->m_Regs[rip].UCharPtr = script->m_pText + script->m_Regs[a.UInt64].UInt64;
+				script->m_Regs[rip].UCharPtr = script->m_pMemory + script->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
-				script->m_Regs[rip].UCharPtr = script->m_pText + *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
+				script->m_Regs[rip].UCharPtr = script->m_pMemory + *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
-				script->m_Regs[rip].UCharPtr = script->m_pText + *a.UInt64Ptr;
+			else if( addrmode & IPRelative ) {
+				script->m_Regs[rip].UCharPtr = script->m_pMemory + *a.UInt64Ptr;
 			}
 			continue;
 		}
@@ -304,49 +315,53 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 		exec_jz:; {
 			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				script->m_Regs[rip].UCharPtr = (script->m_bZeroFlag) ? script->m_pText + a.UInt64 : script->m_Regs[rip].UCharPtr;
+				script->m_Regs[rip].UCharPtr = (script->m_bZeroFlag) ? script->m_pMemory + a.UInt64 : script->m_Regs[rip].UCharPtr;
 			else if( addrmode & Register )
-				script->m_Regs[rip].UCharPtr = (script->m_bZeroFlag) ? script->m_pText + script->m_Regs[a.UInt64].UInt64 : script->m_Regs[rip].UCharPtr;
+				script->m_Regs[rip].UCharPtr = (script->m_bZeroFlag) ? script->m_pMemory + script->m_Regs[a.UInt64].UInt64 : script->m_Regs[rip].UCharPtr;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
-				script->m_Regs[rip].UCharPtr = (script->m_bZeroFlag) ? script->m_pText + *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) : script->m_Regs[rip].UCharPtr;
+				script->m_Regs[rip].UCharPtr = (script->m_bZeroFlag) ? script->m_pMemory + *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) : script->m_Regs[rip].UCharPtr;
 			}
-			else if( addrmode & Direct ) {
-				script->m_Regs[rip].UCharPtr = (script->m_bZeroFlag) ? script->m_pText + *a.UInt64Ptr : script->m_Regs[rip].UCharPtr;
+			else if( addrmode & IPRelative ) {
+				script->m_Regs[rip].UCharPtr = (script->m_bZeroFlag) ? script->m_pMemory + *a.UInt64Ptr : script->m_Regs[rip].UCharPtr;
 			}
 			continue;
 		}
 		exec_jnz:; {
 			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				script->m_Regs[rip].UCharPtr = (!script->m_bZeroFlag) ? script->m_pText + a.UInt64 : script->m_Regs[rip].UCharPtr;
+				script->m_Regs[rip].UCharPtr = (!script->m_bZeroFlag) ? script->m_pMemory + a.UInt64 : script->m_Regs[rip].UCharPtr;
 			else if( addrmode & Register )
-				script->m_Regs[rip].UCharPtr = (!script->m_bZeroFlag) ? script->m_pText + script->m_Regs[a.UInt64].UInt64 : script->m_Regs[rip].UCharPtr;
+				script->m_Regs[rip].UCharPtr = (!script->m_bZeroFlag) ? script->m_pMemory + script->m_Regs[a.UInt64].UInt64 : script->m_Regs[rip].UCharPtr;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
-				script->m_Regs[rip].UCharPtr = (!script->m_bZeroFlag) ? script->m_pText + *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) : script->m_Regs[rip].UCharPtr;
+				script->m_Regs[rip].UCharPtr = (!script->m_bZeroFlag) ? script->m_pMemory + *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) : script->m_Regs[rip].UCharPtr;
 			}
-			else if( addrmode & Direct ) {
-				script->m_Regs[rip].UCharPtr = (!script->m_bZeroFlag) ? script->m_pText + *a.UInt64Ptr : script->m_Regs[rip].UCharPtr;
+			else if( addrmode & IPRelative ) {
+				script->m_Regs[rip].UCharPtr = (!script->m_bZeroFlag) ? script->m_pMemory + *a.UInt64Ptr : script->m_Regs[rip].UCharPtr;
 			}
 			continue;
 		}
 		
 		exec_call:; {
 			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
+			if( script->m_Regs[rsp].SelfPtr-2 < script->m_pStackSegment ) {
+				TaghaScript_PrintErr(script, __func__, "Stack Overflow!");
+				continue;
+			}
 			(--script->m_Regs[rsp].SelfPtr)->UInt64 = script->m_Regs[rip].UInt64;	// push rip
 			(--script->m_Regs[rsp].SelfPtr)->UInt64 = script->m_Regs[rbp].UInt64;	// push rbp
 			script->m_Regs[rbp] = script->m_Regs[rsp];	// mov rbp, rsp
 			if( addrmode & Immediate )
-				script->m_Regs[rip].UCharPtr = script->m_pText + a.UInt64;
+				script->m_Regs[rip].UCharPtr = script->m_pMemory + a.UInt64;
 			else if( addrmode & Register )
-				script->m_Regs[rip].UCharPtr = script->m_pText + script->m_Regs[a.UInt64].UInt64;
+				script->m_Regs[rip].UCharPtr = script->m_pMemory + script->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *script->m_Regs[rip].Int32Ptr++;
-				script->m_Regs[rip].UCharPtr = script->m_pText + *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
+				script->m_Regs[rip].UCharPtr = script->m_pMemory + *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
-				script->m_Regs[rip].UCharPtr = script->m_pText + *a.UInt64Ptr;
+			else if( addrmode & IPRelative ) {
+				script->m_Regs[rip].UCharPtr = script->m_pMemory + *a.UInt64Ptr;
 			}
 			continue;
 		}
@@ -358,6 +373,10 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				goto *dispatch[halt];
 			}
 			script->m_Regs[rsp] = script->m_Regs[rbp];	// mov rsp, rbp
+			if( script->m_Regs[rsp].SelfPtr+2 > (script->m_pMemory + (script->m_uiMemsize-1)) ) {
+				TaghaScript_PrintErr(script, __func__, "Stack Underflow!");
+				continue;
+			}
 			script->m_Regs[rbp].UInt64 = (*script->m_Regs[rsp].SelfPtr++).UInt64;	// pop rbp
 			script->m_Regs[rip].UInt64 = (*script->m_Regs[rsp].SelfPtr++).UInt64;	// pop rip
 			if( addrmode & Immediate )
@@ -385,7 +404,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				offset = *script->m_Regs[rip].Int32Ptr++;
 				index = *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				index = *a.UInt64Ptr;
 			}
 			
@@ -437,7 +456,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].UInt64 = *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar = *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -475,7 +494,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) = script->m_Regs[b.UInt64].UInt64;
 				}
 			}
-			else if( addrmode & Direct ) {	// moving value to direct address
+			else if( addrmode & IPRelative ) {	// moving value to IPRelative address
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr = b.UChar;
@@ -486,7 +505,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 					else if( addrmode & EightBytes )
 						*a.UInt64Ptr = b.UInt64;
 				}
-				else if( addrmode & Register ) { // moving register to direct address
+				else if( addrmode & Register ) { // moving register to IPRelative address
 					if( addrmode & Byte )
 						*a.UCharPtr = script->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
@@ -508,7 +527,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				offset = *script->m_Regs[rip].Int32Ptr++;
 				script->m_Regs[a.UInt64].UInt64 = script->m_Regs[b.UInt64].UInt64+offset;
 			}
-			else if( addrmode & (Direct|Immediate) )
+			else if( addrmode & (IPRelative|Immediate) )
 				script->m_Regs[a.UInt64].UInt64 = b.UInt64;
 			continue;
 		}
@@ -516,7 +535,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 		exec_leo:; {	// load effective offset - loads a memory offset.
 			a.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
 			b.UInt64 = *script->m_Regs[rip].UInt64Ptr++;
-			if( addrmode & (Direct|Immediate) )
+			if( addrmode & (IPRelative|Immediate) )
 				script->m_Regs[a.UInt64].UInt64 = (uintptr_t)(script->m_pMemory + b.UInt64);
 			else if( addrmode & Register )
 				script->m_Regs[a.UInt64].UInt64 = (uintptr_t)(script->m_pMemory + script->m_Regs[b.UInt64].UInt64);
@@ -545,7 +564,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].Int64 += *(int64_t *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].Char += *b.CharPtr;
 				else if( addrmode & TwoBytes )
@@ -583,7 +602,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) += script->m_Regs[b.UInt64].Int64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.CharPtr += b.Char;
@@ -625,7 +644,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].UInt64 += *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar += *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -663,7 +682,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) += script->m_Regs[b.UInt64].UInt64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr += b.UChar;
@@ -706,7 +725,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].Int64 -= *(int64_t *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].Char -= *b.CharPtr;
 				else if( addrmode & TwoBytes )
@@ -744,7 +763,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) -= script->m_Regs[b.UInt64].Int64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.CharPtr -= b.Char;
@@ -786,7 +805,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].UInt64 -= *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar -= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -824,7 +843,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) -= script->m_Regs[b.UInt64].UInt64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr -= b.UChar;
@@ -867,7 +886,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].Int64 *= *(int64_t *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].Char *= *b.CharPtr;
 				else if( addrmode & TwoBytes )
@@ -905,7 +924,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) *= script->m_Regs[b.UInt64].Int64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.CharPtr *= b.Char;
@@ -947,7 +966,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].UInt64 *= *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar *= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -985,7 +1004,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) *= script->m_Regs[b.UInt64].UInt64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr *= b.UChar;
@@ -1046,7 +1065,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 					script->m_Regs[a.UInt64].Int64 /= *(int64_t *)(script->m_Regs[b.UInt64].CharPtr+offset);
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte ) {
 					if( !*b.CharPtr )
 						*b.CharPtr = 1;
@@ -1102,7 +1121,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) /= script->m_Regs[b.UInt64].Int64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( !b.UInt64 )
 						b.UInt64 = 1;
@@ -1168,7 +1187,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 					script->m_Regs[a.UInt64].UInt64 /= *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte ) {
 					if( !*b.UCharPtr )
 						*b.UCharPtr = 1;
@@ -1224,7 +1243,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) /= script->m_Regs[b.UInt64].UInt64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( !b.UInt64 )
 						b.UInt64 = 1;
@@ -1291,7 +1310,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 					script->m_Regs[a.UInt64].Int64 %= *(int64_t *)(script->m_Regs[b.UInt64].CharPtr+offset);
 				}
 			}
-			else if( addrmode & (Direct|Immediate) ) {
+			else if( addrmode & (IPRelative|Immediate) ) {
 				if( addrmode & Byte ) {
 					if( !*b.CharPtr )
 						*b.CharPtr = 1;
@@ -1347,7 +1366,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) %= script->m_Regs[b.UInt64].Int64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( !b.UInt64 )
 						b.UInt64 = 1;
@@ -1413,7 +1432,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 					script->m_Regs[a.UInt64].UInt64 %= *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte ) {
 					if( !*b.UCharPtr )
 						*b.UCharPtr = 1;
@@ -1469,7 +1488,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) %= script->m_Regs[b.UInt64].UInt64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( !b.UInt64 )
 						b.UInt64 = 1;
@@ -1518,7 +1537,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].UInt64 >>= *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar >>= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -1556,7 +1575,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) >>= script->m_Regs[b.UInt64].UInt64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr >>= b.UChar;
@@ -1599,7 +1618,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].UInt64 <<= *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar <<= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -1637,7 +1656,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) <<= script->m_Regs[b.UInt64].UInt64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr <<= b.UChar;
@@ -1680,7 +1699,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].UInt64 &= *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar &= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -1718,7 +1737,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) &= script->m_Regs[b.UInt64].UInt64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr &= b.UChar;
@@ -1761,7 +1780,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].UInt64 |= *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar |= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -1799,7 +1818,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) |= script->m_Regs[b.UInt64].UInt64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr |= b.UChar;
@@ -1842,7 +1861,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].UInt64 ^= *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_Regs[a.UInt64].UChar ^= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -1880,7 +1899,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) ^= script->m_Regs[b.UInt64].UInt64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						*a.UCharPtr ^= b.UChar;
@@ -1923,7 +1942,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].Int64 < *(int64_t *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].Char < *b.CharPtr;
 				else if( addrmode & TwoBytes )
@@ -1961,7 +1980,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						script->m_bZeroFlag = *(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) < script->m_Regs[b.UInt64].Int64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_bZeroFlag = *a.CharPtr < b.Char;
@@ -2003,7 +2022,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].UInt64 < *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].UChar < *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -2041,7 +2060,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						script->m_bZeroFlag = *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) < script->m_Regs[b.UInt64].UInt64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_bZeroFlag = *a.UCharPtr < b.UChar;
@@ -2084,7 +2103,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].Int64 > *(int64_t *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].Char > *b.CharPtr;
 				else if( addrmode & TwoBytes )
@@ -2122,7 +2141,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						script->m_bZeroFlag = *(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) > script->m_Regs[b.UInt64].Int64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_bZeroFlag = *a.CharPtr > b.Char;
@@ -2164,7 +2183,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].UInt64 > *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].UChar > *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -2202,7 +2221,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						script->m_bZeroFlag = *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) > script->m_Regs[b.UInt64].UInt64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_bZeroFlag = *a.UCharPtr > b.UChar;
@@ -2245,7 +2264,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].Int64 == *(int64_t *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].Char == *b.CharPtr;
 				else if( addrmode & TwoBytes )
@@ -2283,7 +2302,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						script->m_bZeroFlag = *(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) == script->m_Regs[b.UInt64].Int64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_bZeroFlag = *a.CharPtr == b.Char;
@@ -2325,7 +2344,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].UInt64 == *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].UChar == *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -2363,7 +2382,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						script->m_bZeroFlag = *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) == script->m_Regs[b.UInt64].UInt64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_bZeroFlag = *a.UCharPtr == b.UChar;
@@ -2406,7 +2425,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].Int64 != *(int64_t *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].Char != *b.CharPtr;
 				else if( addrmode & TwoBytes )
@@ -2444,7 +2463,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						script->m_bZeroFlag = *(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) != script->m_Regs[b.UInt64].Int64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_bZeroFlag = *a.CharPtr != b.Char;
@@ -2486,7 +2505,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].UInt64 != *(uint64_t *)(script->m_Regs[b.UInt64].UCharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].UChar != *b.UCharPtr;
 				else if( addrmode & TwoBytes )
@@ -2524,7 +2543,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						script->m_bZeroFlag = *(uint64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset) != script->m_Regs[b.UInt64].UInt64;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
 						script->m_bZeroFlag = *a.UCharPtr != b.UChar;
@@ -2570,7 +2589,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				float temp = (float) *(int32_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 				*(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) = temp;
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				float temp = (float) *a.Int32Ptr;
 				*a.FloatPtr = temp;
 			}
@@ -2593,7 +2612,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				double temp = (double) *(int64_t *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 				*(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) = temp;
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				double temp = (double) *a.Int64Ptr;
 				*a.DoublePtr = temp;
 			}
@@ -2619,7 +2638,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				temp = (double) *(float *)(script->m_Regs[a.UInt64].UCharPtr+offset);
 				*(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) = temp;
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				temp = (double) *a.FloatPtr;
 				*a.DoublePtr = 0;
 				*a.DoublePtr = temp;
@@ -2646,7 +2665,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				*(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) = 0;
 				*(float *)(script->m_Regs[a.UInt64].UCharPtr+offset) = temp;
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				temp = (float) *a.DoublePtr;
 				*a.FloatPtr = 0;
 				*a.FloatPtr = temp;
@@ -2668,7 +2687,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].Double += *(double *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & FourBytes )
 					script->m_Regs[a.UInt64].Float += *b.FloatPtr;
 				else if( addrmode & EightBytes )
@@ -2696,7 +2715,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) += script->m_Regs[b.UInt64].Double;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
 						*a.FloatPtr += b.Float;
@@ -2726,7 +2745,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].Double -= *(double *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & FourBytes )
 					script->m_Regs[a.UInt64].Float -= *b.FloatPtr;
 				else if( addrmode & EightBytes )
@@ -2752,7 +2771,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) -= script->m_Regs[b.UInt64].Double;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
 						*a.FloatPtr -= b.Float;
@@ -2782,7 +2801,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_Regs[a.UInt64].Double *= *(double *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & FourBytes )
 					script->m_Regs[a.UInt64].Float *= *b.FloatPtr;
 				else if( addrmode & EightBytes )
@@ -2808,7 +2827,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						*(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) *= script->m_Regs[b.UInt64].Double;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
 						*a.FloatPtr *= b.Float;
@@ -2850,7 +2869,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 					script->m_Regs[a.UInt64].Double /= *(double *)(script->m_Regs[b.UInt64].CharPtr+offset);
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & FourBytes ) {
 					if( !*b.FloatPtr )
 						*b.FloatPtr = 1.f;
@@ -2894,7 +2913,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 					}
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes ) {
 						if( !b.Float )
@@ -2933,7 +2952,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					*(double *)(script->m_Regs[a.UInt64].CharPtr+offset) = -*(double *)(script->m_Regs[a.UInt64].CharPtr+offset);
 			}
-			else if( addrmode & (Direct|Immediate) ) {
+			else if( addrmode & (IPRelative|Immediate) ) {
 				if( addrmode & FourBytes )
 					*a.FloatPtr = -*a.FloatPtr;
 				else if( addrmode & EightBytes )
@@ -2955,7 +2974,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].Double < *(double *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & FourBytes )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].Float < *b.FloatPtr;
 				else if( addrmode & EightBytes )
@@ -2981,7 +3000,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						script->m_bZeroFlag = *(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) < script->m_Regs[b.UInt64].Double;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
 						script->m_bZeroFlag = *a.FloatPtr < b.Float;
@@ -3011,7 +3030,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].Double > *(double *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & FourBytes )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].Float > *b.FloatPtr;
 				else if( addrmode & EightBytes )
@@ -3037,7 +3056,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						script->m_bZeroFlag = *(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) > script->m_Regs[b.UInt64].Double;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
 						script->m_bZeroFlag = *a.FloatPtr > b.Float;
@@ -3067,7 +3086,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].Double == *(double *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & FourBytes )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].Float == *b.FloatPtr;
 				else if( addrmode & EightBytes )
@@ -3093,7 +3112,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						script->m_bZeroFlag = *(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) == script->m_Regs[b.UInt64].Double;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
 						script->m_bZeroFlag = *a.FloatPtr == b.Float;
@@ -3123,7 +3142,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 				else if( addrmode & EightBytes )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].Double != *(double *)(script->m_Regs[b.UInt64].CharPtr+offset);
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & FourBytes )
 					script->m_bZeroFlag = script->m_Regs[a.UInt64].Float != *b.FloatPtr;
 				else if( addrmode & EightBytes )
@@ -3149,7 +3168,7 @@ int Tagha_Exec(struct TaghaVM *restrict vm, int argc, union CValue argv[])
 						script->m_bZeroFlag = *(double *)(script->m_Regs[a.UInt64].UCharPtr+offset) != script->m_Regs[b.UInt64].Double;
 				}
 			}
-			else if( addrmode & Direct ) {
+			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
 						script->m_bZeroFlag = *a.FloatPtr != b.Float;

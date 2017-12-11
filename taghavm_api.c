@@ -13,7 +13,7 @@ void Tagha_Init(struct TaghaVM *vm)
 	
 	vm->m_pScript = NULL;
 	
-	vm->m_pmapNatives = malloc(sizeof(struct hashmap));
+	vm->m_pmapNatives = calloc(1, sizeof(struct hashmap));
 	if( !vm->m_pmapNatives )
 		printf("[%sTagha Init Error%s]: **** %sUnable to initialize Native Map%s ****\n", KRED, RESET, KGRN, RESET);
 	else map_init(vm->m_pmapNatives);
@@ -49,7 +49,7 @@ void Tagha_LoadScriptByName(struct TaghaVM *restrict vm, char *restrict filename
 		return;
 	
 	// allocate our script.
-	vm->m_pScript = TaghaScript_FromFile(filename);
+	vm->m_pScript = TaghaScript_BuildFromFile(filename);
 	
 	struct TaghaScript *script = vm->m_pScript;
 	
@@ -122,7 +122,7 @@ int32_t Tagha_CallScriptFunc(struct TaghaVM *restrict vm, const char *restrict s
 	(--script->m_Regs[rsp].SelfPtr)->UInt64 = (uintptr_t)script->m_Regs[rip].UCharPtr+1;
 	
 	// jump to the function entry address.
-	script->m_Regs[rip].UCharPtr = script->m_pText + pFuncTable->m_uiEntry;
+	script->m_Regs[rip].UCharPtr = script->m_pMemory + pFuncTable->m_uiEntry;
 	pFuncTable = NULL;
 	
 	// push bp and copy sp to bp.

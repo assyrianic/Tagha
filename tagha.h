@@ -26,14 +26,10 @@ extern "C" {
 struct TaghaScript;
 struct TaghaVM;
 struct NativeInfo;
-struct FuncTable;
-struct DataTable;
 union CValue;
 
 typedef struct TaghaScript		TaghaScript;
 typedef struct TaghaVM			TaghaVM;
-typedef struct DataTable		DataTable;
-typedef struct FuncTable		FuncTable;
 typedef struct NativeInfo		NativeInfo;
 typedef union CValue			CValue;
 
@@ -73,13 +69,13 @@ struct NativeInfo {
  *	immediate - simple constant value.
  *	register - register holds the exact data.
  *	register indirect - register holds memory address and dereferenced. Can be used as displacement as well.
- *	direct - a simple memory address. Useful for static data like global vars.
+ *	IPRelative - instruction ptr + offset. required for static data like global vars.
 */
 enum AddrMode {
 	Immediate	= 1,
 	Register	= 2,
 	RegIndirect	= 4,
-	Direct		= 8,
+	IPRelative	= 8,
 	Byte		= 16,
 	TwoBytes	= 32,
 	FourBytes	= 64,
@@ -109,35 +105,37 @@ enum RegID {
  * Data Table Dictionary
  */
 
-struct FuncTable {
-	uint32_t	m_uiParams;
+typedef struct FuncTable {
 	uint32_t	m_uiEntry;	// TODO: make this into uint64?
-};
+} FuncTable;
 
-struct DataTable {
+typedef struct DataTable {
 	uint32_t	m_uiBytes;
 	uint32_t	m_uiOffset;	// TODO: make this into uint64?
-};
+} DataTable;
 
 struct TaghaScript {
-	char m_strName[64];	// script's name
-	union CValue m_Regs[regsize];
+	char m_strName[64];		// script's name
+	CValue m_Regs[regsize];
 	uint8_t
-		*m_pMemory,	// stack and data stream. Used for stack and data segment
-		*m_pText	// instruction stream.
+		*m_pMemory,			// script memory, entirely aligned by 8 bytes.
+		*m_pStackSegment,	// stack segment ptr where the stack's lowest address lies.
+		*m_pDataSegment,	// data segment is the address AFTER the stack segment ptr. Aligned by 8 bytes.
+		*m_pTextSegment		// text segment is the address after the last global variable AKA the last opcode.
+		// rip register will start at m_pMemory + 0.
 	;
-	char	**m_pstrNativeCalls;	// natives table as stored strings.
+	char **m_pstrNativeCalls;	// natives string table.
 	struct hashmap
-		*m_pmapFuncs,	// stores the functions compiled to script.
-		*m_pmapGlobals	// stores global vars like string literals or variables.
+		*m_pmapFuncs,		// stores the functions compiled to script.
+		*m_pmapGlobals,		// stores global vars like string literals or variables.
 	;
 	uint32_t
-		m_uiMemsize,	// size of m_pMemory
-		m_uiInstrSize,	// size of m_pText
-		m_uiMaxInstrs,	// max amount of instrs a script can execute.
-		m_uiNatives,	// amount of natives the script uses.
-		m_uiFuncs,	// how many functions the script has.
-		m_uiGlobals	// how many globals variables the script has.
+		m_uiMemsize,		// total size of m_pMemory
+		m_uiInstrSize,		// size of the text segment
+		m_uiMaxInstrs,		// max amount of instrs a script can execute.
+		m_uiNatives,		// amount of natives the script uses.
+		m_uiFuncs,			// how many functions the script has.
+		m_uiGlobals			// how many globals variables the script has.
 	;
 	bool	m_bSafeMode : 1;	// does the script want bounds checking?
 	bool	m_bDebugMode : 1;	// print debug info.
@@ -146,9 +144,11 @@ struct TaghaScript {
 
 
 struct TaghaVM {
-	// TODO: Replace script vector with dictionary so we can access scripts by name!
 	struct TaghaScript	*m_pScript;
-	struct hashmap		*m_pmapNatives;	// hashmap that stores the native's script name and the C/C++ function pointer bound to it.
+	
+	// native C/C++ interface hashmap.
+	// stores a C/C++ function ptr using the script-side name as the key.
+	struct hashmap		*m_pmapNatives;
 };
 
 
@@ -173,7 +173,7 @@ void		Tagha_LoadSelfNatives(struct TaghaVM *vm);
 
 
 // taghascript_api.c
-TaghaScript	*TaghaScript_FromFile(const char *filename);
+TaghaScript	*TaghaScript_BuildFromFile(const char *filename);
 void		TaghaScript_PrintPtrs(const struct TaghaScript *script);
 void		TaghaScript_PrintMem(const struct TaghaScript *script);
 void		TaghaScript_PrintInstrs(const struct TaghaScript *script);

@@ -73,7 +73,7 @@ static void native_get_script_from_file(struct TaghaScript *script, union CValue
 		puts("get_script_from_file reported: 'filename' can't be the same file as calling script!\n");
 		return;
 	}
-	retval->Ptr = TaghaScript_FromFile(filename);
+	retval->Ptr = TaghaScript_BuildFromFile(filename);
 	filename = NULL;
 }
 

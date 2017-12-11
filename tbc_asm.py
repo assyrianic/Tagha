@@ -17,7 +17,7 @@ opcodes = enum('halt', 'push', 'pop', 'neg', 'inc', 'dec', 'bnot', 'jmp', 'jz', 
 Immediate	= 1;
 Register	= 2;
 RegIndirect	= 4;
-Direct		= 8;
+IPRelative	= 8;
 Byte		= 16;
 TwoBytes	= 32;
 FourBytes	= 64;
@@ -56,16 +56,13 @@ def wrt_hdr_natives(f, *natives) -> None:
 
 def wrt_hdr_funcs(f, *funcs) -> None:
 	i = 0;
-	numfuncs = len(funcs) // 3;
+	numfuncs = len(funcs) // 2;
 	f.write(numfuncs.to_bytes(4, byteorder='little'));
-	while i<numfuncs*3:
+	while i<numfuncs*2:
 		strsize = len(funcs[i])+1;
 		f.write(strsize.to_bytes(4, byteorder='little'));
 		f.write(funcs[i].encode('utf-8'));
 		f.write(0x0.to_bytes(1, byteorder='little'));
-		i += 1;
-		
-		f.write(funcs[i].to_bytes(4, byteorder='little'));
 		i += 1;
 		
 		f.write(funcs[i].to_bytes(4, byteorder='little'));

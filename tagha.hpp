@@ -13,21 +13,23 @@ struct TaghaScript_ {
 	char m_strName[64];	// script's name
 	union CValue m_Regs[regsize];
 	uint8_t
-		*m_pMemory,	// stack and data stream. Used for stack and data segment
-		*m_pText	// instruction stream.
+		*m_pMemory,			// script memory, entirely aligned by 8 bytes.
+		*m_pStackSegment,	// stack segment ptr where the stack's lowest address lies.
+		*m_pDataSegment,	// data segment is the address AFTER the stack segment ptr. Aligned by 8 bytes.
+		*m_pTextSegment		// text segment is the address after the last global variable.
 	;
-	char	**m_pstrNativeCalls;	// natives table as stored strings.
+	char **m_pstrNativeCalls;	// natives table as stored strings.
 	struct hashmap
 		*m_pmapFuncs,	// stores the functions compiled to script.
-		*m_pmapGlobals	// stores global vars like string literals or variables.
+		*m_pmapGlobals,	// stores global vars like string literals or variables.
 	;
 	uint32_t
-		m_uiMemsize,	// size of m_pMemory
-		m_uiInstrSize,	// size of m_pText
+		m_uiMemsize,	// total size of m_pMemory
+		m_uiInstrSize,	// size of the text segment
 		m_uiMaxInstrs,	// max amount of instrs a script can execute.
 		m_uiNatives,	// amount of natives the script uses.
-		m_uiFuncs,	// how many functions the script has.
-		m_uiGlobals	// how many globals variables the script has.
+		m_uiFuncs,		// how many functions the script has.
+		m_uiGlobals		// how many globals variables the script has.
 	;
 	bool	m_bSafeMode : 1;	// does the script want bounds checking?
 	bool	m_bDebugMode : 1;	// print debug info.
@@ -67,6 +69,8 @@ struct TaghaVM_ {
 	void LoadLibCNatives();
 	void LoadSelfNatives();
 };
+
+TaghaScript_ *TaghaScriptBuildFromFile(const char *filename);
 
 
 typedef		void (*fnNative_)(struct TaghaScript_ *, union CValue [], union CValue *, const uint32_t, struct TaghaVM_ *);

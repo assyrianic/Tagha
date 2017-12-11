@@ -190,7 +190,7 @@ bool map_insert(struct hashmap *restrict map, const char *restrict szKey, const 
 		return false;
 	}
 	
-	struct kvnode *node = malloc( sizeof(struct kvnode) );
+	struct kvnode *node = calloc(1, sizeof(struct kvnode) );
 	if( !node ) {
 		printf("**** Memory Allocation Error **** map_insert::node is NULL\n");
 		return false;
@@ -350,7 +350,7 @@ bool map_insert_int(struct hashmap *restrict map, const uint64_t key, void *rest
 		return false;
 	}
 	
-	struct kvnode *node = malloc( sizeof(struct kvnode) );
+	struct kvnode *node = calloc(1, sizeof(struct kvnode) );
 	if( !node ) {
 		printf("**** Memory Allocation Error **** map_insert_int::node is NULL\n");
 		return false;
