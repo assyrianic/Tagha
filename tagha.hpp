@@ -10,26 +10,27 @@ struct TaghaVM_;
 struct NativeInfo_;
 
 struct TaghaScript_ {
-	char m_strName[64];	// script's name
-	union CValue m_Regs[regsize];
+	char m_strName[64];		// script's name
+	CValue m_Regs[regsize];
 	uint8_t
 		*m_pMemory,			// script memory, entirely aligned by 8 bytes.
 		*m_pStackSegment,	// stack segment ptr where the stack's lowest address lies.
 		*m_pDataSegment,	// data segment is the address AFTER the stack segment ptr. Aligned by 8 bytes.
-		*m_pTextSegment		// text segment is the address after the last global variable.
+		*m_pTextSegment		// text segment is the address after the last global variable AKA the last opcode.
+		// rip register will start at m_pMemory + 0.
 	;
-	char **m_pstrNativeCalls;	// natives table as stored strings.
+	char **m_pstrNativeCalls;	// natives string table.
 	struct hashmap
-		*m_pmapFuncs,	// stores the functions compiled to script.
-		*m_pmapGlobals,	// stores global vars like string literals or variables.
+		*m_pmapFuncs,		// stores the functions compiled to script.
+		*m_pmapGlobals		// stores global vars like string literals or variables.
 	;
 	uint32_t
-		m_uiMemsize,	// total size of m_pMemory
-		m_uiInstrSize,	// size of the text segment
-		m_uiMaxInstrs,	// max amount of instrs a script can execute.
-		m_uiNatives,	// amount of natives the script uses.
-		m_uiFuncs,		// how many functions the script has.
-		m_uiGlobals		// how many globals variables the script has.
+		m_uiMemsize,		// total size of m_pMemory
+		m_uiInstrSize,		// size of the text segment
+		m_uiMaxInstrs,		// max amount of instrs a script can execute.
+		m_uiNatives,		// amount of natives the script uses.
+		m_uiFuncs,			// how many functions the script has.
+		m_uiGlobals			// how many globals variables the script has.
 	;
 	bool	m_bSafeMode : 1;	// does the script want bounds checking?
 	bool	m_bDebugMode : 1;	// print debug info.
@@ -37,8 +38,10 @@ struct TaghaScript_ {
 	
 	void Delete();
 	void PrintPtrs();
-	void PrintMem();
+	void PrintStack();
+	void PrintData();
 	void PrintInstrs();
+	void PrintRegData();
 	void Reset();
 	void *GetGlobalByName(const char *strGlobalName);
 	bool BindGlobalPtr(const char *strGlobalName, void *pVar);
@@ -56,6 +59,9 @@ struct TaghaScript_ {
 
 struct TaghaVM_ {
 	struct TaghaScript	*m_pScript;
+	
+	// native C/C++ interface hashmap.
+	// stores a C/C++ function ptr using the script-side name as the key.
 	struct hashmap		*m_pmapNatives;
 	
 	TaghaVM_(void);

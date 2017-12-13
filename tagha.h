@@ -96,6 +96,9 @@ enum RegID {
 	regsize		// for lazily updating id list
 };
 
+// tagha_exec.c
+const char *RegIDToStr(const enum RegID id);
+
 
 /* Script File Structure.
  * magic verifier
@@ -114,6 +117,7 @@ typedef struct DataTable {
 	uint32_t	m_uiOffset;	// TODO: make this into uint64?
 } DataTable;
 
+
 struct TaghaScript {
 	char m_strName[64];		// script's name
 	CValue m_Regs[regsize];
@@ -127,7 +131,7 @@ struct TaghaScript {
 	char **m_pstrNativeCalls;	// natives string table.
 	struct hashmap
 		*m_pmapFuncs,		// stores the functions compiled to script.
-		*m_pmapGlobals,		// stores global vars like string literals or variables.
+		*m_pmapGlobals		// stores global vars like string literals or variables.
 	;
 	uint32_t
 		m_uiMemsize,		// total size of m_pMemory
@@ -153,48 +157,52 @@ struct TaghaVM {
 
 
 // taghavm_api.c
-void		Tagha_Init(struct TaghaVM *vm);
-void		Tagha_LoadScriptByName(struct TaghaVM *vm, char *filename);
-bool		Tagha_RegisterNatives(struct TaghaVM *vm, struct NativeInfo arrNatives[]);
-void		Tagha_Free(struct TaghaVM *vm);
-int32_t		Tagha_CallScriptFunc(struct TaghaVM *vm, const char *strFunc);
-struct TaghaScript	*Tagha_GetScript(const struct TaghaVM *vm);
-void		Tagha_SetScript(struct TaghaVM *vm, struct TaghaScript *script);
-void		gfree(void **ptr);
+void				Tagha_Init(struct TaghaVM *pVM);
+void				Tagha_LoadScriptByName(struct TaghaVM *pVM, char *filename);
+bool				Tagha_RegisterNatives(struct TaghaVM *pVM, struct NativeInfo arrNatives[]);
+void				Tagha_Free(struct TaghaVM *pVM);
+int32_t				Tagha_CallScriptFunc(struct TaghaVM *pVM, const char *strFunc);
+struct TaghaScript	*Tagha_GetScript(const struct TaghaVM *pVM);
+void				Tagha_SetScript(struct TaghaVM *pVM, struct TaghaScript *pScript);
+void				gfree(void **ppPtr);
 
 
 // Tagha_Exec.c
-int32_t		Tagha_Exec(struct TaghaVM *vm, int argc, CValue argv[]);
+int32_t				Tagha_Exec(struct TaghaVM *pVM, int argc, CValue argv[]);
 
 
 // tagha_libc.c
-void		Tagha_LoadLibCNatives(struct TaghaVM *vm);
-void		Tagha_LoadSelfNatives(struct TaghaVM *vm);
+void				Tagha_LoadLibCNatives(struct TaghaVM *pVM);
+void				Tagha_LoadSelfNatives(struct TaghaVM *pVM);
 
 
 // taghascript_api.c
-TaghaScript	*TaghaScript_BuildFromFile(const char *filename);
-void		TaghaScript_PrintPtrs(const struct TaghaScript *script);
-void		TaghaScript_PrintMem(const struct TaghaScript *script);
-void		TaghaScript_PrintInstrs(const struct TaghaScript *script);
-void		TaghaScript_Reset(struct TaghaScript *script);
-void		TaghaScript_Free(struct TaghaScript *script);
+	// script factories
+struct TaghaScript	*TaghaScript_BuildFromFile(const char *strFilename);
+struct TaghaScript	*TaghaScript_BuildFromData(void *pFile);
 
-void		*TaghaScript_GetGlobalByName(struct TaghaScript *script, const char *strGlobalName);
-bool		TaghaScript_BindGlobalPtr(struct TaghaScript *script, const char *strGlobalName, void *pVar);
-void		TaghaScript_PushValue(struct TaghaScript *script, const union CValue value);
-union CValue	TaghaScript_PopValue(struct TaghaScript *script);
+void				TaghaScript_PrintPtrs(const struct TaghaScript *pScript);
+void				TaghaScript_PrintStack(const struct TaghaScript *pScript);
+void				TaghaScript_PrintData(const struct TaghaScript *pScript);
+void				TaghaScript_PrintInstrs(const struct TaghaScript *pScript);
+void				TaghaScript_PrintRegData(const struct TaghaScript *pScript);
+void				TaghaScript_Reset(struct TaghaScript *pScript);
+void				TaghaScript_Free(struct TaghaScript *pScript);
 
-uint32_t	TaghaScript_GetMemSize(const struct TaghaScript *script);
-uint32_t	TaghaScript_GetInstrSize(const struct TaghaScript *script);
-uint32_t	TaghaScript_GetMaxInstrs(const struct TaghaScript *script);
-uint32_t	TaghaScript_GetNativeCount(const struct TaghaScript *script);
-uint32_t	TaghaScript_GetFuncCount(const struct TaghaScript *script);
-uint32_t	TaghaScript_GetGlobalsCount(const struct TaghaScript *script);
-bool		TaghaScript_IsSafemodeActive(const struct TaghaScript *script);
-bool		TaghaScript_IsDebugActive(const struct TaghaScript *script);
+void				*TaghaScript_GetGlobalByName(struct TaghaScript *pScript, const char *strGlobalName);
+bool				TaghaScript_BindGlobalPtr(struct TaghaScript *pScript, const char *strGlobalName, void *pVar);
+void				TaghaScript_PushValue(struct TaghaScript *pScript, const union CValue value);
+union CValue		TaghaScript_PopValue(struct TaghaScript *pScript);
 
-void		TaghaScript_PrintErr(struct TaghaScript *script, const char *funcname, const char *err, ...);
+uint32_t			TaghaScript_GetMemSize(const struct TaghaScript *pScript);
+uint32_t			TaghaScript_GetInstrSize(const struct TaghaScript *pScript);
+uint32_t			TaghaScript_GetMaxInstrs(const struct TaghaScript *pScript);
+uint32_t			TaghaScript_GetNativeCount(const struct TaghaScript *pScript);
+uint32_t			TaghaScript_GetFuncCount(const struct TaghaScript *pScript);
+uint32_t			TaghaScript_GetGlobalsCount(const struct TaghaScript *pScript);
+bool				TaghaScript_IsSafemodeActive(const struct TaghaScript *pScript);
+bool				TaghaScript_IsDebugActive(const struct TaghaScript *pScript);
+void				TaghaScript_PrintErr(struct TaghaScript *pScript, const char *funcname, const char *err, ...);
 
 /*
 *	r = register is first operand

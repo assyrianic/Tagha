@@ -11,14 +11,24 @@ void TaghaScript_::PrintPtrs()
 	TaghaScript_PrintPtrs((struct TaghaScript *)this);
 }
 
-void TaghaScript_::PrintMem()
+void TaghaScript_::PrintStack()
 {
-	TaghaScript_PrintMem((struct TaghaScript *)this);
+	TaghaScript_PrintStack((struct TaghaScript *)this);
+}
+
+void TaghaScript_::PrintData()
+{
+	TaghaScript_PrintData((struct TaghaScript *)this);
 }
 
 void TaghaScript_::PrintInstrs()
 {
 	TaghaScript_PrintInstrs((struct TaghaScript *)this);
+}
+
+void TaghaScript_::PrintRegData()
+{
+	TaghaScript_PrintRegData((struct TaghaScript *)this);
 }
 
 void TaghaScript_::Reset()

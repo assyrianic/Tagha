@@ -6,17 +6,17 @@
 #include <stdarg.h>
 #include "tagha.h"
 
-void Tagha_Init(struct TaghaVM *vm)
+void Tagha_Init(struct TaghaVM *pVM)
 {
-	if( !vm )
+	if( !pVM )
 		return;
 	
-	vm->m_pScript = NULL;
+	pVM->m_pScript = NULL;
 	
-	vm->m_pmapNatives = calloc(1, sizeof(struct hashmap));
-	if( !vm->m_pmapNatives )
+	pVM->m_pmapNatives = calloc(1, sizeof(struct hashmap));
+	if( !pVM->m_pmapNatives )
 		printf("[%sTagha Init Error%s]: **** %sUnable to initialize Native Map%s ****\n", KRED, RESET, KGRN, RESET);
-	else map_init(vm->m_pmapNatives);
+	else map_init(pVM->m_pmapNatives);
 }
 
 static bool is_c_file(const char *filename)
@@ -43,112 +43,112 @@ static bool is_tbc_file(const char *filename)
 }
 
 
-void Tagha_LoadScriptByName(struct TaghaVM *restrict vm, char *restrict filename)
+void Tagha_LoadScriptByName(struct TaghaVM *restrict pVM, char *restrict strFilename)
 {
-	if( !vm )
+	if( !pVM )
 		return;
 	
-	// allocate our script.
-	vm->m_pScript = TaghaScript_BuildFromFile(filename);
+	// allocate our pScript.
+	pVM->m_pScript = TaghaScript_BuildFromFile(strFilename);
 	
-	struct TaghaScript *script = vm->m_pScript;
+	struct TaghaScript *pScript = pVM->m_pScript;
 	
-	// do some initial libc setup for our script.
+	// do some initial libc setup for our pScript.
 	// set up our standard I/O streams
-	// and global self-referencing script pointer
-	// Downside is that the script side host var MUST be a pointer.
-	if( script and script->m_pmapGlobals ) {
-		TaghaScript_BindGlobalPtr(script, "stdin", stdin);
-		TaghaScript_BindGlobalPtr(script, "stderr", stderr);
-		TaghaScript_BindGlobalPtr(script, "stdout", stdout);
-		TaghaScript_BindGlobalPtr(script, "myself", script);
+	// and global self-referencing pScript pointer
+	// Downside is that the pScript side host var MUST be a pointer.
+	if( pScript and pScript->m_pmapGlobals ) {
+		TaghaScript_BindGlobalPtr(pScript, "stdin", stdin);
+		TaghaScript_BindGlobalPtr(pScript, "stderr", stderr);
+		TaghaScript_BindGlobalPtr(pScript, "stdout", stdout);
+		TaghaScript_BindGlobalPtr(pScript, "myself", pScript);
 	}
 }
 
 
-void Tagha_Free(struct TaghaVM *vm)
+void Tagha_Free(struct TaghaVM *pVM)
 {
-	if( !vm )
+	if( !pVM )
 		return;
 	
-	if( vm->m_pScript )
-		TaghaScript_Free(vm->m_pScript), vm->m_pScript=NULL;
+	if( pVM->m_pScript )
+		TaghaScript_Free(pVM->m_pScript), pVM->m_pScript=NULL;
 	
 	// since the VMs native hashmap has nothing allocated,
 	// we just free the hashmap's internal data and then the hashmap itself.
-	if( vm->m_pmapNatives ) {
-		map_free(vm->m_pmapNatives);
-		gfree((void **)&vm->m_pmapNatives);
+	if( pVM->m_pmapNatives ) {
+		map_free(pVM->m_pmapNatives);
+		gfree((void **)&pVM->m_pmapNatives);
 	}
 }
 
 
-bool Tagha_RegisterNatives(struct TaghaVM *vm, struct NativeInfo arrNatives[])
+bool Tagha_RegisterNatives(struct TaghaVM *pVM, struct NativeInfo arrNatives[])
 {
-	if( !vm or !arrNatives )
+	if( !pVM or !arrNatives )
 		return false;
-	else if( !vm->m_pmapNatives )
+	else if( !pVM->m_pmapNatives )
 		return false;
 	
 	for( NativeInfo *natives = arrNatives ; natives->pFunc and natives->strName ; natives++ )
-		map_insert(vm->m_pmapNatives, natives->strName, (uintptr_t)natives->pFunc);
+		map_insert(pVM->m_pmapNatives, natives->strName, (uintptr_t)natives->pFunc);
 	return true;
 }
 
-int32_t Tagha_CallScriptFunc(struct TaghaVM *restrict vm, const char *restrict strFunc)
+int32_t Tagha_CallScriptFunc(struct TaghaVM *restrict pVM, const char *restrict strFunc)
 {
-	// We need the VM system in order to call scripts, why?
+	// We need the VM system in order to call pScripts, why?
 	// Because the exec function needs the VM system in order to check for native functions.
-	if( !vm or !vm->m_pScript or !strFunc )
+	if( !pVM or !pVM->m_pScript or !strFunc )
 		return -1;
 	
-	struct TaghaScript *script = vm->m_pScript;
-	if( !script->m_pmapFuncs ) {
-		TaghaScript_PrintErr(script, __func__, "Cannot call functions from host using a NULL function table!");
+	struct TaghaScript *pScript = pVM->m_pScript;
+	if( !pScript->m_pmapFuncs ) {
+		TaghaScript_PrintErr(pScript, __func__, "Cannot call functions from host using a NULL function table!");
 		return -1;
 	}
-	else if( ((script->m_Regs[rsp].UCharPtr-script->m_pMemory)-16) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack overflow!");
+	else if( ((pScript->m_Regs[rsp].UCharPtr-pScript->m_pMemory)-16) >= pScript->m_uiMemsize ) {
+		TaghaScript_PrintErr(pScript, __func__, "stack overflow!");
 		return -1;
 	}
 	
-	struct FuncTable *pFuncTable = (struct FuncTable *)(uintptr_t) map_find(script->m_pmapFuncs, strFunc);
+	struct FuncTable *pFuncTable = (struct FuncTable *)(uintptr_t) map_find(pScript->m_pmapFuncs, strFunc);
 	if( !pFuncTable ) {
-		TaghaScript_PrintErr(script, __func__, "Function \'%s\' doesn't exist!", strFunc);
+		TaghaScript_PrintErr(pScript, __func__, "Function \'%s\' doesn't exist!", strFunc);
 		return -1;
 	}
 	
 	// save return address.
-	(--script->m_Regs[rsp].SelfPtr)->UInt64 = (uintptr_t)script->m_Regs[rip].UCharPtr+1;
+	(--pScript->m_Regs[rsp].SelfPtr)->UInt64 = (uintptr_t)pScript->m_Regs[rip].UCharPtr+1;
 	
 	// jump to the function entry address.
-	script->m_Regs[rip].UCharPtr = script->m_pMemory + pFuncTable->m_uiEntry;
+	pScript->m_Regs[rip].UCharPtr = pScript->m_pMemory + pFuncTable->m_uiEntry;
 	pFuncTable = NULL;
 	
 	// push bp and copy sp to bp.
-	(--script->m_Regs[rsp].SelfPtr)->UInt64 = (uintptr_t)script->m_Regs[rbp].UCharPtr;
-	script->m_Regs[rbp] = script->m_Regs[rsp];
+	(--pScript->m_Regs[rsp].SelfPtr)->UInt64 = (uintptr_t)pScript->m_Regs[rbp].UCharPtr;
+	pScript->m_Regs[rbp] = pScript->m_Regs[rsp];
 	
-	return Tagha_Exec(vm, 0, NULL);
+	return Tagha_Exec(pVM, 0, NULL);
 }
 
-TaghaScript *Tagha_GetScript(const struct TaghaVM *vm)
+TaghaScript *Tagha_GetScript(const struct TaghaVM *pVM)
 {
-	return !vm ? NULL : vm->m_pScript;
+	return !pVM ? NULL : pVM->m_pScript;
 }
 
-void Tagha_SetScript(struct TaghaVM *vm, struct TaghaScript *script)
+void Tagha_SetScript(struct TaghaVM *pVM, struct TaghaScript *pScript)
 {
-	if( !vm )
+	if( !pVM )
 		return;
-	vm->m_pScript = script;
+	pVM->m_pScript = pScript;
 }
 
-void gfree(void **ptr)
+void gfree(void **ppPtr)
 {
-	if( *ptr != NULL ) {
-		free(*ptr);
-		*ptr = NULL;
+	if( *ppPtr != NULL ) {
+		free(*ppPtr);
+		*ppPtr = NULL;
 	}
 }
 

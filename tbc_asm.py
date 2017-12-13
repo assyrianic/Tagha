@@ -23,26 +23,27 @@ TwoBytes	= 32;
 FourBytes	= 64;
 EightBytes	= 128;
 
-ras=0
-rbs=1
-rcs=2
-rds=3
-res=4
-rfs=5
-rgs=6
-rhs=7
-ris=8
-rjs=9
-rks=10
-rsp=11
-rbp=12
-rip=13
-regsize=14
+ras=0;
+rbs=1;
+rcs=2;
+rds=3;
+res=4;
+rfs=5;
+rgs=6;
+rhs=7;
+ris=8;
+rjs=9;
+rks=10;
+rsp=11;
+rbp=12;
+rip=13;
+regsize=14;
 
 
-def wrt_hdr(f, memsize:int) -> None:
+def wrt_hdr(f, stacksize:int, datasize:int) -> None:
 	f.write(0xC0DE.to_bytes(2, byteorder='little'));
-	f.write(memsize.to_bytes(4, byteorder='little'));
+	f.write(stacksize.to_bytes(4, byteorder='little'));
+	f.write(datasize.to_bytes(4, byteorder='little'));
 
 def wrt_hdr_natives(f, *natives) -> None:
 	i = 0;
@@ -70,10 +71,10 @@ def wrt_hdr_funcs(f, *funcs) -> None:
 
 def wrt_hdr_globals(f, *lGlobals) -> None:
 	i = 0;
-	numglobals = len(lGlobals) // 4;
+	numglobals = len(lGlobals) // 3;
 	f.write(numglobals.to_bytes(4, byteorder='little'));
 	
-	while i<numglobals*4:
+	while i<numglobals*3:
 		strsize = len(lGlobals[i])+1;
 		f.write(strsize.to_bytes(4, byteorder='little'));
 		f.write(lGlobals[i].encode('utf-8'));
@@ -88,66 +89,7 @@ def wrt_hdr_globals(f, *lGlobals) -> None:
 		bytecount = lGlobals[i];
 		f.write(lGlobals[i].to_bytes(4, byteorder='little'));
 		i += 1;
-		
-		# write the actual data
-		if type(lGlobals[i]) == float:
-			if bytecount==4:
-				ba = bytearray(struct.pack("f", lGlobals[i]));
-				n = int.from_bytes(ba, byteorder='little');
-				f.write(n.to_bytes(bytecount, byteorder='little'));
-			elif bytecount==8:
-				ba = bytearray(struct.pack("d", lGlobals[i]));
-				n = int.from_bytes(ba, byteorder='little');
-				f.write(n.to_bytes(bytecount, byteorder='little'));
-		elif type(lGlobals[i])==str:
-			for x in lGlobals[i]:
-				f.write(ord(x).to_bytes(1, byteorder='little'));
-			f.write(0x0.to_bytes(1, byteorder='little'));
-		else:
-			f.write(lGlobals[i].to_bytes(bytecount, byteorder='little'));
-		i += 1;
-
-def wrt_hdr_footer(f, modes=3) -> None:
-	# 1 for safemode, 2 for debugmode, 3 for both.
-	f.write(modes.to_bytes(1, byteorder='little'));
-
-
-def wrt_non_op_code(f, opcode:int, addrmode:int) -> None:
-	f.write(opcode.to_bytes(1, byteorder='little'));
-	f.write(addrmode.to_bytes(1, byteorder='little'));
-
-def wrt_one_op_code(f, opcode:int, addrmode:int, operand:int, offset=None) -> None:
-	f.write(opcode.to_bytes(1, byteorder='little'));
-	f.write(addrmode.to_bytes(1, byteorder='little'));
-	if operand != None:
-		f.write(operand.to_bytes(8, byteorder='little'));
-	if offset != None:
-		ba = bytearray(struct.pack("i", offset));
-		i = int.from_bytes(ba, byteorder='little');
-		f.write(i.to_bytes(4, byteorder='little'));
-
-def wrt_two_op_code(f, opcode:int, addrmode:int, operand1:int, operand2:int, offset=None):
-	f.write(opcode.to_bytes(1, byteorder='little'));
-	f.write(addrmode.to_bytes(1, byteorder='little'));
-	if operand1 != None:
-		f.write(operand1.to_bytes(8, byteorder='little'));
-	if operand2 != None:
-		f.write(operand2.to_bytes(8, byteorder='little'));
-	if offset != None:
-		ba = bytearray(struct.pack("i", offset));
-		i = int.from_bytes(ba, byteorder='little');
-		f.write(i.to_bytes(4, byteorder='little'));
-
-def wrt_callnat(f, addrmode:int, argcount:int, operand:int, offset=None) -> None:
-	f.write(opcodes.callnat.to_bytes(1, byteorder='little'));
-	f.write(addrmode.to_bytes(1, byteorder='little'));
-	if operand != None:
-		f.write(operand.to_bytes(8, byteorder='little'));
-	if offset != None:
-		ba = bytearray(struct.pack("i", offset));
-		i = int.from_bytes(ba, byteorder='little');
-		f.write(i.to_bytes(4, byteorder='little'));
-	f.write(argcount.to_bytes(4, byteorder='little'));
+	
 
 def float32_to_int(val:float) -> int:
 	ba = bytearray(struct.pack("f", val));
@@ -159,6 +101,85 @@ def float64_to_int(val:float) -> int:
 	i = int.from_bytes(ba, byteorder='little');
 	return i;
 
+def wrt_global_values(f, *lstValues) -> None:
+	i = 0;
+	while i<len(lstValues):
+		if type(lstValues[i]) is str:
+			f.write(lstValues[i].encode('utf-8'));
+			f.write(0x0.to_bytes(1, byteorder='little'));
+		elif type(lstValues[i]) is int:
+			val = lstValues[i];
+			i += 1;
+			f.write(val.to_bytes(lstValues[i], byteorder='little'));
+		elif type(lstValues[i]) is float:
+			fval = lstValues[i];
+			i += 1;
+			if lstValues[i] == 4:
+				f.write(float32_to_int(fval).to_bytes(4, byteorder='little'));
+			else:
+				f.write(float64_to_int(fval).to_bytes(8, byteorder='little'));
+		i += 1;
+
+def wrt_hdr_flags(f, modes=3) -> None:
+	# 1 for safemode, 2 for debugmode, 3 for both.
+	f.write(modes.to_bytes(1, byteorder='little'));
+
+
+def wrt_non_op_code(f, opcode:int, addrmode:int) -> int:
+	f.write(opcode.to_bytes(1, byteorder='little'));
+	f.write(addrmode.to_bytes(1, byteorder='little'));
+	return 2;
+
+def wrt_one_op_code(f, opcode:int, addrmode:int, operand:int, offset=None) -> int:
+	InstrAddr = 0;
+	f.write(opcode.to_bytes(1, byteorder='little'));
+	f.write(addrmode.to_bytes(1, byteorder='little'));
+	InstrAddr += 2;
+	if operand != None:
+		f.write(operand.to_bytes(8, byteorder='little'));
+		InstrAddr += 8;
+	if offset != None:
+		ba = bytearray(struct.pack("i", offset));
+		i = int.from_bytes(ba, byteorder='little');
+		f.write(i.to_bytes(4, byteorder='little'));
+		InstrAddr += 4;
+	return InstrAddr;
+
+def wrt_two_op_code(f, opcode:int, addrmode:int, operand1:int, operand2:int, offset=None) -> int:
+	InstrAddr = 0;
+	f.write(opcode.to_bytes(1, byteorder='little'));
+	f.write(addrmode.to_bytes(1, byteorder='little'));
+	InstrAddr += 2;
+	if operand1 != None:
+		f.write(operand1.to_bytes(8, byteorder='little'));
+		InstrAddr += 8;
+	if operand2 != None:
+		f.write(operand2.to_bytes(8, byteorder='little'));
+		InstrAddr += 8;
+	if offset != None:
+		ba = bytearray(struct.pack("i", offset));
+		i = int.from_bytes(ba, byteorder='little');
+		f.write(i.to_bytes(4, byteorder='little'));
+		InstrAddr += 4;
+	return InstrAddr;
+
+def wrt_callnat(f, addrmode:int, argcount:int, operand:int, offset=None) -> int:
+	InstrAddr = 0;
+	f.write(opcodes.callnat.to_bytes(1, byteorder='little'));
+	f.write(addrmode.to_bytes(1, byteorder='little'));
+	InstrAddr += 2;
+	if operand != None:
+		f.write(operand.to_bytes(8, byteorder='little'));
+		InstrAddr += 8;
+	if offset != None:
+		ba = bytearray(struct.pack("i", offset));
+		i = int.from_bytes(ba, byteorder='little');
+		f.write(i.to_bytes(4, byteorder='little'));
+		InstrAddr += 4;
+	f.write(argcount.to_bytes(4, byteorder='little'));
+	InstrAddr += 4;
+	return InstrAddr;
+
 '''
 unsigned i = 0x0a0b0c0d;
 int main()
@@ -167,12 +188,12 @@ int main()
 }
 '''
 with open('test_endian.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128);
+	wrt_hdr(tbc, 128, 4);
 	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'main', 0, 0);
-	wrt_hdr_globals(tbc, 'i', 0, 4, 0x0a0b0c0d);
-	wrt_hdr_footer(tbc);
-	
+	wrt_hdr_funcs(tbc, 'main', 0);
+	wrt_hdr_globals(tbc, 'i', 0, 4);
+	wrt_hdr_flags(tbc);
+	wrt_global_values(tbc, 0x0a0b0c0d, 4);
 # main:
 	# movr ras, 0
 	# ret
@@ -189,11 +210,12 @@ int main()
 }
 '''
 with open('test_floatops.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128);
+	wrt_hdr(tbc, 128, 0);
 	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'main', 0, 0);
+	wrt_hdr_funcs(tbc, 'main', 0);
 	wrt_hdr_globals(tbc);
-	wrt_hdr_footer(tbc);
+	wrt_hdr_flags(tbc);
+	wrt_global_values(tbc);
 	
 # main:
 	# mov rhs, 2.f
@@ -230,9 +252,9 @@ int main()
 with open('test_pointers.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'main', 0, 0);
+	wrt_hdr_funcs(tbc, 'main', 0);
 	wrt_hdr_globals(tbc);
-	wrt_hdr_footer(tbc);
+	wrt_hdr_flags(tbc);
 	
 # main:
 # int i = 5;
@@ -271,9 +293,9 @@ int main()
 with open('test_puts_helloworld.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc, 'puts');
-	wrt_hdr_funcs(tbc, 'main', 0, 0);
+	wrt_hdr_funcs(tbc, 'main', 0);
 	wrt_hdr_globals(tbc, 'str00001', 0, len('hello world\n')+1, 'hello world\n');
-	wrt_hdr_footer(tbc);
+	wrt_hdr_flags(tbc);
 	
 # main:
 	
@@ -310,9 +332,9 @@ uint32_t factorial(const uint32_t i)
 with open('test_factorial.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 512);
 	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'factorial', 1, 0);
+	wrt_hdr_funcs(tbc, 'factorial', 0);
 	wrt_hdr_globals(tbc);
-	wrt_hdr_footer(tbc);
+	wrt_hdr_flags(tbc);
 	
 # factorial:	# CHANGE TO USE STACK AND OTHER REGISTERS.
 	# sub rsp, 16
@@ -363,9 +385,9 @@ void main(void)
 with open('test_native.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc, 'test');
-	wrt_hdr_funcs(tbc, 'main', 0, 0);
+	wrt_hdr_funcs(tbc, 'main', 0);
 	wrt_hdr_globals(tbc);
-	wrt_hdr_footer(tbc);
+	wrt_hdr_flags(tbc);
 	
 # main:
 	# sub rsp, 16
@@ -400,9 +422,9 @@ void main(void)
 with open('test_native_funcptr.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc, 'test');
-	wrt_hdr_funcs(tbc, 'main', 0, 0);
+	wrt_hdr_funcs(tbc, 'main', 0);
 	wrt_hdr_globals(tbc);
-	wrt_hdr_footer(tbc);
+	wrt_hdr_flags(tbc);
 	
 # main:
 	# sub rsp, 32
@@ -439,9 +461,9 @@ int main()
 with open('test_loadgbl.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc, 'getglobal');
-	wrt_hdr_funcs(tbc, 'main', 0, 0);
+	wrt_hdr_funcs(tbc, 'main', 0);
 	wrt_hdr_globals(tbc, 'i', 0, 4, 4294967196);
-	wrt_hdr_footer(tbc);
+	wrt_hdr_flags(tbc);
 	
 # main:
 	wrt_callnat(tbc, Immediate, 0, 0);
@@ -468,9 +490,9 @@ int main()
 with open('test_3d_vecs.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'main', 0, 0, 'VecInvert', 1, 146);
+	wrt_hdr_funcs(tbc, 'main', 0, 'VecInvert', 146);
 	wrt_hdr_globals(tbc);
-	wrt_hdr_footer(tbc);
+	wrt_hdr_flags(tbc);
 	
 # main:
 	# sub rsp, 16
@@ -537,12 +559,12 @@ int main()
 with open('test_stdin.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 512);
 	wrt_hdr_natives(tbc, 'puts', 'fgets');
-	wrt_hdr_funcs(tbc, 'main', 0, 0);
+	wrt_hdr_funcs(tbc, 'main', 0);
 	wrt_hdr_globals(tbc,
 			'stdin', 0, 8, 0,
 			'str00001', 8, len('Please enter a long string: ')+1, 'Please enter a long string: '
 	);
-	wrt_hdr_footer(tbc);
+	wrt_hdr_flags(tbc);
 	
 # main:
 	# char string[256];
@@ -612,14 +634,14 @@ with open('test_interplugin_com.tbc', 'wb+') as tbc:
 		'script_pop_value',
 		'printf'
 	);
-	wrt_hdr_funcs(tbc, 'main', 0, 0);
+	wrt_hdr_funcs(tbc, 'main', 0);
 	wrt_hdr_globals(tbc,
 		'myself', 0, 8, 0, # 8 bytes
 		'strFORMAT', 8, len('%u\n')+1, '%u\n', # 3 bytes
 		'strFILENAME', 12, len('test_factorial_recurs.tbc')+1, 'test_factorial_recurs.tbc', # 26 bytes
 		'strFUNCNAME', 38, len('factorial')+1, 'factorial'
 	);
-	wrt_hdr_footer(tbc);
+	wrt_hdr_flags(tbc);
 	
 # main:
 	# TaghaScript *t = get_script_from_file("test_factorial_recurs.tbc");
@@ -686,11 +708,11 @@ int main(int argc, char *argv[])
 with open('test_main_args.tbc', 'wb+') as tbc:
 	wrt_hdr(tbc, 128);
 	wrt_hdr_natives(tbc, 'printf');
-	wrt_hdr_funcs(tbc, 'main', 0, 0);
+	wrt_hdr_funcs(tbc, 'main', 0);
 	wrt_hdr_globals(tbc,
 		'strFORMAT', 0, len('%s\n')+1, '%s\n'
 	);
-	wrt_hdr_footer(tbc);
+	wrt_hdr_flags(tbc);
 	
 # main:
 	#wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16);

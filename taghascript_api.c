@@ -32,13 +32,14 @@
  * 		4 bytes: offset
  * 		4 bytes: size in bytes
  * 1 byte: safemode and debugmode flags
- * n bytes: instruction stream
+ * n bytes: .data section initial values.
+ * n bytes: .text section
  */
 
 static uint64_t get_file_size(FILE *pFile);
-static uint32_t scripthdr_read_natives_table(TaghaScript **script, FILE **pFile);
-static uint32_t scripthdr_read_func_table(TaghaScript **script, FILE **pFile);
-static uint32_t scripthdr_read_global_table(TaghaScript **script, FILE **pFile);
+static uint32_t scripthdr_read_natives_table(struct TaghaScript **ppScript, FILE **pFile);
+static uint32_t scripthdr_read_func_table(struct TaghaScript **pScript, FILE **pFile);
+static uint32_t scripthdr_read_global_table(struct TaghaScript **pScript, FILE **pFile);
 
 
 // need this to determine the text segment size.
@@ -55,65 +56,65 @@ static uint64_t get_file_size(FILE *pFile)
 	return size;
 }
 
-static uint32_t scripthdr_read_natives_table(TaghaScript **script, FILE **pFile)
+static uint32_t scripthdr_read_natives_table(struct TaghaScript **ppScript, FILE **ppFile)
 {
-	if( !*script or !*pFile )
+	if( !*ppScript or !*ppFile )
 		return 0;
 	
-	TaghaScript	*pScript = *script;
-	uint32_t	bytesread = 0;
+	TaghaScript	*pScript = *ppScript;
+	uint32_t	bytecount = 0;
 	int32_t		ignores = 0;
 	
-	// see if the script is using any natives.
-	ignores = fread(&pScript->m_uiNatives, sizeof(uint32_t), 1, *pFile);
-	bytesread += sizeof(uint32_t);
+	// see if the pScript is using any natives.
+	ignores = fread(&pScript->m_uiNatives, sizeof(uint32_t), 1, *ppFile);
+	bytecount += sizeof(uint32_t);
 	if( !pScript->m_uiNatives )
-		return bytesread;
+		return bytecount;
 	
-	// script has natives? Copy their names so we can use them on VM natives hashmap later.
+	// pScript has natives? Copy their names so we can use them on VM natives hashmap later.
 	pScript->m_pstrNativeCalls = calloc(pScript->m_uiNatives, sizeof(char *));
 	if( !pScript->m_pstrNativeCalls ) {
 		printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Native Table%s ****\n", KRED, RESET, KGRN, RESET);
-		TaghaScript_Free(pScript), *script = NULL;
-		fclose(*pFile), *pFile=NULL;
+		TaghaScript_Free(pScript), *ppScript = NULL;
+		fclose(*ppFile), *ppFile=NULL;
 		return 0;
 	}
 	
 	for( uint32_t i=0 ; i<pScript->m_uiNatives ; i++ ) {
 		uint32_t str_size;
-		ignores = fread(&str_size, sizeof(uint32_t), 1, *pFile);
-		bytesread += sizeof(uint32_t);
+		ignores = fread(&str_size, sizeof(uint32_t), 1, *ppFile);
+		bytecount += sizeof(uint32_t);
 		
 		// allocate memory to hold the native's name.
 		pScript->m_pstrNativeCalls[i] = calloc(str_size, sizeof(char));
 		if( !pScript->m_pstrNativeCalls[i] ) {
 			printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Native String%s ****\n", KRED, RESET, KGRN, RESET);
-			TaghaScript_Free(pScript), *script = NULL;
-			fclose(*pFile), *pFile=NULL;
+			TaghaScript_Free(pScript), *ppScript = NULL;
+			fclose(*ppFile), *ppFile=NULL;
 			return 0;
 		}
 		
 		// read in the native's name.
-		ignores = fread(pScript->m_pstrNativeCalls[i], sizeof(char), str_size, *pFile);
-		bytesread += str_size;
+		ignores = fread(pScript->m_pstrNativeCalls[i], sizeof(char), str_size, *ppFile);
+		bytecount += str_size;
 		printf("[Tagha Load Script] :: copied native name \'%s\'\n", pScript->m_pstrNativeCalls[i]);
 	}
 	pScript = NULL;
-	return bytesread;
+	return bytecount;
 }
 
-static uint32_t scripthdr_read_func_table(TaghaScript **script, FILE **pFile)
+static uint32_t scripthdr_read_func_table(struct TaghaScript **ppScript, FILE **ppFile)
 {
-	if( !*script or !*pFile )
+	if( !*ppScript or !*ppFile )
 		return 0;
 	
-	TaghaScript	*pScript = *script;
+	TaghaScript	*pScript = *ppScript;
 	uint32_t	bytecount = 0;
 	int32_t		ignore_warns = 0;
 	
-	// see if the script has its own functions.
-	// This table is so host or other scripts can call these functions by name or address.
-	ignore_warns = fread(&pScript->m_uiFuncs, sizeof(uint32_t), 1, *pFile);
+	// see if the pScript has its own functions.
+	// This table is so host or other pScripts can call these functions by name or address.
+	ignore_warns = fread(&pScript->m_uiFuncs, sizeof(uint32_t), 1, *ppFile);
 	bytecount += sizeof(uint32_t);
 	pScript->m_pmapFuncs = NULL;
 	if( !pScript->m_uiFuncs )
@@ -123,8 +124,8 @@ static uint32_t scripthdr_read_func_table(TaghaScript **script, FILE **pFile)
 	pScript->m_pmapFuncs = calloc(1, sizeof(struct hashmap));
 	if( !pScript->m_pmapFuncs ) {
 		printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Func Hashmap%s ****\n", KRED, RESET, KGRN, RESET);
-		TaghaScript_Free(pScript), *script = NULL;
-		fclose(*pFile), *pFile=NULL;
+		TaghaScript_Free(pScript), *ppScript = NULL;
+		fclose(*ppFile), *ppFile=NULL;
 		return 0;
 	}
 	map_init(pScript->m_pmapFuncs);
@@ -132,32 +133,32 @@ static uint32_t scripthdr_read_func_table(TaghaScript **script, FILE **pFile)
 	// copy the function data from the header.
 	for( uint32_t i=0 ; i<pScript->m_uiFuncs ; i++ ) {
 		uint32_t str_size;
-		ignore_warns = fread(&str_size, sizeof(uint32_t), 1, *pFile);
+		ignore_warns = fread(&str_size, sizeof(uint32_t), 1, *ppFile);
 		bytecount += sizeof(uint32_t);
 		
 		// allocate the hashmap function key.
 		char *strFunc = calloc(str_size, sizeof(char));
 		if( !strFunc ) {
 			printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Func Table String%s ****\n", KRED, RESET, KGRN, RESET);
-			TaghaScript_Free(pScript), *script = NULL;
-			fclose(*pFile), *pFile=NULL;
+			TaghaScript_Free(pScript), *ppScript = NULL;
+			fclose(*ppFile), *ppFile=NULL;
 			return 0;
 		}
-		ignore_warns = fread(strFunc, sizeof(char), str_size, *pFile);
+		ignore_warns = fread(strFunc, sizeof(char), str_size, *ppFile);
 		bytecount += str_size;
 		
 		// allocate function's data to a table.
 		struct FuncTable *pFuncData = calloc(1, sizeof(struct FuncTable));
 		if( !pFuncData ) {
 			printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Func Table Data%s ****\n", KRED, RESET, KGRN, RESET);
-			TaghaScript_Free(pScript), *script = NULL;
-			fclose(*pFile), *pFile=NULL;
+			TaghaScript_Free(pScript), *ppScript = NULL;
+			fclose(*ppFile), *ppFile=NULL;
 			return 0;
 		}
 		// copy func's header data to our table
 		// then store the table to our function hashmap with the key
 		// we allocated earlier.
-		ignore_warns = fread(&pFuncData->m_uiEntry, sizeof(uint32_t), 1, *pFile);
+		ignore_warns = fread(&pFuncData->m_uiEntry, sizeof(uint32_t), 1, *ppFile);
 		bytecount += sizeof(uint32_t);
 		printf("[Tagha Load Script] :: Copied Function name \'%s\' | offset: %" PRIu32 "\n", strFunc, pFuncData->m_uiEntry);
 		map_insert(pScript->m_pmapFuncs, strFunc, (uintptr_t)pFuncData);
@@ -167,17 +168,17 @@ static uint32_t scripthdr_read_func_table(TaghaScript **script, FILE **pFile)
 	return bytecount;
 }
 
-static uint32_t scripthdr_read_global_table(TaghaScript **script, FILE **pFile)
+static uint32_t scripthdr_read_global_table(struct TaghaScript **ppScript, FILE **ppFile)
 {
-	if( !*script or !*pFile )
+	if( !*ppScript or !*ppFile )
 		return 0;
 	
-	TaghaScript	*pScript = *script;
+	struct TaghaScript *pScript = *ppScript;
 	uint32_t	bytecount = 0;
 	int32_t		ignore_warns = 0;
 	
-	// check if the script has global variables.
-	ignore_warns = fread(&pScript->m_uiGlobals, sizeof(uint32_t), 1, *pFile);
+	// check if the pScript has global variables.
+	ignore_warns = fread(&pScript->m_uiGlobals, sizeof(uint32_t), 1, *ppFile);
 	printf("[Tagha Load Script] :: Amount of Global Vars: %" PRIu32 "\n", pScript->m_uiGlobals);
 	bytecount += sizeof(uint32_t);
 	pScript->m_pmapGlobals = NULL;
@@ -185,45 +186,45 @@ static uint32_t scripthdr_read_global_table(TaghaScript **script, FILE **pFile)
 	if( !pScript->m_uiGlobals )
 		return bytecount;
 	
-	// script has globals, allocate our global var hashmap.
+	// pScript has globals, allocate our global var hashmap.
 	pScript->m_pmapGlobals = calloc(1, sizeof(struct hashmap));
 	if( !pScript->m_pmapGlobals ) {
 		printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Global Var Hashmap%s ****\n", KRED, RESET, KGRN, RESET);
-		TaghaScript_Free(pScript), *script = NULL;
-		fclose(*pFile), *pFile=NULL;
+		TaghaScript_Free(pScript), *ppScript = NULL;
+		fclose(*ppFile), *ppFile=NULL;
 		return 0;
 	}
 	map_init(pScript->m_pmapGlobals);
 	
 	for( uint32_t i=0 ; i<pScript->m_uiGlobals ; i++ ) {
 		uint32_t str_size;
-		ignore_warns = fread(&str_size, sizeof(uint32_t), 1, *pFile);
+		ignore_warns = fread(&str_size, sizeof(uint32_t), 1, *ppFile);
 		bytecount += sizeof(uint32_t);
 		// allocate string to use as a key for our global var.
 		char *strGlobal = calloc(str_size, sizeof(char));
 		if( !strGlobal ) {
 			printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Global Var String%s ****\n", KRED, RESET, KGRN, RESET);
-			TaghaScript_Free(pScript), *script = NULL;
-			fclose(*pFile), *pFile=NULL;
+			TaghaScript_Free(pScript), *ppScript = NULL;
+			fclose(*ppFile), *ppFile=NULL;
 			return 0;
 		}
-		ignore_warns = fread(strGlobal, sizeof(char), str_size, *pFile);
+		ignore_warns = fread(strGlobal, sizeof(char), str_size, *ppFile);
 		bytecount += str_size;
 		
 		// allocate table for our global var's data.
 		struct DataTable *pGlobalData = calloc(1, sizeof(struct DataTable));
 		if( !pGlobalData ) {
 			printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Global Var Table Data%s ****\n", KRED, RESET, KGRN, RESET);
-			TaghaScript_Free(pScript), *script = NULL;
-			fclose(*pFile), *pFile=NULL;
+			TaghaScript_Free(pScript), *ppScript = NULL;
+			fclose(*ppFile), *ppFile=NULL;
 			return 0;
 		}
 		
 		// read the global var's data from the header and add it to our hashmap.
 		// same procedure as our function hashmap.
-		ignore_warns = fread(&pGlobalData->m_uiOffset, sizeof(uint32_t), 1, *pFile);
+		ignore_warns = fread(&pGlobalData->m_uiOffset, sizeof(uint32_t), 1, *ppFile);
 		bytecount += sizeof(uint32_t);
-		ignore_warns = fread(&pGlobalData->m_uiBytes, sizeof(uint32_t), 1, *pFile);
+		ignore_warns = fread(&pGlobalData->m_uiBytes, sizeof(uint32_t), 1, *ppFile);
 		bytecount += sizeof(uint32_t);
 		
 		printf("[Tagha Load Script] :: copied global var's name: \'%s\' | offset: %" PRIu32 "\n", strGlobal, pGlobalData->m_uiOffset);
@@ -231,28 +232,28 @@ static uint32_t scripthdr_read_global_table(TaghaScript **script, FILE **pFile)
 		// insert the global var's table to our hashmap.
 		map_insert(pScript->m_pmapGlobals, strGlobal, (uintptr_t)pGlobalData);
 		strGlobal = NULL, pGlobalData = NULL;
-	} /* for( uint32_t i=0 ; i<script->m_uiGlobals ; i++ ) */
-	pTemp = NULL, pScript = NULL;
+	} /* for( uint32_t i=0 ; i<pScript->m_uiGlobals ; i++ ) */
+	pScript = NULL;
 	return bytecount;
 }
 
-struct TaghaScript *TaghaScript_BuildFromFile(const char *restrict filename)
+struct TaghaScript *TaghaScript_BuildFromFile(const char *restrict strFilename)
 {
-	if( !filename )
+	if( !strFilename )
 		return NULL;
 	
-	// open up our script in read-only binary mode.
-	FILE *pFile = fopen(filename, "rb");
+	// open up our pScript in read-only binary mode.
+	FILE *pFile = fopen(strFilename, "rb");
 	if( !pFile ) {
-		printf("[%sTagha Load Script Error%s]: **** %sFile not found: \'%s\'%s ****\n", KRED, RESET, KGRN, filename, RESET);
+		printf("[%sTagha Load Script Error%s]: **** %sFile not found: \'%s\'%s ****\n", KRED, RESET, KGRN, strFilename, RESET);
 		return NULL;
 	}
 	
-	struct TaghaScript *script = calloc(1, sizeof(struct TaghaScript));
-	if( !script )
+	struct TaghaScript *pScript = calloc(1, sizeof(struct TaghaScript));
+	if( !pScript )
 		return NULL;
 	
-	strncpy(script->m_strName, filename, 64);
+	strncpy(pScript->m_strName, strFilename, 64);
 	
 	uint64_t filesize = get_file_size(pFile);
 	uint32_t bytecount = 0;	// bytecount is for separating the header data from the actual instruction stream.
@@ -262,10 +263,10 @@ struct TaghaScript *TaghaScript_BuildFromFile(const char *restrict filename)
 	bytecount += sizeof(uint16_t);
 	
 	if( verify != 0xC0DE ) {
-		printf("[%sTagha Load Script Error%s]: **** %sUnknown or Invalid script file format%s ****\n", KRED, RESET, KGRN, RESET);
+		printf("[%sTagha Load Script Error%s]: **** %sUnknown or Invalid pScript file format%s ****\n", KRED, RESET, KGRN, RESET);
 		goto error;
 	}
-	printf("[Tagha Load Script] :: Verified script!\n");
+	printf("[Tagha Load Script] :: Verified pScript!\n");
 	
 	
 	// get stack memory size.
@@ -278,101 +279,122 @@ struct TaghaScript *TaghaScript_BuildFromFile(const char *restrict filename)
 	// get static data (global vars, string literals) memory size.
 	ignore_warns = fread(&datasize, sizeof(uint32_t), 1, pFile);
 	bytecount += sizeof(uint32_t);
-	datasize = datasize + 7 & -8;	// align by 8 bytes
 	printf("[Tagha Load Script] :: Data Size: %" PRIu32 "\n", datasize);
 	
-	bytecount += scripthdr_read_natives_table(&script, &pFile);
-	bytecount += scripthdr_read_func_table(&script, &pFile);
+	bytecount += scripthdr_read_natives_table(&pScript, &pFile);
+	bytecount += scripthdr_read_func_table(&pScript, &pFile);
 	if( !pFile )
 		return NULL;
-	bytecount += scripthdr_read_global_table(&script, &pFile);
+	
+	bytecount += scripthdr_read_global_table(&pScript, &pFile);
 	if( !pFile )
 		return NULL;
 	
 	
-	// check if the script is either in safemode or debug mode.
+	// check if the pScript is either in safemode or debug mode.
 	char modeflags;
 	ignore_warns = fread(&modeflags, sizeof(bool), 1, pFile);
 	bytecount += sizeof(bool);
-	script->m_bSafeMode = (modeflags & 1) >= 1;
-	printf("[Tagha Load Script] :: Script Safe Mode: %" PRIu32 "\n", script->m_bSafeMode);
+	pScript->m_bSafeMode = (modeflags & 1) >= 1;
+	printf("[Tagha Load Script] :: pScript Safe Mode: %" PRIu32 "\n", pScript->m_bSafeMode);
 	
-	script->m_bDebugMode = (modeflags & 2) >= 1;
-	printf("[Tagha Load Script] :: Script Debug Mode: %" PRIu32 "\n", script->m_bDebugMode);
+	pScript->m_bDebugMode = (modeflags & 2) >= 1;
+	printf("[Tagha Load Script] :: pScript Debug Mode: %" PRIu32 "\n", pScript->m_bDebugMode);
 	
-	script->m_uiMaxInstrs = 0xffff;	// helps to stop infinite/runaway loops
+	pScript->m_uiMaxInstrs = 0xffff;	// helps to stop infinite/runaway loops
+	
 	
 	// header data is finished, subtract the filesize with the bytecount
-	// to get the size of our instruction stream.
-	// If the instruction stream is invalid, we can't load script.
+	// and data segment size to get the size of our instruction stream.
+	// If the instruction stream is invalid, we can't load pScript.
 	printf("[Tagha Load Script] :: Header Byte Count: %" PRIu32 "\n", bytecount);
-	script->m_uiInstrSize = textsize = filesize - bytecount;
+	pScript->m_uiInstrSize = filesize - bytecount - datasize;
 	
-	script->m_uiMemsize = stacksize + datasize + script->m_uiInstrSize;
-	script->m_pMemory = calloc(script->m_uiMemsize, sizeof(uint8_t));
+	pScript->m_uiMemsize = stacksize + datasize + pScript->m_uiInstrSize;
+	pScript->m_pMemory = calloc(pScript->m_uiMemsize, sizeof(uint8_t));
 	
-	// scripts NEED memory, if memory is invalid then we can't use the script.
-	if( !script->m_pMemory ) {
-		printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for script%s ****\n", KRED, RESET, KGRN, RESET);
-		TaghaScript_Free(script), script = NULL;
+	// pScripts NEED memory, if memory is invalid then we can't use the pScript.
+	if( !pScript->m_pMemory ) {
+		printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for pScript%s ****\n", KRED, RESET, KGRN, RESET);
+		TaghaScript_Free(pScript), pScript = NULL;
 		goto error;
 	}
 	
+	/*
++------------------+
+|    stack   |     |      highest address
+|            v     |
+|                  |
+|                  |
+|                  |
+|                  |
+|                  |
+|                  |
++------------------+      stack segment
+| data segment     |
++------------------+
+| text segment     |      lowest address
++------------------+
+	*/
+	
 	// set up the stack ptrs to the top of the stack.
-	script->m_Regs[rsp].UCharPtr = script->m_Regs[rbp].UCharPtr = script->m_pMemory + (script->m_uiMemsize-1);
+	pScript->m_Regs[rsp].UCharPtr = pScript->m_Regs[rbp].UCharPtr = pScript->m_pMemory + (pScript->m_uiMemsize-1);
 	
 	// set up our stack segment by taking the top of the stack and subtracting it with the size.
-	script->m_pStackSegment = script->m_Regs[rsp].UCharPtr - stacksize;
+	pScript->m_pStackSegment = pScript->m_Regs[rsp].UCharPtr - (stacksize-1);
 	
 	// set up the data segment by taking the stack segment - 1
-	script->m_pDataSegment = script->m_pStackSegment - 1;
+	pScript->m_pDataSegment = pScript->m_pStackSegment - 1;
 	
 	// set up the text segment similar to how the stack ptrs are set up
-	script->m_pTextSegment = script->m_pMemory + (script->m_uiInstrSize-1);
+	pScript->m_pTextSegment = pScript->m_pMemory + (pScript->m_uiInstrSize-1);
 	
-	// instruction stream is valid, copy every last instruction and data to the last byte.
-	ignore_warns = fread(script->m_pMemory, sizeof(uint8_t), script->m_uiInstrSize, pFile);
+	// copy the initialized values to the data segment if there's any global values.
+	ignore_warns = fread(pScript->m_pTextSegment+1, sizeof(uint8_t), pScript->m_pDataSegment-pScript->m_pTextSegment, pFile);
+	
+	// instruction stream is valid, copy every last instruction.
+	ignore_warns = fread(pScript->m_pMemory, sizeof(uint8_t), pScript->m_uiInstrSize, pFile);
 	
 	// set our entry point to 'main', IF it exists.
-	struct FuncTable *pFuncTable = (struct FuncTable *)(uintptr_t) map_find(script->m_pmapFuncs, "main");
-	script->m_Regs[rip].UCharPtr = (pFuncTable != NULL) ? script->m_pMemory + pFuncTable->m_uiEntry : NULL;
+	struct FuncTable *pFuncTable = (struct FuncTable *)(uintptr_t) map_find(pScript->m_pmapFuncs, "main");
+	pScript->m_Regs[rip].UCharPtr = (pFuncTable != NULL) ? pScript->m_pMemory + pFuncTable->m_uiEntry : NULL;
 	
 	// we're done with the file, close it up.
 	fclose(pFile), pFile=NULL;
 	printf("\n");
-	return script;
+	return pScript;
 error:;
 	fclose(pFile), pFile=NULL;
 	return NULL;
 }
 
-void TaghaScript_Free(struct TaghaScript *script)
+void TaghaScript_Free(struct TaghaScript *pScript)
 {
-	if( !script )
+	if( !pScript )
 		return;
 	
 	// kill memory
-	gfree((void **)&script->m_pMemory);
+	gfree((void **)&pScript->m_pMemory);
 	
 	// free our native table
 	uint32_t i, Size;
-	if( script->m_pstrNativeCalls ) {
-		for( i=0 ; i<script->m_uiNatives ; i++ ) {
-			gfree((void **)&script->m_pstrNativeCalls[i]);
+	if( pScript->m_pstrNativeCalls ) {
+		for( i=0 ; i<pScript->m_uiNatives ; i++ ) {
+			gfree((void **)&pScript->m_pstrNativeCalls[i]);
 		}
-		memset(script->m_pstrNativeCalls, 0, script->m_uiNatives);
-		gfree((void **)&script->m_pstrNativeCalls);
+		memset(pScript->m_pstrNativeCalls, 0, pScript->m_uiNatives);
+		gfree((void **)&pScript->m_pstrNativeCalls);
 	}
 	// free our function hashmap and all the tables in it.
-	if( script->m_pmapFuncs ) {
+	if( pScript->m_pmapFuncs ) {
 		struct kvnode
 			*kv = NULL,
 			*next = NULL
 		;
-		Size = script->m_pmapFuncs->size;
+		Size = pScript->m_pmapFuncs->size;
 		struct FuncTable *pfreeData;
 		for( i=0 ; i<Size ; i++ ) {
-			for( kv = script->m_pmapFuncs->table[i] ; kv ; kv = next ) {
+			for( kv = pScript->m_pmapFuncs->table[i] ; kv ; kv = next ) {
 				next = kv->pNext;
 				pfreeData = (struct FuncTable *)(uintptr_t)kv->pData;
 				if( pfreeData )
@@ -383,19 +405,19 @@ void TaghaScript_Free(struct TaghaScript *script)
 			}
 		}
 		pfreeData = NULL;
-		map_free(script->m_pmapFuncs);
-		gfree((void **)&script->m_pmapFuncs);
+		map_free(pScript->m_pmapFuncs);
+		gfree((void **)&pScript->m_pmapFuncs);
 	}
 	// free our global var hashmap and all the tables in it.
-	if( script->m_pmapGlobals ) {
+	if( pScript->m_pmapGlobals ) {
 		struct kvnode
 			*kv = NULL,
 			*next = NULL
 		;
 		struct DataTable *pfreeData;
-		Size = script->m_pmapGlobals->size;
+		Size = pScript->m_pmapGlobals->size;
 		for( i=0 ; i<Size ; i++ ) {
-			for( kv = script->m_pmapGlobals->table[i] ; kv ; kv = next ) {
+			for( kv = pScript->m_pmapGlobals->table[i] ; kv ; kv = next ) {
 				next = kv->pNext;
 				pfreeData = (struct DataTable *)(uintptr_t)kv->pData;
 				if( pfreeData )
@@ -406,52 +428,52 @@ void TaghaScript_Free(struct TaghaScript *script)
 			}
 		}
 		pfreeData = NULL;
-		map_free(script->m_pmapGlobals);
-		gfree((void **)&script->m_pmapGlobals);
+		map_free(pScript->m_pmapGlobals);
+		gfree((void **)&pScript->m_pmapGlobals);
 	}
 	// set our stack pointer pointers to NULL
-	// and release the script itself.
-	script->m_Regs[rip].UCharPtr = script->m_Regs[rsp].UCharPtr = script->m_Regs[rbp].UCharPtr = NULL;
-	free(script);
+	// and release the pScript itself.
+	pScript->m_Regs[rip].UCharPtr = pScript->m_Regs[rsp].UCharPtr = pScript->m_Regs[rbp].UCharPtr = NULL;
+	free(pScript);
 }
 
 
-void TaghaScript_Reset(struct TaghaScript *script)
+void TaghaScript_Reset(struct TaghaScript *pScript)
 {
-	if( !script )
+	if( !pScript )
 		return;
-	// resets the script without, hopefully, crashing Tagha and the host.
-	// better than a for-loop setting everything to 0.
-	memset(script->m_pMemory, 0, script->m_uiMemsize);
-	script->m_Regs[rsp].UCharPtr = script->m_Regs[rbp].UCharPtr = script->m_pMemory + (script->m_uiMemsize-1);
 	
-	memset(script->m_Regs, 0, sizeof(union CValue) * rsp);
-	// TODO: reset global variables here as well?
+	// resets the script without crashing Tagha and the host.
+	memset(pScript->m_pTextSegment+1, 0, pScript->m_uiMemsize-pScript->m_uiInstrSize);
+	pScript->m_Regs[rsp].UCharPtr = pScript->m_Regs[rbp].UCharPtr = pScript->m_pMemory + (pScript->m_uiMemsize-1);
+	
+	memset(pScript->m_Regs, 0, sizeof(union CValue) * rsp);
+	// TODO: reset global variable data to original values?
 }
 
 
-void *TaghaScript_GetGlobalByName(struct TaghaScript *restrict script, const char *restrict strGlobalName)
+void *TaghaScript_GetGlobalByName(struct TaghaScript *restrict pScript, const char *restrict strGlobalName)
 {
 	void *p = NULL;
-	if( !script or !script->m_pmapGlobals )
+	if( !pScript or !pScript->m_pmapGlobals )
 		return p;
 	
-	struct DataTable *pGlobals = (struct DataTable *)(uintptr_t) map_find(script->m_pmapGlobals, strGlobalName);
+	struct DataTable *pGlobals = (struct DataTable *)(uintptr_t) map_find(pScript->m_pmapGlobals, strGlobalName);
 	if( pGlobals ) {
-		p = script->m_pMemory + pGlobals->m_uiOffset;
+		p = pScript->m_pMemory + pGlobals->m_uiOffset;
 		pGlobals=NULL;
 	}
 	return p;
 }
-bool TaghaScript_BindGlobalPtr(struct TaghaScript *restrict script, const char *restrict strGlobalName, void *restrict pVar)
+bool TaghaScript_BindGlobalPtr(struct TaghaScript *restrict pScript, const char *restrict strGlobalName, void *restrict pVar)
 {
-	if( !script or !script->m_pmapGlobals or !strGlobalName )
+	if( !pScript or !pScript->m_pmapGlobals or !strGlobalName )
 		return false;
 	
-	struct DataTable *pGlobals = (struct DataTable *)(uintptr_t) map_find(script->m_pmapGlobals, strGlobalName);
+	struct DataTable *pGlobals = (struct DataTable *)(uintptr_t) map_find(pScript->m_pmapGlobals, strGlobalName);
 	if( pGlobals ) {
-		*(uint64_t *)(script->m_pMemory + pGlobals->m_uiOffset) = (uintptr_t)pVar;
-		if( script->m_bDebugMode )
+		*(uint64_t *)(pScript->m_pMemory + pGlobals->m_uiOffset) = (uintptr_t)pVar;
+		if( pScript->m_bDebugMode )
 			printf("set offset: %u to %s: %p\n", pGlobals->m_uiOffset, strGlobalName, pVar);
 		return true;
 	}
@@ -459,103 +481,121 @@ bool TaghaScript_BindGlobalPtr(struct TaghaScript *restrict script, const char *
 }
 
 
-void TaghaScript_PushValue(struct TaghaScript *script, const union CValue value)
+void TaghaScript_PushValue(struct TaghaScript *pScript, const union CValue value)
 {
-	if( !script or !script->m_pMemory )
+	if( !pScript or !pScript->m_pMemory )
 		return;
-	if( script->m_bSafeMode and ((script->m_Regs[rsp].UCharPtr-script->m_pMemory)-8) >= script->m_uiMemsize ) {
-		TaghaScript_PrintErr(script, __func__, "stack overflow!");
+	if( pScript->m_bSafeMode and (pScript->m_Regs[rsp].UCharPtr-8) < pScript->m_pStackSegment ) {
+		TaghaScript_PrintErr(pScript, __func__, "stack overflow!");
 		return;
 	}
-	(--script->m_Regs[rsp].SelfPtr)->UInt64 = 0;
-	*script->m_Regs[rsp].SelfPtr = value;
+	(--pScript->m_Regs[rsp].SelfPtr)->UInt64 = 0;
+	*pScript->m_Regs[rsp].SelfPtr = value;
 }
 
-union CValue TaghaScript_PopValue(struct TaghaScript *script)
+union CValue TaghaScript_PopValue(struct TaghaScript *pScript)
 {
-	CValue val={ .UInt64=0L };
-	if( !script or !script->m_pMemory ) {
-		printf("[%sTaghaScript Pop%s]: **** %sScript is NULL%s ****\n", KRED, RESET, KGRN, RESET);
+	union CValue val={ .UInt64=0L };
+	if( !pScript or !pScript->m_pMemory ) {
+		printf("[%sTaghaScript Pop%s]: **** %spScript is NULL%s ****\n", KRED, RESET, KGRN, RESET);
 		return val;
 	}
-	return script->m_Regs[ras];
+	return pScript->m_Regs[ras];
 }
 
-uint32_t TaghaScript_GetMemSize(const struct TaghaScript *script)
+uint32_t TaghaScript_GetMemSize(const struct TaghaScript *pScript)
 {
-	return !script ? 0 : script->m_uiMemsize;
+	return !pScript ? 0 : pScript->m_uiMemsize;
 }
-uint32_t TaghaScript_GetInstrSize(const struct TaghaScript *script)
+uint32_t TaghaScript_GetInstrSize(const struct TaghaScript *pScript)
 {
-	return !script ? 0 : script->m_uiInstrSize;
+	return !pScript ? 0 : pScript->m_uiInstrSize;
 }
-uint32_t TaghaScript_GetMaxInstrs(const struct TaghaScript *script)
+uint32_t TaghaScript_GetMaxInstrs(const struct TaghaScript *pScript)
 {
-	return !script ? 0 : script->m_uiMaxInstrs;
+	return !pScript ? 0 : pScript->m_uiMaxInstrs;
 }
-uint32_t TaghaScript_GetNativeCount(const struct TaghaScript *script)
+uint32_t TaghaScript_GetNativeCount(const struct TaghaScript *pScript)
 {
-	return !script ? 0 : script->m_uiNatives;
+	return !pScript ? 0 : pScript->m_uiNatives;
 }
-uint32_t TaghaScript_GetFuncCount(const struct TaghaScript *script)
+uint32_t TaghaScript_GetFuncCount(const struct TaghaScript *pScript)
 {
-	return !script ? 0 : script->m_uiFuncs;
+	return !pScript ? 0 : pScript->m_uiFuncs;
 }
-uint32_t TaghaScript_GetGlobalsCount(const struct TaghaScript *script)
+uint32_t TaghaScript_GetGlobalsCount(const struct TaghaScript *pScript)
 {
-	return !script ? 0 : script->m_uiGlobals;
+	return !pScript ? 0 : pScript->m_uiGlobals;
 }
-bool TaghaScript_IsSafemodeActive(const struct TaghaScript *script)
+bool TaghaScript_IsSafemodeActive(const struct TaghaScript *pScript)
 {
-	return !script ? 0 : script->m_bSafeMode;
+	return !pScript ? 0 : pScript->m_bSafeMode;
 }
-bool TaghaScript_IsDebugActive(const struct TaghaScript *script)
+bool TaghaScript_IsDebugActive(const struct TaghaScript *pScript)
 {
-	return !script ? 0 : script->m_bDebugMode;
+	return !pScript ? 0 : pScript->m_bDebugMode;
 }
 
 
 
-void TaghaScript_PrintMem(const struct TaghaScript *script)
+void TaghaScript_PrintStack(const struct TaghaScript *pScript)
 {
-	if( !script or !script->m_pMemory )
+	if( !pScript or !pScript->m_pMemory )
 		return;
 	
-	printf("DEBUG ...---===---... Printing Memory...\n");
+	printf("DEBUG PRINT: .stack Segment\n");
 	
-	uint32_t size = script->m_uiMemsize;
-	for( uint32_t i=0 ; i<size ; i++ )
-		if( script->m_Regs[rsp].UCharPtr == script->m_pMemory + i )
-			printf("Memory[%.10" PRIu32 "] == %" PRIu32 " - T.O.S.\n", i, script->m_pMemory[i]);
-		else printf("Memory[%.10" PRIu32 "] == %" PRIu32 "\n", i, script->m_pMemory[i]);
+	uint32_t size = pScript->m_uiMemsize;
+	uint8_t *p = pScript->m_pMemory + (size-1);
+	
+	while( p >= pScript->m_pStackSegment ) {
+		if( pScript->m_Regs[rsp].UCharPtr == p )
+			printf("Stack[%.10" PRIu32 "] == %" PRIu32 " - T.O.S.\n", p-pScript->m_pMemory, *p);
+		else printf("Stack[%.10" PRIu32 "] == %" PRIu32 "\n", p-pScript->m_pMemory, *p);
+		--p;
+	} /* while( p>=pScript->m_pStackSegment ) */
 	printf("\n");
 }
-void TaghaScript_PrintPtrs(const struct TaghaScript *script)
+
+void TaghaScript_PrintData(const struct TaghaScript *pScript)
 {
-	if( !script )
+	if( !pScript or !pScript->m_pMemory )
+		return;
+	
+	printf("DEBUG PRINT: .data Segment\n");
+	for( uint8_t *p = pScript->m_pDataSegment ; p > pScript->m_pTextSegment ; --p )
+		printf("Data[%.10" PRIu32 "] == %" PRIu32 "\n", p-pScript->m_pMemory, *p);
+	
+	printf("\n");
+}
+
+void TaghaScript_PrintInstrs(const struct TaghaScript *pScript)
+{
+	if( !pScript or !pScript->m_pMemory )
+		return;
+	
+	printf("DEBUG PRINT: .text Segment\n");
+	for( uint8_t *p = pScript->m_pMemory ; p <= pScript->m_pTextSegment ; p++ )
+		printf("Text[%.10" PRIu32 "] == %" PRIu32 "\n", p-pScript->m_pMemory, *p);
+	
+	printf("\n");
+}
+
+void TaghaScript_PrintPtrs(const struct TaghaScript *pScript)
+{
+	if( !pScript )
 		return;
 	
 	printf("DEBUG ...---===---... Printing Pointers...\n");
 	printf("Instruction Ptr: %p\
 			\nStack Ptr: %p\
-			\nStack Frame Ptr: %p\n", script->m_Regs[rip].UCharPtr, script->m_Regs[rsp].UCharPtr, script->m_Regs[rbp].UCharPtr);
-	printf("\n");
-}
-void TaghaScript_PrintInstrs(const struct TaghaScript *script)
-{
-	if( !script or )
-		return;
-	
-	uint32_t size = script->m_uiInstrSize;
-	size_t limit = script->m_pTextSegment-script->m_pMemory;
-	for( uint32_t i=0 ; i<limit ; i++ )
-		printf("Instr[%.10" PRIu32 "] == %" PRIu32 "\n", i, script->m_pMemory[i]);
+			\nStack Frame Ptr: %p\n", pScript->m_Regs[rip].UCharPtr, pScript->m_Regs[rsp].UCharPtr, pScript->m_Regs[rbp].UCharPtr);
 	printf("\n");
 }
 
-void TaghaScript_PrintErr(struct TaghaScript *restrict script, const char *restrict funcname, const char *restrict err, ...)
+void TaghaScript_PrintErr(struct TaghaScript *restrict pScript, const char *restrict funcname, const char *restrict err, ...)
 {
-	if( !script or !err )
+	if( !pScript or !err )
 		return;
 	
 	va_list args;
@@ -564,9 +604,16 @@ void TaghaScript_PrintErr(struct TaghaScript *restrict script, const char *restr
 	vprintf(err, args);
 	va_end(args);
 	printf("\' ****\nCurrent Instr Addr: %s%p | offset: %" PRIuPTR "%s\nCurrent Stack Addr: %s%p | offset: %" PRIuPTR "%s\n",
-		KGRN, script->m_Regs[rip].UCharPtr, script->m_Regs[rip].UCharPtr-script->m_pMemory, RESET, KGRN, script->m_Regs[rsp].UCharPtr, script->m_Regs[rsp].UCharPtr-script->m_pMemory, RESET);
+		KGRN, pScript->m_Regs[rip].UCharPtr, pScript->m_Regs[rip].UCharPtr-pScript->m_pMemory, RESET, KGRN, pScript->m_Regs[rsp].UCharPtr, pScript->m_Regs[rsp].UCharPtr-pScript->m_pMemory, RESET);
 }
 
+void TaghaScript_PrintRegData(const struct TaghaScript *pScript)
+{
+	puts("\n\tPRINTING REGISTER DATA ==========================\n");
+	for( uint8_t i=0 ; i<regsize ; i++ )
+		printf("register[%s] == %" PRIu64 "\n", RegIDToStr(i), pScript->m_Regs[i].UInt64);
+	puts("\tEND OF PRINTING REGISTER DATA ===============\n");
+}
 
 
 
