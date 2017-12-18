@@ -23,16 +23,13 @@ extern "C" {
 #define RESET	"\033[0m"	// Reset obviously
 
 
-struct TaghaScript;
-struct TaghaVM;
+struct Tagha;
 struct NativeInfo;
 union CValue;
 
-typedef struct TaghaScript		TaghaScript;
-typedef struct TaghaVM			TaghaVM;
+typedef struct Tagha			Tagha;
 typedef struct NativeInfo		NativeInfo;
 typedef union CValue			CValue;
-
 
 
 union CValue {
@@ -57,7 +54,7 @@ union CValue {
 };
 
 //	API for scripts to call C/C++ host functions.
-typedef		void (*fnNative_t)(struct TaghaScript *, union CValue [], union CValue *, const uint32_t, struct TaghaVM *);
+typedef		void (*fnNative_t)(struct Tagha *, union CValue [], union CValue *, const uint32_t);
 
 struct NativeInfo {
 	const char	*strName;	// use as string literals
@@ -96,9 +93,6 @@ enum RegID {
 	regsize		// for lazily updating id list
 };
 
-// tagha_exec.c
-const char *RegIDToStr(const enum RegID id);
-
 
 /* Script File Structure.
  * magic verifier
@@ -117,10 +111,29 @@ typedef struct DataTable {
 	uint32_t	m_uiOffset;	// TODO: make this into uint64?
 } DataTable;
 
+// memory format of the script file.
+typedef struct TaghaHeader {
+	uint16_t m_usMagic;
+	uint32_t
+		m_uiStackSize,
+		m_uiDataSize
+	;
+	uint32_t m_uiNativeCount;
+	uint32_t m_uiNativeTableOffset;
+	
+	uint32_t m_uiFuncCount;
+	uint32_t m_uiFuncTableOffset;
+	
+	uint32_t m_uiGlobalCount;
+	uint32_t m_uiGlobalTableOffset;
+	
+	char m_cSafeDebugFlags;
+	uint32_t m_uiDataOffset;
+	uint32_t m_uiTextOffset;
+} TaghaHeader;
 
-struct TaghaScript {
-	char m_strName[64];		// script's name
-	CValue m_Regs[regsize];
+struct Tagha {
+	union CValue m_Regs[regsize];
 	uint8_t
 		*m_pMemory,			// script memory, entirely aligned by 8 bytes.
 		*m_pStackSegment,	// stack segment ptr where the stack's lowest address lies.
@@ -128,7 +141,11 @@ struct TaghaScript {
 		*m_pTextSegment		// text segment is the address after the last global variable AKA the last opcode.
 		// rip register will start at m_pMemory + 0.
 	;
-	char **m_pstrNativeCalls;	// natives string table.
+	// stores a C/C++ function ptr using the script-side name as the key.
+	char **m_pstrNativeCalls;		// natives string table.
+	struct hashmap *m_pmapNatives;	// native C/C++ interface hashmap.
+	
+	union CValue *m_pArgv;	// forcing char** to 8 bytes
 	struct hashmap
 		*m_pmapFuncs,		// stores the functions compiled to script.
 		*m_pmapGlobals		// stores global vars like string literals or variables.
@@ -141,68 +158,71 @@ struct TaghaScript {
 		m_uiFuncs,			// how many functions the script has.
 		m_uiGlobals			// how many globals variables the script has.
 	;
-	bool	m_bSafeMode : 1;	// does the script want bounds checking?
-	bool	m_bDebugMode : 1;	// print debug info.
-	bool	m_bZeroFlag : 1;	// conditional zero flag.
+	int32_t m_iArgc;
+	bool
+		m_bSafeMode : 1,	// does the script want bounds checking?
+		m_bDebugMode : 1,	// print debug info.
+		m_bZeroFlag : 1		// conditional zero flag.
+	;
 };
 
-
-struct TaghaVM {
-	struct TaghaScript	*m_pScript;
-	
-	// native C/C++ interface hashmap.
-	// stores a C/C++ function ptr using the script-side name as the key.
-	struct hashmap		*m_pmapNatives;
-};
-
-
-// taghavm_api.c
-void				Tagha_Init(struct TaghaVM *pVM);
-void				Tagha_LoadScriptByName(struct TaghaVM *pVM, char *filename);
-bool				Tagha_RegisterNatives(struct TaghaVM *pVM, struct NativeInfo arrNatives[]);
-void				Tagha_Free(struct TaghaVM *pVM);
-int32_t				Tagha_CallScriptFunc(struct TaghaVM *pVM, const char *strFunc);
-struct TaghaScript	*Tagha_GetScript(const struct TaghaVM *pVM);
-void				Tagha_SetScript(struct TaghaVM *pVM, struct TaghaScript *pScript);
-void				gfree(void **ppPtr);
+/*
+ * I think you may wanna spend a bit thinking about what scope you want. A VM running 1 "script" (properly called a program, process, or thread) blurs the line between VM and interpreter. Having multiple programs means an OS program has to be built on top of the VM allowing it to run multiple programs concurrently.
+ * 
+ * There's no reason not to make a good VM, provide one or two compilers/interpreters in its native language. You don't have to write an OS to write code for the VM.
+If it's generic enough, somebody can come along later and build an OS on top
+* 
+* Yeah, if you want it to be embedable, then just write an interpreter for one language with hooks to call it in other languages. If you need to run other languages on top, then go for a VM.
+* 
+* There you go, so you don't even really need a VM to embed C
+*/
 
 
-// Tagha_Exec.c
-int32_t				Tagha_Exec(struct TaghaVM *pVM, int argc, CValue argv[]);
+// tagha_exec.c
+int32_t			Tagha_Exec(struct Tagha *pSys);
+const char		*RegIDToStr(const enum RegID id);
 
 
 // tagha_libc.c
-void				Tagha_LoadLibCNatives(struct TaghaVM *pVM);
-void				Tagha_LoadSelfNatives(struct TaghaVM *pVM);
+void			Tagha_LoadLibCNatives(struct Tagha *pSys);
+void			Tagha_LoadSelfNatives(struct Tagha *pSys);
 
 
-// taghascript_api.c
-	// script factories
-struct TaghaScript	*TaghaScript_BuildFromFile(const char *strFilename);
-struct TaghaScript	*TaghaScript_BuildFromData(void *pFile);
+// tagha_api.c
+struct Tagha	*Tagha_New(void);
+void			Tagha_Init(struct Tagha *pSys);
+void			Tagha_LoadScriptByName(struct Tagha *pSys, char *filename);
+bool			Tagha_RegisterNatives(struct Tagha *pSys, struct NativeInfo arrNatives[]);
+void			Tagha_Free(struct Tagha *pSys);
+int32_t			Tagha_RunScript(struct Tagha *pSys);
+int32_t			Tagha_CallFunc(struct Tagha *pSys, const char *strFunc);
+void			gfree(void **ppPtr);
 
-void				TaghaScript_PrintPtrs(const struct TaghaScript *pScript);
-void				TaghaScript_PrintStack(const struct TaghaScript *pScript);
-void				TaghaScript_PrintData(const struct TaghaScript *pScript);
-void				TaghaScript_PrintInstrs(const struct TaghaScript *pScript);
-void				TaghaScript_PrintRegData(const struct TaghaScript *pScript);
-void				TaghaScript_Reset(struct TaghaScript *pScript);
-void				TaghaScript_Free(struct TaghaScript *pScript);
+void			Tagha_BuildFromFile(struct Tagha *pSys, const char *strFilename);
+void			Tagha_BuildFromPtr(struct Tagha *pSys, void *pProgram, const uint64_t Programsize);
 
-void				*TaghaScript_GetGlobalByName(struct TaghaScript *pScript, const char *strGlobalName);
-bool				TaghaScript_BindGlobalPtr(struct TaghaScript *pScript, const char *strGlobalName, void *pVar);
-void				TaghaScript_PushValue(struct TaghaScript *pScript, const union CValue value);
-union CValue		TaghaScript_PopValue(struct TaghaScript *pScript);
+void			Tagha_PrintPtrs(const struct Tagha *pSys);
+void			Tagha_PrintStack(const struct Tagha *pSys);
+void			Tagha_PrintData(const struct Tagha *pSys);
+void			Tagha_PrintInstrs(const struct Tagha *pSys);
+void			Tagha_PrintRegData(const struct Tagha *pSys);
+void			Tagha_Reset(struct Tagha *pSys);
 
-uint32_t			TaghaScript_GetMemSize(const struct TaghaScript *pScript);
-uint32_t			TaghaScript_GetInstrSize(const struct TaghaScript *pScript);
-uint32_t			TaghaScript_GetMaxInstrs(const struct TaghaScript *pScript);
-uint32_t			TaghaScript_GetNativeCount(const struct TaghaScript *pScript);
-uint32_t			TaghaScript_GetFuncCount(const struct TaghaScript *pScript);
-uint32_t			TaghaScript_GetGlobalsCount(const struct TaghaScript *pScript);
-bool				TaghaScript_IsSafemodeActive(const struct TaghaScript *pScript);
-bool				TaghaScript_IsDebugActive(const struct TaghaScript *pScript);
-void				TaghaScript_PrintErr(struct TaghaScript *pScript, const char *funcname, const char *err, ...);
+void			*Tagha_GetGlobalByName(struct Tagha *pSys, const char *strGlobalName);
+bool			Tagha_BindGlobalPtr(struct Tagha *pSys, const char *strGlobalName, void *pVar);
+void			Tagha_PushValue(struct Tagha *pSys, const union CValue value);
+union CValue	Tagha_PopValue(struct Tagha *pSys);
+void			Tagha_SetCmdArgs(struct Tagha *pSys, char *argv[]);
+
+uint32_t		Tagha_GetMemSize(const struct Tagha *pSys);
+uint32_t		Tagha_GetInstrSize(const struct Tagha *pSys);
+uint32_t		Tagha_GetMaxInstrs(const struct Tagha *pSys);
+uint32_t		Tagha_GetNativeCount(const struct Tagha *pSys);
+uint32_t		Tagha_GetFuncCount(const struct Tagha *pSys);
+uint32_t		Tagha_GetGlobalsCount(const struct Tagha *pSys);
+bool			Tagha_IsSafemodeActive(const struct Tagha *pSys);
+bool			Tagha_IsDebugActive(const struct Tagha *pSys);
+void			Tagha_PrintErr(struct Tagha *pSys, const char *funcname, const char *err, ...);
 
 /*
 *	r = register is first operand

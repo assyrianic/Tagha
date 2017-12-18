@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 /* void *malloc(size_t size); */
-static void native_malloc(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_malloc(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	// size_t is 8 bytes on 64-bit systems
 	const uint64_t ptrsize = params[0].UInt64;
@@ -16,7 +16,7 @@ static void native_malloc(struct TaghaScript *pScript, union CValue params[], un
 }
 
 /* void free(void *ptr); */
-static void native_free(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_free(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	void *ptr = params[0].Ptr;
 	if( ptr ) {
@@ -26,7 +26,7 @@ static void native_free(struct TaghaScript *pScript, union CValue params[], unio
 }
 
 /* void *calloc(size_t num, size_t size); */
-static void native_calloc(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_calloc(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	const uint64_t num = params[0].UInt64;
 	const uint64_t size = params[1].UInt64;
@@ -35,7 +35,7 @@ static void native_calloc(struct TaghaScript *pScript, union CValue params[], un
 }
 
 /* void *realloc(void *ptr, size_t size); */
-static void native_realloc(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_realloc(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	void *ptr = params[0].Ptr;
 	const uint64_t size = params[1].UInt64;
@@ -44,19 +44,19 @@ static void native_realloc(struct TaghaScript *pScript, union CValue params[], u
 }
 
 /* void srand(unsigned int seed); */
-static void native_srand(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_srand(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	srand(params[0].UInt32);
 }
 
 /* int rand(void); */
-static void native_rand(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_rand(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = rand();
 }
 
 /* double strtod(const char *str, char **endptr); */
-static void native_strtod(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_strtod(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -67,7 +67,7 @@ static void native_strtod(struct TaghaScript *pScript, union CValue params[], un
 }
 
 /* float strtof(const char *str, char **endptr); */
-static void native_strtof(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_strtof(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -78,7 +78,7 @@ static void native_strtof(struct TaghaScript *pScript, union CValue params[], un
 }
 
 /* long int strtol(const char *str, char **endptr, int base); */
-static void native_strtol(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_strtol(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -89,7 +89,7 @@ static void native_strtol(struct TaghaScript *pScript, union CValue params[], un
 }
 
 /* long long int strtoll(const char *str, char **endptr, int base); */
-static void native_strtoll(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_strtoll(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -100,7 +100,7 @@ static void native_strtoll(struct TaghaScript *pScript, union CValue params[], u
 }
 
 /* unsigned long int strtoul(const char *str, char **endptr, int base); */
-static void native_strtoul(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_strtoul(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -111,7 +111,7 @@ static void native_strtoul(struct TaghaScript *pScript, union CValue params[], u
 }
 
 /* unsigned long long int strtoull(const char *str, char **endptr, int base); */
-static void native_strtoull(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_strtoull(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -122,20 +122,20 @@ static void native_strtoull(struct TaghaScript *pScript, union CValue params[], 
 }
 
 /* void abort(void); */
-static void native_abort(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_abort(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
-	*pScript->m_Regs[rip].UCharPtr = halt;
+	*pSys->m_Regs[rip].UCharPtr = halt;
 }
 
 /* void exit(int status); */
-static void native_exit(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_exit(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
-	*pScript->m_Regs[rip].UCharPtr = halt;
+	*pSys->m_Regs[rip].UCharPtr = halt;
 	printf("Exiting with status: %i\n", params[0].Int32);
 }
 
 /* int system(const char *command); */
-static void native_system(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_system(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	const char *command = params[0].String;
 	if( !command ) {
@@ -148,12 +148,12 @@ static void native_system(struct TaghaScript *pScript, union CValue params[], un
 
 
 
-void Tagha_load_stdlib_natives(struct TaghaVM *pVM)
+void Tagha_load_stdlib_natives(struct Tagha *pSys)
 {
-	if( !pVM )
+	if( !pSys )
 		return;
 	
-	NativeInfo libc_stdlib_natives[] = {
+	struct NativeInfo libc_stdlib_natives[] = {
 		{"malloc", native_malloc},
 		{"free", native_free},
 		{"calloc", native_calloc},
@@ -171,7 +171,7 @@ void Tagha_load_stdlib_natives(struct TaghaVM *pVM)
 		{"system", native_system},
 		{NULL, NULL}
 	};
-	Tagha_RegisterNatives(pVM, libc_stdlib_natives);
+	Tagha_RegisterNatives(pSys, libc_stdlib_natives);
 }
 
 

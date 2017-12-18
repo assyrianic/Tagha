@@ -10,13 +10,13 @@
 */
 
 /* void print_helloworld(void); */
-static void native_print_helloworld(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_print_helloworld(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	puts("native_print_helloworld :: hello world from bytecode!\n");
 }
 
 /* void test(struct Player *p); */
-static void native_test(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_test(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	struct Player {
 		float		speed;
@@ -37,60 +37,59 @@ static void native_test(struct TaghaScript *pScript, union CValue params[], unio
 }
 
 /* void getglobal(void); */
-static void native_getglobal(struct TaghaScript *pScript, union CValue params[], union CValue *restrict pRetval, const uint32_t argc, struct TaghaVM *pEnv)
+static void native_getglobal(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
-	int *p = TaghaScript_GetGlobalByName(pScript, "i");
+	int *p = Tagha_GetGlobalByName(pSys, "i");
 	if( !p )
 		return;
 	printf("native_getglobal :: i == %i\n", *p);
 }
 
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
 	if( !argv[1] ) {
-		printf("[TaghaVM Usage]: '%s' '.tbc file' \n", argv[0]);
+		printf("[Tagha Usage]: '%s' '.tbc file' \n", argv[0]);
 		return 1;
 	}
 	
-	TaghaVM vm;
-	Tagha_Init(&vm);
-	
-	NativeInfo host_natives[] = {
+	struct Tagha *vm = Tagha_New();
+	if( !vm ) {
+		puts("Tagha :: Tagha_New returned NULL\n");
+		return 1;
+	}
+	struct NativeInfo tagha_host_natives[] = {
 		{"test", native_test},
 		{"printHW", native_print_helloworld},
 		{"getglobal", native_getglobal},
 		{NULL, NULL}
 	};
-	Tagha_RegisterNatives(&vm, host_natives);
-	Tagha_LoadLibCNatives(&vm);
-	Tagha_LoadSelfNatives(&vm);
+	Tagha_RegisterNatives(vm, tagha_host_natives);
+	Tagha_LoadLibCNatives(vm);
+	Tagha_LoadSelfNatives(vm);
 	
-	Tagha_LoadScriptByName(&vm, argv[1]);
+	Tagha_LoadScriptByName(vm, argv[1]);
 	
-	// keep compatible with 32-bit and 64-bit systems by
-	// using CValue data instead of using a ptr to char ptr.
-	int argcount = 3;
-	CValue args[argcount];
-	args[0].Str = argv[1],
-	args[1].Str = "kektus",
-	args[2].Str = NULL;
-	int result = Tagha_Exec(&vm, argcount, args);
-	printf("[Tagha] :: result: %" PRIi32 "\n", result);
+	char *args[] = {
+		argv[1],
+		"kektus",
+		NULL
+	};
+	Tagha_SetCmdArgs(vm, args);
+	printf("[Tagha] :: result: %" PRIi32 "\n", Tagha_RunScript(vm));
 	
 	/* // tested with test_3d_vecs.tbc
 	float vect[3]={ 10.f, 15.f, 20.f };
-	TaghaScript_PushValue(Tagha_GetpScript(&vm), (CValue){ .Ptr=vect });
-	Tagha_CallpScriptFunc(&vm, "VecInvert");
+	Tagha_PushValue(vm, (CValue){ .Ptr=vect });
+	Tagha_CallFunc(vm, "VecInvert");
 	printf("vect[3]=={ %f , %f, %f }\n", vect[0], vect[1], vect[2]);
 	*/
 	
 	/* // For testing with "factorial.tbc".
-	TaghaScript *pScript = Tagha_GetpScript(&vm);
-	//TaghaScript_PushValue(pScript, (CValue){ .UInt32=6 });	// param b
-	TaghaScript_PushValue(pScript, (CValue){ .UInt32=7 });	// param a
-	Tagha_CallpScriptFunc(&vm, "factorial");
-	printf("factorial result == %" PRIu32 "\n", TaghaScript_PopValue(pScript).UInt32);
+	//Tagha_PushValue(vm, (CValue){ .UInt32=6 });	// param b
+	Tagha_PushValue(vm, (CValue){ .UInt32=7 });	// param a
+	Tagha_CallFunc(vm, "factorial");
+	printf("factorial result == %" PRIu32 "\n", Tagha_PopValue(vm).UInt32);
 	*/
 	
 	/*
@@ -102,7 +101,8 @@ int main(int argc, char **argv)
 	while( x>0 );
 	*/
 	
-	Tagha_Free(&vm);
+	Tagha_Free(vm);
+	gfree((void **)&vm);
 	return 0;
 }
 

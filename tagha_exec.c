@@ -50,25 +50,20 @@ void PrintAddrMode(const enum AddrMode mode)
 
 
 //#include <unistd.h>	// sleep() func
-int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
+int32_t Tagha_Exec(struct Tagha *pSys)
 {
-	if( !pVM or !pVM->m_pScript )
+	if( !pSys )
 		return -1;
 	
-	struct TaghaScript *pScript = pVM->m_pScript;
-	if( !pScript or !pScript->m_pmapFuncs ) {
-		printf("Tagha_Exec :: script either NULL or no functions.\n");
-		return -1;
-	}
-	else if( !pScript->m_Regs[rip].UCharPtr ) {
-		TaghaScript_PrintErr(pScript, __func__, "NULL instruction ptr! if 'main' doesn't exist, call a function by name.");
+	if( !pSys->m_Regs[rip].UCharPtr ) {
+		Tagha_PrintErr(pSys, __func__, "NULL instr ptr! if 'main' doesn't exist, call a function by name.");
 		return -1;
 	}
 	
 	fnNative_t	pfNative = NULL;
 	bool
-		safemode = pScript->m_bSafeMode,
-		debugmode = pScript->m_bDebugMode
+		safemode = pSys->m_bSafeMode,
+		debugmode = pSys->m_bDebugMode
 	;
 	uint8_t
 		instr,
@@ -90,30 +85,28 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 #undef X
 #undef INSTR_SET
 	
-	(--pScript->m_Regs[rsp].SelfPtr)->UInt64 = (uintptr_t)argv;
-	(--pScript->m_Regs[rsp].SelfPtr)->Int64 = argc;
-	if( debugmode )
-		printf("Tagha_Exec :: pushed argc: %i and pushed argv %p\n", argc, argv);
+	uint8_t *pMainRBP = pSys->m_Regs[rbp].UCharPtr;
+	pSys->m_Regs[rbp] = pSys->m_Regs[rsp];
 	
 	int32_t offset;
 	while( 1 ) {
-		pScript->m_uiMaxInstrs--;
-		if( !pScript->m_uiMaxInstrs )
+		pSys->m_uiMaxInstrs--;
+		if( !pSys->m_uiMaxInstrs )
 			break;
 		
-		safemode = pScript->m_bSafeMode;
-		debugmode = pScript->m_bDebugMode;
+		safemode = pSys->m_bSafeMode;
+		debugmode = pSys->m_bDebugMode;
 		if( safemode ) {
-			if( pScript->m_Regs[rip].UCharPtr < pScript->m_pMemory ) {
-				TaghaScript_PrintErr(pScript, __func__, "instruction address out of lower bounds!");
+			if( pSys->m_Regs[rip].UCharPtr < pSys->m_pMemory ) {
+				Tagha_PrintErr(pSys, __func__, "instruction address out of lower bounds!");
 				goto *dispatch[halt];
 			}
-			else if( pScript->m_Regs[rip].UCharPtr > pScript->m_pTextSegment ) {
-				TaghaScript_PrintErr(pScript, __func__, "instruction address out of upper bounds!");
+			else if( pSys->m_Regs[rip].UCharPtr > pSys->m_pTextSegment ) {
+				Tagha_PrintErr(pSys, __func__, "instruction address out of upper bounds!");
 				goto *dispatch[halt];
 			}
-			else if( *pScript->m_Regs[rip].UCharPtr > nop ) {
-				TaghaScript_PrintErr(pScript, __func__, "illegal instruction exception! | instruction == \'%" PRIu32 "\'", *pScript->m_Regs[rip].UCharPtr);
+			else if( *pSys->m_Regs[rip].UCharPtr > nop ) {
+				Tagha_PrintErr(pSys, __func__, "illegal instruction exception! | instruction == \'%" PRIu32 "\'", *pSys->m_Regs[rip].UCharPtr);
 				goto *dispatch[halt];
 			}
 		}
@@ -121,8 +114,8 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 		offset = 0;
 		
 		// fetch opcode and addressing mode.
-		instr = *pScript->m_Regs[rip].UCharPtr++;
-		addrmode = *pScript->m_Regs[rip].UCharPtr++;
+		instr = *pSys->m_Regs[rip].UCharPtr++;
+		addrmode = *pSys->m_Regs[rip].UCharPtr++;
 		
 		// this is for debugging.
 #ifdef _UNISTD_H
@@ -139,63 +132,63 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 		
 		exec_halt:;
 			if( debugmode ) {
-				TaghaScript_PrintStack(pScript);
-				TaghaScript_PrintData(pScript);
-				TaghaScript_PrintInstrs(pScript);
-				TaghaScript_PrintRegData(pScript);
+				Tagha_PrintStack(pSys);
+				Tagha_PrintData(pSys);
+				Tagha_PrintInstrs(pSys);
+				Tagha_PrintRegData(pSys);
 			}
-			return pScript->m_Regs[ras].Int32;
+			return pSys->m_Regs[ras].Int32;
 		
 		exec_push:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			if( pScript->m_Regs[rsp].UCharPtr-8 < pScript->m_pStackSegment ) {
-				TaghaScript_PrintErr(pScript, __func__, "Stack Overflow!");
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			if( pSys->m_Regs[rsp].UCharPtr-8 < pSys->m_pStackSegment ) {
+				Tagha_PrintErr(pSys, __func__, "Stack Overflow!");
 				continue;
 			}
 			if( addrmode & Immediate )
-				(--pScript->m_Regs[rsp].SelfPtr)->UInt64 = a.UInt64;
+				(--pSys->m_Regs[rsp].SelfPtr)->UInt64 = a.UInt64;
 			else if( addrmode & Register )
-				(--pScript->m_Regs[rsp].SelfPtr)->UInt64 = pScript->m_Regs[a.UInt64].UInt64;
+				(--pSys->m_Regs[rsp].SelfPtr)->UInt64 = pSys->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
-				(--pScript->m_Regs[rsp].SelfPtr)->UInt64 = *(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset);
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
+				(--pSys->m_Regs[rsp].SelfPtr)->UInt64 = *(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
-				(--pScript->m_Regs[rsp].SelfPtr)->UInt64 = *a.UInt64Ptr;
+				(--pSys->m_Regs[rsp].SelfPtr)->UInt64 = *a.UInt64Ptr;
 			}
 			continue;
 		}
 		exec_pop:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			if( pScript->m_Regs[rsp].UCharPtr+8 > (pScript->m_pMemory + (pScript->m_uiMemsize-1)) ) {
-				TaghaScript_PrintErr(pScript, __func__, "Stack Underflow!");
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			if( pSys->m_Regs[rsp].UCharPtr+8 > (pSys->m_pMemory + (pSys->m_uiMemsize-1)) ) {
+				Tagha_PrintErr(pSys, __func__, "Stack Underflow!");
 				continue;
 			}
 			if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].UInt64 = (*pScript->m_Regs[rsp].SelfPtr++).UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 = (*pSys->m_Regs[rsp].SelfPtr++).UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
-				*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) = (*pScript->m_Regs[rsp].SelfPtr++).UInt64;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
+				*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) = (*pSys->m_Regs[rsp].SelfPtr++).UInt64;
 			}
 			else if( addrmode & (IPRelative|Immediate) ) {
-				*a.UInt64Ptr = (*pScript->m_Regs[rsp].SelfPtr++).UInt64;
+				*a.UInt64Ptr = (*pSys->m_Regs[rsp].SelfPtr++).UInt64;
 			}
 			continue;
 		}
 		exec_neg:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].UInt64 = -pScript->m_Regs[a.UInt64].UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 = -pSys->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					*(pScript->m_Regs[a.UInt64].CharPtr+offset) = -*(pScript->m_Regs[a.UInt64].CharPtr+offset);
+					*(pSys->m_Regs[a.UInt64].CharPtr+offset) = -*(pSys->m_Regs[a.UInt64].CharPtr+offset);
 				else if( addrmode & TwoBytes )
-					*(int16_t *)(pScript->m_Regs[a.UInt64].CharPtr+offset) = -*(int16_t *)(pScript->m_Regs[a.UInt64].CharPtr+offset);
+					*(int16_t *)(pSys->m_Regs[a.UInt64].CharPtr+offset) = -*(int16_t *)(pSys->m_Regs[a.UInt64].CharPtr+offset);
 				else if( addrmode & FourBytes )
-					*(int32_t *)(pScript->m_Regs[a.UInt64].CharPtr+offset) = -*(int32_t *)(pScript->m_Regs[a.UInt64].CharPtr+offset);
+					*(int32_t *)(pSys->m_Regs[a.UInt64].CharPtr+offset) = -*(int32_t *)(pSys->m_Regs[a.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
-					*(int64_t *)(pScript->m_Regs[a.UInt64].CharPtr+offset) = -*(int64_t *)(pScript->m_Regs[a.UInt64].CharPtr+offset);
+					*(int64_t *)(pSys->m_Regs[a.UInt64].CharPtr+offset) = -*(int64_t *)(pSys->m_Regs[a.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & (IPRelative|Immediate) ) {
 				if( addrmode & Byte )
@@ -211,19 +204,19 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 		}
 		
 		exec_inc:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].UInt64 += 1;
+				pSys->m_Regs[a.UInt64].UInt64 += 1;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					*(pScript->m_Regs[a.UInt64].UCharPtr+offset) += 1;
+					*(pSys->m_Regs[a.UInt64].UCharPtr+offset) += 1;
 				else if( addrmode & TwoBytes )
-					*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += 1;
+					*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += 1;
 				else if( addrmode & FourBytes )
-					*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += 1;
+					*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += 1;
 				else if( addrmode & EightBytes )
-					*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += 1;
+					*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += 1;
 			}
 			else if( addrmode & (IPRelative|Immediate) ) {
 				if( addrmode & Byte )
@@ -238,19 +231,19 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 			continue;
 		}
 		exec_dec:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].UInt64 -= 1;
+				pSys->m_Regs[a.UInt64].UInt64 -= 1;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					*(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= 1;
+					*(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= 1;
 				else if( addrmode & TwoBytes )
-					*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= 1;
+					*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= 1;
 				else if( addrmode & FourBytes )
-					*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= 1;
+					*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= 1;
 				else if( addrmode & EightBytes )
-					*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= 1;
+					*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= 1;
 			}
 			else if( addrmode & (IPRelative|Immediate) ) {
 				if( addrmode & Byte )
@@ -265,19 +258,19 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 			continue;
 		}
 		exec_bnot:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].UInt64 = ~pScript->m_Regs[a.UInt64].UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 = ~pSys->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					*(pScript->m_Regs[a.UInt64].UCharPtr+offset) = ~*(pScript->m_Regs[a.UInt64].UCharPtr+offset);
+					*(pSys->m_Regs[a.UInt64].UCharPtr+offset) = ~*(pSys->m_Regs[a.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
-					*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) = ~*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset);
+					*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) = ~*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset);
 				else if( addrmode & FourBytes )
-					*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) = ~*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset);
+					*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) = ~*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset);
 				else if( addrmode & EightBytes )
-					*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) = ~*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset);
+					*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) = ~*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & (IPRelative|Immediate) ) {
 				if( addrmode & Byte )
@@ -293,132 +286,134 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 		}
 		
 		exec_jmp:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[rip].UCharPtr = pScript->m_pMemory + a.UInt64;
+				pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + a.UInt64;
 			else if( addrmode & Register )
-				pScript->m_Regs[rip].UCharPtr = pScript->m_pMemory + pScript->m_Regs[a.UInt64].UInt64;
+				pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + pSys->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
-				pScript->m_Regs[rip].UCharPtr = pScript->m_pMemory + *(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset);
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
+				pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + *(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
-				pScript->m_Regs[rip].UCharPtr = pScript->m_pMemory + *a.UInt64Ptr;
+				pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + *a.UInt64Ptr;
 			}
 			continue;
 		}
 		
 		exec_jz:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[rip].UCharPtr = (pScript->m_bZeroFlag) ? pScript->m_pMemory + a.UInt64 : pScript->m_Regs[rip].UCharPtr;
+				pSys->m_Regs[rip].UCharPtr = (pSys->m_bZeroFlag) ? pSys->m_pMemory + a.UInt64 : pSys->m_Regs[rip].UCharPtr;
 			else if( addrmode & Register )
-				pScript->m_Regs[rip].UCharPtr = (pScript->m_bZeroFlag) ? pScript->m_pMemory + pScript->m_Regs[a.UInt64].UInt64 : pScript->m_Regs[rip].UCharPtr;
+				pSys->m_Regs[rip].UCharPtr = (pSys->m_bZeroFlag) ? pSys->m_pMemory + pSys->m_Regs[a.UInt64].UInt64 : pSys->m_Regs[rip].UCharPtr;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
-				pScript->m_Regs[rip].UCharPtr = (pScript->m_bZeroFlag) ? pScript->m_pMemory + *(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) : pScript->m_Regs[rip].UCharPtr;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
+				pSys->m_Regs[rip].UCharPtr = (pSys->m_bZeroFlag) ? pSys->m_pMemory + *(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) : pSys->m_Regs[rip].UCharPtr;
 			}
 			else if( addrmode & IPRelative ) {
-				pScript->m_Regs[rip].UCharPtr = (pScript->m_bZeroFlag) ? pScript->m_pMemory + *a.UInt64Ptr : pScript->m_Regs[rip].UCharPtr;
+				pSys->m_Regs[rip].UCharPtr = (pSys->m_bZeroFlag) ? pSys->m_pMemory + *a.UInt64Ptr : pSys->m_Regs[rip].UCharPtr;
 			}
 			continue;
 		}
 		exec_jnz:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[rip].UCharPtr = (!pScript->m_bZeroFlag) ? pScript->m_pMemory + a.UInt64 : pScript->m_Regs[rip].UCharPtr;
+				pSys->m_Regs[rip].UCharPtr = (!pSys->m_bZeroFlag) ? pSys->m_pMemory + a.UInt64 : pSys->m_Regs[rip].UCharPtr;
 			else if( addrmode & Register )
-				pScript->m_Regs[rip].UCharPtr = (!pScript->m_bZeroFlag) ? pScript->m_pMemory + pScript->m_Regs[a.UInt64].UInt64 : pScript->m_Regs[rip].UCharPtr;
+				pSys->m_Regs[rip].UCharPtr = (!pSys->m_bZeroFlag) ? pSys->m_pMemory + pSys->m_Regs[a.UInt64].UInt64 : pSys->m_Regs[rip].UCharPtr;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
-				pScript->m_Regs[rip].UCharPtr = (!pScript->m_bZeroFlag) ? pScript->m_pMemory + *(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) : pScript->m_Regs[rip].UCharPtr;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
+				pSys->m_Regs[rip].UCharPtr = (!pSys->m_bZeroFlag) ? pSys->m_pMemory + *(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) : pSys->m_Regs[rip].UCharPtr;
 			}
 			else if( addrmode & IPRelative ) {
-				pScript->m_Regs[rip].UCharPtr = (!pScript->m_bZeroFlag) ? pScript->m_pMemory + *a.UInt64Ptr : pScript->m_Regs[rip].UCharPtr;
+				pSys->m_Regs[rip].UCharPtr = (!pSys->m_bZeroFlag) ? pSys->m_pMemory + *a.UInt64Ptr : pSys->m_Regs[rip].UCharPtr;
 			}
 			continue;
 		}
 		
 		exec_call:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			if( pScript->m_Regs[rsp].UCharPtr-16 < pScript->m_pStackSegment ) {
-				TaghaScript_PrintErr(pScript, __func__, "Stack Overflow!");
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			if( pSys->m_Regs[rsp].UCharPtr-16 < pSys->m_pStackSegment ) {
+				Tagha_PrintErr(pSys, __func__, "Stack Overflow!");
 				continue;
 			}
-			(--pScript->m_Regs[rsp].SelfPtr)->UInt64 = pScript->m_Regs[rip].UInt64;	// push rip
-			(--pScript->m_Regs[rsp].SelfPtr)->UInt64 = pScript->m_Regs[rbp].UInt64;	// push rbp
-			pScript->m_Regs[rbp] = pScript->m_Regs[rsp];	// mov rbp, rsp
+			(--pSys->m_Regs[rsp].SelfPtr)->UInt64 = pSys->m_Regs[rip].UInt64;	// push rip
+			(--pSys->m_Regs[rsp].SelfPtr)->UInt64 = pSys->m_Regs[rbp].UInt64;	// push rbp
+			pSys->m_Regs[rbp] = pSys->m_Regs[rsp];	// mov rbp, rsp
 			if( addrmode & Immediate )
-				pScript->m_Regs[rip].UCharPtr = pScript->m_pMemory + a.UInt64;
+				pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + a.UInt64;
 			else if( addrmode & Register )
-				pScript->m_Regs[rip].UCharPtr = pScript->m_pMemory + pScript->m_Regs[a.UInt64].UInt64;
+				pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + pSys->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
-				pScript->m_Regs[rip].UCharPtr = pScript->m_pMemory + *(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset);
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
+				pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + *(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
-				pScript->m_Regs[rip].UCharPtr = pScript->m_pMemory + *a.UInt64Ptr;
+				pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + *a.UInt64Ptr;
 			}
 			continue;
 		}
 		exec_ret:; {
-			// if we hit a return and stack is empty, break entirely.
-			if( pScript->m_Regs[rbp].UCharPtr == (pScript->m_pMemory + (pScript->m_uiMemsize-1)) ) {
+			pSys->m_Regs[rsp] = pSys->m_Regs[rbp];	// mov rsp, rbp
+			if( pSys->m_Regs[rsp].UCharPtr+16 > (pSys->m_pMemory + (pSys->m_uiMemsize-1)) ) {
+				Tagha_PrintErr(pSys, __func__, "Stack Underflow!");
+				continue;
+			}
+			
+			pSys->m_Regs[rbp].UInt64 = (*pSys->m_Regs[rsp].SelfPtr++).UInt64;	// pop rbp
+			// if we're popping Main's RBP, then halt the whole program.
+			if( pSys->m_Regs[rbp].UCharPtr == pMainRBP ) {
 				if( debugmode )
 					puts("ret :: return on empty stack");
 				goto *dispatch[halt];
 			}
-			pScript->m_Regs[rsp] = pScript->m_Regs[rbp];	// mov rsp, rbp
-			if( pScript->m_Regs[rsp].UCharPtr+16 > (pScript->m_pMemory + (pScript->m_uiMemsize-1)) ) {
-				TaghaScript_PrintErr(pScript, __func__, "Stack Underflow!");
-				continue;
-			}
-			pScript->m_Regs[rbp].UInt64 = (*pScript->m_Regs[rsp].SelfPtr++).UInt64;	// pop rbp
-			pScript->m_Regs[rip].UInt64 = (*pScript->m_Regs[rsp].SelfPtr++).UInt64;	// pop rip
+			
+			pSys->m_Regs[rip].UInt64 = (*pSys->m_Regs[rsp].SelfPtr++).UInt64;	// pop rip
 			if( addrmode & Immediate )
-				pScript->m_Regs[rsp].UCharPtr += *pScript->m_Regs[rip].UInt64Ptr++;
+				pSys->m_Regs[rsp].UCharPtr += *pSys->m_Regs[rip].UInt64Ptr++;
 			
 			continue;
 		}
 		
 		exec_callnat:; {
-			if( safemode and !pScript->m_pstrNativeCalls ) {
-				TaghaScript_PrintErr(pScript, __func__, "exec_callnat :: native table is NULL!");
-				pScript->m_Regs[rip].UInt64Ptr++;
-				pScript->m_Regs[rip].UInt32Ptr++;
+			if( safemode and !pSys->m_pstrNativeCalls ) {
+				Tagha_PrintErr(pSys, __func__, "exec_callnat :: native table is NULL!");
+				pSys->m_Regs[rip].UInt64Ptr++;
+				pSys->m_Regs[rip].UInt32Ptr++;
 				continue;
 			}
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			char *nativestr;
 			uint64_t index;
 			
 			if( addrmode & Immediate )
 				index = a.UInt64;
 			else if( addrmode & Register )
-				index = pScript->m_Regs[a.UInt64].UInt64;
+				index = pSys->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
-				index = *(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset);
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
+				index = *(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				index = *a.UInt64Ptr;
 			}
 			
-			if( safemode and index >= pScript->m_uiNatives  ) {
-				TaghaScript_PrintErr(pScript, __func__, "exec_callnat :: native index \'%" PRIu64 "\' is out of bounds!", index);
-				pScript->m_Regs[rip].UInt32Ptr++;
+			if( safemode and index >= pSys->m_uiNatives  ) {
+				Tagha_PrintErr(pSys, __func__, "exec_callnat :: native index \'%" PRIu64 "\' is out of bounds!", index);
+				pSys->m_Regs[rip].UInt32Ptr++;
 				continue;
 			}
-			nativestr = pScript->m_pstrNativeCalls[index];
+			nativestr = pSys->m_pstrNativeCalls[index];
 			
-			pfNative = (fnNative_t)(uintptr_t) map_find(pVM->m_pmapNatives, nativestr);
+			pfNative = (fnNative_t)(uintptr_t) map_find(pSys->m_pmapNatives, nativestr);
 			if( safemode and !pfNative ) {
-				TaghaScript_PrintErr(pScript, __func__, "exec_callnat :: native \'%s\' not registered!", nativestr);
-				pScript->m_Regs[rip].UInt32Ptr++;
+				Tagha_PrintErr(pSys, __func__, "exec_callnat :: native \'%s\' not registered!", nativestr);
+				pSys->m_Regs[rip].UInt32Ptr++;
 				continue;
 			}
 			// how many arguments pushed for native to use.
-			const uint32_t argcount = *pScript->m_Regs[rip].UInt32Ptr++;
+			const uint32_t argcount = *pSys->m_Regs[rip].UInt32Ptr++;
 			if( debugmode )
 				printf("callnat: Calling func addr: %p with %" PRIu32 " args pushed.\n", pfNative, argcount);
 			
@@ -426,68 +421,68 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 			// have no choice but to use memset.
 			CValue params[argcount];
 			memset(params, 0, sizeof(CValue)*argcount);
-			memcpy(params, pScript->m_Regs[rsp].SelfPtr, sizeof(CValue)*argcount);
-			pScript->m_Regs[rsp].SelfPtr += argcount;
+			memcpy(params, pSys->m_Regs[rsp].SelfPtr, sizeof(CValue)*argcount);
+			pSys->m_Regs[rsp].SelfPtr += argcount;
 			printf("exec_callnat :: calling C function '%s'.\n", nativestr);
-			pScript->m_Regs[ras].UInt64 = 0;
-			(*pfNative)(pScript, params, pScript->m_Regs+ras, argcount, pVM);
+			pSys->m_Regs[ras].UInt64 = 0;
+			(*pfNative)(pSys, params, pSys->m_Regs+ras, argcount);
 			continue;
 		}
 		
 		exec_movr:; {	// dest is a reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[a.UInt64].UInt64 = b.UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 = b.UInt64;
 			else if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].UInt64 = pScript->m_Regs[b.UInt64].UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 = pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar = *(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UChar = *(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort = *(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UShort = *(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 = *(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt32 = *(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 = *(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt64 = *(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar = *b.UCharPtr;
+					pSys->m_Regs[a.UInt64].UChar = *b.UCharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort = *b.UShortPtr;
+					pSys->m_Regs[a.UInt64].UShort = *b.UShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 = *b.UInt32Ptr;
+					pSys->m_Regs[a.UInt64].UInt32 = *b.UInt32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 = *b.UInt64Ptr;
+					pSys->m_Regs[a.UInt64].UInt64 = *b.UInt64Ptr;
 			}
 			continue;
 		}
 		exec_movm:; {	// dest is memory and src is reg/imm/mem
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {	// moving value to register-based address
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) { // value is immediate constant
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) = b.UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) = b.UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) = b.UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) = b.UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) = b.UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) = b.UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) = b.UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) = b.UInt64;
 				}
 				else if( addrmode & Register ) { // value is in register
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) = pScript->m_Regs[b.UInt64].UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) = pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) = pScript->m_Regs[b.UInt64].UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) = pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) = pScript->m_Regs[b.UInt64].UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) = pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) = pScript->m_Regs[b.UInt64].UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) = pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			else if( addrmode & IPRelative ) {	// moving value to IPRelative address
@@ -503,99 +498,99 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 				}
 				else if( addrmode & Register ) { // moving register to IPRelative address
 					if( addrmode & Byte )
-						*a.UCharPtr = pScript->m_Regs[b.UInt64].UChar;
+						*a.UCharPtr = pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*a.UShortPtr = pScript->m_Regs[b.UInt64].UShort;
+						*a.UShortPtr = pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*a.UInt32Ptr = pScript->m_Regs[b.UInt64].UInt32;
+						*a.UInt32Ptr = pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*a.UInt64Ptr = pScript->m_Regs[b.UInt64].UInt64;
+						*a.UInt64Ptr = pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			continue;
 		}
 		exec_lea:; {	// load effective address
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].UInt64 = pScript->m_Regs[b.UInt64].UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 = pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
-				pScript->m_Regs[a.UInt64].UInt64 = pScript->m_Regs[b.UInt64].UInt64+offset;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
+				pSys->m_Regs[a.UInt64].UInt64 = pSys->m_Regs[b.UInt64].UInt64+offset;
 			}
 			else if( addrmode & (IPRelative|Immediate) )
-				pScript->m_Regs[a.UInt64].UInt64 = b.UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 = b.UInt64;
 			continue;
 		}
 		/*
 		exec_leo:; {	// load effective offset - loads a memory offset.
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & (IPRelative|Immediate) )
-				pScript->m_Regs[a.UInt64].UInt64 = (uintptr_t)(pScript->m_pMemory + b.UInt64);
+				pSys->m_Regs[a.UInt64].UInt64 = (uintptr_t)(pSys->m_pMemory + b.UInt64);
 			else if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].UInt64 = (uintptr_t)(pScript->m_pMemory + pScript->m_Regs[b.UInt64].UInt64);
+				pSys->m_Regs[a.UInt64].UInt64 = (uintptr_t)(pSys->m_pMemory + pSys->m_Regs[b.UInt64].UInt64);
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
-				pScript->m_Regs[a.UInt64].UInt64 = (uintptr_t)(pScript->m_pMemory + pScript->m_Regs[b.UInt64].UInt64 + offset);
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
+				pSys->m_Regs[a.UInt64].UInt64 = (uintptr_t)(pSys->m_pMemory + pSys->m_Regs[b.UInt64].UInt64 + offset);
 			}
 			continue;
 		}
 		*/
 		exec_addr:; {	// dest is reg, src is reg/memory/imm
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[a.UInt64].Int64 += b.Int64;
+				pSys->m_Regs[a.UInt64].Int64 += b.Int64;
 			else if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].Int64 += pScript->m_Regs[b.UInt64].Int64;
+				pSys->m_Regs[a.UInt64].Int64 += pSys->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].Char += *(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Char += *(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].Short += *(int16_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Short += *(int16_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].Int32 += *(int32_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Int32 += *(int32_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].Int64 += *(int64_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Int64 += *(int64_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].Char += *b.CharPtr;
+					pSys->m_Regs[a.UInt64].Char += *b.CharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].Short += *b.ShortPtr;
+					pSys->m_Regs[a.UInt64].Short += *b.ShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].Int32 += *b.Int32Ptr;
+					pSys->m_Regs[a.UInt64].Int32 += *b.Int32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].Int64 += *b.Int64Ptr;
+					pSys->m_Regs[a.UInt64].Int64 += *b.Int64Ptr;
 			}
 			continue;
 		}
 		exec_addm:; {	// dest is memory and src is reg/imm
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].CharPtr+offset) += b.Char;
+						*(pSys->m_Regs[a.UInt64].CharPtr+offset) += b.Char;
 					else if( addrmode & TwoBytes )
-						*(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += b.Short;
+						*(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += b.Short;
 					else if( addrmode & FourBytes )
-						*(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += b.Int32;
+						*(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += b.Int32;
 					else if( addrmode & EightBytes )
-						*(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += b.Int64;
+						*(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += b.Int64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].CharPtr+offset) += pScript->m_Regs[b.UInt64].Char;
+						*(pSys->m_Regs[a.UInt64].CharPtr+offset) += pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						*(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += pScript->m_Regs[b.UInt64].Short;
+						*(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						*(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += pScript->m_Regs[b.UInt64].Int32;
+						*(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						*(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += pScript->m_Regs[b.UInt64].Int64;
+						*(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -611,71 +606,71 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*a.CharPtr += pScript->m_Regs[b.UInt64].Char;
+						*a.CharPtr += pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						*a.ShortPtr += pScript->m_Regs[b.UInt64].Short;
+						*a.ShortPtr += pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						*a.Int32Ptr += pScript->m_Regs[b.UInt64].Int32;
+						*a.Int32Ptr += pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						*a.Int64Ptr += pScript->m_Regs[b.UInt64].Int64;
+						*a.Int64Ptr += pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			continue;
 		}
 		exec_uaddr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[a.UInt64].UInt64 += b.UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 += b.UInt64;
 			else if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].UInt64 += pScript->m_Regs[b.UInt64].UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 += pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar += *(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UChar += *(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort += *(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UShort += *(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 += *(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt32 += *(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 += *(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt64 += *(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar += *b.UCharPtr;
+					pSys->m_Regs[a.UInt64].UChar += *b.UCharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort += *b.UShortPtr;
+					pSys->m_Regs[a.UInt64].UShort += *b.UShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 += *b.UInt32Ptr;
+					pSys->m_Regs[a.UInt64].UInt32 += *b.UInt32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 += *b.UInt64Ptr;
+					pSys->m_Regs[a.UInt64].UInt64 += *b.UInt64Ptr;
 			}
 			continue;
 		}
 		exec_uaddm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) += b.UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) += b.UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += b.UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += b.UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += b.UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += b.UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += b.UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += b.UInt64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) += pScript->m_Regs[b.UInt64].UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) += pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += pScript->m_Regs[b.UInt64].UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += pScript->m_Regs[b.UInt64].UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += pScript->m_Regs[b.UInt64].UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -691,72 +686,72 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*a.UCharPtr += pScript->m_Regs[b.UInt64].UChar;
+						*a.UCharPtr += pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*a.UShortPtr += pScript->m_Regs[b.UInt64].UShort;
+						*a.UShortPtr += pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*a.UInt32Ptr += pScript->m_Regs[b.UInt64].UInt32;
+						*a.UInt32Ptr += pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*a.UInt64Ptr += pScript->m_Regs[b.UInt64].UInt64;
+						*a.UInt64Ptr += pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			continue;
 		}
 		
 		exec_subr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[a.UInt64].Int64 -= b.Int64;
+				pSys->m_Regs[a.UInt64].Int64 -= b.Int64;
 			else if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].Int64 -= pScript->m_Regs[b.UInt64].Int64;
+				pSys->m_Regs[a.UInt64].Int64 -= pSys->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].Char -= *(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Char -= *(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].Short -= *(int16_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Short -= *(int16_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].Int32 -= *(int32_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Int32 -= *(int32_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].Int64 -= *(int64_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Int64 -= *(int64_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].Char -= *b.CharPtr;
+					pSys->m_Regs[a.UInt64].Char -= *b.CharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].Short -= *b.ShortPtr;
+					pSys->m_Regs[a.UInt64].Short -= *b.ShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].Int32 -= *b.Int32Ptr;
+					pSys->m_Regs[a.UInt64].Int32 -= *b.Int32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].Int64 -= *b.Int64Ptr;
+					pSys->m_Regs[a.UInt64].Int64 -= *b.Int64Ptr;
 			}
 			continue;
 		}
 		exec_subm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].CharPtr+offset) -= b.Char;
+						*(pSys->m_Regs[a.UInt64].CharPtr+offset) -= b.Char;
 					else if( addrmode & TwoBytes )
-						*(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= b.Short;
+						*(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= b.Short;
 					else if( addrmode & FourBytes )
-						*(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= b.Int32;
+						*(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= b.Int32;
 					else if( addrmode & EightBytes )
-						*(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= b.Int64;
+						*(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= b.Int64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].CharPtr+offset) -= pScript->m_Regs[b.UInt64].Char;
+						*(pSys->m_Regs[a.UInt64].CharPtr+offset) -= pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						*(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= pScript->m_Regs[b.UInt64].Short;
+						*(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						*(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= pScript->m_Regs[b.UInt64].Int32;
+						*(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						*(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= pScript->m_Regs[b.UInt64].Int64;
+						*(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -772,71 +767,71 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*a.CharPtr -= pScript->m_Regs[b.UInt64].Char;
+						*a.CharPtr -= pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						*a.ShortPtr -= pScript->m_Regs[b.UInt64].Short;
+						*a.ShortPtr -= pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						*a.Int32Ptr -= pScript->m_Regs[b.UInt64].Int32;
+						*a.Int32Ptr -= pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						*a.Int64Ptr -= pScript->m_Regs[b.UInt64].Int64;
+						*a.Int64Ptr -= pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			continue;
 		}
 		exec_usubr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[a.UInt64].UInt64 -= b.UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 -= b.UInt64;
 			else if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].UInt64 -= pScript->m_Regs[b.UInt64].UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 -= pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar -= *(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UChar -= *(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort -= *(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UShort -= *(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 -= *(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt32 -= *(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 -= *(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt64 -= *(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar -= *b.UCharPtr;
+					pSys->m_Regs[a.UInt64].UChar -= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort -= *b.UShortPtr;
+					pSys->m_Regs[a.UInt64].UShort -= *b.UShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 -= *b.UInt32Ptr;
+					pSys->m_Regs[a.UInt64].UInt32 -= *b.UInt32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 -= *b.UInt64Ptr;
+					pSys->m_Regs[a.UInt64].UInt64 -= *b.UInt64Ptr;
 			}
 			continue;
 		}
 		exec_usubm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= b.UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= b.UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= b.UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= b.UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= b.UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= b.UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= b.UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= b.UInt64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= pScript->m_Regs[b.UInt64].UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= pScript->m_Regs[b.UInt64].UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= pScript->m_Regs[b.UInt64].UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= pScript->m_Regs[b.UInt64].UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -852,72 +847,72 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*a.UCharPtr -= pScript->m_Regs[b.UInt64].UChar;
+						*a.UCharPtr -= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*a.UShortPtr -= pScript->m_Regs[b.UInt64].UShort;
+						*a.UShortPtr -= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*a.UInt32Ptr -= pScript->m_Regs[b.UInt64].UInt32;
+						*a.UInt32Ptr -= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*a.UInt64Ptr -= pScript->m_Regs[b.UInt64].UInt64;
+						*a.UInt64Ptr -= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			continue;
 		}
 		
 		exec_mulr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[a.UInt64].Int64 *= b.Int64;
+				pSys->m_Regs[a.UInt64].Int64 *= b.Int64;
 			else if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].Int64 *= pScript->m_Regs[b.UInt64].Int64;
+				pSys->m_Regs[a.UInt64].Int64 *= pSys->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].Char *= *(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Char *= *(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].Short *= *(int16_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Short *= *(int16_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].Int32 *= *(int32_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Int32 *= *(int32_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].Int64 *= *(int64_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Int64 *= *(int64_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].Char *= *b.CharPtr;
+					pSys->m_Regs[a.UInt64].Char *= *b.CharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].Short *= *b.ShortPtr;
+					pSys->m_Regs[a.UInt64].Short *= *b.ShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].Int32 *= *b.Int32Ptr;
+					pSys->m_Regs[a.UInt64].Int32 *= *b.Int32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].Int64 *= *b.Int64Ptr;
+					pSys->m_Regs[a.UInt64].Int64 *= *b.Int64Ptr;
 			}
 			continue;
 		}
 		exec_mulm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].CharPtr+offset) *= b.Char;
+						*(pSys->m_Regs[a.UInt64].CharPtr+offset) *= b.Char;
 					else if( addrmode & TwoBytes )
-						*(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= b.Short;
+						*(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= b.Short;
 					else if( addrmode & FourBytes )
-						*(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= b.Int32;
+						*(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= b.Int32;
 					else if( addrmode & EightBytes )
-						*(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= b.Int64;
+						*(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= b.Int64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].CharPtr+offset) *= pScript->m_Regs[b.UInt64].Char;
+						*(pSys->m_Regs[a.UInt64].CharPtr+offset) *= pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						*(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= pScript->m_Regs[b.UInt64].Short;
+						*(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						*(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= pScript->m_Regs[b.UInt64].Int32;
+						*(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						*(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= pScript->m_Regs[b.UInt64].Int64;
+						*(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -933,71 +928,71 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*a.CharPtr *= pScript->m_Regs[b.UInt64].Char;
+						*a.CharPtr *= pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						*a.ShortPtr *= pScript->m_Regs[b.UInt64].Short;
+						*a.ShortPtr *= pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						*a.Int32Ptr *= pScript->m_Regs[b.UInt64].Int32;
+						*a.Int32Ptr *= pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						*a.Int64Ptr *= pScript->m_Regs[b.UInt64].Int64;
+						*a.Int64Ptr *= pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			continue;
 		}
 		exec_umulr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[a.UInt64].UInt64 *= b.UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 *= b.UInt64;
 			else if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].UInt64 *= pScript->m_Regs[b.UInt64].UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 *= pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar *= *(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UChar *= *(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort *= *(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UShort *= *(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 *= *(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt32 *= *(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 *= *(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt64 *= *(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar *= *b.UCharPtr;
+					pSys->m_Regs[a.UInt64].UChar *= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort *= *b.UShortPtr;
+					pSys->m_Regs[a.UInt64].UShort *= *b.UShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 *= *b.UInt32Ptr;
+					pSys->m_Regs[a.UInt64].UInt32 *= *b.UInt32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 *= *b.UInt64Ptr;
+					pSys->m_Regs[a.UInt64].UInt64 *= *b.UInt64Ptr;
 			}
 			continue;
 		}
 		exec_umulm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= b.UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= b.UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= b.UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= b.UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= b.UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= b.UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= b.UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= b.UInt64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= pScript->m_Regs[b.UInt64].UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= pScript->m_Regs[b.UInt64].UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= pScript->m_Regs[b.UInt64].UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= pScript->m_Regs[b.UInt64].UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -1013,108 +1008,108 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*a.UCharPtr *= pScript->m_Regs[b.UInt64].UChar;
+						*a.UCharPtr *= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*a.UShortPtr *= pScript->m_Regs[b.UInt64].UShort;
+						*a.UShortPtr *= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*a.UInt32Ptr *= pScript->m_Regs[b.UInt64].UInt32;
+						*a.UInt32Ptr *= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*a.UInt64Ptr *= pScript->m_Regs[b.UInt64].UInt64;
+						*a.UInt64Ptr *= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			continue;
 		}
 		
 		exec_divr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate ) {
 				if( !b.Int64 )
 					b.Int64 = 1;
-				pScript->m_Regs[a.UInt64].Int64 /= b.Int64;
+				pSys->m_Regs[a.UInt64].Int64 /= b.Int64;
 			}
 			else if( addrmode & Register ) {
-				if( !pScript->m_Regs[b.UInt64].Int64 )
-					pScript->m_Regs[b.UInt64].Int64 = 1;
-				pScript->m_Regs[a.UInt64].Int64 /= pScript->m_Regs[b.UInt64].Int64;
+				if( !pSys->m_Regs[b.UInt64].Int64 )
+					pSys->m_Regs[b.UInt64].Int64 = 1;
+				pSys->m_Regs[a.UInt64].Int64 /= pSys->m_Regs[b.UInt64].Int64;
 			}
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte ) {
-					if( !*(pScript->m_Regs[b.UInt64].CharPtr+offset) )
-						*(pScript->m_Regs[b.UInt64].CharPtr+offset) = 1;
-					pScript->m_Regs[a.UInt64].Char /= *(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					if( !*(pSys->m_Regs[b.UInt64].CharPtr+offset) )
+						*(pSys->m_Regs[b.UInt64].CharPtr+offset) = 1;
+					pSys->m_Regs[a.UInt64].Char /= *(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				}
 				else if( addrmode & TwoBytes ) {
-					if( !*(int16_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset) )
-						*(int16_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset) = 1;
-					pScript->m_Regs[a.UInt64].Short /= *(int16_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					if( !*(int16_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset) )
+						*(int16_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset) = 1;
+					pSys->m_Regs[a.UInt64].Short /= *(int16_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				}
 				else if( addrmode & FourBytes ) {
-					if( !*(int32_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset) )
-						*(int32_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset) = 1;
-					pScript->m_Regs[a.UInt64].Int32 /= *(int32_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					if( !*(int32_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset) )
+						*(int32_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset) = 1;
+					pSys->m_Regs[a.UInt64].Int32 /= *(int32_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				}
 				else if( addrmode & EightBytes ) {
-					if( !*(int64_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset) )
-						*(int64_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset) = 1;
-					pScript->m_Regs[a.UInt64].Int64 /= *(int64_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					if( !*(int64_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset) )
+						*(int64_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset) = 1;
+					pSys->m_Regs[a.UInt64].Int64 /= *(int64_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				}
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte ) {
 					if( !*b.CharPtr )
 						*b.CharPtr = 1;
-					pScript->m_Regs[a.UInt64].Char /= *b.CharPtr;
+					pSys->m_Regs[a.UInt64].Char /= *b.CharPtr;
 				}
 				else if( addrmode & TwoBytes ) {
 					if( !*b.ShortPtr )
 						*b.ShortPtr = 1;
-					pScript->m_Regs[a.UInt64].Short /= *b.ShortPtr;
+					pSys->m_Regs[a.UInt64].Short /= *b.ShortPtr;
 				}
 				else if( addrmode & FourBytes ) {
 					if( !*b.Int32Ptr )
 						*b.Int32Ptr = 1;
-					pScript->m_Regs[a.UInt64].Int32 /= *b.Int32Ptr;
+					pSys->m_Regs[a.UInt64].Int32 /= *b.Int32Ptr;
 				}
 				else if( addrmode & EightBytes ) {
 					if( !*b.Int64Ptr )
 						*b.Int64Ptr = 1;
-					pScript->m_Regs[a.UInt64].Int64 /= *b.Int64Ptr;
+					pSys->m_Regs[a.UInt64].Int64 /= *b.Int64Ptr;
 				}
 			}
 			continue;
 		}
 		exec_divm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( !b.UInt64 )
 						b.UInt64 = 1;
 					
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].CharPtr+offset) /= b.Char;
+						*(pSys->m_Regs[a.UInt64].CharPtr+offset) /= b.Char;
 					else if( addrmode & TwoBytes )
-						*(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= b.Short;
+						*(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= b.Short;
 					else if( addrmode & FourBytes )
-						*(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= b.Int32;
+						*(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= b.Int32;
 					else if( addrmode & EightBytes )
-						*(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= b.Int64;
+						*(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= b.Int64;
 				}
 				else if( addrmode & Register ) {
-					if( !pScript->m_Regs[b.UInt64].UInt64 )
-						pScript->m_Regs[b.UInt64].UInt64 = 1;
+					if( !pSys->m_Regs[b.UInt64].UInt64 )
+						pSys->m_Regs[b.UInt64].UInt64 = 1;
 					
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].CharPtr+offset) /= pScript->m_Regs[b.UInt64].Char;
+						*(pSys->m_Regs[a.UInt64].CharPtr+offset) /= pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						*(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= pScript->m_Regs[b.UInt64].Short;
+						*(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						*(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= pScript->m_Regs[b.UInt64].Int32;
+						*(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						*(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= pScript->m_Regs[b.UInt64].Int64;
+						*(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -1132,111 +1127,111 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 						*a.Int64Ptr /= b.Int64;
 				}
 				else if( addrmode & Register ) {
-					if( !pScript->m_Regs[b.UInt64].UInt64 )
-						pScript->m_Regs[b.UInt64].UInt64 = 1;
+					if( !pSys->m_Regs[b.UInt64].UInt64 )
+						pSys->m_Regs[b.UInt64].UInt64 = 1;
 					
 					if( addrmode & Byte )
-						*a.CharPtr /= pScript->m_Regs[b.UInt64].Char;
+						*a.CharPtr /= pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						*a.ShortPtr /= pScript->m_Regs[b.UInt64].Short;
+						*a.ShortPtr /= pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						*a.Int32Ptr /= pScript->m_Regs[b.UInt64].Int32;
+						*a.Int32Ptr /= pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						*a.Int64Ptr /= pScript->m_Regs[b.UInt64].Int64;
+						*a.Int64Ptr /= pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			continue;
 		}
 		exec_udivr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate ) {
 				if( !b.UInt64 )
 					b.UInt64 = 1;
-				pScript->m_Regs[a.UInt64].UInt64 /= b.UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 /= b.UInt64;
 			}
 			else if( addrmode & Register ) {
-				if( !pScript->m_Regs[b.UInt64].UInt64 )
-					pScript->m_Regs[b.UInt64].UInt64 = 1;
-				pScript->m_Regs[a.UInt64].UInt64 /= pScript->m_Regs[b.UInt64].UInt64;
+				if( !pSys->m_Regs[b.UInt64].UInt64 )
+					pSys->m_Regs[b.UInt64].UInt64 = 1;
+				pSys->m_Regs[a.UInt64].UInt64 /= pSys->m_Regs[b.UInt64].UInt64;
 			}
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte ) {
-					if( !*(pScript->m_Regs[b.UInt64].UCharPtr+offset) )
-						*(pScript->m_Regs[b.UInt64].UCharPtr+offset) = 1;
-					pScript->m_Regs[a.UInt64].UChar /= *(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					if( !*(pSys->m_Regs[b.UInt64].UCharPtr+offset) )
+						*(pSys->m_Regs[b.UInt64].UCharPtr+offset) = 1;
+					pSys->m_Regs[a.UInt64].UChar /= *(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				}
 				else if( addrmode & TwoBytes ) {
-					if( !*(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset) )
-						*(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset) = 1;
-					pScript->m_Regs[a.UInt64].UShort /= *(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					if( !*(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset) )
+						*(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset) = 1;
+					pSys->m_Regs[a.UInt64].UShort /= *(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				}
 				else if( addrmode & FourBytes ) {
-					if( !*(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset) )
-						*(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset) = 1;
-					pScript->m_Regs[a.UInt64].UInt32 /= *(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					if( !*(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset) )
+						*(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset) = 1;
+					pSys->m_Regs[a.UInt64].UInt32 /= *(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				}
 				else if( addrmode & EightBytes ) {
-					if( !*(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset) )
-						*(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset) = 1;
-					pScript->m_Regs[a.UInt64].UInt64 /= *(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					if( !*(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset) )
+						*(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset) = 1;
+					pSys->m_Regs[a.UInt64].UInt64 /= *(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				}
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte ) {
 					if( !*b.UCharPtr )
 						*b.UCharPtr = 1;
-					pScript->m_Regs[a.UInt64].UChar /= *b.UCharPtr;
+					pSys->m_Regs[a.UInt64].UChar /= *b.UCharPtr;
 				}
 				else if( addrmode & TwoBytes ) {
 					if( !*b.UShortPtr )
 						*b.UShortPtr = 1;
-					pScript->m_Regs[a.UInt64].UShort /= *b.UShortPtr;
+					pSys->m_Regs[a.UInt64].UShort /= *b.UShortPtr;
 				}
 				else if( addrmode & FourBytes ) {
 					if( !*b.UInt32Ptr )
 						*b.UInt32Ptr = 1;
-					pScript->m_Regs[a.UInt64].UInt32 /= *b.UInt32Ptr;
+					pSys->m_Regs[a.UInt64].UInt32 /= *b.UInt32Ptr;
 				}
 				else if( addrmode & EightBytes ) {
 					if( !*b.UInt64Ptr )
 						*b.UInt64Ptr = 1;
-					pScript->m_Regs[a.UInt64].UInt64 /= *b.UInt64Ptr;
+					pSys->m_Regs[a.UInt64].UInt64 /= *b.UInt64Ptr;
 				}
 			}
 			continue;
 		}
 		exec_udivm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( !b.UInt64 )
 						b.UInt64 = 1;
 					
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= b.UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= b.UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= b.UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= b.UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= b.UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= b.UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= b.UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= b.UInt64;
 				}
 				else if( addrmode & Register ) {
-					if( !pScript->m_Regs[b.UInt64].UInt64 )
-						pScript->m_Regs[b.UInt64].UInt64 = 1;
+					if( !pSys->m_Regs[b.UInt64].UInt64 )
+						pSys->m_Regs[b.UInt64].UInt64 = 1;
 					
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= pScript->m_Regs[b.UInt64].UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= pScript->m_Regs[b.UInt64].UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= pScript->m_Regs[b.UInt64].UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= pScript->m_Regs[b.UInt64].UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -1254,112 +1249,112 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 						*a.UInt64Ptr /= b.UInt64;
 				}
 				else if( addrmode & Register ) {
-					if( !pScript->m_Regs[b.UInt64].UInt64 )
-						pScript->m_Regs[b.UInt64].UInt64 = 1;
+					if( !pSys->m_Regs[b.UInt64].UInt64 )
+						pSys->m_Regs[b.UInt64].UInt64 = 1;
 					
 					if( addrmode & Byte )
-						*a.UCharPtr /= pScript->m_Regs[b.UInt64].UChar;
+						*a.UCharPtr /= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*a.UShortPtr /= pScript->m_Regs[b.UInt64].UShort;
+						*a.UShortPtr /= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*a.UInt32Ptr /= pScript->m_Regs[b.UInt64].UInt32;
+						*a.UInt32Ptr /= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*a.UInt64Ptr /= pScript->m_Regs[b.UInt64].UInt64;
+						*a.UInt64Ptr /= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			continue;
 		}
 		
 		exec_modr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate ) {
 				if( !b.Int64 )
 					b.Int64 = 1;
-				pScript->m_Regs[a.UInt64].Int64 %= b.Int64;
+				pSys->m_Regs[a.UInt64].Int64 %= b.Int64;
 			}
 			if( addrmode & Register ) {
-				if( !pScript->m_Regs[b.UInt64].Int64 )
-					pScript->m_Regs[b.UInt64].Int64 = 1;
-				pScript->m_Regs[a.UInt64].Int64 %= pScript->m_Regs[b.UInt64].Int64;
+				if( !pSys->m_Regs[b.UInt64].Int64 )
+					pSys->m_Regs[b.UInt64].Int64 = 1;
+				pSys->m_Regs[a.UInt64].Int64 %= pSys->m_Regs[b.UInt64].Int64;
 			}
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte ) {
-					if( !*(pScript->m_Regs[b.UInt64].CharPtr+offset) )
-						*(pScript->m_Regs[b.UInt64].CharPtr+offset) = 1;
-					pScript->m_Regs[a.UInt64].Char %= *(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					if( !*(pSys->m_Regs[b.UInt64].CharPtr+offset) )
+						*(pSys->m_Regs[b.UInt64].CharPtr+offset) = 1;
+					pSys->m_Regs[a.UInt64].Char %= *(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				}
 				else if( addrmode & TwoBytes ) {
-					if( !*(int16_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset) )
-						*(int16_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset) = 1;
-					pScript->m_Regs[a.UInt64].Short %= *(int16_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					if( !*(int16_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset) )
+						*(int16_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset) = 1;
+					pSys->m_Regs[a.UInt64].Short %= *(int16_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				}
 				else if( addrmode & FourBytes ) {
-					if( !*(int32_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset) )
-						*(int32_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset) = 1;
-					pScript->m_Regs[a.UInt64].Int32 %= *(int32_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					if( !*(int32_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset) )
+						*(int32_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset) = 1;
+					pSys->m_Regs[a.UInt64].Int32 %= *(int32_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				}
 				else if( addrmode & EightBytes ) {
-					if( !*(int64_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset) )
-						*(int64_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset) = 1;
-					pScript->m_Regs[a.UInt64].Int64 %= *(int64_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					if( !*(int64_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset) )
+						*(int64_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset) = 1;
+					pSys->m_Regs[a.UInt64].Int64 %= *(int64_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				}
 			}
 			else if( addrmode & (IPRelative|Immediate) ) {
 				if( addrmode & Byte ) {
 					if( !*b.CharPtr )
 						*b.CharPtr = 1;
-					pScript->m_Regs[a.UInt64].Char %= *b.CharPtr;
+					pSys->m_Regs[a.UInt64].Char %= *b.CharPtr;
 				}
 				else if( addrmode & TwoBytes ) {
 					if( !*b.ShortPtr )
 						*b.ShortPtr = 1;
-					pScript->m_Regs[a.UInt64].Short %= *b.ShortPtr;
+					pSys->m_Regs[a.UInt64].Short %= *b.ShortPtr;
 				}
 				else if( addrmode & FourBytes ) {
 					if( !*b.Int32Ptr )
 						*b.Int32Ptr = 1;
-					pScript->m_Regs[a.UInt64].Int32 %= *b.Int32Ptr;
+					pSys->m_Regs[a.UInt64].Int32 %= *b.Int32Ptr;
 				}
 				else if( addrmode & EightBytes ) {
 					if( !*b.Int64Ptr )
 						*b.Int64Ptr = 1;
-					pScript->m_Regs[a.UInt64].Int64 %= *b.Int64Ptr;
+					pSys->m_Regs[a.UInt64].Int64 %= *b.Int64Ptr;
 				}
 			}
 			continue;
 		}
 		exec_modm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( !b.UInt64 )
 						b.UInt64 = 1;
 					
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].CharPtr+offset) %= b.Char;
+						*(pSys->m_Regs[a.UInt64].CharPtr+offset) %= b.Char;
 					else if( addrmode & TwoBytes )
-						*(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) %= b.Short;
+						*(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) %= b.Short;
 					else if( addrmode & FourBytes )
-						*(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) %= b.Int32;
+						*(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) %= b.Int32;
 					else if( addrmode & EightBytes )
-						*(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) %= b.Int64;
+						*(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) %= b.Int64;
 				}
 				else if( addrmode & Register ) {
-					if( !pScript->m_Regs[b.UInt64].UInt64 )
-						pScript->m_Regs[b.UInt64].UInt64 = 1;
+					if( !pSys->m_Regs[b.UInt64].UInt64 )
+						pSys->m_Regs[b.UInt64].UInt64 = 1;
 					
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].CharPtr+offset) %= pScript->m_Regs[b.UInt64].Char;
+						*(pSys->m_Regs[a.UInt64].CharPtr+offset) %= pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						*(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) %= pScript->m_Regs[b.UInt64].Short;
+						*(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) %= pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						*(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) %= pScript->m_Regs[b.UInt64].Int32;
+						*(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) %= pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						*(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) %= pScript->m_Regs[b.UInt64].Int64;
+						*(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) %= pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -1377,111 +1372,111 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 						*a.Int64Ptr %= b.Int64;
 				}
 				else if( addrmode & Register ) {
-					if( !pScript->m_Regs[b.UInt64].UInt64 )
-						pScript->m_Regs[b.UInt64].UInt64 = 1;
+					if( !pSys->m_Regs[b.UInt64].UInt64 )
+						pSys->m_Regs[b.UInt64].UInt64 = 1;
 					
 					if( addrmode & Byte )
-						*a.CharPtr %= pScript->m_Regs[b.UInt64].Char;
+						*a.CharPtr %= pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						*a.ShortPtr %= pScript->m_Regs[b.UInt64].Short;
+						*a.ShortPtr %= pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						*a.Int32Ptr %= pScript->m_Regs[b.UInt64].Int32;
+						*a.Int32Ptr %= pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						*a.Int64Ptr %= pScript->m_Regs[b.UInt64].Int64;
+						*a.Int64Ptr %= pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			continue;
 		}
 		exec_umodr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate ) {
 				if( !b.UInt64 )
 					b.UInt64 = 1;
-				pScript->m_Regs[a.UInt64].UInt64 %= b.UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 %= b.UInt64;
 			}
 			else if( addrmode & Register ) {
-				if( !pScript->m_Regs[b.UInt64].UInt64 )
-					pScript->m_Regs[b.UInt64].UInt64 = 1;
-				pScript->m_Regs[a.UInt64].UInt64 %= pScript->m_Regs[b.UInt64].UInt64;
+				if( !pSys->m_Regs[b.UInt64].UInt64 )
+					pSys->m_Regs[b.UInt64].UInt64 = 1;
+				pSys->m_Regs[a.UInt64].UInt64 %= pSys->m_Regs[b.UInt64].UInt64;
 			}
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte ) {
-					if( !*(pScript->m_Regs[b.UInt64].UCharPtr+offset) )
-						*(pScript->m_Regs[b.UInt64].UCharPtr+offset) = 1;
-					pScript->m_Regs[a.UInt64].UChar %= *(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					if( !*(pSys->m_Regs[b.UInt64].UCharPtr+offset) )
+						*(pSys->m_Regs[b.UInt64].UCharPtr+offset) = 1;
+					pSys->m_Regs[a.UInt64].UChar %= *(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				}
 				else if( addrmode & TwoBytes ) {
-					if( !*(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset) )
-						*(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset) = 1;
-					pScript->m_Regs[a.UInt64].UShort %= *(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					if( !*(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset) )
+						*(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset) = 1;
+					pSys->m_Regs[a.UInt64].UShort %= *(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				}
 				else if( addrmode & FourBytes ) {
-					if( !*(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset) )
-						*(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset) = 1;
-					pScript->m_Regs[a.UInt64].UInt32 %= *(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					if( !*(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset) )
+						*(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset) = 1;
+					pSys->m_Regs[a.UInt64].UInt32 %= *(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				}
 				else if( addrmode & EightBytes ) {
-					if( !*(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset) )
-						*(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset) = 1;
-					pScript->m_Regs[a.UInt64].UInt64 %= *(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					if( !*(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset) )
+						*(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset) = 1;
+					pSys->m_Regs[a.UInt64].UInt64 %= *(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				}
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte ) {
 					if( !*b.UCharPtr )
 						*b.UCharPtr = 1;
-					pScript->m_Regs[a.UInt64].UChar %= *b.UCharPtr;
+					pSys->m_Regs[a.UInt64].UChar %= *b.UCharPtr;
 				}
 				else if( addrmode & TwoBytes ) {
 					if( !*b.UShortPtr )
 						*b.UShortPtr = 1;
-					pScript->m_Regs[a.UInt64].UShort %= *b.UShortPtr;
+					pSys->m_Regs[a.UInt64].UShort %= *b.UShortPtr;
 				}
 				else if( addrmode & FourBytes ) {
 					if( !*b.UInt32Ptr )
 						*b.UInt32Ptr = 1;
-					pScript->m_Regs[a.UInt64].UInt32 %= *b.UInt32Ptr;
+					pSys->m_Regs[a.UInt64].UInt32 %= *b.UInt32Ptr;
 				}
 				else if( addrmode & EightBytes ) {
 					if( !*b.UInt64Ptr )
 						*b.UInt64Ptr = 1;
-					pScript->m_Regs[a.UInt64].UInt64 %= *b.UInt64Ptr;
+					pSys->m_Regs[a.UInt64].UInt64 %= *b.UInt64Ptr;
 				}
 			}
 			continue;
 		}
 		exec_umodm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( !b.UInt64 )
 						b.UInt64 = 1;
 					
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) %= b.UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) %= b.UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) %= b.UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) %= b.UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) %= b.UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) %= b.UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) %= b.UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) %= b.UInt64;
 				}
 				else if( addrmode & Register ) {
-					if( !pScript->m_Regs[b.UInt64].UInt64 )
-						pScript->m_Regs[b.UInt64].UInt64 = 1;
+					if( !pSys->m_Regs[b.UInt64].UInt64 )
+						pSys->m_Regs[b.UInt64].UInt64 = 1;
 					
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) %= pScript->m_Regs[b.UInt64].UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) %= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) %= pScript->m_Regs[b.UInt64].UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) %= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) %= pScript->m_Regs[b.UInt64].UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) %= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) %= pScript->m_Regs[b.UInt64].UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) %= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -1499,76 +1494,76 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 						*a.UInt64Ptr %= b.UInt64;
 				}
 				else if( addrmode & Register ) {
-					if( !pScript->m_Regs[b.UInt64].UInt64 )
-						pScript->m_Regs[b.UInt64].UInt64 = 1;
+					if( !pSys->m_Regs[b.UInt64].UInt64 )
+						pSys->m_Regs[b.UInt64].UInt64 = 1;
 					
 					if( addrmode & Byte )
-						*a.UCharPtr %= pScript->m_Regs[b.UInt64].UChar;
+						*a.UCharPtr %= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*a.UShortPtr %= pScript->m_Regs[b.UInt64].UShort;
+						*a.UShortPtr %= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*a.UInt32Ptr %= pScript->m_Regs[b.UInt64].UInt32;
+						*a.UInt32Ptr %= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*a.UInt64Ptr %= pScript->m_Regs[b.UInt64].UInt64;
+						*a.UInt64Ptr %= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			continue;
 		}
 		
 		exec_shrr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[a.UInt64].UInt64 >>= b.UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 >>= b.UInt64;
 			else if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].UInt64 >>= pScript->m_Regs[b.UInt64].UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 >>= pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar >>= *(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UChar >>= *(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort >>= *(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UShort >>= *(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 >>= *(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt32 >>= *(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 >>= *(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt64 >>= *(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar >>= *b.UCharPtr;
+					pSys->m_Regs[a.UInt64].UChar >>= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort >>= *b.UShortPtr;
+					pSys->m_Regs[a.UInt64].UShort >>= *b.UShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 >>= *b.UInt32Ptr;
+					pSys->m_Regs[a.UInt64].UInt32 >>= *b.UInt32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 >>= *b.UInt64Ptr;
+					pSys->m_Regs[a.UInt64].UInt64 >>= *b.UInt64Ptr;
 			}
 			continue;
 		}
 		exec_shrm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) >>= b.UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) >>= b.UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) >>= b.UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) >>= b.UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) >>= b.UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) >>= b.UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) >>= b.UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) >>= b.UInt64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) >>= pScript->m_Regs[b.UInt64].UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) >>= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) >>= pScript->m_Regs[b.UInt64].UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) >>= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) >>= pScript->m_Regs[b.UInt64].UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) >>= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) >>= pScript->m_Regs[b.UInt64].UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) >>= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -1584,72 +1579,72 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*a.UCharPtr >>= pScript->m_Regs[b.UInt64].UChar;
+						*a.UCharPtr >>= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*a.UShortPtr >>= pScript->m_Regs[b.UInt64].UShort;
+						*a.UShortPtr >>= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*a.UInt32Ptr >>= pScript->m_Regs[b.UInt64].UInt32;
+						*a.UInt32Ptr >>= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*a.UInt64Ptr >>= pScript->m_Regs[b.UInt64].UInt64;
+						*a.UInt64Ptr >>= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			continue;
 		}
 		
 		exec_shlr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[a.UInt64].UInt64 <<= b.UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 <<= b.UInt64;
 			else if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].UInt64 <<= pScript->m_Regs[b.UInt64].UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 <<= pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar <<= *(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UChar <<= *(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort <<= *(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UShort <<= *(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 <<= *(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt32 <<= *(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 <<= *(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt64 <<= *(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar <<= *b.UCharPtr;
+					pSys->m_Regs[a.UInt64].UChar <<= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort <<= *b.UShortPtr;
+					pSys->m_Regs[a.UInt64].UShort <<= *b.UShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 <<= *b.UInt32Ptr;
+					pSys->m_Regs[a.UInt64].UInt32 <<= *b.UInt32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 <<= *b.UInt64Ptr;
+					pSys->m_Regs[a.UInt64].UInt64 <<= *b.UInt64Ptr;
 			}
 			continue;
 		}
 		exec_shlm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) <<= b.UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) <<= b.UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) <<= b.UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) <<= b.UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) <<= b.UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) <<= b.UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) <<= b.UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) <<= b.UInt64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) <<= pScript->m_Regs[b.UInt64].UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) <<= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) <<= pScript->m_Regs[b.UInt64].UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) <<= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) <<= pScript->m_Regs[b.UInt64].UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) <<= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) <<= pScript->m_Regs[b.UInt64].UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) <<= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -1665,72 +1660,72 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*a.UCharPtr <<= pScript->m_Regs[b.UInt64].UChar;
+						*a.UCharPtr <<= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*a.UShortPtr <<= pScript->m_Regs[b.UInt64].UShort;
+						*a.UShortPtr <<= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*a.UInt32Ptr <<= pScript->m_Regs[b.UInt64].UInt32;
+						*a.UInt32Ptr <<= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*a.UInt64Ptr <<= pScript->m_Regs[b.UInt64].UInt64;
+						*a.UInt64Ptr <<= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			continue;
 		}
 		
 		exec_andr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[a.UInt64].UInt64 &= b.UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 &= b.UInt64;
 			else if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].UInt64 &= pScript->m_Regs[b.UInt64].UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 &= pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar &= *(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UChar &= *(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort &= *(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UShort &= *(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 &= *(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt32 &= *(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 &= *(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt64 &= *(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar &= *b.UCharPtr;
+					pSys->m_Regs[a.UInt64].UChar &= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort &= *b.UShortPtr;
+					pSys->m_Regs[a.UInt64].UShort &= *b.UShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 &= *b.UInt32Ptr;
+					pSys->m_Regs[a.UInt64].UInt32 &= *b.UInt32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 &= *b.UInt64Ptr;
+					pSys->m_Regs[a.UInt64].UInt64 &= *b.UInt64Ptr;
 			}
 			continue;
 		}
 		exec_andm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) &= b.UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) &= b.UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) &= b.UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) &= b.UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) &= b.UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) &= b.UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) &= b.UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) &= b.UInt64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) &= pScript->m_Regs[b.UInt64].UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) &= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) &= pScript->m_Regs[b.UInt64].UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) &= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) &= pScript->m_Regs[b.UInt64].UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) &= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) &= pScript->m_Regs[b.UInt64].UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) &= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -1746,72 +1741,72 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*a.UCharPtr &= pScript->m_Regs[b.UInt64].UChar;
+						*a.UCharPtr &= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*a.UShortPtr &= pScript->m_Regs[b.UInt64].UShort;
+						*a.UShortPtr &= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*a.UInt32Ptr &= pScript->m_Regs[b.UInt64].UInt32;
+						*a.UInt32Ptr &= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*a.UInt64Ptr &= pScript->m_Regs[b.UInt64].UInt64;
+						*a.UInt64Ptr &= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			continue;
 		}
 		
 		exec_orr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[a.UInt64].UInt64 |= b.UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 |= b.UInt64;
 			else if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].UInt64 |= pScript->m_Regs[b.UInt64].UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 |= pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar |= *(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UChar |= *(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort |= *(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UShort |= *(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 |= *(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt32 |= *(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 |= *(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt64 |= *(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar |= *b.UCharPtr;
+					pSys->m_Regs[a.UInt64].UChar |= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort |= *b.UShortPtr;
+					pSys->m_Regs[a.UInt64].UShort |= *b.UShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 |= *b.UInt32Ptr;
+					pSys->m_Regs[a.UInt64].UInt32 |= *b.UInt32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 |= *b.UInt64Ptr;
+					pSys->m_Regs[a.UInt64].UInt64 |= *b.UInt64Ptr;
 			}
 			continue;
 		}
 		exec_orm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) |= b.UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) |= b.UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) |= b.UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) |= b.UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) |= b.UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) |= b.UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) |= b.UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) |= b.UInt64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) |= pScript->m_Regs[b.UInt64].UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) |= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) |= pScript->m_Regs[b.UInt64].UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) |= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) |= pScript->m_Regs[b.UInt64].UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) |= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) |= pScript->m_Regs[b.UInt64].UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) |= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -1827,72 +1822,72 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*a.UCharPtr |= pScript->m_Regs[b.UInt64].UChar;
+						*a.UCharPtr |= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*a.UShortPtr |= pScript->m_Regs[b.UInt64].UShort;
+						*a.UShortPtr |= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*a.UInt32Ptr |= pScript->m_Regs[b.UInt64].UInt32;
+						*a.UInt32Ptr |= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*a.UInt64Ptr |= pScript->m_Regs[b.UInt64].UInt64;
+						*a.UInt64Ptr |= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			continue;
 		}
 		
 		exec_xorr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[a.UInt64].UInt64 ^= b.UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 ^= b.UInt64;
 			else if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].UInt64 ^= pScript->m_Regs[b.UInt64].UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 ^= pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar ^= *(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UChar ^= *(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort ^= *(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UShort ^= *(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 ^= *(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt32 ^= *(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 ^= *(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_Regs[a.UInt64].UInt64 ^= *(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_Regs[a.UInt64].UChar ^= *b.UCharPtr;
+					pSys->m_Regs[a.UInt64].UChar ^= *b.UCharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_Regs[a.UInt64].UShort ^= *b.UShortPtr;
+					pSys->m_Regs[a.UInt64].UShort ^= *b.UShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].UInt32 ^= *b.UInt32Ptr;
+					pSys->m_Regs[a.UInt64].UInt32 ^= *b.UInt32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].UInt64 ^= *b.UInt64Ptr;
+					pSys->m_Regs[a.UInt64].UInt64 ^= *b.UInt64Ptr;
 			}
 			continue;
 		}
 		exec_xorm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) ^= b.UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) ^= b.UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) ^= b.UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) ^= b.UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) ^= b.UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) ^= b.UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) ^= b.UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) ^= b.UInt64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*(pScript->m_Regs[a.UInt64].UCharPtr+offset) ^= pScript->m_Regs[b.UInt64].UChar;
+						*(pSys->m_Regs[a.UInt64].UCharPtr+offset) ^= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) ^= pScript->m_Regs[b.UInt64].UShort;
+						*(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) ^= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) ^= pScript->m_Regs[b.UInt64].UInt32;
+						*(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) ^= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) ^= pScript->m_Regs[b.UInt64].UInt64;
+						*(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) ^= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -1908,682 +1903,682 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						*a.UCharPtr ^= pScript->m_Regs[b.UInt64].UChar;
+						*a.UCharPtr ^= pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						*a.UShortPtr ^= pScript->m_Regs[b.UInt64].UShort;
+						*a.UShortPtr ^= pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						*a.UInt32Ptr ^= pScript->m_Regs[b.UInt64].UInt32;
+						*a.UInt32Ptr ^= pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						*a.UInt64Ptr ^= pScript->m_Regs[b.UInt64].UInt64;
+						*a.UInt64Ptr ^= pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			continue;
 		}
 		
 		exec_ltr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int64 < b.Int64;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 < b.Int64;
 			else if( addrmode & Register )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int64 < pScript->m_Regs[b.UInt64].Int64;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 < pSys->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Char < *(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Char < *(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Short < *(int16_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Short < *(int16_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int32 < *(int32_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int32 < *(int32_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int64 < *(int64_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 < *(int64_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Char < *b.CharPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Char < *b.CharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Short < *b.ShortPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Short < *b.ShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int32 < *b.Int32Ptr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int32 < *b.Int32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int64 < *b.Int64Ptr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 < *b.Int64Ptr;
 			}
 			continue;
 		}
 		exec_ltm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *(pScript->m_Regs[a.UInt64].CharPtr+offset) < b.Char;
+						pSys->m_bZeroFlag = *(pSys->m_Regs[a.UInt64].CharPtr+offset) < b.Char;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) < b.Short;
+						pSys->m_bZeroFlag = *(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) < b.Short;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) < b.Int32;
+						pSys->m_bZeroFlag = *(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) < b.Int32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) < b.Int64;
+						pSys->m_bZeroFlag = *(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) < b.Int64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *(pScript->m_Regs[a.UInt64].UCharPtr+offset) < pScript->m_Regs[b.UInt64].Char;
+						pSys->m_bZeroFlag = *(pSys->m_Regs[a.UInt64].UCharPtr+offset) < pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) < pScript->m_Regs[b.UInt64].Short;
+						pSys->m_bZeroFlag = *(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) < pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) < pScript->m_Regs[b.UInt64].Int32;
+						pSys->m_bZeroFlag = *(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) < pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) < pScript->m_Regs[b.UInt64].Int64;
+						pSys->m_bZeroFlag = *(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) < pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *a.CharPtr < b.Char;
+						pSys->m_bZeroFlag = *a.CharPtr < b.Char;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *a.ShortPtr < b.Short;
+						pSys->m_bZeroFlag = *a.ShortPtr < b.Short;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.Int32Ptr < b.Int32;
+						pSys->m_bZeroFlag = *a.Int32Ptr < b.Int32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.Int64Ptr < b.Int64;
+						pSys->m_bZeroFlag = *a.Int64Ptr < b.Int64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *a.CharPtr < pScript->m_Regs[b.UInt64].Char;
+						pSys->m_bZeroFlag = *a.CharPtr < pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *a.ShortPtr < pScript->m_Regs[b.UInt64].Short;
+						pSys->m_bZeroFlag = *a.ShortPtr < pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.Int32Ptr < pScript->m_Regs[b.UInt64].Int32;
+						pSys->m_bZeroFlag = *a.Int32Ptr < pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.Int64Ptr < pScript->m_Regs[b.UInt64].Int64;
+						pSys->m_bZeroFlag = *a.Int64Ptr < pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			continue;
 		}
 		exec_ultr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt64 < b.UInt64;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 < b.UInt64;
 			else if( addrmode & Register )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt64 < pScript->m_Regs[b.UInt64].UInt64;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 < pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UChar < *(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UChar < *(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UShort < *(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UShort < *(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt32 < *(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt32 < *(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt64 < *(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 < *(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UChar < *b.UCharPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UChar < *b.UCharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UShort < *b.UShortPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UShort < *b.UShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt32 < *b.UInt32Ptr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt32 < *b.UInt32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt64 < *b.UInt64Ptr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 < *b.UInt64Ptr;
 			}
 			continue;
 		}
 		exec_ultm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *(pScript->m_Regs[a.UInt64].UCharPtr+offset) < b.UChar;
+						pSys->m_bZeroFlag = *(pSys->m_Regs[a.UInt64].UCharPtr+offset) < b.UChar;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) < b.UShort;
+						pSys->m_bZeroFlag = *(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) < b.UShort;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) < b.UInt32;
+						pSys->m_bZeroFlag = *(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) < b.UInt32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) < b.UInt64;
+						pSys->m_bZeroFlag = *(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) < b.UInt64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *(pScript->m_Regs[a.UInt64].UCharPtr+offset) < pScript->m_Regs[b.UInt64].UChar;
+						pSys->m_bZeroFlag = *(pSys->m_Regs[a.UInt64].UCharPtr+offset) < pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) < pScript->m_Regs[b.UInt64].UShort;
+						pSys->m_bZeroFlag = *(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) < pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) < pScript->m_Regs[b.UInt64].UInt32;
+						pSys->m_bZeroFlag = *(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) < pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) < pScript->m_Regs[b.UInt64].UInt64;
+						pSys->m_bZeroFlag = *(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) < pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *a.UCharPtr < b.UChar;
+						pSys->m_bZeroFlag = *a.UCharPtr < b.UChar;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *a.UShortPtr < b.UShort;
+						pSys->m_bZeroFlag = *a.UShortPtr < b.UShort;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.UInt32Ptr < b.UInt32;
+						pSys->m_bZeroFlag = *a.UInt32Ptr < b.UInt32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.UInt64Ptr < b.UInt64;
+						pSys->m_bZeroFlag = *a.UInt64Ptr < b.UInt64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *a.UCharPtr < pScript->m_Regs[b.UInt64].UChar;
+						pSys->m_bZeroFlag = *a.UCharPtr < pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *a.UShortPtr < pScript->m_Regs[b.UInt64].UShort;
+						pSys->m_bZeroFlag = *a.UShortPtr < pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.UInt32Ptr < pScript->m_Regs[b.UInt64].UInt32;
+						pSys->m_bZeroFlag = *a.UInt32Ptr < pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.UInt64Ptr < pScript->m_Regs[b.UInt64].UInt64;
+						pSys->m_bZeroFlag = *a.UInt64Ptr < pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			continue;
 		}
 		
 		exec_gtr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int64 > b.Int64;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 > b.Int64;
 			else if( addrmode & Register )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int64 > pScript->m_Regs[b.UInt64].Int64;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 > pSys->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Char > *(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Char > *(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Short > *(int16_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Short > *(int16_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int32 > *(int32_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int32 > *(int32_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int64 > *(int64_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 > *(int64_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Char > *b.CharPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Char > *b.CharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Short > *b.ShortPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Short > *b.ShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int32 > *b.Int32Ptr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int32 > *b.Int32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int64 > *b.Int64Ptr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 > *b.Int64Ptr;
 			}
 			continue;
 		}
 		exec_gtm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *(pScript->m_Regs[a.UInt64].CharPtr+offset) > b.Char;
+						pSys->m_bZeroFlag = *(pSys->m_Regs[a.UInt64].CharPtr+offset) > b.Char;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) > b.Short;
+						pSys->m_bZeroFlag = *(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) > b.Short;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) > b.Int32;
+						pSys->m_bZeroFlag = *(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) > b.Int32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) > b.Int64;
+						pSys->m_bZeroFlag = *(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) > b.Int64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *(pScript->m_Regs[a.UInt64].UCharPtr+offset) > pScript->m_Regs[b.UInt64].Char;
+						pSys->m_bZeroFlag = *(pSys->m_Regs[a.UInt64].UCharPtr+offset) > pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) > pScript->m_Regs[b.UInt64].Short;
+						pSys->m_bZeroFlag = *(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) > pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) > pScript->m_Regs[b.UInt64].Int32;
+						pSys->m_bZeroFlag = *(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) > pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) > pScript->m_Regs[b.UInt64].Int64;
+						pSys->m_bZeroFlag = *(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) > pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *a.CharPtr > b.Char;
+						pSys->m_bZeroFlag = *a.CharPtr > b.Char;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *a.ShortPtr > b.Short;
+						pSys->m_bZeroFlag = *a.ShortPtr > b.Short;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.Int32Ptr > b.Int32;
+						pSys->m_bZeroFlag = *a.Int32Ptr > b.Int32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.Int64Ptr > b.Int64;
+						pSys->m_bZeroFlag = *a.Int64Ptr > b.Int64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *a.CharPtr > pScript->m_Regs[b.UInt64].Char;
+						pSys->m_bZeroFlag = *a.CharPtr > pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *a.ShortPtr > pScript->m_Regs[b.UInt64].Short;
+						pSys->m_bZeroFlag = *a.ShortPtr > pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.Int32Ptr > pScript->m_Regs[b.UInt64].Int32;
+						pSys->m_bZeroFlag = *a.Int32Ptr > pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.Int64Ptr > pScript->m_Regs[b.UInt64].Int64;
+						pSys->m_bZeroFlag = *a.Int64Ptr > pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			continue;
 		}
 		exec_ugtr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt64 > b.UInt64;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 > b.UInt64;
 			else if( addrmode & Register )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt64 > pScript->m_Regs[b.UInt64].UInt64;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 > pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UChar > *(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UChar > *(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UShort > *(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UShort > *(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt32 > *(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt32 > *(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt64 > *(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 > *(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UChar > *b.UCharPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UChar > *b.UCharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UShort > *b.UShortPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UShort > *b.UShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt32 > *b.UInt32Ptr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt32 > *b.UInt32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt64 > *b.UInt64Ptr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 > *b.UInt64Ptr;
 			}
 			break;
 		}
 		exec_ugtm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *(pScript->m_Regs[a.UInt64].UCharPtr+offset) > b.UChar;
+						pSys->m_bZeroFlag = *(pSys->m_Regs[a.UInt64].UCharPtr+offset) > b.UChar;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) > b.UShort;
+						pSys->m_bZeroFlag = *(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) > b.UShort;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) > b.UInt32;
+						pSys->m_bZeroFlag = *(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) > b.UInt32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) > b.UInt64;
+						pSys->m_bZeroFlag = *(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) > b.UInt64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *(pScript->m_Regs[a.UInt64].UCharPtr+offset) > pScript->m_Regs[b.UInt64].UChar;
+						pSys->m_bZeroFlag = *(pSys->m_Regs[a.UInt64].UCharPtr+offset) > pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) > pScript->m_Regs[b.UInt64].UShort;
+						pSys->m_bZeroFlag = *(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) > pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) > pScript->m_Regs[b.UInt64].UInt32;
+						pSys->m_bZeroFlag = *(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) > pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) > pScript->m_Regs[b.UInt64].UInt64;
+						pSys->m_bZeroFlag = *(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) > pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *a.UCharPtr > b.UChar;
+						pSys->m_bZeroFlag = *a.UCharPtr > b.UChar;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *a.UShortPtr > b.UShort;
+						pSys->m_bZeroFlag = *a.UShortPtr > b.UShort;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.UInt32Ptr > b.UInt32;
+						pSys->m_bZeroFlag = *a.UInt32Ptr > b.UInt32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.UInt64Ptr > b.UInt64;
+						pSys->m_bZeroFlag = *a.UInt64Ptr > b.UInt64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *a.UCharPtr > pScript->m_Regs[b.UInt64].UChar;
+						pSys->m_bZeroFlag = *a.UCharPtr > pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *a.UShortPtr > pScript->m_Regs[b.UInt64].UShort;
+						pSys->m_bZeroFlag = *a.UShortPtr > pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.UInt32Ptr > pScript->m_Regs[b.UInt64].UInt32;
+						pSys->m_bZeroFlag = *a.UInt32Ptr > pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.UInt64Ptr > pScript->m_Regs[b.UInt64].UInt64;
+						pSys->m_bZeroFlag = *a.UInt64Ptr > pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			continue;
 		}
 		
 		exec_cmpr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int64 == b.Int64;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 == b.Int64;
 			else if( addrmode & Register )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int64 == pScript->m_Regs[b.UInt64].Int64;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 == pSys->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Char == *(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Char == *(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Short == *(int16_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Short == *(int16_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int32 == *(int32_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int32 == *(int32_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int64 == *(int64_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 == *(int64_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Char == *b.CharPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Char == *b.CharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Short == *b.ShortPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Short == *b.ShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int32 == *b.Int32Ptr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int32 == *b.Int32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int64 == *b.Int64Ptr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 == *b.Int64Ptr;
 			}
 			continue;
 		}
 		exec_cmpm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *(pScript->m_Regs[a.UInt64].CharPtr+offset) == b.Char;
+						pSys->m_bZeroFlag = *(pSys->m_Regs[a.UInt64].CharPtr+offset) == b.Char;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) == b.Short;
+						pSys->m_bZeroFlag = *(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) == b.Short;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) == b.Int32;
+						pSys->m_bZeroFlag = *(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) == b.Int32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) == b.Int64;
+						pSys->m_bZeroFlag = *(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) == b.Int64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *(pScript->m_Regs[a.UInt64].UCharPtr+offset) == pScript->m_Regs[b.UInt64].Char;
+						pSys->m_bZeroFlag = *(pSys->m_Regs[a.UInt64].UCharPtr+offset) == pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) == pScript->m_Regs[b.UInt64].Short;
+						pSys->m_bZeroFlag = *(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) == pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) == pScript->m_Regs[b.UInt64].Int32;
+						pSys->m_bZeroFlag = *(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) == pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) == pScript->m_Regs[b.UInt64].Int64;
+						pSys->m_bZeroFlag = *(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) == pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *a.CharPtr == b.Char;
+						pSys->m_bZeroFlag = *a.CharPtr == b.Char;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *a.ShortPtr == b.Short;
+						pSys->m_bZeroFlag = *a.ShortPtr == b.Short;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.Int32Ptr == b.Int32;
+						pSys->m_bZeroFlag = *a.Int32Ptr == b.Int32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.Int64Ptr == b.Int64;
+						pSys->m_bZeroFlag = *a.Int64Ptr == b.Int64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *a.CharPtr == pScript->m_Regs[b.UInt64].Char;
+						pSys->m_bZeroFlag = *a.CharPtr == pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *a.ShortPtr == pScript->m_Regs[b.UInt64].Short;
+						pSys->m_bZeroFlag = *a.ShortPtr == pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.Int32Ptr == pScript->m_Regs[b.UInt64].Int32;
+						pSys->m_bZeroFlag = *a.Int32Ptr == pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.Int64Ptr == pScript->m_Regs[b.UInt64].Int64;
+						pSys->m_bZeroFlag = *a.Int64Ptr == pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			continue;
 		}
 		exec_ucmpr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt64 == b.UInt64;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 == b.UInt64;
 			else if( addrmode & Register )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt64 == pScript->m_Regs[b.UInt64].UInt64;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 == pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UChar == *(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UChar == *(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UShort == *(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UShort == *(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt32 == *(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt32 == *(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt64 == *(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 == *(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UChar == *b.UCharPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UChar == *b.UCharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UShort == *b.UShortPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UShort == *b.UShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt32 == *b.UInt32Ptr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt32 == *b.UInt32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt64 == *b.UInt64Ptr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 == *b.UInt64Ptr;
 			}
 			continue;
 		}
 		exec_ucmpm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *(pScript->m_Regs[a.UInt64].UCharPtr+offset) == b.UChar;
+						pSys->m_bZeroFlag = *(pSys->m_Regs[a.UInt64].UCharPtr+offset) == b.UChar;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) == b.UShort;
+						pSys->m_bZeroFlag = *(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) == b.UShort;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) == b.UInt32;
+						pSys->m_bZeroFlag = *(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) == b.UInt32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) == b.UInt64;
+						pSys->m_bZeroFlag = *(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) == b.UInt64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *(pScript->m_Regs[a.UInt64].UCharPtr+offset) == pScript->m_Regs[b.UInt64].UChar;
+						pSys->m_bZeroFlag = *(pSys->m_Regs[a.UInt64].UCharPtr+offset) == pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) == pScript->m_Regs[b.UInt64].UShort;
+						pSys->m_bZeroFlag = *(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) == pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) == pScript->m_Regs[b.UInt64].UInt32;
+						pSys->m_bZeroFlag = *(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) == pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) == pScript->m_Regs[b.UInt64].UInt64;
+						pSys->m_bZeroFlag = *(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) == pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *a.UCharPtr == b.UChar;
+						pSys->m_bZeroFlag = *a.UCharPtr == b.UChar;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *a.UShortPtr == b.UShort;
+						pSys->m_bZeroFlag = *a.UShortPtr == b.UShort;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.UInt32Ptr == b.UInt32;
+						pSys->m_bZeroFlag = *a.UInt32Ptr == b.UInt32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.UInt64Ptr == b.UInt64;
+						pSys->m_bZeroFlag = *a.UInt64Ptr == b.UInt64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *a.UCharPtr == pScript->m_Regs[b.UInt64].UChar;
+						pSys->m_bZeroFlag = *a.UCharPtr == pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *a.UShortPtr == pScript->m_Regs[b.UInt64].UShort;
+						pSys->m_bZeroFlag = *a.UShortPtr == pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.UInt32Ptr == pScript->m_Regs[b.UInt64].UInt32;
+						pSys->m_bZeroFlag = *a.UInt32Ptr == pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.UInt64Ptr == pScript->m_Regs[b.UInt64].UInt64;
+						pSys->m_bZeroFlag = *a.UInt64Ptr == pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			continue;
 		}
 		
 		exec_neqr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int64 != b.Int64;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 != b.Int64;
 			else if( addrmode & Register )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int64 != pScript->m_Regs[b.UInt64].Int64;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 != pSys->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Char != *(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Char != *(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Short != *(int16_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Short != *(int16_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int32 != *(int32_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int32 != *(int32_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int64 != *(int64_t *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 != *(int64_t *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Char != *b.CharPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Char != *b.CharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Short != *b.ShortPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Short != *b.ShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int32 != *b.Int32Ptr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int32 != *b.Int32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Int64 != *b.Int64Ptr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 != *b.Int64Ptr;
 			}
 			continue;
 		}
 		exec_neqm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *(pScript->m_Regs[a.UInt64].CharPtr+offset) != b.Char;
+						pSys->m_bZeroFlag = *(pSys->m_Regs[a.UInt64].CharPtr+offset) != b.Char;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) != b.Short;
+						pSys->m_bZeroFlag = *(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) != b.Short;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) != b.Int32;
+						pSys->m_bZeroFlag = *(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) != b.Int32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) != b.Int64;
+						pSys->m_bZeroFlag = *(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) != b.Int64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *(pScript->m_Regs[a.UInt64].UCharPtr+offset) != pScript->m_Regs[b.UInt64].Char;
+						pSys->m_bZeroFlag = *(pSys->m_Regs[a.UInt64].UCharPtr+offset) != pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *(int16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) != pScript->m_Regs[b.UInt64].Short;
+						pSys->m_bZeroFlag = *(int16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) != pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) != pScript->m_Regs[b.UInt64].Int32;
+						pSys->m_bZeroFlag = *(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) != pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) != pScript->m_Regs[b.UInt64].Int64;
+						pSys->m_bZeroFlag = *(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) != pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *a.CharPtr != b.Char;
+						pSys->m_bZeroFlag = *a.CharPtr != b.Char;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *a.ShortPtr != b.Short;
+						pSys->m_bZeroFlag = *a.ShortPtr != b.Short;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.Int32Ptr != b.Int32;
+						pSys->m_bZeroFlag = *a.Int32Ptr != b.Int32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.Int64Ptr != b.Int64;
+						pSys->m_bZeroFlag = *a.Int64Ptr != b.Int64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *a.CharPtr != pScript->m_Regs[b.UInt64].Char;
+						pSys->m_bZeroFlag = *a.CharPtr != pSys->m_Regs[b.UInt64].Char;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *a.ShortPtr != pScript->m_Regs[b.UInt64].Short;
+						pSys->m_bZeroFlag = *a.ShortPtr != pSys->m_Regs[b.UInt64].Short;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.Int32Ptr != pScript->m_Regs[b.UInt64].Int32;
+						pSys->m_bZeroFlag = *a.Int32Ptr != pSys->m_Regs[b.UInt64].Int32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.Int64Ptr != pScript->m_Regs[b.UInt64].Int64;
+						pSys->m_bZeroFlag = *a.Int64Ptr != pSys->m_Regs[b.UInt64].Int64;
 				}
 			}
 			continue;
 		}
 		exec_uneqr:; {	// dest is reg, src is reg or memory
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt64 != b.UInt64;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 != b.UInt64;
 			else if( addrmode & Register )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt64 != pScript->m_Regs[b.UInt64].UInt64;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 != pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Byte )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UChar != *(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UChar != *(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & TwoBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UShort != *(uint16_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UShort != *(uint16_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt32 != *(uint32_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt32 != *(uint32_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt64 != *(uint64_t *)(pScript->m_Regs[b.UInt64].UCharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 != *(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Byte )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UChar != *b.UCharPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UChar != *b.UCharPtr;
 				else if( addrmode & TwoBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UShort != *b.UShortPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UShort != *b.UShortPtr;
 				else if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt32 != *b.UInt32Ptr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt32 != *b.UInt32Ptr;
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].UInt64 != *b.UInt64Ptr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 != *b.UInt64Ptr;
 			}
 			continue;
 		}
 		exec_uneqm:; {	// dest is memory and src is reg
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *(pScript->m_Regs[a.UInt64].UCharPtr+offset) != b.UChar;
+						pSys->m_bZeroFlag = *(pSys->m_Regs[a.UInt64].UCharPtr+offset) != b.UChar;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) != b.UShort;
+						pSys->m_bZeroFlag = *(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) != b.UShort;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) != b.UInt32;
+						pSys->m_bZeroFlag = *(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) != b.UInt32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) != b.UInt64;
+						pSys->m_bZeroFlag = *(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) != b.UInt64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *(pScript->m_Regs[a.UInt64].UCharPtr+offset) != pScript->m_Regs[b.UInt64].UChar;
+						pSys->m_bZeroFlag = *(pSys->m_Regs[a.UInt64].UCharPtr+offset) != pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *(uint16_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) != pScript->m_Regs[b.UInt64].UShort;
+						pSys->m_bZeroFlag = *(uint16_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) != pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(uint32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) != pScript->m_Regs[b.UInt64].UInt32;
+						pSys->m_bZeroFlag = *(uint32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) != pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(uint64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) != pScript->m_Regs[b.UInt64].UInt64;
+						pSys->m_bZeroFlag = *(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) != pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *a.UCharPtr != b.UChar;
+						pSys->m_bZeroFlag = *a.UCharPtr != b.UChar;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *a.UShortPtr != b.UShort;
+						pSys->m_bZeroFlag = *a.UShortPtr != b.UShort;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.UInt32Ptr != b.UInt32;
+						pSys->m_bZeroFlag = *a.UInt32Ptr != b.UInt32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.UInt64Ptr != b.UInt64;
+						pSys->m_bZeroFlag = *a.UInt64Ptr != b.UInt64;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & Byte )
-						pScript->m_bZeroFlag = *a.UCharPtr != pScript->m_Regs[b.UInt64].UChar;
+						pSys->m_bZeroFlag = *a.UCharPtr != pSys->m_Regs[b.UInt64].UChar;
 					else if( addrmode & TwoBytes )
-						pScript->m_bZeroFlag = *a.UShortPtr != pScript->m_Regs[b.UInt64].UShort;
+						pSys->m_bZeroFlag = *a.UShortPtr != pSys->m_Regs[b.UInt64].UShort;
 					else if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.UInt32Ptr != pScript->m_Regs[b.UInt64].UInt32;
+						pSys->m_bZeroFlag = *a.UInt32Ptr != pSys->m_Regs[b.UInt64].UInt32;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.UInt64Ptr != pScript->m_Regs[b.UInt64].UInt64;
+						pSys->m_bZeroFlag = *a.UInt64Ptr != pSys->m_Regs[b.UInt64].UInt64;
 				}
 			}
 			continue;
 		}
 		exec_reset:; {	// reset ALL registers except rip, rsp, and rbp to 0.
-			TaghaScript_Reset(pScript);
+			Tagha_Reset(pSys);
 			continue;
 		}
 		
 		exec_int2float:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate ) {
-				b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-				pScript->m_Regs[a.UInt64].UInt64 = 0;
-				pScript->m_Regs[a.UInt64].Float = (float) b.Int64;
+				b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+				pSys->m_Regs[a.UInt64].UInt64 = 0;
+				pSys->m_Regs[a.UInt64].Float = (float) b.Int64;
 			}
 			else if( addrmode & Register ) {
-				float temp = (float) pScript->m_Regs[a.UInt64].Int64;
-				pScript->m_Regs[a.UInt64].UInt64 = 0;
-				pScript->m_Regs[a.UInt64].Float = temp;
+				float temp = (float) pSys->m_Regs[a.UInt64].Int64;
+				pSys->m_Regs[a.UInt64].UInt64 = 0;
+				pSys->m_Regs[a.UInt64].Float = temp;
 			}
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
-				float temp = (float) *(int32_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset);
-				*(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) = temp;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
+				float temp = (float) *(int32_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset);
+				*(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) = temp;
 			}
 			else if( addrmode & IPRelative ) {
 				float temp = (float) *a.Int32Ptr;
@@ -2592,21 +2587,21 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 			continue;
 		}
 		exec_int2dbl:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate ) {
-				b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-				pScript->m_Regs[a.UInt64].UInt64 = 0;
-				pScript->m_Regs[a.UInt64].Double = (double) b.UInt64;
+				b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+				pSys->m_Regs[a.UInt64].UInt64 = 0;
+				pSys->m_Regs[a.UInt64].Double = (double) b.UInt64;
 			}
 			else if( addrmode & Register ) {
-				double temp = (double) pScript->m_Regs[a.UInt64].UInt64;
-				pScript->m_Regs[a.UInt64].UInt64 = 0;
-				pScript->m_Regs[a.UInt64].Double = temp;
+				double temp = (double) pSys->m_Regs[a.UInt64].UInt64;
+				pSys->m_Regs[a.UInt64].UInt64 = 0;
+				pSys->m_Regs[a.UInt64].Double = temp;
 			}
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
-				double temp = (double) *(int64_t *)(pScript->m_Regs[a.UInt64].UCharPtr+offset);
-				*(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) = temp;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
+				double temp = (double) *(int64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset);
+				*(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) = temp;
 			}
 			else if( addrmode & IPRelative ) {
 				double temp = (double) *a.Int64Ptr;
@@ -2616,23 +2611,23 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 		}
 		
 		exec_float2dbl:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			double temp;
 			if( addrmode & Immediate ) {
-				b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+				b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 				temp = (double) b.Float;
-				pScript->m_Regs[a.UInt64].UInt64 = 0;
-				pScript->m_Regs[a.UInt64].Double = temp;
+				pSys->m_Regs[a.UInt64].UInt64 = 0;
+				pSys->m_Regs[a.UInt64].Double = temp;
 			}
 			else if( addrmode & Register ) {
-				temp = (double) pScript->m_Regs[a.UInt64].Float;
-				pScript->m_Regs[a.UInt64].UInt64 = 0;
-				pScript->m_Regs[a.UInt64].Double = temp;
+				temp = (double) pSys->m_Regs[a.UInt64].Float;
+				pSys->m_Regs[a.UInt64].UInt64 = 0;
+				pSys->m_Regs[a.UInt64].Double = temp;
 			}
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
-				temp = (double) *(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset);
-				*(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) = temp;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
+				temp = (double) *(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset);
+				*(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) = temp;
 			}
 			else if( addrmode & IPRelative ) {
 				temp = (double) *a.FloatPtr;
@@ -2642,24 +2637,24 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 			continue;
 		}
 		exec_dbl2float:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			float temp;
 			if( addrmode & Immediate ) {
-				b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+				b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 				temp = (float) b.Double;
-				pScript->m_Regs[a.UInt64].UInt64 = 0;
-				pScript->m_Regs[a.UInt64].Float = temp;
+				pSys->m_Regs[a.UInt64].UInt64 = 0;
+				pSys->m_Regs[a.UInt64].Float = temp;
 			}
 			else if( addrmode & Register ) {
-				temp = (float) pScript->m_Regs[a.UInt64].Double;
-				pScript->m_Regs[a.UInt64].UInt64 = 0;
-				pScript->m_Regs[a.UInt64].Float = temp;
+				temp = (float) pSys->m_Regs[a.UInt64].Double;
+				pSys->m_Regs[a.UInt64].UInt64 = 0;
+				pSys->m_Regs[a.UInt64].Float = temp;
 			}
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
-				temp = (float) *(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset);
-				*(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) = 0;
-				*(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) = temp;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
+				temp = (float) *(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset);
+				*(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) = 0;
+				*(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) = temp;
 			}
 			else if( addrmode & IPRelative ) {
 				temp = (float) *a.DoublePtr;
@@ -2670,45 +2665,45 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 		}
 		
 		exec_faddr:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[a.UInt64].Double += b.Double;
+				pSys->m_Regs[a.UInt64].Double += b.Double;
 			else if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].Double += pScript->m_Regs[b.UInt64].Double;
+				pSys->m_Regs[a.UInt64].Double += pSys->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].Float += *(float *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Float += *(float *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].Double += *(double *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Double += *(double *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].Float += *b.FloatPtr;
+					pSys->m_Regs[a.UInt64].Float += *b.FloatPtr;
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].Double += *b.DoublePtr;
+					pSys->m_Regs[a.UInt64].Double += *b.DoublePtr;
 			}
 			continue;
 		}
 		exec_faddm:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes ) {
-						*(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += b.Float;
+						*(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += b.Float;
 					}
 					else if( addrmode & EightBytes ) {
-						*(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += b.Double;
+						*(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += b.Double;
 					}
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & FourBytes )
-						*(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += pScript->m_Regs[b.UInt64].Float;
+						*(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += pSys->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
-						*(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) += pScript->m_Regs[b.UInt64].Double;
+						*(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) += pSys->m_Regs[b.UInt64].Double;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -2720,51 +2715,51 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & FourBytes )
-						*a.FloatPtr += pScript->m_Regs[b.UInt64].Float;
+						*a.FloatPtr += pSys->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
-						*a.DoublePtr += pScript->m_Regs[b.UInt64].Double;
+						*a.DoublePtr += pSys->m_Regs[b.UInt64].Double;
 				}
 			}
 			continue;
 		}
 		exec_fsubr:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[a.UInt64].Double -= b.Double;
+				pSys->m_Regs[a.UInt64].Double -= b.Double;
 			else if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].Double -= pScript->m_Regs[b.UInt64].Double;
+				pSys->m_Regs[a.UInt64].Double -= pSys->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].Float -= *(float *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Float -= *(float *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].Double -= *(double *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Double -= *(double *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].Float -= *b.FloatPtr;
+					pSys->m_Regs[a.UInt64].Float -= *b.FloatPtr;
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].Double -= *b.DoublePtr;
+					pSys->m_Regs[a.UInt64].Double -= *b.DoublePtr;
 			}
 			continue;
 		}
 		exec_fsubm:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
-						*(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= b.Float;
+						*(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= b.Float;
 					else if( addrmode & EightBytes )
-						*(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= b.Double;
+						*(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= b.Double;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & FourBytes )
-						*(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= pScript->m_Regs[b.UInt64].Float;
+						*(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= pSys->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
-						*(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) -= pScript->m_Regs[b.UInt64].Double;
+						*(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) -= pSys->m_Regs[b.UInt64].Double;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -2776,51 +2771,51 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & FourBytes )
-						*a.FloatPtr -= pScript->m_Regs[b.UInt64].Float;
+						*a.FloatPtr -= pSys->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
-						*a.DoublePtr -= pScript->m_Regs[b.UInt64].Double;
+						*a.DoublePtr -= pSys->m_Regs[b.UInt64].Double;
 				}
 			}
 			continue;
 		}
 		exec_fmulr:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_Regs[a.UInt64].Double *= b.Double;
+				pSys->m_Regs[a.UInt64].Double *= b.Double;
 			else if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].Double *= pScript->m_Regs[b.UInt64].Double;
+				pSys->m_Regs[a.UInt64].Double *= pSys->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].Float *= *(float *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Float *= *(float *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].Double *= *(double *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_Regs[a.UInt64].Double *= *(double *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & FourBytes )
-					pScript->m_Regs[a.UInt64].Float *= *b.FloatPtr;
+					pSys->m_Regs[a.UInt64].Float *= *b.FloatPtr;
 				else if( addrmode & EightBytes )
-					pScript->m_Regs[a.UInt64].Double *= *b.DoublePtr;
+					pSys->m_Regs[a.UInt64].Double *= *b.DoublePtr;
 			}
 			continue;
 		}
 		exec_fmulm:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
-						*(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= b.Float;
+						*(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= b.Float;
 					else if( addrmode & EightBytes )
-						*(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= b.Double;
+						*(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= b.Double;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & FourBytes )
-						*(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= pScript->m_Regs[b.UInt64].Float;
+						*(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= pSys->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
-						*(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) *= pScript->m_Regs[b.UInt64].Double;
+						*(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) *= pSys->m_Regs[b.UInt64].Double;
 				}
 			}
 			else if( addrmode & IPRelative ) {
@@ -2832,80 +2827,80 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & FourBytes )
-						*a.FloatPtr *= pScript->m_Regs[b.UInt64].Float;
+						*a.FloatPtr *= pSys->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
-						*a.DoublePtr *= pScript->m_Regs[b.UInt64].Double;
+						*a.DoublePtr *= pSys->m_Regs[b.UInt64].Double;
 				}
 			}
 			continue;
 		}
 		exec_fdivr:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate ) {
 				if( !b.Double )
 					b.Double=1.0;
-				pScript->m_Regs[a.UInt64].Double /= b.Double;
+				pSys->m_Regs[a.UInt64].Double /= b.Double;
 			}
 			else if( addrmode & Register ) {
-				if( !pScript->m_Regs[b.UInt64].Double )
-					pScript->m_Regs[b.UInt64].Double=1.0;
-				pScript->m_Regs[a.UInt64].Double /= pScript->m_Regs[b.UInt64].Double;
+				if( !pSys->m_Regs[b.UInt64].Double )
+					pSys->m_Regs[b.UInt64].Double=1.0;
+				pSys->m_Regs[a.UInt64].Double /= pSys->m_Regs[b.UInt64].Double;
 			}
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & FourBytes ) {
-					if( !*(float *)(pScript->m_Regs[b.UInt64].CharPtr+offset) )
-						*(float *)(pScript->m_Regs[b.UInt64].CharPtr+offset) = 1.f;
-					pScript->m_Regs[a.UInt64].Float /= *(float *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					if( !*(float *)(pSys->m_Regs[b.UInt64].CharPtr+offset) )
+						*(float *)(pSys->m_Regs[b.UInt64].CharPtr+offset) = 1.f;
+					pSys->m_Regs[a.UInt64].Float /= *(float *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				}
 				else if( addrmode & EightBytes ) {
-					if( !*(double *)(pScript->m_Regs[b.UInt64].CharPtr+offset) )
-						*(double *)(pScript->m_Regs[b.UInt64].CharPtr+offset) = 1.0;
-					pScript->m_Regs[a.UInt64].Double /= *(double *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					if( !*(double *)(pSys->m_Regs[b.UInt64].CharPtr+offset) )
+						*(double *)(pSys->m_Regs[b.UInt64].CharPtr+offset) = 1.0;
+					pSys->m_Regs[a.UInt64].Double /= *(double *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				}
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & FourBytes ) {
 					if( !*b.FloatPtr )
 						*b.FloatPtr = 1.f;
-					pScript->m_Regs[a.UInt64].Float /= *b.FloatPtr;
+					pSys->m_Regs[a.UInt64].Float /= *b.FloatPtr;
 				}
 				else if( addrmode & EightBytes ) {
 					if( !*b.DoublePtr )
 						*b.DoublePtr = 1.0;
-					pScript->m_Regs[a.UInt64].Double /= *b.DoublePtr;
+					pSys->m_Regs[a.UInt64].Double /= *b.DoublePtr;
 				}
 			}
 			continue;
 		}
 		exec_fdivm:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes ) {
 						if( !b.Float )
 							b.Float = 1.f;
-						*(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= b.Float;
+						*(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= b.Float;
 					}
 					else if( addrmode & EightBytes ) {
 						if( !b.Double )
 							b.Double = 1.0;
-						*(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= b.Double;
+						*(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= b.Double;
 					}
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & FourBytes ) {
 						if( !b.Float )
 							b.Float = 1.f;
-						*(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= pScript->m_Regs[b.UInt64].Float;
+						*(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= pSys->m_Regs[b.UInt64].Float;
 					}
 					else if( addrmode & EightBytes ) {
 						if( !b.Double )
 							b.Double = 1.f;
-						*(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) /= pScript->m_Regs[b.UInt64].Double;
+						*(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) /= pSys->m_Regs[b.UInt64].Double;
 					}
 				}
 			}
@@ -2924,29 +2919,29 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & FourBytes ) {
-						if( !pScript->m_Regs[b.UInt64].Float )
-							pScript->m_Regs[b.UInt64].Float = 1.f;
-						*a.FloatPtr /= pScript->m_Regs[b.UInt64].Float;
+						if( !pSys->m_Regs[b.UInt64].Float )
+							pSys->m_Regs[b.UInt64].Float = 1.f;
+						*a.FloatPtr /= pSys->m_Regs[b.UInt64].Float;
 					}
 					else if( addrmode & EightBytes ) {
-						if( !pScript->m_Regs[b.UInt64].Double )
-							pScript->m_Regs[b.UInt64].Double = 1.0;
-						*a.DoublePtr /= pScript->m_Regs[b.UInt64].Double;
+						if( !pSys->m_Regs[b.UInt64].Double )
+							pSys->m_Regs[b.UInt64].Double = 1.0;
+						*a.DoublePtr /= pSys->m_Regs[b.UInt64].Double;
 					}
 				}
 			}
 			continue;
 		}
 		exec_fneg:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Register )
-				pScript->m_Regs[a.UInt64].Double = -pScript->m_Regs[a.UInt64].Double;
+				pSys->m_Regs[a.UInt64].Double = -pSys->m_Regs[a.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & FourBytes )
-					*(float *)(pScript->m_Regs[a.UInt64].CharPtr+offset) = -*(float *)(pScript->m_Regs[a.UInt64].CharPtr+offset);
+					*(float *)(pSys->m_Regs[a.UInt64].CharPtr+offset) = -*(float *)(pSys->m_Regs[a.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
-					*(double *)(pScript->m_Regs[a.UInt64].CharPtr+offset) = -*(double *)(pScript->m_Regs[a.UInt64].CharPtr+offset);
+					*(double *)(pSys->m_Regs[a.UInt64].CharPtr+offset) = -*(double *)(pSys->m_Regs[a.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & (IPRelative|Immediate) ) {
 				if( addrmode & FourBytes )
@@ -2957,225 +2952,225 @@ int Tagha_Exec(struct TaghaVM *restrict pVM, int argc, union CValue argv[])
 			continue;
 		}
 		exec_fltr:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Double < b.Double;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double < b.Double;
 			else if( addrmode & Register )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Double < pScript->m_Regs[b.UInt64].Double;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double < pSys->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Float < *(float *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Float < *(float *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Double < *(double *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double < *(double *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Float < *b.FloatPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Float < *b.FloatPtr;
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Double < *b.DoublePtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double < *b.DoublePtr;
 			}
 			continue;
 		}
 		exec_fltm:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) < b.Float;
+						pSys->m_bZeroFlag = *(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) < b.Float;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) < b.Double;
+						pSys->m_bZeroFlag = *(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) < b.Double;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) < pScript->m_Regs[b.UInt64].Float;
+						pSys->m_bZeroFlag = *(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) < pSys->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) < pScript->m_Regs[b.UInt64].Double;
+						pSys->m_bZeroFlag = *(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) < pSys->m_Regs[b.UInt64].Double;
 				}
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.FloatPtr < b.Float;
+						pSys->m_bZeroFlag = *a.FloatPtr < b.Float;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.DoublePtr < b.Double;
+						pSys->m_bZeroFlag = *a.DoublePtr < b.Double;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.FloatPtr < pScript->m_Regs[b.UInt64].Float;
+						pSys->m_bZeroFlag = *a.FloatPtr < pSys->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.DoublePtr < pScript->m_Regs[b.UInt64].Double;
+						pSys->m_bZeroFlag = *a.DoublePtr < pSys->m_Regs[b.UInt64].Double;
 				}
 			}
 			continue;
 		}
 		exec_fgtr:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Double > b.Double;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double > b.Double;
 			else if( addrmode & Register )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Double > pScript->m_Regs[b.UInt64].Double;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double > pSys->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Float > *(float *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Float > *(float *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Double > *(double *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double > *(double *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Float > *b.FloatPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Float > *b.FloatPtr;
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Double > *b.DoublePtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double > *b.DoublePtr;
 			}
 			continue;
 		}
 		exec_fgtm:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) > b.Float;
+						pSys->m_bZeroFlag = *(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) > b.Float;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) > b.Double;
+						pSys->m_bZeroFlag = *(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) > b.Double;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) > pScript->m_Regs[b.UInt64].Float;
+						pSys->m_bZeroFlag = *(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) > pSys->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) > pScript->m_Regs[b.UInt64].Double;
+						pSys->m_bZeroFlag = *(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) > pSys->m_Regs[b.UInt64].Double;
 				}
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.FloatPtr > b.Float;
+						pSys->m_bZeroFlag = *a.FloatPtr > b.Float;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.DoublePtr > b.Double;
+						pSys->m_bZeroFlag = *a.DoublePtr > b.Double;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.FloatPtr > pScript->m_Regs[b.UInt64].Float;
+						pSys->m_bZeroFlag = *a.FloatPtr > pSys->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.DoublePtr > pScript->m_Regs[b.UInt64].Double;
+						pSys->m_bZeroFlag = *a.DoublePtr > pSys->m_Regs[b.UInt64].Double;
 				}
 			}
 			continue;
 		}
 		exec_fcmpr:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Double == b.Double;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double == b.Double;
 			else if( addrmode & Register )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Double == pScript->m_Regs[b.UInt64].Double;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double == pSys->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Float == *(float *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Float == *(float *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Double == *(double *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double == *(double *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Float == *b.FloatPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Float == *b.FloatPtr;
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Double == *b.DoublePtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double == *b.DoublePtr;
 			}
 			continue;
 		}
 		exec_fcmpm:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) == b.Float;
+						pSys->m_bZeroFlag = *(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) == b.Float;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) == b.Double;
+						pSys->m_bZeroFlag = *(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) == b.Double;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) == pScript->m_Regs[b.UInt64].Float;
+						pSys->m_bZeroFlag = *(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) == pSys->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) == pScript->m_Regs[b.UInt64].Double;
+						pSys->m_bZeroFlag = *(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) == pSys->m_Regs[b.UInt64].Double;
 				}
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.FloatPtr == b.Float;
+						pSys->m_bZeroFlag = *a.FloatPtr == b.Float;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.DoublePtr == b.Double;
+						pSys->m_bZeroFlag = *a.DoublePtr == b.Double;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.FloatPtr == pScript->m_Regs[b.UInt64].Float;
+						pSys->m_bZeroFlag = *a.FloatPtr == pSys->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.DoublePtr == pScript->m_Regs[b.UInt64].Double;
+						pSys->m_bZeroFlag = *a.DoublePtr == pSys->m_Regs[b.UInt64].Double;
 				}
 			}
 			continue;
 		}
 		exec_fneqr:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Double != b.Double;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double != b.Double;
 			else if( addrmode & Register )
-				pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Double != pScript->m_Regs[b.UInt64].Double;
+				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double != pSys->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Float != *(float *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Float != *(float *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Double != *(double *)(pScript->m_Regs[b.UInt64].CharPtr+offset);
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double != *(double *)(pSys->m_Regs[b.UInt64].CharPtr+offset);
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & FourBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Float != *b.FloatPtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Float != *b.FloatPtr;
 				else if( addrmode & EightBytes )
-					pScript->m_bZeroFlag = pScript->m_Regs[a.UInt64].Double != *b.DoublePtr;
+					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double != *b.DoublePtr;
 			}
 			continue;
 		}
 		exec_fneqm:; {
-			a.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
-			b.UInt64 = *pScript->m_Regs[rip].UInt64Ptr++;
+			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
+			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
-				offset = *pScript->m_Regs[rip].Int32Ptr++;
+				offset = *pSys->m_Regs[rip].Int32Ptr++;
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) != b.Float;
+						pSys->m_bZeroFlag = *(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) != b.Float;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) != b.Double;
+						pSys->m_bZeroFlag = *(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) != b.Double;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *(float *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) != pScript->m_Regs[b.UInt64].Float;
+						pSys->m_bZeroFlag = *(float *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) != pSys->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *(double *)(pScript->m_Regs[a.UInt64].UCharPtr+offset) != pScript->m_Regs[b.UInt64].Double;
+						pSys->m_bZeroFlag = *(double *)(pSys->m_Regs[a.UInt64].UCharPtr+offset) != pSys->m_Regs[b.UInt64].Double;
 				}
 			}
 			else if( addrmode & IPRelative ) {
 				if( addrmode & Immediate ) {
 					if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.FloatPtr != b.Float;
+						pSys->m_bZeroFlag = *a.FloatPtr != b.Float;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.DoublePtr != b.Double;
+						pSys->m_bZeroFlag = *a.DoublePtr != b.Double;
 				}
 				else if( addrmode & Register ) {
 					if( addrmode & FourBytes )
-						pScript->m_bZeroFlag = *a.FloatPtr != pScript->m_Regs[b.UInt64].Float;
+						pSys->m_bZeroFlag = *a.FloatPtr != pSys->m_Regs[b.UInt64].Float;
 					else if( addrmode & EightBytes )
-						pScript->m_bZeroFlag = *a.DoublePtr != pScript->m_Regs[b.UInt64].Double;
+						pSys->m_bZeroFlag = *a.DoublePtr != pSys->m_Regs[b.UInt64].Double;
 				}
 			}
 			continue;

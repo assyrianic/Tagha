@@ -39,7 +39,6 @@ rbp=12;
 rip=13;
 regsize=14;
 
-
 def wrt_hdr(f, stacksize:int, datasize:int) -> None:
 	f.write(0xC0DE.to_bytes(2, byteorder='little'));
 	f.write(stacksize.to_bytes(4, byteorder='little'));
@@ -81,7 +80,7 @@ def wrt_hdr_globals(f, *lGlobals) -> None:
 		f.write(0x0.to_bytes(1, byteorder='little'));
 		i += 1;
 		
-		# write the stack address of this global var.
+		# write the .data address of this global var.
 		f.write(lGlobals[i].to_bytes(4, byteorder='little'));
 		i += 1;
 		
@@ -250,11 +249,12 @@ int main()
 }
 '''
 with open('test_pointers.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128);
+	wrt_hdr(tbc, 128, 0);
 	wrt_hdr_natives(tbc);
 	wrt_hdr_funcs(tbc, 'main', 0);
 	wrt_hdr_globals(tbc);
 	wrt_hdr_flags(tbc);
+	wrt_global_values(tbc);
 	
 # main:
 # int i = 5;
@@ -275,7 +275,7 @@ with open('test_pointers.tbc', 'wb+') as tbc:
 	# mov ras, QWORD PTR [rbp-8] | movq -8(%rbp), %ras
 	wrt_two_op_code(tbc, opcodes.movr, RegIndirect, ras, rbp, -8);
 	
-	# mov DWORD PTR [ras], 500 | movl #500, (%ras)
+	# mov DWORD PTR [ras], 127 | movl #127, (%ras)
 	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Immediate|FourBytes, ras, 127, 0);
 	
 	# mov ras, 0 | movq #0, %ras
@@ -291,11 +291,12 @@ int main()
 }
 '''
 with open('test_puts_helloworld.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128);
+	wrt_hdr(tbc, 0, len('hello world\n')+1);
 	wrt_hdr_natives(tbc, 'puts');
 	wrt_hdr_funcs(tbc, 'main', 0);
-	wrt_hdr_globals(tbc, 'str00001', 0, len('hello world\n')+1, 'hello world\n');
+	wrt_hdr_globals(tbc, 'str00001', 0, len('hello world\n')+1);
 	wrt_hdr_flags(tbc);
+	wrt_global_values(tbc, 'hello world\n');
 	
 # main:
 	
@@ -304,13 +305,14 @@ with open('test_puts_helloworld.tbc', 'wb+') as tbc:
 	wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16);
 	
 	# lea ras, [rbp-127] ;load the offset of the string to ras
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -127);
+	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rip, 44);
 	
 	# mov QWORD PTR [rbp-16], ras
 	# "push" the address in 'ras' to stack.
 	# calling natives can only use values from the stack.
 	# values from the stack are ALWAYS popped for natives.
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Register|EightBytes, rbp, ras, -16);
+	#wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Register|EightBytes, rbp, rbs, -16);
+	wrt_one_op_code(tbc, opcodes.push, Register, rbs);
 	
 	wrt_callnat(tbc, Immediate, 1, 0);
 	
@@ -330,11 +332,12 @@ uint32_t factorial(const uint32_t i)
 }
 '''
 with open('test_factorial.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 512);
+	wrt_hdr(tbc, 512, 0);
 	wrt_hdr_natives(tbc);
 	wrt_hdr_funcs(tbc, 'factorial', 0);
 	wrt_hdr_globals(tbc);
 	wrt_hdr_flags(tbc);
+	wrt_global_values(tbc);
 	
 # factorial:	# CHANGE TO USE STACK AND OTHER REGISTERS.
 	# sub rsp, 16
@@ -383,11 +386,12 @@ void main(void)
 }
 '''
 with open('test_native.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128);
+	wrt_hdr(tbc, 128, 0);
 	wrt_hdr_natives(tbc, 'test');
 	wrt_hdr_funcs(tbc, 'main', 0);
 	wrt_hdr_globals(tbc);
 	wrt_hdr_flags(tbc);
+	wrt_global_values(tbc);
 	
 # main:
 	# sub rsp, 16
@@ -420,11 +424,12 @@ void main(void)
 }
 '''
 with open('test_native_funcptr.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128);
+	wrt_hdr(tbc, 128, 0);
 	wrt_hdr_natives(tbc, 'test');
 	wrt_hdr_funcs(tbc, 'main', 0);
 	wrt_hdr_globals(tbc);
 	wrt_hdr_flags(tbc);
+	wrt_global_values(tbc);
 	
 # main:
 	# sub rsp, 32
@@ -459,11 +464,12 @@ int main()
 }
 '''
 with open('test_loadgbl.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128);
+	wrt_hdr(tbc, 128, 4);
 	wrt_hdr_natives(tbc, 'getglobal');
 	wrt_hdr_funcs(tbc, 'main', 0);
-	wrt_hdr_globals(tbc, 'i', 0, 4, 4294967196);
+	wrt_hdr_globals(tbc, 'i', 0, 4);
 	wrt_hdr_flags(tbc);
+	wrt_global_values(tbc, 4294967196, 4);
 	
 # main:
 	wrt_callnat(tbc, Immediate, 0, 0);
@@ -488,11 +494,12 @@ int main()
 }
 '''
 with open('test_3d_vecs.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128);
+	wrt_hdr(tbc, 128, 0);
 	wrt_hdr_natives(tbc);
 	wrt_hdr_funcs(tbc, 'main', 0, 'VecInvert', 146);
 	wrt_hdr_globals(tbc);
 	wrt_hdr_flags(tbc);
+	wrt_global_values(tbc);
 	
 # main:
 	# sub rsp, 16
@@ -557,37 +564,40 @@ int main()
 }
 '''
 with open('test_stdin.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 512);
+	wrt_hdr(tbc, 512, 8+len('Please enter a long string: ')+1);
 	wrt_hdr_natives(tbc, 'puts', 'fgets');
 	wrt_hdr_funcs(tbc, 'main', 0);
 	wrt_hdr_globals(tbc,
-			'stdin', 0, 8, 0,
-			'str00001', 8, len('Please enter a long string: ')+1, 'Please enter a long string: '
+			'stdin',	0, 8,
+			'str00001',	8, len('Please enter a long string: ')+1
 	);
 	wrt_hdr_flags(tbc);
-	
+	wrt_global_values(tbc, 0, 8, 'Please enter a long string: ');
+	pcaddr = 0;
 # main:
 	# char string[256];
-	wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 256); #12-29
+	pcaddr += wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 256);
 	
 	# puts("Please enter a long string: ");
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -503);
-	wrt_one_op_code(tbc, opcodes.push, Register, ras);
-	wrt_callnat(tbc, Immediate, 1, 0);
-	
+	pcaddr += wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rip, 144); # 40[rip]
+	pcaddr += wrt_one_op_code(tbc, opcodes.push, Register, rbs);
+	pcaddr += wrt_callnat(tbc, Immediate, 1, 0);
 	# fgets(string, 256, stdin);
 	# stdin
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -511);
-	wrt_one_op_code(tbc, opcodes.push, RegIndirect, ras, 0);
-	# 256
-	wrt_one_op_code(tbc, opcodes.push, Immediate, 256);
-	# string - lea ras, [rbp-256]
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -256);
-	wrt_one_op_code(tbc, opcodes.push, Register, ras);
-	wrt_callnat(tbc, Immediate, 3, 1);
+	pcaddr += wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rip, 90); # 86[rip]
+	pcaddr += wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbs, 0);
 	
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0); #138-155
-	wrt_non_op_code(tbc, opcodes.ret, 0); #156-157
+	# 256
+	pcaddr += wrt_one_op_code(tbc, opcodes.push, Immediate, 256);
+	
+	# string - lea ras, [rbp-256]
+	pcaddr += wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -256);
+	
+	pcaddr += wrt_one_op_code(tbc, opcodes.push, Register, ras);
+	pcaddr += wrt_callnat(tbc, Immediate, 3, 1);
+	
+	pcaddr += wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0);
+	pcaddr += wrt_non_op_code(tbc, opcodes.ret, 0);
 
 
 
@@ -596,58 +606,65 @@ Purpose: test self natives for retrieving data script to script.
 We need for script's to be able to retrieve data from one another.
 
 
-struct TaghaScript;
-typedef struct TaghaScript	TaghaScript;
+struct Tagha;
+typedef struct Tagha	Tagha;
 
-TaghaScript *get_script_from_file(const char *filename);
-void script_free(TaghaScript *script);
-void script_callfunc(TaghaScript *restrict script, const char *restrict strFunc);
-void *script_get_global_by_name(const TaghaScript *restrict script, const char *restrict str);
-void script_push_value(TaghaScript *script, const CValue value);
-CValue script_pop_value(TaghaScript *script);
+void Script_BuildFromFile(Tagha *restrict script, const char *filename);
+void Script_Free(Tagha *script);
+void Script_CallFunc(Tagha *restrict script, const char *restrict strFunc);
+void *Script_GetGlobalByName(const Tagha *restrict script, const char *restrict str);
+void Script_PushValue(Tagha *script, const CValue value);
+CValue Script_PopValue(Tagha *script);
 
-TaghaScript *myself;	// myself refers to the script running this code.
+Tagha *myself;	// myself refers to the script running this code.
 
 int main()
 {
-	TaghaScript *t = get_script_from_file("test_factorial_recurs.tbc");
+	Tagha *t = Script_New();
 	if( !t )
 		return 0;
 	
-	script_push_value(t, (CValue){ .UInt32=7 });
-	script_callfunc(t, "factorial");
-	CValue val = script_pop_value(t);
+	Script_BuildFromFile(t, "test_factorial.tbc");
+	Script_PushValue(t, (CValue){ .UInt32=7 });
+	Script_CallFunc(t, "factorial");
+	CValue val = Script_PopValue(t);
 	printf("%u\n", val.UInt32);
 	
-	script_free(t), t = NULL;
+	Script_Free(t), t = NULL;
 	return 0;
 }
 '''
+'''
 with open('test_interplugin_com.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 256);
+	wrt_hdr(tbc, 256,
+		8+len('%u\n')+1+len('test_factorial.tbc')+1+len('factorial')+1
+	);
 	wrt_hdr_natives(tbc,
-		'get_script_from_file',
-		'script_free',
-		'script_callfunc',
-		'script_get_global_by_name',
-		'script_push_value',
-		'script_pop_value',
-		'printf'
+		'Script_New',
+		'Script_BuildFromFile',
+		'Script_Free',
+		'Script_CallFunc',
+		'Script_GetGlobalByName',
+		'Script_PushValue',
+		'Script_PopValue',
+		'printf',
 	);
 	wrt_hdr_funcs(tbc, 'main', 0);
 	wrt_hdr_globals(tbc,
-		'myself', 0, 8, 0, # 8 bytes
-		'strFORMAT', 8, len('%u\n')+1, '%u\n', # 3 bytes
-		'strFILENAME', 12, len('test_factorial_recurs.tbc')+1, 'test_factorial_recurs.tbc', # 26 bytes
-		'strFUNCNAME', 38, len('factorial')+1, 'factorial'
+		'myself', 0, 8,
+		'strFORMAT', 8, len('%u\n')+1,
+		'strFILENAME', 12, len('test_factorial.tbc')+1,
+		'strFUNCNAME', 38, len('factorial')+1
 	);
 	wrt_hdr_flags(tbc);
+	wrt_global_values(tbc, 0, 8, '%u\n', 'test_factorial.tbc', 'factorial');
 	
 # main:
-	# TaghaScript *t = get_script_from_file("test_factorial_recurs.tbc");
+	# struct Tagha *t = calloc(1, sizeof(struct Tagha));
+	# struct Tagha *t = Script_BuildFromFile("test_factorial.tbc");
 	wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16); #12-29
 	
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rbp, -243); #30-51
+	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rip, -243); #30-51
 	wrt_one_op_code(tbc, opcodes.push, Register, rbs); #52-61
 	# returned ptr is in ras register.
 	wrt_callnat(tbc, Immediate, 1, 0); #62-75
@@ -662,19 +679,19 @@ with open('test_interplugin_com.tbc', 'wb+') as tbc:
 	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0); #130-147
 	wrt_non_op_code(tbc, opcodes.ret, 0); #148-149
 	
-	# script_push_value(t, (CValue){ .UInt32=7 });
+	# Script_PushValue(t, (CValue){ .UInt32=7 });
 	wrt_one_op_code(tbc, opcodes.push, Immediate, 7); #150
 	wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbp, -16);
 	wrt_callnat(tbc, Immediate, 2, 4);
 	
-	# script_callfunc(t, "factorial");
+	# Script_CallFunc(t, "factorial");
 	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rbp, -217);
 	
 	wrt_one_op_code(tbc, opcodes.push, Register, rbs);
 	wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbp, -16);
 	wrt_callnat(tbc, Immediate, 2, 2);
 	
-	# CValue val = script_pop_value(t);
+	# CValue val = Script_PopValue(t);
 	wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbp, -16);
 	wrt_callnat(tbc, Immediate, 1, 5);
 	
@@ -684,7 +701,7 @@ with open('test_interplugin_com.tbc', 'wb+') as tbc:
 	wrt_one_op_code(tbc, opcodes.push, Register, rbs);
 	wrt_callnat(tbc, Immediate, 2, 6);
 	
-	# script_free(t), t=NULL;
+	# Script_Free(t), t=NULL;
 	wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbp, -16);
 	wrt_callnat(tbc, Immediate, 1, 1);
 	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Immediate|EightBytes, rbp, 0, -16);
@@ -692,7 +709,7 @@ with open('test_interplugin_com.tbc', 'wb+') as tbc:
 	# return 0;
 	#wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0); #93-155
 	wrt_non_op_code(tbc, opcodes.ret, 0); #156-157
-
+'''
 
 
 
@@ -706,28 +723,28 @@ int main(int argc, char *argv[])
 }
 '''
 with open('test_main_args.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128);
+	wrt_hdr(tbc, 128, len('%s ==\n')+1);
 	wrt_hdr_natives(tbc, 'printf');
 	wrt_hdr_funcs(tbc, 'main', 0);
 	wrt_hdr_globals(tbc,
-		'strFORMAT', 0, len('%s\n')+1, '%s\n'
+		'strFORMAT', 0, len('%s ==\n')+1
 	);
 	wrt_hdr_flags(tbc);
+	wrt_global_values(tbc, '%s ==\n');
 	
 # main:
 	#wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16);
-	
+	pcaddr = 0;
 	# load address of argv, then add 1 and dereference it
-	#wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, rbs, rbp, 16);
-	wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, rbs, rbp, 24);
-	wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, rbs, rbs, 8);
-	wrt_one_op_code(tbc, opcodes.push, Register, rbs);
+	pcaddr += wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, rbs, rbp, 24);
+	pcaddr += wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, rbs, rbs, 8);
+	pcaddr += wrt_one_op_code(tbc, opcodes.push, Register, rbs);
 	
 	# load our string literal
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rcs, rbp, -95);
-	wrt_one_op_code(tbc, opcodes.push, Register, rcs);
+	pcaddr += wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rcs, rip, 26); # 76[rip]
+	pcaddr += wrt_one_op_code(tbc, opcodes.push, Register, rcs);
 	# printf("%s\n", argv[1]);
-	wrt_callnat(tbc, Immediate, 2, 0);
+	pcaddr += wrt_callnat(tbc, Immediate, 2, 0);
 	
 	#wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0);
-	wrt_non_op_code(tbc, opcodes.ret, 0); 
+	pcaddr += wrt_non_op_code(tbc, opcodes.ret, 0); #102
