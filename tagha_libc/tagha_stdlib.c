@@ -8,11 +8,10 @@ static void native_malloc(struct Tagha *pSys, union CValue params[], union CValu
 	const uint64_t ptrsize = params[0].UInt64;
 	
 	printf("native_malloc:: allocating size: %" PRIu64 "\n", ptrsize);
-	void *p = malloc(ptrsize);
-	if( p )
+	pRetval->Ptr = malloc(ptrsize);
+	if( pRetval->Ptr )
 		puts("native_malloc:: pointer is VALID.\n");
 	else puts("native_malloc:: returned \'p\' is NULL\n");
-	pRetval->Ptr = p;
 }
 
 /* void free(void *ptr); */

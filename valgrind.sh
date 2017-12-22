@@ -1,3 +1,3 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes -v ./TaghaClang test_interplugin_com.tbc
+valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes -v ./TaghaClang test_main_args.tbc

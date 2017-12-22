@@ -85,6 +85,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 #undef X
 #undef INSTR_SET
 	
+	// initialize our stack frame.
 	uint8_t *pMainRBP = pSys->m_Regs[rbp].UCharPtr;
 	pSys->m_Regs[rbp] = pSys->m_Regs[rsp];
 	
@@ -406,7 +407,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			}
 			nativestr = pSys->m_pstrNativeCalls[index];
 			
-			pfNative = (fnNative_t)(uintptr_t) map_find(pSys->m_pmapNatives, nativestr);
+			pfNative = (fnNative_t)(uintptr_t) Map_Get(pSys->m_pmapNatives, nativestr);
 			if( safemode and !pfNative ) {
 				Tagha_PrintErr(pSys, __func__, "exec_callnat :: native \'%s\' not registered!", nativestr);
 				pSys->m_Regs[rip].UInt32Ptr++;

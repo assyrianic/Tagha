@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 	// tested with test_3d_vecs.tbc
 	float vect[3]={ 10.f, 15.f, 20.f };
 	tagha->PushValue((CValue){ .Pointer=vect });
-	tagha->CallScriptFunc("vec_invert");
+	tagha->CallFunc("vec_invert");
 	printf("vect[3]=={ %f , %f, %f }\n", vect[0], vect[1], vect[2]);
 	*/
 	

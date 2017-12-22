@@ -54,14 +54,16 @@ void Tagha_Init(struct Tagha *pSys)
 		return;
 	
 	if( !pSys->m_pmapNatives ) {
-		pSys->m_pmapNatives = calloc(1, sizeof(struct hashmap));
+		pSys->m_pmapNatives = calloc(1, sizeof(struct Hashmap));
 		if( !pSys->m_pmapNatives )
 			printf("[%sTagha Init Error%s]: **** %sUnable to initialize Native Map%s ****\n", KRED, RESET, KGRN, RESET);
-		else map_init(pSys->m_pmapNatives);
+		else Map_Init(pSys->m_pmapNatives);
 	}
 	if( !pSys->m_pArgv ) {
 		pSys->m_iArgc = 0;
 		pSys->m_pArgv = calloc(pSys->m_iArgc+1, sizeof(union CValue));
+		if( !pSys->m_pArgv )
+			printf("[%sTagha Init Error%s]: **** %sUnable to initialize Command-line Args String Vector%s ****\n", KRED, RESET, KGRN, RESET);
 		pSys->m_pArgv[pSys->m_iArgc].Str = NULL;
 	}
 }
@@ -117,7 +119,7 @@ bool Tagha_RegisterNatives(struct Tagha *pSys, struct NativeInfo arrNatives[])
 		return false;
 	
 	for( struct NativeInfo *natives=arrNatives ; natives->pFunc and natives->strName ; natives++ )
-		map_insert(pSys->m_pmapNatives, natives->strName, (uintptr_t)natives->pFunc);
+		Map_Insert(pSys->m_pmapNatives, natives->strName, (uintptr_t)natives->pFunc);
 	return true;
 }
 
@@ -135,10 +137,14 @@ int32_t Tagha_RunScript(struct Tagha *pSys)
 		return -1;
 	}
 	
-	struct FuncTable *pFuncTable = (struct FuncTable *)(uintptr_t) map_find(pSys->m_pmapFuncs, "main");
+	// allow 'main' to be either 'main' or 'script_main'
+	struct FuncTable *pFuncTable = (struct FuncTable *)(uintptr_t) Map_Get(pSys->m_pmapFuncs, "main");
 	if( !pFuncTable ) {
-		Tagha_PrintErr(pSys, __func__, "function \'main\' doesn't exist!");
-		return -1;
+		pFuncTable = (struct FuncTable *)(uintptr_t) Map_Get(pSys->m_pmapFuncs, "script_main");
+		if( !pFuncTable ) {
+			Tagha_PrintErr(pSys, __func__, "function \'main\' doesn't exist!");
+			return -1;
+		}
 	}
 	
 	pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + pFuncTable->m_uiEntry;
@@ -170,7 +176,7 @@ int32_t Tagha_CallFunc(struct Tagha *restrict pSys, const char *restrict strFunc
 		return -1;
 	}
 	
-	struct FuncTable *pFuncTable = (struct FuncTable *)(uintptr_t) map_find(pSys->m_pmapFuncs, strFunc);
+	struct FuncTable *pFuncTable = (struct FuncTable *)(uintptr_t) Map_Get(pSys->m_pmapFuncs, strFunc);
 	if( !pFuncTable ) {
 		Tagha_PrintErr(pSys, __func__, "function \'%s\' doesn't exist!", strFunc);
 		return -1;
@@ -277,14 +283,14 @@ static uint32_t scripthdr_read_func_table(struct Tagha **ppSys, FILE **ppFile)
 		return bytecount;
 	
 	// allocate our function hashmap so we can call functions by name.
-	pSys->m_pmapFuncs = calloc(1, sizeof(struct hashmap));
+	pSys->m_pmapFuncs = calloc(1, sizeof(struct Hashmap));
 	if( !pSys->m_pmapFuncs ) {
 		printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Func Hashmap%s ****\n", KRED, RESET, KGRN, RESET);
 		Tagha_Free(pSys), *ppSys = NULL;
 		fclose(*ppFile), *ppFile=NULL;
 		return 0;
 	}
-	map_init(pSys->m_pmapFuncs);
+	Map_Init(pSys->m_pmapFuncs);
 	
 	// copy the function data from the header.
 	for( uint32_t i=0 ; i<pSys->m_uiFuncs ; i++ ) {
@@ -317,7 +323,7 @@ static uint32_t scripthdr_read_func_table(struct Tagha **ppSys, FILE **ppFile)
 		ignore_warns = fread(&pFuncData->m_uiEntry, sizeof(uint32_t), 1, *ppFile);
 		bytecount += sizeof(uint32_t);
 		printf("[Tagha Load Script] :: Copied Function name \'%s\' | offset: %" PRIu32 "\n", strFunc, pFuncData->m_uiEntry);
-		map_insert(pSys->m_pmapFuncs, strFunc, (uintptr_t)pFuncData);
+		Map_Insert(pSys->m_pmapFuncs, strFunc, (uintptr_t)pFuncData);
 		strFunc = NULL, pFuncData = NULL;
 	} /* for( uint32_t i=0 ; i<pSys->m_uiFuncs ; i++ ) */
 	pSys = NULL;
@@ -343,14 +349,14 @@ static uint32_t scripthdr_read_global_table(struct Tagha **ppSys, FILE **ppFile)
 		return bytecount;
 	
 	// script has globals, allocate our global var hashmap.
-	pSys->m_pmapGlobals = calloc(1, sizeof(struct hashmap));
+	pSys->m_pmapGlobals = calloc(1, sizeof(struct Hashmap));
 	if( !pSys->m_pmapGlobals ) {
 		printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Global Var Hashmap%s ****\n", KRED, RESET, KGRN, RESET);
 		Tagha_Free(pSys), *ppSys = NULL;
 		fclose(*ppFile), *ppFile=NULL;
 		return 0;
 	}
-	map_init(pSys->m_pmapGlobals);
+	Map_Init(pSys->m_pmapGlobals);
 	
 	for( uint32_t i=0 ; i<pSys->m_uiGlobals ; i++ ) {
 		uint32_t str_size;
@@ -386,7 +392,7 @@ static uint32_t scripthdr_read_global_table(struct Tagha **ppSys, FILE **ppFile)
 		printf("[Tagha Load Script] :: copied global var's name: \'%s\' | offset: %" PRIu32 "\n", strGlobal, pGlobalData->m_uiOffset);
 		
 		// insert the global var's table to our hashmap.
-		map_insert(pSys->m_pmapGlobals, strGlobal, (uintptr_t)pGlobalData);
+		Map_Insert(pSys->m_pmapGlobals, strGlobal, (uintptr_t)pGlobalData);
 		strGlobal = NULL, pGlobalData = NULL;
 	} /* for( uint32_t i=0 ; i<pSys->m_uiGlobals ; i++ ) */
 	pSys = NULL;
@@ -561,7 +567,7 @@ void Tagha_Free(struct Tagha *pSys)
 	}
 	// free our function hashmap and all the tables in it.
 	if( pSys->m_pmapFuncs ) {
-		struct kvnode
+		struct KeyNode
 			*kv = NULL,
 			*next = NULL
 		;
@@ -579,12 +585,12 @@ void Tagha_Free(struct Tagha *pSys)
 			}
 		}
 		pfreeData = NULL;
-		map_free(pSys->m_pmapFuncs);
+		Map_Free(pSys->m_pmapFuncs);
 		gfree((void **)&pSys->m_pmapFuncs);
 	}
 	// free our global var hashmap and all the tables in it.
 	if( pSys->m_pmapGlobals ) {
-		struct kvnode
+		struct KeyNode
 			*kv = NULL,
 			*next = NULL
 		;
@@ -602,14 +608,14 @@ void Tagha_Free(struct Tagha *pSys)
 			}
 		}
 		pfreeData = NULL;
-		map_free(pSys->m_pmapGlobals);
+		Map_Free(pSys->m_pmapGlobals);
 		gfree((void **)&pSys->m_pmapGlobals);
 	}
 	
 	// since the system's native hashmap has nothing allocated,
 	// we just free the hashmap's internal data and then the hashmap itself.
 	if( pSys->m_pmapNatives ) {
-		map_free(pSys->m_pmapNatives);
+		Map_Free(pSys->m_pmapNatives);
 		gfree((void **)&pSys->m_pmapNatives);
 	}
 	
@@ -646,7 +652,7 @@ void *Tagha_GetGlobalByName(struct Tagha *restrict pSys, const char *restrict st
 	if( !pSys or !pSys->m_pmapGlobals )
 		return p;
 	
-	struct DataTable *pGlobals = (struct DataTable *)(uintptr_t) map_find(pSys->m_pmapGlobals, strGlobalName);
+	struct DataTable *pGlobals = (struct DataTable *)(uintptr_t) Map_Get(pSys->m_pmapGlobals, strGlobalName);
 	if( pGlobals ) {
 		p = (pSys->m_pTextSegment+1) + pGlobals->m_uiOffset;
 		pGlobals=NULL;
@@ -658,7 +664,7 @@ bool Tagha_BindGlobalPtr(struct Tagha *restrict pSys, const char *restrict strGl
 	if( !pSys or !pSys->m_pmapGlobals or !strGlobalName )
 		return false;
 	
-	struct DataTable *pGlobals = (struct DataTable *)(uintptr_t) map_find(pSys->m_pmapGlobals, strGlobalName);
+	struct DataTable *pGlobals = (struct DataTable *)(uintptr_t) Map_Get(pSys->m_pmapGlobals, strGlobalName);
 	if( pGlobals ) {
 		*(uint64_t *)((pSys->m_pTextSegment+1) + pGlobals->m_uiOffset) = (uintptr_t)pVar;
 		if( pSys->m_bDebugMode )

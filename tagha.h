@@ -72,7 +72,7 @@ enum AddrMode {
 	Immediate	= 1,
 	Register	= 2,
 	RegIndirect	= 4,
-	IPRelative	= 8,
+	IPRelative	= 8,	// unused, will be replaced in the future with useful addr mode.
 	Byte		= 16,
 	TwoBytes	= 32,
 	FourBytes	= 64,
@@ -108,7 +108,7 @@ typedef struct FuncTable {
 
 typedef struct DataTable {
 	uint32_t	m_uiBytes;
-	uint32_t	m_uiOffset;	// TODO: make this into uint64?
+	uint32_t	m_uiOffset;	// TODO: make this into uint64? TODOTODO: replace with ptr?
 } DataTable;
 
 // memory format of the script file.
@@ -132,6 +132,18 @@ typedef struct TaghaHeader {
 	uint32_t m_uiTextOffset;
 } TaghaHeader;
 
+
+// for interactive mode.
+/*
+typedef struct TokenLine
+{
+	struct TokenLine *m_pNext;
+	uint8_t *m_ucBytecode;
+	uint32_t m_uiNumBytes;
+} TokenLine;
+*/
+
+
 struct Tagha {
 	union CValue m_Regs[regsize];
 	uint8_t
@@ -143,10 +155,10 @@ struct Tagha {
 	;
 	// stores a C/C++ function ptr using the script-side name as the key.
 	char **m_pstrNativeCalls;		// natives string table.
-	struct hashmap *m_pmapNatives;	// native C/C++ interface hashmap.
+	struct Hashmap *m_pmapNatives;	// native C/C++ interface hashmap.
 	
-	union CValue *m_pArgv;	// forcing char** to 8 bytes
-	struct hashmap
+	union CValue *m_pArgv;	// using union to force char** size to 8 bytes.
+	struct Hashmap
 		*m_pmapFuncs,		// stores the functions compiled to script.
 		*m_pmapGlobals		// stores global vars like string literals or variables.
 	;
@@ -175,6 +187,13 @@ If it's generic enough, somebody can come along later and build an OS on top
 * Yeah, if you want it to be embedable, then just write an interpreter for one language with hooks to call it in other languages. If you need to run other languages on top, then go for a VM.
 * 
 * There you go, so you don't even really need a VM to embed C
+* 
+* You don't embed clang though. You build a backend so you can write binaries for tagha in any llvm language. You write an os kernel for tagha, allowing the compiler to be run in the machine.
+* 
+* A kernel is a program written for the machine that manages the filesystem, peripherals, and programs running on the machine. With a kernel, you can run compiling systems that are entirely contained in the machine.
+Otherwise, you use an external machine to compile the binary, then move the binary into the machine to be run as its program.
+* 
+*  Probably the most direct way to do an REPL interpreter is to do the same thing you do compiling; collect text from the script until you have enough to compile a block of code and execute it. It'll be slow because it lacks optimization, but it shouldn't need many changes to your code.
 */
 
 

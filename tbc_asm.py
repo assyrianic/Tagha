@@ -39,54 +39,55 @@ rbp=12;
 rip=13;
 regsize=14;
 
-def wrt_hdr(f, stacksize:int, datasize:int) -> None:
-	f.write(0xC0DE.to_bytes(2, byteorder='little'));
-	f.write(stacksize.to_bytes(4, byteorder='little'));
-	f.write(datasize.to_bytes(4, byteorder='little'));
 
-def wrt_hdr_natives(f, *natives) -> None:
+def wrt_hdr(f:bytearray, stacksize:int, datasize:int) -> None:
+	f += 0xC0DE.to_bytes(2, byteorder='little');
+	f += stacksize.to_bytes(4, byteorder='little');
+	f += datasize.to_bytes(4, byteorder='little');
+
+def wrt_hdr_natives(f:bytearray, *natives) -> None:
 	i = 0;
 	numnatives = len(natives);
-	f.write(numnatives.to_bytes(4, byteorder='little'));
+	f += numnatives.to_bytes(4, byteorder='little');
 	while i<numnatives:
-		f.write((len(natives[i])+1).to_bytes(4, byteorder='little'));
-		f.write(natives[i].encode('utf-8'));
-		f.write(0x0.to_bytes(1, byteorder='little'));
+		f += (len(natives[i])+1).to_bytes(4, byteorder='little');
+		f += natives[i].encode('utf-8');
+		f += 0x0.to_bytes(1, byteorder='little');
 		i += 1;
 
-def wrt_hdr_funcs(f, *funcs) -> None:
+def wrt_hdr_funcs(f:bytearray, *funcs) -> None:
 	i = 0;
 	numfuncs = len(funcs) // 2;
-	f.write(numfuncs.to_bytes(4, byteorder='little'));
+	f += numfuncs.to_bytes(4, byteorder='little');
 	while i<numfuncs*2:
 		strsize = len(funcs[i])+1;
-		f.write(strsize.to_bytes(4, byteorder='little'));
-		f.write(funcs[i].encode('utf-8'));
-		f.write(0x0.to_bytes(1, byteorder='little'));
+		f += strsize.to_bytes(4, byteorder='little');
+		f += funcs[i].encode('utf-8');
+		f += 0x0.to_bytes(1, byteorder='little');
 		i += 1;
 		
-		f.write(funcs[i].to_bytes(4, byteorder='little'));
+		f += funcs[i].to_bytes(4, byteorder='little');
 		i += 1;
 
-def wrt_hdr_globals(f, *lGlobals) -> None:
+def wrt_hdr_globals(f:bytearray, *lGlobals) -> None:
 	i = 0;
 	numglobals = len(lGlobals) // 3;
-	f.write(numglobals.to_bytes(4, byteorder='little'));
+	f += numglobals.to_bytes(4, byteorder='little');
 	
 	while i<numglobals*3:
 		strsize = len(lGlobals[i])+1;
-		f.write(strsize.to_bytes(4, byteorder='little'));
-		f.write(lGlobals[i].encode('utf-8'));
-		f.write(0x0.to_bytes(1, byteorder='little'));
+		f += strsize.to_bytes(4, byteorder='little');
+		f += lGlobals[i].encode('utf-8');
+		f += 0x0.to_bytes(1, byteorder='little');
 		i += 1;
 		
 		# write the .data address of this global var.
-		f.write(lGlobals[i].to_bytes(4, byteorder='little'));
+		f += lGlobals[i].to_bytes(4, byteorder='little');
 		i += 1;
 		
 		# write how many bytes this data takes up.
 		bytecount = lGlobals[i];
-		f.write(lGlobals[i].to_bytes(4, byteorder='little'));
+		f += lGlobals[i].to_bytes(4, byteorder='little');
 		i += 1;
 	
 
@@ -100,84 +101,87 @@ def float64_to_int(val:float) -> int:
 	i = int.from_bytes(ba, byteorder='little');
 	return i;
 
-def wrt_global_values(f, *lstValues) -> None:
+def wrt_global_values(f:bytearray, *lstValues) -> None:
 	i = 0;
 	while i<len(lstValues):
 		if type(lstValues[i]) is str:
-			f.write(lstValues[i].encode('utf-8'));
-			f.write(0x0.to_bytes(1, byteorder='little'));
+			f += lstValues[i].encode('utf-8');
+			f += 0x0.to_bytes(1, byteorder='little');
 		elif type(lstValues[i]) is int:
 			val = lstValues[i];
 			i += 1;
-			f.write(val.to_bytes(lstValues[i], byteorder='little'));
+			f += val.to_bytes(lstValues[i], byteorder='little');
 		elif type(lstValues[i]) is float:
 			fval = lstValues[i];
 			i += 1;
 			if lstValues[i] == 4:
-				f.write(float32_to_int(fval).to_bytes(4, byteorder='little'));
+				f += float32_to_int(fval).to_bytes(4, byteorder='little');
 			else:
-				f.write(float64_to_int(fval).to_bytes(8, byteorder='little'));
+				f += float64_to_int(fval).to_bytes(8, byteorder='little');
 		i += 1;
 
-def wrt_hdr_flags(f, modes=3) -> None:
+def wrt_hdr_flags(f:bytearray, modes=3) -> None:
 	# 1 for safemode, 2 for debugmode, 3 for both.
-	f.write(modes.to_bytes(1, byteorder='little'));
+	f += modes.to_bytes(1, byteorder='little');
 
 
-def wrt_non_op_code(f, opcode:int, addrmode:int) -> int:
-	f.write(opcode.to_bytes(1, byteorder='little'));
-	f.write(addrmode.to_bytes(1, byteorder='little'));
+def wrt_non_op_code(f:bytearray, opcode:int, addrmode:int) -> int:
+	f += opcode.to_bytes(1, byteorder='little');
+	f += addrmode.to_bytes(1, byteorder='little');
 	return 2;
 
-def wrt_one_op_code(f, opcode:int, addrmode:int, operand:int, offset=None) -> int:
+def wrt_one_op_code(f:bytearray, opcode:int, addrmode:int, operand:int, offset=None) -> int:
 	InstrAddr = 0;
-	f.write(opcode.to_bytes(1, byteorder='little'));
-	f.write(addrmode.to_bytes(1, byteorder='little'));
+	f += opcode.to_bytes(1, byteorder='little');
+	f += addrmode.to_bytes(1, byteorder='little');
 	InstrAddr += 2;
 	if operand != None:
-		f.write(operand.to_bytes(8, byteorder='little'));
+		f += operand.to_bytes(8, byteorder='little');
 		InstrAddr += 8;
 	if offset != None:
 		ba = bytearray(struct.pack("i", offset));
 		i = int.from_bytes(ba, byteorder='little');
-		f.write(i.to_bytes(4, byteorder='little'));
+		f += i.to_bytes(4, byteorder='little');
 		InstrAddr += 4;
 	return InstrAddr;
 
-def wrt_two_op_code(f, opcode:int, addrmode:int, operand1:int, operand2:int, offset=None) -> int:
+def wrt_two_op_code(f:bytearray, opcode:int, addrmode:int, operand1:int, operand2:int, offset=None) -> int:
 	InstrAddr = 0;
-	f.write(opcode.to_bytes(1, byteorder='little'));
-	f.write(addrmode.to_bytes(1, byteorder='little'));
+	f += opcode.to_bytes(1, byteorder='little');
+	f += addrmode.to_bytes(1, byteorder='little');
 	InstrAddr += 2;
 	if operand1 != None:
-		f.write(operand1.to_bytes(8, byteorder='little'));
+		f += operand1.to_bytes(8, byteorder='little');
 		InstrAddr += 8;
 	if operand2 != None:
-		f.write(operand2.to_bytes(8, byteorder='little'));
+		f += operand2.to_bytes(8, byteorder='little');
 		InstrAddr += 8;
 	if offset != None:
 		ba = bytearray(struct.pack("i", offset));
 		i = int.from_bytes(ba, byteorder='little');
-		f.write(i.to_bytes(4, byteorder='little'));
+		f += i.to_bytes(4, byteorder='little');
 		InstrAddr += 4;
 	return InstrAddr;
 
-def wrt_callnat(f, addrmode:int, argcount:int, operand:int, offset=None) -> int:
+def wrt_callnat(f:bytearray, addrmode:int, argcount:int, operand:int, offset=None) -> int:
 	InstrAddr = 0;
-	f.write(opcodes.callnat.to_bytes(1, byteorder='little'));
-	f.write(addrmode.to_bytes(1, byteorder='little'));
+	f += opcodes.callnat.to_bytes(1, byteorder='little');
+	f += addrmode.to_bytes(1, byteorder='little');
 	InstrAddr += 2;
 	if operand != None:
-		f.write(operand.to_bytes(8, byteorder='little'));
+		f += operand.to_bytes(8, byteorder='little');
 		InstrAddr += 8;
 	if offset != None:
 		ba = bytearray(struct.pack("i", offset));
 		i = int.from_bytes(ba, byteorder='little');
-		f.write(i.to_bytes(4, byteorder='little'));
+		f += i.to_bytes(4, byteorder='little');
 		InstrAddr += 4;
-	f.write(argcount.to_bytes(4, byteorder='little'));
+	f += argcount.to_bytes(4, byteorder='little');
 	InstrAddr += 4;
 	return InstrAddr;
+
+
+
 
 '''
 unsigned i = 0x0a0b0c0d;
@@ -187,17 +191,19 @@ int main()
 }
 '''
 with open('test_endian.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128, 4);
-	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'main', 0);
-	wrt_hdr_globals(tbc, 'i', 0, 4);
-	wrt_hdr_flags(tbc);
-	wrt_global_values(tbc, 0x0a0b0c0d, 4);
+	code = bytearray();
+	wrt_hdr(code, 128, 4);
+	wrt_hdr_natives(code);
+	wrt_hdr_funcs(code, 'main', 0);
+	wrt_hdr_globals(code, 'i', 0, 4);
+	wrt_hdr_flags(code);
+	wrt_global_values(code, 0x0a0b0c0d, 4);
 # main:
 	# movr ras, 0
 	# ret
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0);
-	wrt_non_op_code(tbc, opcodes.ret, 0);
+	wrt_two_op_code(code, opcodes.movr, Immediate, ras, 0);
+	wrt_non_op_code(code, opcodes.ret, 0);
+	tbc.write(code);
 
 
 '''
@@ -209,35 +215,37 @@ int main()
 }
 '''
 with open('test_floatops.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128, 0);
-	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'main', 0);
-	wrt_hdr_globals(tbc);
-	wrt_hdr_flags(tbc);
-	wrt_global_values(tbc);
+	code = bytearray();
+	wrt_hdr(code, 128, 0);
+	wrt_hdr_natives(code);
+	wrt_hdr_funcs(code, 'main', 0);
+	wrt_hdr_globals(code);
+	wrt_hdr_flags(code);
+	wrt_global_values(code);
 	
 # main:
 	# mov rhs, 2.f
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, rhs, float32_to_int(2.0));
+	wrt_two_op_code(code, opcodes.movr, Immediate, rhs, float32_to_int(2.0));
 	# mov rhs, 4.f
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, rfs, float32_to_int(4.0));
+	wrt_two_op_code(code, opcodes.movr, Immediate, rfs, float32_to_int(4.0));
 	
 	# extend rhs and rfs to double.
 	# all register-based arithmetic uses 64-bit ints/floats.
 	# to use smaller sizes, you have to use pointers.
-	wrt_one_op_code(tbc, opcodes.float2dbl, Register, rhs);
-	wrt_one_op_code(tbc, opcodes.float2dbl, Register, rfs);
+	wrt_one_op_code(code, opcodes.float2dbl, Register, rhs);
+	wrt_one_op_code(code, opcodes.float2dbl, Register, rfs);
 	
 	# fadd rfs, rhs
-	wrt_two_op_code(tbc, opcodes.faddr, Register, rfs, rhs);
+	wrt_two_op_code(code, opcodes.faddr, Register, rfs, rhs);
 	
 	# truncate rfs to float.
-	wrt_one_op_code(tbc, opcodes.dbl2float, Register, rfs);
+	wrt_one_op_code(code, opcodes.dbl2float, Register, rfs);
 	
 	# movr ras, 0
 	# ret
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0);
-	wrt_non_op_code(tbc, opcodes.ret, 0);
+	wrt_two_op_code(code, opcodes.movr, Immediate, ras, 0);
+	wrt_non_op_code(code, opcodes.ret, 0);
+	tbc.write(code);
 
 
 '''
@@ -249,39 +257,41 @@ int main()
 }
 '''
 with open('test_pointers.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128, 0);
-	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'main', 0);
-	wrt_hdr_globals(tbc);
-	wrt_hdr_flags(tbc);
-	wrt_global_values(tbc);
+	code = bytearray();
+	wrt_hdr(code, 128, 0);
+	wrt_hdr_natives(code);
+	wrt_hdr_funcs(code, 'main', 0);
+	wrt_hdr_globals(code);
+	wrt_hdr_flags(code);
+	wrt_global_values(code);
 	
 # main:
 # int i = 5;
 	# sub rsp, 16 | subq 16, %rsp
-	wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16);
+	wrt_two_op_code(code, opcodes.usubr, Immediate, rsp, 16);
 	
 	# mov DWORD PTR [rbp-12], 5 | movl 5, -12(%rbp)
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, 5, -12); # 12 is offset.
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, 5, -12); # 12 is offset.
 	
 # int *p = &i;
 	# lea ras, [rbp-12] | leaq -12(%rbp), %ras
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -12);
+	wrt_two_op_code(code, opcodes.lea, RegIndirect, ras, rbp, -12);
 	
 	# mov QWORD PTR [rbp-8], ras | movq %ras, -8(%rbp)
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Register|EightBytes, rbp, ras, -8);
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Register|EightBytes, rbp, ras, -8);
 	
 # *p = 127;
 	# mov ras, QWORD PTR [rbp-8] | movq -8(%rbp), %ras
-	wrt_two_op_code(tbc, opcodes.movr, RegIndirect, ras, rbp, -8);
+	wrt_two_op_code(code, opcodes.movr, RegIndirect, ras, rbp, -8);
 	
 	# mov DWORD PTR [ras], 127 | movl #127, (%ras)
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Immediate|FourBytes, ras, 127, 0);
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Immediate|FourBytes, ras, 127, 0);
 	
 	# mov ras, 0 | movq #0, %ras
 	# ret
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0);
-	wrt_non_op_code(tbc, opcodes.ret, 0);
+	wrt_two_op_code(code, opcodes.movr, Immediate, ras, 0);
+	wrt_non_op_code(code, opcodes.ret, 0);
+	tbc.write(code);
 
 
 '''
@@ -291,35 +301,37 @@ int main()
 }
 '''
 with open('test_puts_helloworld.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 0, len('hello world\n')+1);
-	wrt_hdr_natives(tbc, 'puts');
-	wrt_hdr_funcs(tbc, 'main', 0);
-	wrt_hdr_globals(tbc, 'str00001', 0, len('hello world\n')+1);
-	wrt_hdr_flags(tbc);
-	wrt_global_values(tbc, 'hello world\n');
+	code = bytearray();
+	wrt_hdr(code, 0, len('hello world\n')+1);
+	wrt_hdr_natives(code, 'puts');
+	wrt_hdr_funcs(code, 'main', 0);
+	wrt_hdr_globals(code, 'str00001', 0, len('hello world\n')+1);
+	wrt_hdr_flags(code);
+	wrt_global_values(code, 'hello world\n');
 	
 # main:
 	
 # puts("hello world\n");
 	# sub rsp, 16 | subq 16, %rsp
-	wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16);
+	wrt_two_op_code(code, opcodes.usubr, Immediate, rsp, 16);
 	
 	# lea ras, [rbp-127] ;load the offset of the string to ras
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rip, 44);
+	wrt_two_op_code(code, opcodes.lea, RegIndirect, rbs, rip, 44);
 	
 	# mov QWORD PTR [rbp-16], ras
 	# "push" the address in 'ras' to stack.
 	# calling natives can only use values from the stack.
 	# values from the stack are ALWAYS popped for natives.
 	#wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Register|EightBytes, rbp, rbs, -16);
-	wrt_one_op_code(tbc, opcodes.push, Register, rbs);
+	wrt_one_op_code(code, opcodes.push, Register, rbs);
 	
-	wrt_callnat(tbc, Immediate, 1, 0);
+	wrt_callnat(code, Immediate, 1, 0);
 	
 	# movr ras, 0
 	# ret
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0);
-	wrt_non_op_code(tbc, opcodes.ret, 0);
+	wrt_two_op_code(code, opcodes.movr, Immediate, ras, 0);
+	wrt_non_op_code(code, opcodes.ret, 0);
+	tbc.write(code);
 
 
 
@@ -332,45 +344,47 @@ uint32_t factorial(const uint32_t i)
 }
 '''
 with open('test_factorial.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 512, 0);
-	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'factorial', 0);
-	wrt_hdr_globals(tbc);
-	wrt_hdr_flags(tbc);
-	wrt_global_values(tbc);
+	code = bytearray();
+	wrt_hdr(code, 512, 0);
+	wrt_hdr_natives(code);
+	wrt_hdr_funcs(code, 'factorial', 0);
+	wrt_hdr_globals(code);
+	wrt_hdr_flags(code);
+	wrt_global_values(code);
 	
 # factorial:	# CHANGE TO USE STACK AND OTHER REGISTERS.
 	# sub rsp, 16
-	wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16); #0-17
+	wrt_two_op_code(code, opcodes.usubr, Immediate, rsp, 16); #0-17
 	
 # if( i<=1 )
 	# cmp DWORD PTR [rbp+16], 1
-	wrt_two_op_code(tbc, opcodes.ucmpm, RegIndirect|Immediate|FourBytes, rbp, 1, 16); #18-39
+	wrt_two_op_code(code, opcodes.ucmpm, RegIndirect|Immediate|FourBytes, rbp, 1, 16); #18-39
 	# jz offset:70
-	wrt_one_op_code(tbc, opcodes.jnz, Immediate, 70); #40-49
+	wrt_one_op_code(code, opcodes.jnz, Immediate, 70); #40-49
 	
 # return 1;
 	# mov ras, 1
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 1); #50-67
+	wrt_two_op_code(code, opcodes.movr, Immediate, ras, 1); #50-67
 	# ret
-	wrt_non_op_code(tbc, opcodes.ret, 0); #68-69
+	wrt_non_op_code(code, opcodes.ret, 0); #68-69
 	
 # return i * factorial(i-1);
 	# mov ras, DWORD PTR [rbp+16]
-	wrt_two_op_code(tbc, opcodes.movr, RegIndirect|FourBytes, ras, rbp, 16); #70
+	wrt_two_op_code(code, opcodes.movr, RegIndirect|FourBytes, ras, rbp, 16); #70
 	
 	# sub ras, 1
-	wrt_two_op_code(tbc, opcodes.usubr, Immediate, ras, 1);
+	wrt_two_op_code(code, opcodes.usubr, Immediate, ras, 1);
 	
 	# push ras
-	wrt_one_op_code(tbc, opcodes.push, Register, ras);
+	wrt_one_op_code(code, opcodes.push, Register, ras);
 	
 	# call factorial
-	wrt_one_op_code(tbc, opcodes.call, Immediate, 0);
+	wrt_one_op_code(code, opcodes.call, Immediate, 0);
 	
 	# mul ras, DWORD PTR [rbp+16], ret
-	wrt_two_op_code(tbc, opcodes.umulr, RegIndirect|FourBytes, ras, rbp, 16);
-	wrt_non_op_code(tbc, opcodes.ret, 0);
+	wrt_two_op_code(code, opcodes.umulr, RegIndirect|FourBytes, ras, rbp, 16);
+	wrt_non_op_code(code, opcodes.ret, 0);
+	tbc.write(code);
 
 
 '''
@@ -386,33 +400,35 @@ void main(void)
 }
 '''
 with open('test_native.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128, 0);
-	wrt_hdr_natives(tbc, 'test');
-	wrt_hdr_funcs(tbc, 'main', 0);
-	wrt_hdr_globals(tbc);
-	wrt_hdr_flags(tbc);
-	wrt_global_values(tbc);
+	code = bytearray();
+	wrt_hdr(code, 128, 0);
+	wrt_hdr_natives(code, 'test');
+	wrt_hdr_funcs(code, 'main', 0);
+	wrt_hdr_globals(code);
+	wrt_hdr_flags(code);
+	wrt_global_values(code);
 	
 # main:
 	# sub rsp, 16
-	wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16);
+	wrt_two_op_code(code, opcodes.usubr, Immediate, rsp, 16);
 	
 	# mov dword ptr [rbp-4], 50
 	# mov dword ptr [rbp-8], 100
 	# mov dword ptr [rbp-12], 300.f
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, 50, -4);
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, 100, -8);
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, float32_to_int(300.0), -12);
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, 50, -4);
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, 100, -8);
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, float32_to_int(300.0), -12);
 	
 	# lea ras, [rbp-12]
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -12);
+	wrt_two_op_code(code, opcodes.lea, RegIndirect, ras, rbp, -12);
 	# push ras
-	wrt_one_op_code(tbc, opcodes.push, Register, ras);
+	wrt_one_op_code(code, opcodes.push, Register, ras);
 	# callnat test
-	wrt_callnat(tbc, Immediate, 1, 0);
+	wrt_callnat(code, Immediate, 1, 0);
 	
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0);
-	wrt_non_op_code(tbc, opcodes.ret, 0);
+	wrt_two_op_code(code, opcodes.movr, Immediate, ras, 0);
+	wrt_non_op_code(code, opcodes.ret, 0);
+	tbc.write(code);
 
 
 '''
@@ -424,37 +440,39 @@ void main(void)
 }
 '''
 with open('test_native_funcptr.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128, 0);
-	wrt_hdr_natives(tbc, 'test');
-	wrt_hdr_funcs(tbc, 'main', 0);
-	wrt_hdr_globals(tbc);
-	wrt_hdr_flags(tbc);
-	wrt_global_values(tbc);
+	code = bytearray();
+	wrt_hdr(code, 128, 0);
+	wrt_hdr_natives(code, 'test');
+	wrt_hdr_funcs(code, 'main', 0);
+	wrt_hdr_globals(code);
+	wrt_hdr_flags(code);
+	wrt_global_values(code);
 	
 # main:
 	# sub rsp, 32
-	wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 32);
+	wrt_two_op_code(code, opcodes.usubr, Immediate, rsp, 32);
 	
 	# mov dword ptr [rbp-4], 50
 	# mov dword ptr [rbp-8], 100
 	# mov dword ptr [rbp-12], 300.f
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, 50, -4);
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, 100, -8);
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, float32_to_int(300.0), -12);
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Immediate|EightBytes, rbp, 0, -20);
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, 50, -4);
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, 100, -8);
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, float32_to_int(300.0), -12);
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Immediate|EightBytes, rbp, 0, -20);
 	
 	# lea ras, [rbp-12]
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -12);
+	wrt_two_op_code(code, opcodes.lea, RegIndirect, ras, rbp, -12);
 	# push ras
-	wrt_one_op_code(tbc, opcodes.push, Register, ras);
+	wrt_one_op_code(code, opcodes.push, Register, ras);
 	# mov ras, 0
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0);
+	wrt_two_op_code(code, opcodes.movr, Immediate, ras, 0);
 	
 	# callnat ras
-	wrt_callnat(tbc, Register, 1, ras);
+	wrt_callnat(code, Register, 1, ras);
 	
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0);
-	wrt_non_op_code(tbc, opcodes.ret, 0);
+	wrt_two_op_code(code, opcodes.movr, Immediate, ras, 0);
+	wrt_non_op_code(code, opcodes.ret, 0);
+	tbc.write(code);
 
 
 '''
@@ -464,17 +482,19 @@ int main()
 }
 '''
 with open('test_loadgbl.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128, 4);
-	wrt_hdr_natives(tbc, 'getglobal');
-	wrt_hdr_funcs(tbc, 'main', 0);
-	wrt_hdr_globals(tbc, 'i', 0, 4);
-	wrt_hdr_flags(tbc);
-	wrt_global_values(tbc, 4294967196, 4);
+	code = bytearray();
+	wrt_hdr(code, 128, 4);
+	wrt_hdr_natives(code, 'getglobal');
+	wrt_hdr_funcs(code, 'main', 0);
+	wrt_hdr_globals(code, 'i', 0, 4);
+	wrt_hdr_flags(code);
+	wrt_global_values(code, 4294967196, 4);
 	
 # main:
-	wrt_callnat(tbc, Immediate, 0, 0);
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0);
-	wrt_non_op_code(tbc, opcodes.ret, 0);
+	wrt_callnat(code, Immediate, 0, 0);
+	wrt_two_op_code(code, opcodes.movr, Immediate, ras, 0);
+	wrt_non_op_code(code, opcodes.ret, 0);
+	tbc.write(code);
 
 
 
@@ -494,61 +514,63 @@ int main()
 }
 '''
 with open('test_3d_vecs.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128, 0);
-	wrt_hdr_natives(tbc);
-	wrt_hdr_funcs(tbc, 'main', 0, 'VecInvert', 146);
-	wrt_hdr_globals(tbc);
-	wrt_hdr_flags(tbc);
-	wrt_global_values(tbc);
+	code = bytearray();
+	wrt_hdr(code, 128, 0);
+	wrt_hdr_natives(code);
+	wrt_hdr_funcs(code, 'main', 0, 'VecInvert', 146);
+	wrt_hdr_globals(code);
+	wrt_hdr_flags(code);
+	wrt_global_values(code);
 	
 # main:
 	# sub rsp, 16
-	wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16); #12-29
+	wrt_two_op_code(code, opcodes.usubr, Immediate, rsp, 16); #12-29
 	
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, float32_to_int(2.0), -16); # 30-51
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, float32_to_int(3.0), -12); # 52-73
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, float32_to_int(4.0), -8); #74-95
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, float32_to_int(2.0), -16); # 30-51
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, float32_to_int(3.0), -12); # 52-73
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Immediate|FourBytes, rbp, float32_to_int(4.0), -8); #74-95
 	
 	# lea ras, [rbp-16]
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -16); #96-117
+	wrt_two_op_code(code, opcodes.lea, RegIndirect, ras, rbp, -16); #96-117
 	# push ras
-	wrt_one_op_code(tbc, opcodes.push, Register, ras); #118-127
+	wrt_one_op_code(code, opcodes.push, Register, ras); #118-127
 	
-	wrt_one_op_code(tbc, opcodes.call, Immediate, 146); #128-137
+	wrt_one_op_code(code, opcodes.call, Immediate, 146); #128-137
 	
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0); #138-155
-	wrt_non_op_code(tbc, opcodes.ret, 0); #156-157
+	wrt_two_op_code(code, opcodes.movr, Immediate, ras, 0); #138-155
+	wrt_non_op_code(code, opcodes.ret, 0); #156-157
 	
 # VecInvert:
 	# v[0] = -v[0];
 	
 	# load the vector's pointer off rbp to ras
-	wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, ras, rbp, 16);
+	wrt_two_op_code(code, opcodes.movr, RegIndirect|EightBytes, ras, rbp, 16);
 	# load the address in ras to rfs
-	wrt_two_op_code(tbc, opcodes.movr, RegIndirect|FourBytes, rfs, ras, 0);
+	wrt_two_op_code(code, opcodes.movr, RegIndirect|FourBytes, rfs, ras, 0);
 	
-	wrt_one_op_code(tbc, opcodes.float2dbl, Register, rfs);
-	wrt_one_op_code(tbc, opcodes.fneg, Register, rfs);
-	wrt_one_op_code(tbc, opcodes.dbl2float, Register, rfs);
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Register|FourBytes, ras, rfs, 0);
+	wrt_one_op_code(code, opcodes.float2dbl, Register, rfs);
+	wrt_one_op_code(code, opcodes.fneg, Register, rfs);
+	wrt_one_op_code(code, opcodes.dbl2float, Register, rfs);
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Register|FourBytes, ras, rfs, 0);
 	
 	# v[1] = -v[1];
-	wrt_two_op_code(tbc, opcodes.movr, RegIndirect|FourBytes, rfs, ras, 4);
+	wrt_two_op_code(code, opcodes.movr, RegIndirect|FourBytes, rfs, ras, 4);
 	
-	wrt_one_op_code(tbc, opcodes.float2dbl, Register, rfs);
-	wrt_one_op_code(tbc, opcodes.fneg, Register, rfs);
-	wrt_one_op_code(tbc, opcodes.dbl2float, Register, rfs);
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Register|FourBytes, ras, rfs, 4);
+	wrt_one_op_code(code, opcodes.float2dbl, Register, rfs);
+	wrt_one_op_code(code, opcodes.fneg, Register, rfs);
+	wrt_one_op_code(code, opcodes.dbl2float, Register, rfs);
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Register|FourBytes, ras, rfs, 4);
 	
 	# v[2] = -v[2];
-	wrt_two_op_code(tbc, opcodes.movr, RegIndirect|FourBytes, rfs, ras, 8);
+	wrt_two_op_code(code, opcodes.movr, RegIndirect|FourBytes, rfs, ras, 8);
 	
-	wrt_one_op_code(tbc, opcodes.float2dbl, Register, rfs);
-	wrt_one_op_code(tbc, opcodes.fneg, Register, rfs);
-	wrt_one_op_code(tbc, opcodes.dbl2float, Register, rfs);
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Register|FourBytes, ras, rfs, 8);
+	wrt_one_op_code(code, opcodes.float2dbl, Register, rfs);
+	wrt_one_op_code(code, opcodes.fneg, Register, rfs);
+	wrt_one_op_code(code, opcodes.dbl2float, Register, rfs);
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Register|FourBytes, ras, rfs, 8);
 	
-	wrt_non_op_code(tbc, opcodes.ret, 0);
+	wrt_non_op_code(code, opcodes.ret, 0);
+	tbc.write(code);
 
 
 
@@ -564,40 +586,42 @@ int main()
 }
 '''
 with open('test_stdin.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 512, 8+len('Please enter a long string: ')+1);
-	wrt_hdr_natives(tbc, 'puts', 'fgets');
-	wrt_hdr_funcs(tbc, 'main', 0);
-	wrt_hdr_globals(tbc,
+	code = bytearray();
+	wrt_hdr(code, 512, 8+len('Please enter a long string: ')+1);
+	wrt_hdr_natives(code, 'puts', 'fgets');
+	wrt_hdr_funcs(code, 'main', 0);
+	wrt_hdr_globals(code,
 			'stdin',	0, 8,
 			'str00001',	8, len('Please enter a long string: ')+1
 	);
-	wrt_hdr_flags(tbc);
-	wrt_global_values(tbc, 0, 8, 'Please enter a long string: ');
+	wrt_hdr_flags(code);
+	wrt_global_values(code, 0, 8, 'Please enter a long string: ');
 	pcaddr = 0;
 # main:
 	# char string[256];
-	pcaddr += wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 256);
+	pcaddr += wrt_two_op_code(code, opcodes.usubr, Immediate, rsp, 256);
 	
 	# puts("Please enter a long string: ");
-	pcaddr += wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rip, 144); # 40[rip]
-	pcaddr += wrt_one_op_code(tbc, opcodes.push, Register, rbs);
-	pcaddr += wrt_callnat(tbc, Immediate, 1, 0);
+	pcaddr += wrt_two_op_code(code, opcodes.lea, RegIndirect, rbs, rip, 144); # 40[rip]
+	pcaddr += wrt_one_op_code(code, opcodes.push, Register, rbs);
+	pcaddr += wrt_callnat(code, Immediate, 1, 0);
 	# fgets(string, 256, stdin);
 	# stdin
-	pcaddr += wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rip, 90); # 86[rip]
-	pcaddr += wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbs, 0);
+	pcaddr += wrt_two_op_code(code, opcodes.lea, RegIndirect, rbs, rip, 90); # 86[rip]
+	pcaddr += wrt_one_op_code(code, opcodes.push, RegIndirect, rbs, 0);
 	
 	# 256
-	pcaddr += wrt_one_op_code(tbc, opcodes.push, Immediate, 256);
+	pcaddr += wrt_one_op_code(code, opcodes.push, Immediate, 256);
 	
 	# string - lea ras, [rbp-256]
-	pcaddr += wrt_two_op_code(tbc, opcodes.lea, RegIndirect, ras, rbp, -256);
+	pcaddr += wrt_two_op_code(code, opcodes.lea, RegIndirect, ras, rbp, -256);
 	
-	pcaddr += wrt_one_op_code(tbc, opcodes.push, Register, ras);
-	pcaddr += wrt_callnat(tbc, Immediate, 3, 1);
+	pcaddr += wrt_one_op_code(code, opcodes.push, Register, ras);
+	pcaddr += wrt_callnat(code, Immediate, 3, 1);
 	
-	pcaddr += wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0);
-	pcaddr += wrt_non_op_code(tbc, opcodes.ret, 0);
+	pcaddr += wrt_two_op_code(code, opcodes.movr, Immediate, ras, 0);
+	pcaddr += wrt_non_op_code(code, opcodes.ret, 0);
+	tbc.write(code);
 
 
 
@@ -636,10 +660,11 @@ int main()
 '''
 '''
 with open('test_interplugin_com.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 256,
+	code = bytearray();
+	wrt_hdr(code, 256,
 		8+len('%u\n')+1+len('test_factorial.tbc')+1+len('factorial')+1
 	);
-	wrt_hdr_natives(tbc,
+	wrt_hdr_natives(code,
 		'Script_New',
 		'Script_BuildFromFile',
 		'Script_Free',
@@ -649,66 +674,67 @@ with open('test_interplugin_com.tbc', 'wb+') as tbc:
 		'Script_PopValue',
 		'printf',
 	);
-	wrt_hdr_funcs(tbc, 'main', 0);
-	wrt_hdr_globals(tbc,
+	wrt_hdr_funcs(code, 'main', 0);
+	wrt_hdr_globals(code,
 		'myself', 0, 8,
 		'strFORMAT', 8, len('%u\n')+1,
 		'strFILENAME', 12, len('test_factorial.tbc')+1,
 		'strFUNCNAME', 38, len('factorial')+1
 	);
-	wrt_hdr_flags(tbc);
-	wrt_global_values(tbc, 0, 8, '%u\n', 'test_factorial.tbc', 'factorial');
+	wrt_hdr_flags(code);
+	wrt_global_values(code, 0, 8, '%u\n', 'test_factorial.tbc', 'factorial');
 	
 # main:
 	# struct Tagha *t = calloc(1, sizeof(struct Tagha));
 	# struct Tagha *t = Script_BuildFromFile("test_factorial.tbc");
-	wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16); #12-29
+	wrt_two_op_code(code, opcodes.usubr, Immediate, rsp, 16); #12-29
 	
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rip, -243); #30-51
-	wrt_one_op_code(tbc, opcodes.push, Register, rbs); #52-61
+	wrt_two_op_code(code, opcodes.lea, RegIndirect, rbs, rip, -243); #30-51
+	wrt_one_op_code(code, opcodes.push, Register, rbs); #52-61
 	# returned ptr is in ras register.
-	wrt_callnat(tbc, Immediate, 1, 0); #62-75
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Register|EightBytes, rbp, ras, -16); #76-97
+	wrt_callnat(code, Immediate, 1, 0); #62-75
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Register|EightBytes, rbp, ras, -16); #76-97
 	
 	# if( !t )
-	wrt_two_op_code(tbc, opcodes.ucmpm, RegIndirect|Immediate|EightBytes, rbp, 0, -16); #98-119
+	wrt_two_op_code(code, opcodes.ucmpm, RegIndirect|Immediate|EightBytes, rbp, 0, -16); #98-119
 	# jump if t is not 0
-	wrt_one_op_code(tbc, opcodes.jnz, Immediate, 138); #120-129
+	wrt_one_op_code(code, opcodes.jnz, Immediate, 138); #120-129
 	
 	# return 0;
-	wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0); #130-147
-	wrt_non_op_code(tbc, opcodes.ret, 0); #148-149
+	wrt_two_op_code(code, opcodes.movr, Immediate, ras, 0); #130-147
+	wrt_non_op_code(code, opcodes.ret, 0); #148-149
 	
 	# Script_PushValue(t, (CValue){ .UInt32=7 });
-	wrt_one_op_code(tbc, opcodes.push, Immediate, 7); #150
-	wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbp, -16);
-	wrt_callnat(tbc, Immediate, 2, 4);
+	wrt_one_op_code(code, opcodes.push, Immediate, 7); #150
+	wrt_one_op_code(code, opcodes.push, RegIndirect, rbp, -16);
+	wrt_callnat(code, Immediate, 2, 4);
 	
 	# Script_CallFunc(t, "factorial");
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rbp, -217);
+	wrt_two_op_code(code, opcodes.lea, RegIndirect, rbs, rbp, -217);
 	
-	wrt_one_op_code(tbc, opcodes.push, Register, rbs);
-	wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbp, -16);
-	wrt_callnat(tbc, Immediate, 2, 2);
+	wrt_one_op_code(code, opcodes.push, Register, rbs);
+	wrt_one_op_code(code, opcodes.push, RegIndirect, rbp, -16);
+	wrt_callnat(code, Immediate, 2, 2);
 	
 	# CValue val = Script_PopValue(t);
-	wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbp, -16);
-	wrt_callnat(tbc, Immediate, 1, 5);
+	wrt_one_op_code(code, opcodes.push, RegIndirect, rbp, -16);
+	wrt_callnat(code, Immediate, 1, 5);
 	
 	# printf("%u\n", val.UInt32);
-	wrt_one_op_code(tbc, opcodes.push, Register, ras);
-	wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rbs, rbp, -247);
-	wrt_one_op_code(tbc, opcodes.push, Register, rbs);
-	wrt_callnat(tbc, Immediate, 2, 6);
+	wrt_one_op_code(code, opcodes.push, Register, ras);
+	wrt_two_op_code(code, opcodes.lea, RegIndirect, rbs, rbp, -247);
+	wrt_one_op_code(code, opcodes.push, Register, rbs);
+	wrt_callnat(code, Immediate, 2, 6);
 	
 	# Script_Free(t), t=NULL;
-	wrt_one_op_code(tbc, opcodes.push, RegIndirect, rbp, -16);
-	wrt_callnat(tbc, Immediate, 1, 1);
-	wrt_two_op_code(tbc, opcodes.movm, RegIndirect|Immediate|EightBytes, rbp, 0, -16);
+	wrt_one_op_code(code, opcodes.push, RegIndirect, rbp, -16);
+	wrt_callnat(code, Immediate, 1, 1);
+	wrt_two_op_code(code, opcodes.movm, RegIndirect|Immediate|EightBytes, rbp, 0, -16);
 	
 	# return 0;
-	#wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0); #93-155
-	wrt_non_op_code(tbc, opcodes.ret, 0); #156-157
+	#wrt_two_op_code(code, opcodes.movr, Immediate, ras, 0); #93-155
+	wrt_non_op_code(code, opcodes.ret, 0); #156-157
+	tbc.write(code);
 '''
 
 
@@ -723,28 +749,31 @@ int main(int argc, char *argv[])
 }
 '''
 with open('test_main_args.tbc', 'wb+') as tbc:
-	wrt_hdr(tbc, 128, len('%s ==\n')+1);
-	wrt_hdr_natives(tbc, 'printf');
-	wrt_hdr_funcs(tbc, 'main', 0);
-	wrt_hdr_globals(tbc,
+	code = bytearray();
+	wrt_hdr(code, 128, len('%s ==\n')+1);
+	wrt_hdr_natives(code, 'printf');
+	wrt_hdr_funcs(code, 'main', 0);
+	wrt_hdr_globals(code,
 		'strFORMAT', 0, len('%s ==\n')+1
 	);
-	wrt_hdr_flags(tbc);
-	wrt_global_values(tbc, '%s ==\n');
+	wrt_hdr_flags(code);
+	wrt_global_values(code, '%s ==\n');
 	
 # main:
-	#wrt_two_op_code(tbc, opcodes.usubr, Immediate, rsp, 16);
+	#wrt_two_op_code(code, opcodes.usubr, Immediate, rsp, 16);
 	pcaddr = 0;
 	# load address of argv, then add 1 and dereference it
-	pcaddr += wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, rbs, rbp, 24);
-	pcaddr += wrt_two_op_code(tbc, opcodes.movr, RegIndirect|EightBytes, rbs, rbs, 8);
-	pcaddr += wrt_one_op_code(tbc, opcodes.push, Register, rbs);
+	pcaddr += wrt_two_op_code(code, opcodes.movr, RegIndirect|EightBytes, rbs, rbp, 24);
+	pcaddr += wrt_two_op_code(code, opcodes.movr, RegIndirect|EightBytes, rbs, rbs, 8);
+	pcaddr += wrt_one_op_code(code, opcodes.push, Register, rbs);
 	
 	# load our string literal
-	pcaddr += wrt_two_op_code(tbc, opcodes.lea, RegIndirect, rcs, rip, 26); # 76[rip]
-	pcaddr += wrt_one_op_code(tbc, opcodes.push, Register, rcs);
+	pcaddr += wrt_two_op_code(code, opcodes.lea, RegIndirect, rcs, rip, 26); # 76[rip]
+	pcaddr += wrt_one_op_code(code, opcodes.push, Register, rcs);
 	# printf("%s\n", argv[1]);
-	pcaddr += wrt_callnat(tbc, Immediate, 2, 0);
+	pcaddr += wrt_callnat(code, Immediate, 2, 0);
 	
-	#wrt_two_op_code(tbc, opcodes.movr, Immediate, ras, 0);
-	pcaddr += wrt_non_op_code(tbc, opcodes.ret, 0); #102
+	#wrt_two_op_code(code, opcodes.movr, Immediate, ras, 0);
+	pcaddr += wrt_non_op_code(code, opcodes.ret, 0); #102
+	tbc.write(code);
+

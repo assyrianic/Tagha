@@ -19,10 +19,10 @@ struct Tagha_ {
 	;
 	// stores a C/C++ function ptr using the script-side name as the key.
 	char **m_pstrNativeCalls;		// natives string table.
-	struct hashmap *m_pmapNatives;	// native C/C++ interface hashmap.
+	struct Hashmap *m_pmapNatives;	// native C/C++ interface hashmap.
 	
 	union CValue *m_pArgv;	// forcing char** to 8 bytes
-	struct hashmap
+	struct Hashmap
 		*m_pmapFuncs,		// stores the functions compiled to script.
 		*m_pmapGlobals		// stores global vars like string literals or variables.
 	;
