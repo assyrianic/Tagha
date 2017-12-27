@@ -9,7 +9,7 @@ Tagha is a **WIP** minimal yet complex register-based virtual machine and script
 * Host can call script functions, with pushing and retrieving data!
 * Host can retrieve script global variables.
 * Host can bind its own global variables as a pointer to a script global variable.
-* Very small memory usage: executable itself is 60-80kb.
+* Very small memory usage: executable itself is 50-70kb.
 * No dependencies except libc!
 * easy to use, seamless C++ wrapper.
 
