@@ -112,6 +112,11 @@ void Tagha_::LoadScriptByName(char *filename)
 	Tagha_LoadScriptByName((struct Tagha *)this, filename);
 }
 
+void Tagha_::LoadScriptFromMemory(void *pMemory, const uint64_t memsize)
+{
+	Tagha_LoadScriptFromMemory((struct Tagha *)this, pMemory, memsize);
+}
+
 bool Tagha_::RegisterNatives(NativeInfo_ arrNatives[])
 {
 	return Tagha_RegisterNatives((struct Tagha *)this, (struct NativeInfo *)arrNatives);
@@ -126,22 +131,4 @@ int32_t Tagha_::CallFunc(const char *strFunc)
 {
 	return Tagha_CallFunc((struct Tagha *)this, strFunc);
 }
-
-void Tagha_::LoadLibCNatives()
-{
-	Tagha_LoadLibCNatives((struct Tagha *)this);
-}
-
-void Tagha_::LoadSelfNatives()
-{
-	Tagha_LoadSelfNatives((struct Tagha *)this);
-}
-
-
-void Tagha_::BuildFromFile(const char *filename)
-{
-	Tagha_BuildFromFile((struct Tagha *)this, filename);
-}
-
-
 

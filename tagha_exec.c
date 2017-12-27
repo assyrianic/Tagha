@@ -55,11 +55,13 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 	if( !pSys )
 		return -1;
 	
+	// make sure we have a valid instruction address.
 	if( !pSys->m_Regs[rip].UCharPtr ) {
 		Tagha_PrintErr(pSys, __func__, "NULL instr ptr! if 'main' doesn't exist, call a function by name.");
 		return -1;
 	}
 	
+	// make our necessary local vars.
 	fnNative_t	pfNative = NULL;
 	bool
 		safemode = pSys->m_bSafeMode,
@@ -111,14 +113,15 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				goto *dispatch[halt];
 			}
 		}
-		a.UInt64 = b.UInt64 = 0;	// reset our temporaries.
+		// reset our temporaries.
+		a.UInt64 = b.UInt64 = 0;
 		offset = 0;
 		
 		// fetch opcode and addressing mode.
 		instr = *pSys->m_Regs[rip].UCharPtr++;
 		addrmode = *pSys->m_Regs[rip].UCharPtr++;
 		
-		// this is for debugging.
+		// for debugging.
 #ifdef _UNISTD_H
 		sleep(1);
 #endif
@@ -379,13 +382,12 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 		
 		exec_callnat:; {
 			if( safemode and !pSys->m_pstrNativeCalls ) {
-				Tagha_PrintErr(pSys, __func__, "exec_callnat :: native table is NULL!");
+				Tagha_PrintErr(pSys, __func__, "exec_callnat :: Native Table is NULL!");
 				pSys->m_Regs[rip].UInt64Ptr++;
 				pSys->m_Regs[rip].UInt32Ptr++;
 				continue;
 			}
 			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
-			char *nativestr;
 			uint64_t index;
 			
 			if( addrmode & Immediate )
@@ -401,15 +403,16 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			}
 			
 			if( safemode and index >= pSys->m_uiNatives  ) {
-				Tagha_PrintErr(pSys, __func__, "exec_callnat :: native index \'%" PRIu64 "\' is out of bounds!", index);
+				Tagha_PrintErr(pSys, __func__, "exec_callnat :: Native Index \'%" PRIu64 "\' is out of bounds!", index);
 				pSys->m_Regs[rip].UInt32Ptr++;
 				continue;
 			}
-			nativestr = pSys->m_pstrNativeCalls[index];
+			if( debugmode )
+				printf("exec_callnat: index: %" PRIu64 " == \'%s\' @ %p.\n", index, pSys->m_pstrNativeCalls[index], pSys->m_pstrNativeCalls+index);
 			
-			pfNative = (fnNative_t)(uintptr_t) Map_Get(pSys->m_pmapNatives, nativestr);
+			pfNative = (fnNative_t)(uintptr_t) Map_Get(pSys->m_pmapNatives, pSys->m_pstrNativeCalls[index]);
 			if( safemode and !pfNative ) {
-				Tagha_PrintErr(pSys, __func__, "exec_callnat :: native \'%s\' not registered!", nativestr);
+				Tagha_PrintErr(pSys, __func__, "exec_callnat :: native \'%s\' not registered!", pSys->m_pstrNativeCalls[index]);
 				pSys->m_Regs[rip].UInt32Ptr++;
 				continue;
 			}
@@ -420,11 +423,11 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			
 			// ERROR: you can't initialize an array using a variable as size.
 			// have no choice but to use memset.
-			CValue params[argcount];
-			memset(params, 0, sizeof(CValue)*argcount);
-			memcpy(params, pSys->m_Regs[rsp].SelfPtr, sizeof(CValue)*argcount);
+			union CValue params[argcount];
+			memset(params, 0, sizeof(union CValue)*argcount);
+			memcpy(params, pSys->m_Regs[rsp].SelfPtr, sizeof(union CValue)*argcount);
 			pSys->m_Regs[rsp].SelfPtr += argcount;
-			printf("exec_callnat :: calling C function '%s'.\n", nativestr);
+			printf("exec_callnat :: calling C function '%s'.\n", pSys->m_pstrNativeCalls[index]);
 			pSys->m_Regs[ras].UInt64 = 0;
 			(*pfNative)(pSys, params, pSys->m_Regs+ras, argcount);
 			continue;

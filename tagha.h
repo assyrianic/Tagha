@@ -9,7 +9,6 @@ extern "C" {
 #include <inttypes.h>
 #include <stdbool.h>
 #include <iso646.h>
-#include "ds.h"
 
 /* For Colored Debugging Printing! */
 #define KNRM	"\x1B[0m"	// Normal
@@ -23,6 +22,7 @@ extern "C" {
 #define RESET	"\033[0m"	// Reset obviously
 
 
+
 struct Tagha;
 struct NativeInfo;
 union CValue;
@@ -30,7 +30,6 @@ union CValue;
 typedef struct Tagha			Tagha;
 typedef struct NativeInfo		NativeInfo;
 typedef union CValue			CValue;
-
 
 union CValue {
 	bool Bool, *BoolPtr;
@@ -94,6 +93,21 @@ enum RegID {
 };
 
 
+/*
+ * type generic Hashmap (uses 64-bit int for pointers to accomodate 32-bit and 64-bit)
+ */
+typedef struct KeyNode {
+	uint64_t		pData;
+	const char		*strKey;
+	struct KeyNode	*pNext;
+} KeyNode;
+
+typedef struct Hashmap {
+	uint32_t		size, count;
+	struct KeyNode	**table;
+} Hashmap;
+
+
 /* Script File Structure.
  * magic verifier
  * Stack Vector
@@ -101,36 +115,6 @@ enum RegID {
  * Func Table Dictionary
  * Data Table Dictionary
  */
-
-typedef struct FuncTable {
-	uint32_t	m_uiEntry;	// TODO: make this into uint64?
-} FuncTable;
-
-typedef struct DataTable {
-	uint32_t	m_uiBytes;
-	uint32_t	m_uiOffset;	// TODO: make this into uint64? TODOTODO: replace with ptr?
-} DataTable;
-
-// memory format of the script file.
-typedef struct TaghaHeader {
-	uint16_t m_usMagic;
-	uint32_t
-		m_uiStackSize,
-		m_uiDataSize
-	;
-	uint32_t m_uiNativeCount;
-	uint32_t m_uiNativeTableOffset;
-	
-	uint32_t m_uiFuncCount;
-	uint32_t m_uiFuncTableOffset;
-	
-	uint32_t m_uiGlobalCount;
-	uint32_t m_uiGlobalTableOffset;
-	
-	char m_cSafeDebugFlags;
-	uint32_t m_uiDataOffset;
-	uint32_t m_uiTextOffset;
-} TaghaHeader;
 
 
 // for interactive mode.
@@ -151,7 +135,6 @@ struct Tagha {
 		*m_pStackSegment,	// stack segment ptr where the stack's lowest address lies.
 		*m_pDataSegment,	// data segment is the address AFTER the stack segment ptr. Aligned by 8 bytes.
 		*m_pTextSegment		// text segment is the address after the last global variable AKA the last opcode.
-		// rip register will start at m_pMemory + 0.
 	;
 	// stores a C/C++ function ptr using the script-side name as the key.
 	char **m_pstrNativeCalls;		// natives string table.
@@ -202,20 +185,19 @@ int32_t			Tagha_Exec(struct Tagha *pSys);
 const char		*RegIDToStr(const enum RegID id);
 
 
-// tagha_libc.c
-void			Tagha_LoadLibCNatives(struct Tagha *pSys);
-void			Tagha_LoadSelfNatives(struct Tagha *pSys);
-
-
 // tagha_api.c
 struct Tagha	*Tagha_New(void);
 void			Tagha_Init(struct Tagha *pSys);
 void			Tagha_LoadScriptByName(struct Tagha *pSys, char *filename);
+void			Tagha_LoadScriptFromMemory(struct Tagha *pSys, void *pMemory, const uint64_t memsize);
 bool			Tagha_RegisterNatives(struct Tagha *pSys, struct NativeInfo arrNatives[]);
 void			Tagha_Free(struct Tagha *pSys);
 int32_t			Tagha_RunScript(struct Tagha *pSys);
 int32_t			Tagha_CallFunc(struct Tagha *pSys, const char *strFunc);
-void			gfree(void **ppPtr);
+
+#ifndef FREE_MEM
+	#define FREE_MEM(ptr)	if( (ptr) ) free( (ptr) ), (ptr)=NULL
+#endif
 
 void			Tagha_BuildFromFile(struct Tagha *pSys, const char *strFilename);
 void			Tagha_BuildFromPtr(struct Tagha *pSys, void *pProgram, const uint64_t Programsize);
@@ -242,6 +224,32 @@ uint32_t		Tagha_GetGlobalsCount(const struct Tagha *pSys);
 bool			Tagha_IsSafemodeActive(const struct Tagha *pSys);
 bool			Tagha_IsDebugActive(const struct Tagha *pSys);
 void			Tagha_PrintErr(struct Tagha *pSys, const char *funcname, const char *err, ...);
+
+// ds.c
+struct Hashmap	*Map_New(void);
+void			Map_Init(struct Hashmap *);
+void			Map_Free(struct Hashmap *);
+uint64_t		Map_Len(const struct Hashmap *);
+
+void			Map_Rehash(struct Hashmap *);
+bool			Map_Insert(struct Hashmap *, const char *, const uint64_t);
+uint64_t		Map_Get(const struct Hashmap *, const char *);
+void			Map_Delete(struct Hashmap *, const char *);
+bool			Map_HasKey(const struct Hashmap *, const char *);
+const char		*Map_GetKey(const struct Hashmap *, const char *);
+
+/*
+void			Map_Rehash_int(struct Hashmap *);
+bool			Map_Insert_int(struct Hashmap *, const uint64_t, void *);
+void			*Map_Get_int(const struct Hashmap *, const uint64_t);
+void			Map_Delete_int(struct Hashmap *, const uint64_t);
+bool			Map_HasKey_int(const struct Hashmap *, const uint64_t);
+*/
+uint64_t		gethash64(const char *strKey);
+uint32_t		gethash32(const char *strKey);
+uint64_t		int64hash(uint64_t x);
+uint32_t		int32hash(uint32_t x);
+
 
 /*
 *	r = register is first operand

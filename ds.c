@@ -3,111 +3,22 @@
 #include <iso646.h>		// and, or, not
 #include <string.h>
 #include <stdio.h>
-#include "ds.h"
-
-/*
-static int strcmp(register const char *restrict s1, register const char *restrict s2)
-{
-	while (*s1 == *s2++)
-		if (*s1++ == 0)
-			return (0);
-	return( *(const unsigned char *)s1 - *(const unsigned char *)(s2 - 1) );
-}
-*/
-
-struct Vector *Vector_New()
-{
-	return calloc(1, sizeof(struct Vector));
-}
-
-void Vector_Init(struct Vector *v)
-{
-	if( !v )
-		return;
-	
-	v->data = NULL;
-	v->size = v->count = 0;
-}
-
-uint32_t Vector_Len(const struct Vector *v)
-{
-	return v ? v->count : 0;
-}
-
-void Vector_Insert(struct Vector *restrict v, const uint64_t e)
-{
-	if( !v )
-		return;
-	
-	if( v->size == 0 ) {
-		v->size = 4;
-		v->data = calloc(v->size, sizeof(uint64_t));
-		assert( v->data );
-	}
-	else if( v->size >= v->count ) {
-		v->size <<= 1;
-		v->data = realloc(v->data, sizeof(void *) * v->size);
-		assert( v->data );
-	}
-	v->data[v->count++] = e;
-}
-
-void Vector_Set(struct Vector *restrict v, const uint32_t index, const uint64_t e)
-{
-	if( !v or index >= v->count )
-		return;
-	
-	v->data[index] = e;
-}
-
-uint64_t Vector_Get(const struct Vector *v, const uint32_t index)
-{
-	if( !v or index >= v->count )
-		return 0;
-	
-	return v->data[index];
-}
-
-void Vector_Delete(struct Vector *v, const uint32_t index)
-{
-	if( !v or index >= v->count )
-		return;
-	
-	for( uint32_t i = index+1, j = index ; i < v->count ; i++ )
-		v->data[j++] = v->data[i];
-	
-	v->count--;
-}
-
-void Vector_Free(struct Vector *v)
-{
-	if( !v or !v->data )
-		return;
-	
-	if( v->data )
-		free(v->data);
-	Vector_Init(v);
-}
+#include "tagha.h"
 
 
-
-
-
-
-uint32_t gethash32(const char *szKey)
+uint32_t gethash32(const char *strKey)
 {
 	const uint8_t *us;
 	uint32_t h = 0;
-	for( us=(const uint8_t *)szKey ; *us ; us++ )
+	for( us=(const uint8_t *)strKey ; *us ; us++ )
 		h = 37 * h + *us;
 	return h;
 }
 
-uint64_t gethash64(const char *szKey)
+uint64_t gethash64(const char *strKey)
 {
-	char *us;
 	uint64_t h = 0;
-	for (us = (char *)szKey; *us; us++)
+	for( char *us = (char *)strKey ; *us ; us++ )
 		h = h * 147 + *us;
 
 	return h;
@@ -172,15 +83,15 @@ void Map_Free(struct Hashmap *map)
 	Map_Init(map);
 }
 
-bool Map_Insert(struct Hashmap *restrict map, const char *restrict szKey, const uint64_t pData)
+bool Map_Insert(struct Hashmap *restrict map, const char *restrict strKey, const uint64_t pData)
 {
-	if( !map )
+	if( !map ) {
+		printf("**** Hashmap Error **** Map_Insert::map is NULL\n");
 		return false;
-	
+	}
 	if( map->size == 0 ) {
 		map->size = 8;
 		map->table = calloc(map->size, sizeof(struct KeyNode));
-		
 		if( !map->table ) {
 			printf("**** Memory Allocation Error **** Map_Insert::map->table is NULL\n");
 			map->size = 0;
@@ -192,7 +103,7 @@ bool Map_Insert(struct Hashmap *restrict map, const char *restrict szKey, const 
 		//printf("**** Rehashed struct Hashmapionary ****\n");
 		//printf("**** struct Hashmapionary Size is now %llu ****\n", map->size);
 	}
-	else if( Map_HasKey(map, szKey) ) {
+	else if( Map_HasKey(map, strKey) ) {
 		printf("Map_Insert::map already has entry!\n");
 		return false;
 	}
@@ -202,17 +113,17 @@ bool Map_Insert(struct Hashmap *restrict map, const char *restrict szKey, const 
 		printf("**** Memory Allocation Error **** Map_Insert::node is NULL\n");
 		return false;
 	}
-	node->strKey = szKey;
+	node->strKey = strKey;
 	node->pData = pData;
 	
-	uint32_t hash = gethash32(szKey) % map->size;
+	uint32_t hash = gethash32(strKey) % map->size;
 	node->pNext = map->table[hash];
 	map->table[hash] = node;
 	++map->count;
 	return true;
 }
 
-uint64_t Map_Get(const struct Hashmap *restrict map, const char *restrict szKey)
+uint64_t Map_Get(const struct Hashmap *restrict map, const char *restrict strKey)
 {
 	if( !map || !map->table )
 		return 0;
@@ -222,26 +133,26 @@ uint64_t Map_Get(const struct Hashmap *restrict map, const char *restrict szKey)
 	 * pointer without worrying of a segfault
 	*/
 	struct KeyNode *kv;
-	uint32_t hash = gethash32(szKey) % map->size;
+	uint32_t hash = gethash32(strKey) % map->size;
 	for( kv = map->table[hash] ; kv ; kv = kv->pNext )
-		if( !strcmp(kv->strKey, szKey) )
+		if( !strcmp(kv->strKey, strKey) )
 			return kv->pData;
 	return 0;
 }
 
-void Map_Delete(struct Hashmap *restrict map, const char *restrict szKey)
+void Map_Delete(struct Hashmap *restrict map, const char *restrict strKey)
 {
-	if( !map || !Map_HasKey(map, szKey) )
+	if( !map || !Map_HasKey(map, strKey) )
 		return;
 	
-	uint32_t hash = gethash32(szKey) % map->size;
+	uint32_t hash = gethash32(strKey) % map->size;
 	struct KeyNode
 		*kv = NULL,
 		*next = NULL
 	;
 	for( kv = map->table[hash] ; kv ; kv = next ) {
 		next = kv->pNext;
-		if( !strcmp(kv->strKey, szKey) ) {
+		if( !strcmp(kv->strKey, strKey) ) {
 			map->table[hash] = kv->pNext;
 			free(kv), kv = NULL;
 			map->count--;
@@ -249,15 +160,15 @@ void Map_Delete(struct Hashmap *restrict map, const char *restrict szKey)
 	}
 }
 
-bool Map_HasKey(const struct Hashmap *restrict map, const char *restrict szKey)
+bool Map_HasKey(const struct Hashmap *restrict map, const char *restrict strKey)
 {
 	if( !map || !map->table )
 		return false;
 	
 	struct KeyNode *prev;
-	uint32_t hash = gethash32(szKey) % map->size;
+	uint32_t hash = gethash32(strKey) % map->size;
 	for( prev = map->table[hash] ; prev ; prev = prev->pNext )
-		if( !strcmp(prev->strKey, szKey) )
+		if( !strcmp(prev->strKey, strKey) )
 			return true;
 	
 	return false;
@@ -276,7 +187,7 @@ void Map_Rehash(struct Hashmap *map)
 	if( !map || !map->table )
 		return;
 	
-	uint32_t old_size = map->size;
+	uint64_t old_size = map->size;
 	map->size <<= 1;
 	map->count = 0;
 	
@@ -294,7 +205,7 @@ void Map_Rehash(struct Hashmap *map)
 	struct KeyNode
 		*kv = NULL,
 		*next = NULL
-		;
+	;
 	for( uint32_t i=0 ; i<old_size ; ++i ) {
 		if( !curr[i] )
 			continue;
@@ -312,15 +223,15 @@ void Map_Rehash(struct Hashmap *map)
 	curr = NULL;
 }
 
-const char *Map_GetKey(const struct Hashmap *restrict map, const char *restrict szKey)
+const char *Map_GetKey(const struct Hashmap *restrict map, const char *restrict strKey)
 {
 	if( !map || !map->table )
 		return NULL;
 	
 	struct KeyNode *prev;
-	uint32_t hash = gethash32(szKey) % map->size;
+	uint32_t hash = gethash32(strKey) % map->size;
 	for( prev = map->table[hash] ; prev ; prev = prev->pNext )
-		if( !strcmp(prev->strKey, szKey) )
+		if( !strcmp(prev->strKey, strKey) )
 			return prev->strKey;
 	
 	return NULL;

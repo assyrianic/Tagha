@@ -65,9 +65,6 @@ int main(int argc, char *argv[])
 		{NULL, NULL}
 	};
 	Tagha_RegisterNatives(vm, tagha_host_natives);
-	Tagha_LoadLibCNatives(vm);
-	Tagha_LoadSelfNatives(vm);
-	
 	Tagha_LoadScriptByName(vm, argv[1]);
 	
 	char *args[] = {
@@ -102,7 +99,7 @@ int main(int argc, char *argv[])
 	*/
 	
 	Tagha_Free(vm);
-	gfree((void **)&vm);
+	FREE_MEM(vm);
 	return 0;
 }
 

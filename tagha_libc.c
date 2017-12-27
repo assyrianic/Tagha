@@ -65,17 +65,17 @@ static void native_get_instr_size(struct Tagha *pSys, union CValue params[], uni
 	pRetval->UInt32 = Tagha_GetInstrSize(other);
 }
 
-/* void Script_BuildFromFile(struct Tagha *pScript, const char *filename); */
+/* void Script_LoadScriptByName(struct Tagha *restrict pScript, char *restrict filename); */
 static void native_get_script_from_file(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	struct Tagha *restrict pScript = params[0].Ptr;
 	if( !pScript )
-		puts("Script_BuildFromFile reported: 'pScript' is NULL!\n");
+		puts("Script_LoadScriptByName reported: 'pScript' is NULL!\n");
 	
-	const char *restrict filename = params[1].String;
+	char *restrict filename = params[1].Str;
 	if( !filename )
-		puts("Script_BuildFromFile reported: 'filename' is NULL!\n");
-	Tagha_BuildFromFile(pScript, filename);
+		puts("Script_LoadScriptByName reported: 'filename' is NULL!\n");
+	Tagha_LoadScriptByName(pScript, filename);
 	filename = NULL, pScript = NULL;
 }
 
@@ -131,19 +131,24 @@ static void native_script_pop_value(struct Tagha *pSys, union CValue params[], u
 
 
 
-void Tagha_LoadLibCNatives(struct Tagha *pSys)
+bool Tagha_LibC_Init(struct Tagha *pSys)
 {
+	bool res=false;
 	if( !pSys )
-		return;
+		return res;
 	
-	Tagha_load_stdio_natives(pSys);
-	Tagha_load_stdlib_natives(pSys);
+	res=Tagha_Load_stdioNatives(pSys);
+	if( !res )
+		return res;
+	
+	res=Tagha_Load_stdlibNatives(pSys);
+	return res;
 }
 
-void Tagha_LoadSelfNatives(struct Tagha *pSys)
+bool Tagha_SelfNativesInit(struct Tagha *pSys)
 {
 	if( !pSys )
-		return;
+		return false;
 	
 	struct NativeInfo libc_self_natives[] = {
 		{"ScriptDebug_PrintSelfStack", native_dbug_print_stk},
@@ -153,14 +158,14 @@ void Tagha_LoadSelfNatives(struct Tagha *pSys)
 		{"Script_GetGlobalByName", native_get_global_by_name},
 		{"Script_GetMemSize", native_get_mem_size},
 		{"Script_GetInstrSize", native_get_instr_size},
-		{"Script_BuildFromFile", native_get_script_from_file},
+		{"Script_LoadScriptByName", native_get_script_from_file},
 		{"Script_Free", native_script_free},
 		{"Script_CallFunc", native_script_callfunc},
 		{"Script_PushValue", native_script_push_value},
 		{"Script_PopValue", native_script_pop_value},
 		{NULL, NULL}
 	};
-	Tagha_RegisterNatives(pSys, libc_self_natives);
+	return Tagha_RegisterNatives(pSys, libc_self_natives);
 }
 
 

@@ -40,10 +40,13 @@ rip=13;
 regsize=14;
 
 
-def wrt_hdr(f:bytearray, stacksize:int, datasize:int) -> None:
+def wrt_hdr(f:bytearray, stacksize:int, datasize:int, modes=3) -> None:
 	f += 0xC0DE.to_bytes(2, byteorder='little');
 	f += stacksize.to_bytes(4, byteorder='little');
 	f += datasize.to_bytes(4, byteorder='little');
+	
+	# 1 for safemode, 2 for debugmode, 3 for both.
+	f += modes.to_bytes(1, byteorder='little');
 
 def wrt_hdr_natives(f:bytearray, *natives) -> None:
 	i = 0;
@@ -71,22 +74,17 @@ def wrt_hdr_funcs(f:bytearray, *funcs) -> None:
 
 def wrt_hdr_globals(f:bytearray, *lGlobals) -> None:
 	i = 0;
-	numglobals = len(lGlobals) // 3;
+	numglobals = len(lGlobals) // 2;
 	f += numglobals.to_bytes(4, byteorder='little');
 	
-	while i<numglobals*3:
+	while i<numglobals*2:
 		strsize = len(lGlobals[i])+1;
 		f += strsize.to_bytes(4, byteorder='little');
 		f += lGlobals[i].encode('utf-8');
 		f += 0x0.to_bytes(1, byteorder='little');
 		i += 1;
 		
-		# write the .data address of this global var.
-		f += lGlobals[i].to_bytes(4, byteorder='little');
-		i += 1;
-		
-		# write how many bytes this data takes up.
-		bytecount = lGlobals[i];
+		# write the .data address offset of this global var.
 		f += lGlobals[i].to_bytes(4, byteorder='little');
 		i += 1;
 	
@@ -119,10 +117,6 @@ def wrt_global_values(f:bytearray, *lstValues) -> None:
 			else:
 				f += float64_to_int(fval).to_bytes(8, byteorder='little');
 		i += 1;
-
-def wrt_hdr_flags(f:bytearray, modes=3) -> None:
-	# 1 for safemode, 2 for debugmode, 3 for both.
-	f += modes.to_bytes(1, byteorder='little');
 
 
 def wrt_non_op_code(f:bytearray, opcode:int, addrmode:int) -> int:
@@ -195,8 +189,7 @@ with open('test_endian.tbc', 'wb+') as tbc:
 	wrt_hdr(code, 128, 4);
 	wrt_hdr_natives(code);
 	wrt_hdr_funcs(code, 'main', 0);
-	wrt_hdr_globals(code, 'i', 0, 4);
-	wrt_hdr_flags(code);
+	wrt_hdr_globals(code, 'i', 0);
 	wrt_global_values(code, 0x0a0b0c0d, 4);
 # main:
 	# movr ras, 0
@@ -220,7 +213,6 @@ with open('test_floatops.tbc', 'wb+') as tbc:
 	wrt_hdr_natives(code);
 	wrt_hdr_funcs(code, 'main', 0);
 	wrt_hdr_globals(code);
-	wrt_hdr_flags(code);
 	wrt_global_values(code);
 	
 # main:
@@ -262,7 +254,6 @@ with open('test_pointers.tbc', 'wb+') as tbc:
 	wrt_hdr_natives(code);
 	wrt_hdr_funcs(code, 'main', 0);
 	wrt_hdr_globals(code);
-	wrt_hdr_flags(code);
 	wrt_global_values(code);
 	
 # main:
@@ -305,8 +296,7 @@ with open('test_puts_helloworld.tbc', 'wb+') as tbc:
 	wrt_hdr(code, 0, len('hello world\n')+1);
 	wrt_hdr_natives(code, 'puts');
 	wrt_hdr_funcs(code, 'main', 0);
-	wrt_hdr_globals(code, 'str00001', 0, len('hello world\n')+1);
-	wrt_hdr_flags(code);
+	wrt_hdr_globals(code, 'str00001', 0);
 	wrt_global_values(code, 'hello world\n');
 	
 # main:
@@ -349,7 +339,6 @@ with open('test_factorial.tbc', 'wb+') as tbc:
 	wrt_hdr_natives(code);
 	wrt_hdr_funcs(code, 'factorial', 0);
 	wrt_hdr_globals(code);
-	wrt_hdr_flags(code);
 	wrt_global_values(code);
 	
 # factorial:	# CHANGE TO USE STACK AND OTHER REGISTERS.
@@ -405,7 +394,6 @@ with open('test_native.tbc', 'wb+') as tbc:
 	wrt_hdr_natives(code, 'test');
 	wrt_hdr_funcs(code, 'main', 0);
 	wrt_hdr_globals(code);
-	wrt_hdr_flags(code);
 	wrt_global_values(code);
 	
 # main:
@@ -445,7 +433,6 @@ with open('test_native_funcptr.tbc', 'wb+') as tbc:
 	wrt_hdr_natives(code, 'test');
 	wrt_hdr_funcs(code, 'main', 0);
 	wrt_hdr_globals(code);
-	wrt_hdr_flags(code);
 	wrt_global_values(code);
 	
 # main:
@@ -486,8 +473,7 @@ with open('test_loadgbl.tbc', 'wb+') as tbc:
 	wrt_hdr(code, 128, 4);
 	wrt_hdr_natives(code, 'getglobal');
 	wrt_hdr_funcs(code, 'main', 0);
-	wrt_hdr_globals(code, 'i', 0, 4);
-	wrt_hdr_flags(code);
+	wrt_hdr_globals(code, 'i', 0);
 	wrt_global_values(code, 4294967196, 4);
 	
 # main:
@@ -519,7 +505,6 @@ with open('test_3d_vecs.tbc', 'wb+') as tbc:
 	wrt_hdr_natives(code);
 	wrt_hdr_funcs(code, 'main', 0, 'VecInvert', 146);
 	wrt_hdr_globals(code);
-	wrt_hdr_flags(code);
 	wrt_global_values(code);
 	
 # main:
@@ -591,10 +576,9 @@ with open('test_stdin.tbc', 'wb+') as tbc:
 	wrt_hdr_natives(code, 'puts', 'fgets');
 	wrt_hdr_funcs(code, 'main', 0);
 	wrt_hdr_globals(code,
-			'stdin',	0, 8,
-			'str00001',	8, len('Please enter a long string: ')+1
+		'stdin',	0,
+		'str00001',	8
 	);
-	wrt_hdr_flags(code);
 	wrt_global_values(code, 0, 8, 'Please enter a long string: ');
 	pcaddr = 0;
 # main:
@@ -676,12 +660,11 @@ with open('test_interplugin_com.tbc', 'wb+') as tbc:
 	);
 	wrt_hdr_funcs(code, 'main', 0);
 	wrt_hdr_globals(code,
-		'myself', 0, 8,
-		'strFORMAT', 8, len('%u\n')+1,
-		'strFILENAME', 12, len('test_factorial.tbc')+1,
-		'strFUNCNAME', 38, len('factorial')+1
+		'myself', 0,
+		'strFORMAT', 8,
+		'strFILENAME', 12,
+		'strFUNCNAME', 38
 	);
-	wrt_hdr_flags(code);
 	wrt_global_values(code, 0, 8, '%u\n', 'test_factorial.tbc', 'factorial');
 	
 # main:
@@ -753,10 +736,7 @@ with open('test_main_args.tbc', 'wb+') as tbc:
 	wrt_hdr(code, 128, len('%s ==\n')+1);
 	wrt_hdr_natives(code, 'printf');
 	wrt_hdr_funcs(code, 'main', 0);
-	wrt_hdr_globals(code,
-		'strFORMAT', 0, len('%s ==\n')+1
-	);
-	wrt_hdr_flags(code);
+	wrt_hdr_globals(code, 'strFORMAT', 0);
 	wrt_global_values(code, '%s ==\n');
 	
 # main:

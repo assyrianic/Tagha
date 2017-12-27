@@ -15,7 +15,6 @@ struct Tagha_ {
 		*m_pStackSegment,	// stack segment ptr where the stack's lowest address lies.
 		*m_pDataSegment,	// data segment is the address AFTER the stack segment ptr. Aligned by 8 bytes.
 		*m_pTextSegment		// text segment is the address after the last global variable AKA the last opcode.
-		// rip register will start at m_pMemory + 0.
 	;
 	// stores a C/C++ function ptr using the script-side name as the key.
 	char **m_pstrNativeCalls;		// natives string table.
@@ -66,12 +65,10 @@ struct Tagha_ {
 	
 	void Delete(void);
 	void LoadScriptByName(char *filename);
-	void BuildFromFile(const char *filename);
+	void LoadScriptFromMemory(void *pMemory, const uint64_t memsize);
 	bool RegisterNatives(NativeInfo_ arrNatives[]);
 	int32_t RunScript(void);
 	int32_t CallFunc(const char *strFunc);
-	void LoadLibCNatives(void);
-	void LoadSelfNatives(void);
 };
 
 

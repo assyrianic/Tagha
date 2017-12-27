@@ -24,7 +24,7 @@ static void native_test_ptr(Tagha_ *pSys, CValue params[], CValue *pRetval, cons
 	} *player=nullptr;
 	
 	// get first arg which is the virtual address to our data.
-	player = reinterpret_cast< struct Player* >(params[0].Ptr);
+	player = reinterpret_cast< Player* >(params[0].Ptr);
 	if( !player )
 		return;
 	
@@ -59,8 +59,6 @@ int main(int argc, char *argv[])
 		{nullptr, nullptr}
 	};
 	tagha->RegisterNatives(tagha_host_natives);
-	tagha->LoadLibCNatives();
-	tagha->LoadSelfNatives();
 	tagha->LoadScriptByName(argv[1]);
 	
 	char *args[] = {
