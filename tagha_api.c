@@ -97,7 +97,7 @@ static bool is_tbc_file(const char *filename)
 }
 
 
-void Tagha_LoadScriptByName(struct Tagha *restrict pSys, char *restrict strFilename)
+void Tagha_LoadScriptByName(struct Tagha *pSys, char *restrict strFilename)
 {
 	if( !pSys )
 		return;
@@ -107,12 +107,23 @@ void Tagha_LoadScriptByName(struct Tagha *restrict pSys, char *restrict strFilen
 	
 	// set up our standard I/O streams
 	// and global self-referencing script ptr
-	// Downside is that the script side host var MUST be a pointer.
+	// Downside is that the script-side host var MUST be a pointer.
 	if( pSys->m_pmapGlobals ) {
-		Tagha_BindGlobalPtr(pSys, "stdin", stdin);
-		Tagha_BindGlobalPtr(pSys, "stderr", stderr);
-		Tagha_BindGlobalPtr(pSys, "stdout", stdout);
-		Tagha_BindGlobalPtr(pSys, "myself", pSys);
+		FILE **ppFile=Tagha_GetGlobalByName(pSys, "stdin");
+		if( ppFile )
+			*ppFile = stdin;
+		
+		ppFile = Tagha_GetGlobalByName(pSys, "stderr");
+		if( ppFile )
+			*ppFile = stderr;
+		
+		ppFile = Tagha_GetGlobalByName(pSys, "stdout");
+		if( ppFile )
+			*ppFile = stdout;
+		
+		struct Tagha **ppSelf=Tagha_GetGlobalByName(pSys, "self");
+		if( ppSelf )
+			*ppSelf = pSys;
 	}
 }
 
@@ -126,12 +137,23 @@ void Tagha_LoadScriptFromMemory(struct Tagha *restrict pSys, void *restrict pMem
 	
 	// set up our standard I/O streams
 	// and global self-referencing script ptr
-	// Downside is that the script side host var MUST be a pointer.
+	// Downside is that the script-side host var MUST be a pointer.
 	if( pSys->m_pmapGlobals ) {
-		Tagha_BindGlobalPtr(pSys, "stdin", stdin);
-		Tagha_BindGlobalPtr(pSys, "stderr", stderr);
-		Tagha_BindGlobalPtr(pSys, "stdout", stdout);
-		Tagha_BindGlobalPtr(pSys, "myself", pSys);
+		FILE **ppFile=Tagha_GetGlobalByName(pSys, "stdin");
+		if( ppFile )
+			*ppFile = stdin;
+		
+		ppFile = Tagha_GetGlobalByName(pSys, "stderr");
+		if( ppFile )
+			*ppFile = stderr;
+		
+		ppFile = Tagha_GetGlobalByName(pSys, "stdout");
+		if( ppFile )
+			*ppFile = stdout;
+		
+		struct Tagha **ppSelf=Tagha_GetGlobalByName(pSys, "self");
+		if( ppSelf )
+			*ppSelf = pSys;
 	}
 }
 
@@ -859,21 +881,6 @@ void *Tagha_GetGlobalByName(struct Tagha *restrict pSys, const char *restrict st
 	// get the global's .data segment offset then return the pointer to that offset.
 	uint32_t *offset = (uint32_t *)(uintptr_t)Map_Get(pSys->m_pmapGlobals, strGlobalName);
 	return offset ? (pSys->m_pTextSegment+1)+ *offset : NULL;
-}
-
-bool Tagha_BindGlobalPtr(struct Tagha *restrict pSys, const char *restrict strGlobalName, void *restrict pVar)
-{
-	if( !pSys or !pSys->m_pmapGlobals or !strGlobalName )
-		return false;
-	
-	uint32_t *offset = (uint32_t *)(uintptr_t)Map_Get(pSys->m_pmapGlobals, strGlobalName);
-	if( offset ) {
-		*(uint64_t *)((pSys->m_pTextSegment+1) + *offset) = (uintptr_t)pVar;
-		if( pSys->m_bDebugMode )
-			printf("set offset: %u to %s: %p\n", *offset, strGlobalName, pVar);
-		return true;
-	}
-	return false;
 }
 
 void Tagha_PushValues(struct Tagha *restrict pSys, const uint32_t uiArgs, union CValue values[])

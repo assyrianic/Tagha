@@ -139,6 +139,13 @@ typedef struct TokenLine
 } TokenLine;
 */
 
+typedef struct TaghaGlobalVar {
+	union {
+		void *m_pPtr;
+		uint32_t m_uiOffset;
+	} m_VarAddr;
+	bool m_bRegistered;
+} TaghaGlobalVar;
 
 struct Tagha {
 	union CValue m_Regs[regsize];
@@ -222,7 +229,6 @@ void			Tagha_PrintRegData(const struct Tagha *pSys);
 void			Tagha_Reset(struct Tagha *pSys);
 
 void			*Tagha_GetGlobalByName(struct Tagha *pSys, const char *strGlobalName);
-bool			Tagha_BindGlobalPtr(struct Tagha *pSys, const char *strGlobalName, void *pVar);
 void			Tagha_PushValues(struct Tagha *pSys, const uint32_t uiArgs, union CValue values[]);
 union CValue	Tagha_PopValue(struct Tagha *pSys);
 void			Tagha_SetCmdArgs(struct Tagha *pSys, char *argv[]);

@@ -41,11 +41,6 @@ void *Tagha_::GetGlobalByName(const char *strGlobalName)
 	return Tagha_GetGlobalByName((struct Tagha *)this, strGlobalName);
 }
 
-bool Tagha_::BindGlobalPtr(const char *strGlobalName, void *pVar)
-{
-	return Tagha_BindGlobalPtr((struct Tagha *)this, strGlobalName, pVar);
-}
-
 void Tagha_::PushValues(const uint32_t uiArgs, union CValue values[])
 {
 	Tagha_PushValues((struct Tagha *)this, uiArgs, values);

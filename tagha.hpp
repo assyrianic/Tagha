@@ -50,7 +50,6 @@ struct Tagha_ {
 	void PrintRegData(void);
 	void Reset(void);
 	void *GetGlobalByName(const char *strGlobalName);
-	bool BindGlobalPtr(const char *strGlobalName, void *pVar);
 	void PushValues(const uint32_t uiArgs, union CValue values[]);
 	CValue PopValue(void);
 	void SetCmdArgs(char *argv[]);

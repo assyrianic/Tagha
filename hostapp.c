@@ -93,7 +93,9 @@ int main(int argc, char *argv[])
 	
 	/* // for testing with 'test_exported_host_var.tbc'
 	struct Player player = (struct Player){0};
-	Tagha_BindGlobalPtr(vm, "g_pPlayer", &player);
+	struct Player **ppPlayer = Tagha_GetGlobalByName(vm, "g_pPlayer");
+	if( ppPlayer )
+		*ppPlayer=&player;
 	*/
 	char *args[] = {
 		argv[1],
