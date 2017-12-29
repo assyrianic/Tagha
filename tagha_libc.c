@@ -107,15 +107,15 @@ static void native_script_callfunc(struct Tagha *pSys, union CValue params[], un
 	pRetval->Int32 = Tagha_CallFunc(other, strFunc);
 }
 
-/* void Script_PushValue(struct Tagha *pScript, const CValue value); */
-static void native_script_push_value(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+/* void Script_PushValues(struct Tagha *pScript, const uint32_t uiArgs, union CValue values[]); */
+static void native_script_push_values(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	struct Tagha *restrict other = params[0].Ptr;
 	if( other==pSys ) {
 		puts("Script_PushValue reported: 'pScript' cannot be the same ptr as calling script!\n");
 		return;
 	}
-	Tagha_PushValue(other, params[1]);
+	Tagha_PushValues(other, params[1].UInt32, params[2].SelfPtr);
 }
 
 /* union CValue Script_PopValue(struct Tagha *pScript); */
@@ -161,7 +161,7 @@ bool Tagha_SelfNativesInit(struct Tagha *pSys)
 		{"Script_LoadScriptByName", native_get_script_from_file},
 		{"Script_Free", native_script_free},
 		{"Script_CallFunc", native_script_callfunc},
-		{"Script_PushValue", native_script_push_value},
+		{"Script_PushValues", native_script_push_values},
 		{"Script_PopValue", native_script_pop_value},
 		{NULL, NULL}
 	};

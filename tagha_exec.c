@@ -16,6 +16,8 @@ const char *RegIDToStr(const enum RegID id)
 		case ris: return "ris";
 		case rjs: return "rjs";
 		case rks: return "rks";
+		case rls: return "rls";
+		case rms: return "rms";
 		case rsp: return "rsp";
 		case rbp: return "rbp";
 		case rip: return "rip";
@@ -118,6 +120,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 		offset = 0;
 		
 		// fetch opcode and addressing mode.
+		//printf("instruction ptr offset: %u\n", pSys->m_Regs[rip].UCharPtr-pSys->m_pMemory);
 		instr = *pSys->m_Regs[rip].UCharPtr++;
 		addrmode = *pSys->m_Regs[rip].UCharPtr++;
 		
@@ -423,17 +426,27 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			
 			// ERROR: you can't initialize an array using a variable as size.
 			// have no choice but to use memset.
-			union CValue params[argcount];
-			memset(params, 0, sizeof(union CValue)*argcount);
-			memcpy(params, pSys->m_Regs[rsp].SelfPtr, sizeof(union CValue)*argcount);
-			pSys->m_Regs[rsp].SelfPtr += argcount;
+			union CValue params[argcount]; memset(params, 0, sizeof(union CValue)*argcount);
+			
+			// we have 10 registers that are usable as function params for natives.
+			// if all 10 are exhausted, dump rest of params to the stack.
+			// if 10 or less params, dump from registers.
+			if( argcount<=10 ) {
+				memcpy(params, pSys->m_Regs+rds, sizeof(union CValue)*argcount);
+			}
+			// if more than 10 params, get from registers and then stack.
+			else if( argcount>10 ) {
+				memcpy(params, pSys->m_Regs+rds, sizeof(union CValue)*10);
+				memcpy(params+10, pSys->m_Regs[rsp].SelfPtr, sizeof(union CValue)*(argcount-10));
+				pSys->m_Regs[rsp].SelfPtr += (argcount-10);
+			}
 			printf("exec_callnat :: calling C function '%s'.\n", pSys->m_pstrNativeCalls[index]);
 			pSys->m_Regs[ras].UInt64 = 0;
 			(*pfNative)(pSys, params, pSys->m_Regs+ras, argcount);
 			continue;
 		}
 		
-		exec_movr:; {	// dest is a reg, src is reg or memory
+		exec_movr:; {	// dest is a reg, src is reg imm or memory
 			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & Immediate )

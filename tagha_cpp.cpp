@@ -1,7 +1,7 @@
 #include "tagha.hpp"
 
 
-void Tagha_::Delete()
+void Tagha_::~Tagha_()
 {
 	Tagha_Free((struct Tagha *)this);
 }
@@ -46,9 +46,9 @@ bool Tagha_::BindGlobalPtr(const char *strGlobalName, void *pVar)
 	return Tagha_BindGlobalPtr((struct Tagha *)this, strGlobalName, pVar);
 }
 
-void Tagha_::PushValue(const CValue value)
+void Tagha_::PushValues(const uint32_t uiArgs, union CValue values[])
 {
-	Tagha_PushValue((struct Tagha *)this, value);
+	Tagha_PushValues((struct Tagha *)this, uiArgs, values);
 }
 
 CValue Tagha_::PopValue()

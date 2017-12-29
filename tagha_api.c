@@ -56,6 +56,8 @@ void Tagha_Init(struct Tagha *pSys)
 	if( !pSys )
 		return;
 	
+	*pSys = (struct Tagha){0};
+	
 	if( !pSys->m_pmapNatives ) {
 		pSys->m_pmapNatives = calloc(1, sizeof(struct Hashmap));
 		if( !pSys->m_pmapNatives )
@@ -169,12 +171,14 @@ int32_t Tagha_RunScript(struct Tagha *pSys)
 	
 	pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + *offset;
 	
-	// push argv and argc.
-	(--pSys->m_Regs[rsp].SelfPtr)->UInt64 = (uintptr_t)pSys->m_pArgv;
-	(--pSys->m_Regs[rsp].SelfPtr)->Int32 = pSys->m_iArgc;
+	// push argv and argc to registers.
+	// use 'uintptr_t' so we can force 4-byte pointers as 8-byte.
+	pSys->m_Regs[res].UInt64 = (uintptr_t)pSys->m_pArgv;
+	pSys->m_Regs[rds].Int64 = pSys->m_iArgc;
 	
-	(--pSys->m_Regs[rsp].SelfPtr)->Int64 = -1L;	// push bullshit number
+	(--pSys->m_Regs[rsp].SelfPtr)->Int64 = -1L;	// push bullshit ret address.
 	(--pSys->m_Regs[rsp].SelfPtr)->UInt64 = pSys->m_Regs[rbp].UInt64; // push rbp
+	
 	
 	if( pSys->m_bDebugMode )
 		printf("Tagha_RunScript :: pushed argc: %" PRIi32 " and argv %p\n", pSys->m_iArgc, pSys->m_pArgv);
@@ -439,7 +443,7 @@ void Tagha_BuildFromFile(struct Tagha *pSys, const char *restrict strFilename)
 	uint32_t stacksize, datasize;
 	ignore_warns = fread(&stacksize, sizeof(uint32_t), 1, pFile);
 	bytecount += sizeof(uint32_t);
-	stacksize = stacksize<0x2000 ? 0x2000 : stacksize;
+	stacksize = stacksize<0x1000 ? 0x1000 : stacksize;
 	
 	// align by 8 bytes
 	stacksize = stacksize + 7 & -8;
@@ -549,7 +553,7 @@ void Tagha_BuildFromPtr(struct Tagha *restrict pSys, void *restrict pProgram, co
 	stacksize = *Reader.UInt32Ptr++;
 	bytecount += sizeof(uint32_t);
 	
-	stacksize = stacksize<0x4000 ? 0x4000 : stacksize;
+	stacksize = stacksize<0x1000 ? 0x1000 : stacksize;
 	stacksize = stacksize + 7 & -8;	// align size by 8 bytes
 	printf("[Tagha Load Script Ptr] :: Stack Size: %" PRIu32 "\n", stacksize);
 	
@@ -872,17 +876,29 @@ bool Tagha_BindGlobalPtr(struct Tagha *restrict pSys, const char *restrict strGl
 	return false;
 }
 
-
-void Tagha_PushValue(struct Tagha *pSys, const union CValue value)
+void Tagha_PushValues(struct Tagha *restrict pSys, const uint32_t uiArgs, union CValue values[])
 {
 	if( !pSys or !pSys->m_pMemory )
 		return;
-	if( pSys->m_bSafeMode and (pSys->m_Regs[rsp].UCharPtr-8) < pSys->m_pStackSegment ) {
-		Tagha_PrintErr(pSys, __func__, "stack overflow!");
-		return;
+	
+	// remember that arguments must be passed right to left.
+	// we have enough args to fit in registers.
+	if( uiArgs <= 10 ) {
+		memcpy(pSys->m_Regs+rds, values, sizeof(union CValue)*uiArgs);
 	}
-	(--pSys->m_Regs[rsp].SelfPtr)->UInt64 = 0;
-	*pSys->m_Regs[rsp].SelfPtr = value;
+	// we have too many args, use both regs and stack.
+	else if( uiArgs>10 ) {
+		// first push args into reg.
+		memcpy(pSys->m_Regs+rds, values, sizeof(union CValue)*10);
+		
+		// next, push the remaining values from last to first.
+		if( pSys->m_bSafeMode and (pSys->m_Regs[rsp].SelfPtr-(uiArgs-10)) < (union CValue *)pSys->m_pStackSegment ) {
+			Tagha_PrintErr(pSys, __func__, "stack overflow!");
+			return;
+		}
+		memcpy(pSys->m_Regs[rsp].SelfPtr, values+10, sizeof(union CValue)*(uiArgs-10));
+		pSys->m_Regs[rsp].SelfPtr -= (uiArgs-10);
+	}
 }
 
 union CValue Tagha_PopValue(struct Tagha *pSys)
@@ -902,8 +918,7 @@ void Tagha_SetCmdArgs(struct Tagha *restrict pSys, char *argv[])
 	
 	// clear old arguments, if any.
 	for( uint32_t i=0 ; i<pSys->m_iArgc ; i++ )
-		if( pSys->m_pArgv[i].Str )
-			FREE_MEM(pSys->m_pArgv[i].Str);
+		FREE_MEM(pSys->m_pArgv[i].Str);
 	
 	// get the size of argument vector
 	uint32_t newargc = 0;

@@ -1,0 +1,159 @@
+test_3d_vecs.tbc - purpose: test float and pointer/array arithmetics.
+	accurate result:
+		register[rfs] == 3221225472 <--
+		register[rgs] == 3229614080 <--
+		register[rhs] == 3225419776 <--
+
+test_endian.tbc - purpose: test endianness of system.
+	accurate result:
+		.data section should print...
+		DEBUG PRINT: .data Segment
+		Data[0000000023] == 10 <--
+		Data[0000000022] == 11 <--
+		Data[0000000021] == 12 <--
+		Data[0000000020] == 13 <--
+
+test_exported_host_var.tbc - purpose: test script-side global variables exported from the host app.
+	NOTE: This test requires certain hostapp.c code to be uncommented.
+	accurate result:
+			END OF PRINTING REGISTER DATA ===============
+			
+			[Tagha] :: result: 0
+			[Tagha] :: player.speed: 200.000000 <--
+			player.health: 99 <--
+			player.ammo: 32 <--
+
+test_factorial.tbc - purpose: test stack and recursive call frames.
+	NOTE: this test requires calling factorial by name with a value as the script does not have main.
+	accurate result:
+		register[ras] == 5040 <--
+		register[rbs] == 0
+		register[rcs] == 0
+		register[rds] == 1
+		register[res] == 0
+		register[rfs] == 0
+		register[rgs] == 0
+		register[rhs] == 0
+		register[ris] == 0
+		register[rjs] == 0
+		register[rks] == 0
+		register[rls] == 0
+		register[rms] == 0
+		register[rsp] == xxxxxxxxx
+		register[rbp] == xxxxxxxxx
+		register[rip] == xxxxxxxxx
+			END OF PRINTING REGISTER DATA ===============
+
+		factorial result == 5040 <--
+
+test_floatops.tbc - purpose: test floating point operations and double <=> float32 conversions.
+	accurate result:
+		register[ras] == 0
+		register[rbs] == 0
+		register[rcs] == 0
+		register[rds] == 2
+		register[res] == xxxxxxxxx
+		register[rfs] == 1086324736 <--
+		register[rgs] == 0
+		register[rhs] == 4611686018427387904 <--
+		register[ris] == 0
+		register[rjs] == 0
+		register[rks] == 0
+		register[rls] == 0
+		register[rms] == 0
+		register[rsp] == xxxxxxxxx
+		register[rbp] == xxxxxxxxx
+		register[rip] == xxxxxxxxx
+
+test_loadgbl.tbc - purpose: uses a native to test retrieving a global variable by name through the host app.
+	accurate result:
+		exec_callnat :: calling C function 'getglobal'. <--
+		native_getglobal :: i == -100 <--
+		...
+		DEBUG PRINT: .data Segment
+		Data[0000000037] == 255 <--
+		Data[0000000036] == 255 <--
+		Data[0000000035] == 255 <--
+		Data[0000000034] == 156 <--
+
+test_main_args.tbc - purpose: tests argc and argv for use by scripts that start from main.
+	accurate result:
+		exec_callnat :: calling C function 'puts'. <--
+		kektus <--
+		...
+		register[ras] == 7 <--
+		register[rbs] == 2
+		register[rcs] == 0
+		register[rds] == xxxxxxxxxxxx
+		register[res] == xxxxxxxxx
+		register[rfs] == 0
+		register[rgs] == 0
+		register[rhs] == 0
+		register[ris] == 0
+		register[rjs] == 0
+		register[rks] == 0
+		register[rls] == 0
+		register[rms] == 0
+		register[rsp] == xxxxxxxxx
+		register[rbp] == xxxxxxxxx
+		register[rip] == xxxxxxxxx
+			END OF PRINTING REGISTER DATA ===============
+
+		[Tagha] :: result: 7 <--
+
+test_native.tbc - purpose: calling a native and passing a script-allocated pointer for it to manipulate.
+	accurate result:
+		exec_callnat :: calling C function 'test'. <--
+		native_test_ptr :: ammo: 50 | health: 100 | speed: 300.000000 <--
+
+test_native_funcptr.tbc - purpose: same as test_native but calling the native through a register.
+	accurate result:
+		exec_callnat :: calling C function 'test'. <--
+		native_test_ptr :: ammo: 50 | health: 100 | speed: 300.000000 <--
+
+test_pointers.tbc - purpose: test modifying stack data through indirection.
+	accurate result:
+		DEBUG PRINT: .stack Segment
+		Stack[0000004243] == xxxxxxxxx
+		Stack[0000004235] == xxxxxxxxxxxxxxxxxxxx - T.O.S.
+		Stack[0000004227] == xxxxxxxxx
+		Stack[0000004219] == xxxxxxxxx
+		Stack[0000004211] == 545460846592 <-- is equal to 0x7F00000000
+
+test_puts_helloworld.tbc - purpose: test string literals which are stored in .data aka global var table.
+	accurate result:
+		exec_callnat :: calling C function 'puts'. <--
+		hello world <--
+		...
+		register[ras] == 13 <--
+		register[rbs] == 0
+		register[rcs] == 0
+		register[rds] == xxxxxxxxx
+		register[res] == xxxxxxxxx
+		register[rfs] == 0
+		register[rgs] == 0
+		register[rhs] == 0
+		register[ris] == 0
+		register[rjs] == 0
+		register[rks] == 0
+		register[rls] == 0
+		register[rms] == 0
+		register[rsp] == xxxxxxxxx
+		register[rbp] == xxxxxxxxx
+		register[rip] == xxxxxxxxx
+			END OF PRINTING REGISTER DATA ===============
+
+		[Tagha] :: result: 13 <--
+
+
+test_stdin.tbc - purpose: advanced test combo of calling natives, passing host exported global pointers to natives, and loading string literals from script memory.
+	accurate result:
+		exec_callnat :: calling C function 'fgets'. <--
+		*long pause because you're supposed to type stuff and hit enter.*
+		...
+		register[rds] == 163399954 <-- address of buffer array.
+		register[res] == 256 <-- size of buffer array.
+		register[rfs] == 3077363104 <-- should be ptr value of 'stdin'.
+
+
+

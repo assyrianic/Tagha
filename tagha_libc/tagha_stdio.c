@@ -228,7 +228,7 @@ static void native_fgetc(struct Tagha *pSys, union CValue params[], union CValue
 /* char *fgets(char *str, int num, FILE *stream); */
 static void native_fgets(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
-	pRetval->Ptr = fgets(params[0].Ptr, params[1].Int32, params[2].Ptr);
+	pRetval->Ptr = fgets(params[0].Str, params[1].Int32, params[2].Ptr);
 }
 
 /* int fputc(int character, FILE *stream); */

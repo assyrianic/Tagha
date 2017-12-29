@@ -14,12 +14,13 @@ static void native_free(struct Tagha *pSys, union CValue params[], union CValue 
 	free(params[0].Ptr);
 }
 
+/* non-standard addition. */
 /* void safe_free(void **pptr); */
 static void native_safe_free(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
 	void **pptr = params[0].PtrPtr;
 	if( *pptr ) {
-		puts("native_safe_free :: *pptr is VALID, freeing.\n");
+		puts("safe_free :: *pptr is VALID, freeing.\n");
 		free(*pptr), *pptr=NULL;
 	}
 }
@@ -172,8 +173,9 @@ static void native_abs(struct Tagha *pSys, union CValue params[], union CValue *
 /* long int labs(long int n); */
 static void native_labs(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
-	pRetval->Int64 = labs(params[0].Int64);
+	pRetval->Int64 = (int64_t)labs(params[0].Int64);
 }
+
 /* long long int llabs(long long int n); */
 static void native_llabs(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
@@ -186,15 +188,14 @@ typedef struct {
 	int quot;	// quotient, 1st 32 bits.
 	int rem;	// remainder, 2nd 32 bits.
 } div_t;
-
 now how the fuck do we return a damn struct?
 registers are large enough to have an 8-byte struct though. Nope.
 void div(div_t *res, int numer, int denom);
 */
 static void native_div(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
-	div_t *pdiv = params[0].Ptr;
-	*pdiv = div(params[1].Int32, params[2].Int32);
+	div_t *res = params[0].Ptr;
+	*res = div(params[1].Int32, params[2].Int32);
 }
 
 /*
@@ -208,13 +209,12 @@ We can use two registers but that ain't feasible here.
 Why isn't it feasible? Because we need to maintain data between
 Tagha's env and the host machine env...
 So in the end, for ldiv, you need to pass a ptr to ldiv_t struct for now.
-
 void ldiv(ldiv_t *res, long int numer, long int denom);
 */
 static void native_ldiv(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
-	ldiv_t *pldiv = params[0].Ptr;
-	*pldiv = ldiv(params[1].Int64, params[2].Int64);
+	ldiv_t *res = params[0].Ptr;
+	*res = ldiv(params[1].Int64, params[2].Int64);
 }
 /*
 lldiv_t lldiv(long long int numer, long long int denom);
@@ -222,13 +222,12 @@ typedef struct {
 	long long int quot;
 	long long int rem;
 } lldiv_t;
-
 void ldiv(lldiv_t *res, long long int numer, long long int denom);
 */
 static void native_lldiv(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
-	lldiv_t *plldiv = params[0].Ptr;
-	*plldiv = lldiv(params[1].Int64, params[2].Int64);
+	lldiv_t *res = params[0].Ptr;
+	*res = lldiv(params[1].Int64, params[2].Int64);
 }
 
 /* int mblen(const char *pmb, size_t max); */
@@ -252,13 +251,13 @@ static void native_wctomb(struct Tagha *pSys, union CValue params[], union CValu
 /* size_t mbstowcs(wchar_t *dest, const char *src, size_t max); */
 static void native_mbstowcs(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
-	pRetval->UInt64 = mbstowcs(params[0].Ptr, params[1].String, params[2].UInt64);
+	pRetval->UInt64 = mbstowcs((wchar_t *)params[0].Ptr, params[1].String, params[2].UInt64);
 }
 
 /* size_t wcstombs(char *dest, const wchar_t *src, size_t max); */
 static void native_wcstombs(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
 {
-	pRetval->UInt64 = wcstombs(params[0].Str, params[1].Ptr, params[2].UInt64);
+	pRetval->UInt64 = wcstombs(params[0].Str, (wchar_t *)params[1].Ptr, params[2].UInt64);
 }
 
 

@@ -20,7 +20,7 @@ struct Tagha_ {
 	char **m_pstrNativeCalls;		// natives string table.
 	struct Hashmap *m_pmapNatives;	// native C/C++ interface hashmap.
 	
-	union CValue *m_pArgv;	// forcing char** to 8 bytes
+	union CValue *m_pArgv;	// using union to force char** size to 8 bytes.
 	struct Hashmap
 		*m_pmapFuncs,		// stores the functions compiled to script.
 		*m_pmapGlobals		// stores global vars like string literals or variables.
@@ -42,6 +42,7 @@ struct Tagha_ {
 	
 	
 	Tagha_(void);
+	~Tagha_(void);
 	void PrintPtrs(void);
 	void PrintStack(void);
 	void PrintData(void);
@@ -50,7 +51,7 @@ struct Tagha_ {
 	void Reset(void);
 	void *GetGlobalByName(const char *strGlobalName);
 	bool BindGlobalPtr(const char *strGlobalName, void *pVar);
-	void PushValue(const CValue value);
+	void PushValues(const uint32_t uiArgs, union CValue values[]);
 	CValue PopValue(void);
 	void SetCmdArgs(char *argv[]);
 	
@@ -63,7 +64,6 @@ struct Tagha_ {
 	bool IsSafemodeActive(void);
 	bool IsDebugActive(void);
 	
-	void Delete(void);
 	void LoadScriptByName(char *filename);
 	void LoadScriptFromMemory(void *pMemory, const uint64_t memsize);
 	bool RegisterNatives(NativeInfo_ arrNatives[]);

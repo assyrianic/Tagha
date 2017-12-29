@@ -72,12 +72,12 @@ int main(int argc, char *argv[])
 	/*
 	// tested with test_3d_vecs.tbc
 	float vect[3]={ 10.f, 15.f, 20.f };
-	tagha->PushValue((CValue){ .Pointer=vect });
+	CValue vals[] = { (CValue){ .Pointer=vect } };
+	tagha->PushValues(1, vals);
 	tagha->CallFunc("vec_invert");
 	printf("vect[3]=={ %f , %f, %f }\n", vect[0], vect[1], vect[2]);
 	*/
 	
-	tagha->Delete();
 	delete tagha;
 	tagha=nullptr;
 }

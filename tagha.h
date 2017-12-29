@@ -79,17 +79,29 @@ enum AddrMode {
 };
 
 // Register ID list
+// 13 general purpose use registers + 3 reserved use.
 enum RegID {
-	ras=0,		// general purpose, accumulator - all return results go here.
-	rbs,rcs,	// general purpose
-	rds,res,	// general purpose
-	rfs,rgs,rhs,// general purpose, floating point regs, rfs is used as float accumulator
-	ris,rjs,rks,// general purpose
+	// 'ras' is gen. purpose + accumulator
+	// all native and tagha func return data that fits within 64-bits goes here.
+	// natives can only return a single 8-byte piece of data.
+	// if you need to return larger than 8 bytes...
+	// use ras, rbs, and rcs. otherwise, return as pointer in ras.
+	ras=0,rbs,rcs,
+	
+	// 12 more gen. purpose regs for whatever use.
+	// when passing arguments, use registers rds to rms
+	// since params are passed right to left.
+	// put the rightmost arg in rms.
+	// thus if you passed 10 args, the 1st arg would be in rds and 10th arg in rms.
+	rds,
+	res,rfs,rgs,
+	rhs,ris,rjs,
+	rks,rls,rms,
 	
 	// do not modify after this. Add more registers, if u need, above.
 	rsp,rbp,	// stack ptrs, do not touch
 	rip,		// instr ptr, do not touch as well.
-	regsize		// for lazily updating id list
+	regsize		// for lazily updating RegID list
 };
 
 
@@ -211,7 +223,7 @@ void			Tagha_Reset(struct Tagha *pSys);
 
 void			*Tagha_GetGlobalByName(struct Tagha *pSys, const char *strGlobalName);
 bool			Tagha_BindGlobalPtr(struct Tagha *pSys, const char *strGlobalName, void *pVar);
-void			Tagha_PushValue(struct Tagha *pSys, const union CValue value);
+void			Tagha_PushValues(struct Tagha *pSys, const uint32_t uiArgs, union CValue values[]);
 union CValue	Tagha_PopValue(struct Tagha *pSys);
 void			Tagha_SetCmdArgs(struct Tagha *pSys, char *argv[]);
 
