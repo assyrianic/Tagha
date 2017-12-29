@@ -139,14 +139,6 @@ typedef struct TokenLine
 } TokenLine;
 */
 
-typedef struct TaghaGlobalVar {
-	union {
-		void *m_pPtr;
-		uint32_t m_uiOffset;
-	} m_VarAddr;
-	bool m_bRegistered;
-} TaghaGlobalVar;
-
 struct Tagha {
 	union CValue m_Regs[regsize];
 	uint8_t
