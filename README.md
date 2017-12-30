@@ -1,4 +1,4 @@
-# V2 is on feature frozen so as to work on Scripting engine form aka the 'script' branch.
+# V2 is on feature frozen so as to work on Scripting engine form aka the 'Register' branch.
 
 # Tagha Virtual Machine
 "tagha" is Aramaic for "crown".
