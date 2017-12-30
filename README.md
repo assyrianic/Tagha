@@ -1,6 +1,6 @@
 # Tagha Virtual Machine
 "tagha" is Aramaic for "crown".
-Tagha is a **WIP** minimal yet complex register-based virtual machine and scripting engine, written in C, designed to run C compiled as tagha scripts. Why is it named "crown"? Because C is king in the programming world :P
+Tagha is a minimal yet complex register-based virtual machine and scripting engine environment, written in C, designed to run C compiled into tagha scripts. Why is it named "crown"? Because C is king in the programming world :P
 
 [See the Wiki for API references, Opcodes reference, Tutorials, and more](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki)
 
@@ -22,4 +22,4 @@ download or git clone the project. The build scripts in the project give you the
 * **To Generate Tagha Bytecode**, execute `tbc_asm.py` (requires python v3+) but careful as python assembler will generate the bytecode executables _in the same directory where it is executed_.
 
 ## Pull Requests
-Pull requests are always welcome and will be reviewed!
+Pull requests are always welcome!
