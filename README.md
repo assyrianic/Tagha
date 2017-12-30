@@ -1,4 +1,4 @@
-# PLEASE USE THE SCRIPT BRANCH, '_MASTER_' AND '_V2_' IS DEPRECATED. This is here to show the original, original code that led to the development of V2, and eventually, Script branch.
+# PLEASE USE THE REGISTER BRANCH, '_MASTER_', '_SCRIPT_' AND '_V2_' IS DEPRECATED. This is here to show the original, original code that led to the development of V2, and eventually, Script branch, and even further, the Register branch.
 # C Virtual Machine
 minimal but complex stack-based virtual machine, written in C.
 ## Purpose:
