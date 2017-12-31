@@ -39,9 +39,9 @@
  */
 
 static uint64_t get_file_size(FILE *pFile);
-static uint32_t scripthdr_read_natives_table(struct Tagha **ppSys, FILE **ppFile);
-static uint32_t scripthdr_read_func_table(struct Tagha **ppSys, FILE **ppFile);
-static uint32_t scripthdr_read_global_table(struct Tagha **ppSys, FILE **ppFile);
+static uint32_t scripthdr_read_natives_table(struct Tagha **const ppSys, FILE **const ppFile);
+static uint32_t scripthdr_read_func_table(struct Tagha **const ppSys, FILE **const ppFile);
+static uint32_t scripthdr_read_global_table(struct Tagha **const ppSys, FILE **const ppFile);
 
 
 struct Tagha *Tagha_New(void)
@@ -51,15 +51,26 @@ struct Tagha *Tagha_New(void)
 	return pNewVM;
 }
 
-void Tagha_Init(struct Tagha *pSys)
+void Tagha_Init(struct Tagha *restrict const pSys)
 {
 	if( !pSys )
 		return;
 	
 	*pSys = (struct Tagha){0};
 	
+	if( !pSys->m_pmapCDefs ) {
+		pSys->m_pmapCDefs = Map_New();
+		// if we can't allocate our C Definitions
+		// we can't run code in general as the definitions
+		// contain functions and global vars!
+		if( !pSys->m_pmapCDefs ) {
+			printf("[%sTagha Init Error%s]: **** %sUnable to initialize C Definitions Map%s ****\n", KRED, RESET, KGRN, RESET);
+			return;
+		}
+		else Map_Init(pSys->m_pmapCDefs);
+	}
 	if( !pSys->m_pmapNatives ) {
-		pSys->m_pmapNatives = calloc(1, sizeof(struct Hashmap));
+		pSys->m_pmapNatives = Map_New();
 		if( !pSys->m_pmapNatives )
 			printf("[%sTagha Init Error%s]: **** %sUnable to initialize Native Map%s ****\n", KRED, RESET, KGRN, RESET);
 		else Map_Init(pSys->m_pmapNatives);
@@ -73,31 +84,30 @@ void Tagha_Init(struct Tagha *pSys)
 	}
 }
 
-static bool is_c_file(const char *filename)
+static bool is_c_file(const char *restrict filename)
 {
 	if( !filename )
 		return false;
 	
-	const char *p = filename;
 	// iterate to end of string and then check backwards.
-	while( *p )
-		p++;
-	return( (*(p-1)=='c' or *(p-1)=='C') and (*(p-2)=='.') );
+	while( *++filename );
+	int16_t i = *(int16_t *)(filename-2);
+	return( i==0x632E || i==0x432E );
 }
-static bool is_tbc_file(const char *filename)
+
+static bool is_tbc_file(const char *restrict filename)
 {
 	if( !filename )
 		return false;
 	
-	const char *p = filename;
 	// iterate to end of string and then check backwards.
-	while( *p )
-		p++;
-	return( (*(p-3)=='t' and *(p-2)=='b' and *(p-1)=='c') or (*(p-3)=='T' and *(p-2)=='B' and *(p-1)=='C') and *(p-4)=='.' );
+	while( *++filename );
+	int32_t i = *(int32_t *)(filename-4);
+	return( i==0x6362742E || i==0x4342542E );
 }
 
 
-void Tagha_LoadScriptByName(struct Tagha *pSys, char *restrict strFilename)
+void Tagha_LoadScriptByName(struct Tagha *const pSys, char *restrict strFilename)
 {
 	if( !pSys )
 		return;
@@ -108,7 +118,7 @@ void Tagha_LoadScriptByName(struct Tagha *pSys, char *restrict strFilename)
 	// set up our standard I/O streams
 	// and global self-referencing script ptr
 	// Downside is that the script-side host var MUST be a pointer.
-	if( pSys->m_pmapGlobals ) {
+	if( pSys->m_pmapCDefs ) {
 		FILE **ppFile=Tagha_GetGlobalByName(pSys, "stdin");
 		if( ppFile )
 			*ppFile = stdin;
@@ -127,7 +137,7 @@ void Tagha_LoadScriptByName(struct Tagha *pSys, char *restrict strFilename)
 	}
 }
 
-void Tagha_LoadScriptFromMemory(struct Tagha *restrict pSys, void *restrict pMemory, const uint64_t memsize)
+void Tagha_LoadScriptFromMemory(struct Tagha *const pSys, void *restrict pMemory, const uint64_t memsize)
 {
 	if( !pSys )
 		return;
@@ -138,7 +148,7 @@ void Tagha_LoadScriptFromMemory(struct Tagha *restrict pSys, void *restrict pMem
 	// set up our standard I/O streams
 	// and global self-referencing script ptr
 	// Downside is that the script-side host var MUST be a pointer.
-	if( pSys->m_pmapGlobals ) {
+	if( pSys->m_pmapCDefs ) {
 		FILE **ppFile=Tagha_GetGlobalByName(pSys, "stdin");
 		if( ppFile )
 			*ppFile = stdin;
@@ -158,7 +168,7 @@ void Tagha_LoadScriptFromMemory(struct Tagha *restrict pSys, void *restrict pMem
 }
 
 
-bool Tagha_RegisterNatives(struct Tagha *pSys, struct NativeInfo arrNatives[])
+bool Tagha_RegisterNatives(const struct Tagha *restrict const pSys, struct NativeInfo arrNatives[])
 {
 	if( !pSys or !pSys->m_pmapNatives or !arrNatives )
 		return false;
@@ -169,14 +179,14 @@ bool Tagha_RegisterNatives(struct Tagha *pSys, struct NativeInfo arrNatives[])
 }
 
 
-int32_t Tagha_RunScript(struct Tagha *pSys)
+int32_t Tagha_RunScript(struct Tagha *restrict const pSys)
 {
 	if( !pSys or !pSys->m_pMemory )
 		return -1;
 	
 	// make sure 'main' exists.
-	if( !pSys->m_pmapFuncs ) {
-		Tagha_PrintErr(pSys, __func__, "Cannot call main with a NULL function table!");
+	else if( !pSys->m_pmapCDefs ) {
+		Tagha_PrintErr(pSys, __func__, "Cannot call main with a NULL definition table!");
 		return -1;
 	}
 	// make sure we have the memory for running.
@@ -185,13 +195,12 @@ int32_t Tagha_RunScript(struct Tagha *pSys)
 		return -1;
 	}
 	// get instruction offset to main.
-	uint32_t *offset = (uint32_t *)(uintptr_t)Map_Get(pSys->m_pmapFuncs, "main");
-	if( !offset ) {
+	struct TaghaCDef *pMainData = (struct TaghaCDef *)(uintptr_t)Map_Get(pSys->m_pmapCDefs, "main");
+	if( !pMainData or pMainData->m_ucDefType != DefFunction ) {
 		Tagha_PrintErr(pSys, __func__, "function \'main\' doesn't exist!");
 		return -1;
 	}
-	
-	pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + *offset;
+	pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + pMainData->m_uiOffset;
 	
 	// push argv and argc to registers.
 	// use 'uintptr_t' so we can force 4-byte pointers as 8-byte.
@@ -201,19 +210,18 @@ int32_t Tagha_RunScript(struct Tagha *pSys)
 	(--pSys->m_Regs[rsp].SelfPtr)->Int64 = -1L;	// push bullshit ret address.
 	(--pSys->m_Regs[rsp].SelfPtr)->UInt64 = pSys->m_Regs[rbp].UInt64; // push rbp
 	
-	
 	if( pSys->m_bDebugMode )
 		printf("Tagha_RunScript :: pushed argc: %" PRIi32 " and argv %p\n", pSys->m_iArgc, pSys->m_pArgv);
 	
 	return Tagha_Exec(pSys);
 }
 
-int32_t Tagha_CallFunc(struct Tagha *restrict pSys, const char *restrict strFunc)
+int32_t Tagha_CallFunc(struct Tagha *restrict const pSys, const char *restrict strFunc)
 {
 	if( !pSys or !strFunc )
 		return -1;
 	
-	if( !pSys->m_pmapFuncs ) {
+	else if( !pSys->m_pmapCDefs ) {
 		Tagha_PrintErr(pSys, __func__, "Cannot call functions using a NULL function table!");
 		return -1;
 	}
@@ -222,8 +230,8 @@ int32_t Tagha_CallFunc(struct Tagha *restrict pSys, const char *restrict strFunc
 		return -1;
 	}
 	
-	uint32_t *offset = (uint32_t *)(uintptr_t)Map_Get(pSys->m_pmapFuncs, strFunc);
-	if( !offset ) {
+	struct TaghaCDef *pFuncData = (struct TaghaCDef *)(uintptr_t)Map_Get(pSys->m_pmapCDefs, strFunc);
+	if( !pFuncData or pFuncData->m_ucDefType != DefFunction) {
 		Tagha_PrintErr(pSys, __func__, "function \'%s\' doesn't exist!", strFunc);
 		return -1;
 	}
@@ -232,7 +240,7 @@ int32_t Tagha_CallFunc(struct Tagha *restrict pSys, const char *restrict strFunc
 	(--pSys->m_Regs[rsp].SelfPtr)->UInt64 = (uintptr_t)pSys->m_Regs[rip].UCharPtr+1;
 	
 	// jump to the function entry address.
-	pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + *offset;
+	pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + pFuncData->m_uiOffset;
 	
 	// push bp and copy sp to bp.
 	(--pSys->m_Regs[rsp].SelfPtr)->UInt64 = pSys->m_Regs[rbp].UInt64;
@@ -242,7 +250,7 @@ int32_t Tagha_CallFunc(struct Tagha *restrict pSys, const char *restrict strFunc
 
 
 // need this to determine the text segment size.
-static uint64_t get_file_size(FILE *pFile)
+static uint64_t get_file_size(FILE *restrict pFile)
 {
 	uint64_t size = 0L;
 	if( !pFile )
@@ -255,7 +263,7 @@ static uint64_t get_file_size(FILE *pFile)
 	return size;
 }
 
-static uint32_t scripthdr_read_natives_table(struct Tagha **ppSys, FILE **ppFile)
+static uint32_t scripthdr_read_natives_table(struct Tagha **const ppSys, FILE **const ppFile)
 {
 	if( !*ppSys or !*ppFile )
 		return 0;
@@ -304,7 +312,7 @@ static uint32_t scripthdr_read_natives_table(struct Tagha **ppSys, FILE **ppFile
 	return bytecount;
 }
 
-static uint32_t scripthdr_read_func_table(struct Tagha **ppSys, FILE **ppFile)
+static uint32_t scripthdr_read_func_table(struct Tagha **const ppSys, FILE **const ppFile)
 {
 	if( !*ppSys or !*ppFile )
 		return 0;
@@ -319,16 +327,6 @@ static uint32_t scripthdr_read_func_table(struct Tagha **ppSys, FILE **ppFile)
 	bytecount += sizeof(uint32_t);
 	if( !pSys->m_uiFuncs )
 		return bytecount;
-	
-	// allocate our function hashmap so we can call functions by name.
-	pSys->m_pmapFuncs = calloc(1, sizeof(struct Hashmap));
-	if( !pSys->m_pmapFuncs ) {
-		printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Func Hashmap%s ****\n", KRED, RESET, KGRN, RESET);
-		Tagha_Free(pSys), *ppSys = NULL;
-		fclose(*ppFile), *ppFile=NULL;
-		return 0;
-	}
-	Map_Init(pSys->m_pmapFuncs);
 	
 	// copy the function data from the header.
 	for( uint32_t i=0 ; i<pSys->m_uiFuncs ; i++ ) {
@@ -350,25 +348,26 @@ static uint32_t scripthdr_read_func_table(struct Tagha **ppSys, FILE **ppFile)
 		// copy func's header data to our table
 		// then store the table to our function hashmap with the key
 		// we allocated earlier.
-		uint32_t *offset = calloc(1, sizeof(uint32_t));
-		if( !offset ) {
-			printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Func Table Offset%s ****\n", KRED, RESET, KGRN, RESET);
+		struct TaghaCDef *pFuncData = calloc(1, sizeof(struct TaghaCDef));
+		if( !pFuncData ) {
+			printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Func Data%s ****\n", KRED, RESET, KGRN, RESET);
 			Tagha_Free(pSys), *ppSys = NULL;
 			fclose(*ppFile), *ppFile=NULL;
 			return 0;
 		} /* if */
 		
-		ignore_warns = fread(offset, sizeof(uint32_t), 1, *ppFile);
+		ignore_warns = fread(&pFuncData->m_uiOffset, sizeof(uint32_t), 1, *ppFile);
 		bytecount += sizeof(uint32_t);
-		printf("[Tagha Load Script] :: Copied Function name \'%s\' | offset: %" PRIu32 "\n", strFunc, *offset);
-		Map_Insert(pSys->m_pmapFuncs, strFunc, (uintptr_t)offset);
-		strFunc = NULL;
+		printf("[Tagha Load Script] :: Copied Function name \'%s\' | offset: %" PRIu32 "\n", strFunc, pFuncData->m_uiOffset);
+		pFuncData->m_ucDefType = DefFunction;
+		Map_Insert(pSys->m_pmapCDefs, strFunc, (uintptr_t)pFuncData);
+		strFunc = NULL; pFuncData = NULL;
 	} /* for */
 	pSys = NULL;
 	return bytecount;
 }
 
-static uint32_t scripthdr_read_global_table(struct Tagha **ppSys, FILE **ppFile)
+static uint32_t scripthdr_read_global_table(struct Tagha **const ppSys, FILE **const ppFile)
 {
 	if( !*ppSys or !*ppFile )
 		return 0;
@@ -381,20 +380,9 @@ static uint32_t scripthdr_read_global_table(struct Tagha **ppSys, FILE **ppFile)
 	ignore_warns = fread(&pSys->m_uiGlobals, sizeof(uint32_t), 1, *ppFile);
 	printf("[Tagha Load Script] :: Amount of Global Vars: %" PRIu32 "\n", pSys->m_uiGlobals);
 	bytecount += sizeof(uint32_t);
-	pSys->m_pmapGlobals = NULL;
 	uint32_t globalbytes = 0;
 	if( !pSys->m_uiGlobals )
 		return bytecount;
-	
-	// script has globals, allocate our global var hashmap.
-	pSys->m_pmapGlobals = calloc(1, sizeof(struct Hashmap));
-	if( !pSys->m_pmapGlobals ) {
-		printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Global Var Hashmap%s ****\n", KRED, RESET, KGRN, RESET);
-		Tagha_Free(pSys), *ppSys = NULL;
-		fclose(*ppFile), *ppFile=NULL;
-		return 0;
-	}
-	Map_Init(pSys->m_pmapGlobals);
 	
 	for( uint32_t i=0 ; i<pSys->m_uiGlobals ; i++ ) {
 		uint32_t str_size;
@@ -413,22 +401,23 @@ static uint32_t scripthdr_read_global_table(struct Tagha **ppSys, FILE **ppFile)
 		
 		// read the global var's data from the header and add it to our hashmap.
 		// same procedure as our function hashmap.
-		uint32_t *offset = calloc(1, sizeof(uint32_t));
-		if( !offset ) {
-			printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Global Var Offset%s ****\n", KRED, RESET, KGRN, RESET);
+		struct TaghaCDef *pGlobalData = calloc(1, sizeof(struct TaghaCDef));
+		if( !pGlobalData ) {
+			printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Global Var Table%s ****\n", KRED, RESET, KGRN, RESET);
 			Tagha_Free(pSys), *ppSys = NULL;
 			fclose(*ppFile), *ppFile=NULL;
 			return 0;
 		} /* if */
 		
-		ignore_warns = fread(offset, sizeof(uint32_t), 1, *ppFile);
+		ignore_warns = fread(&pGlobalData->m_uiOffset, sizeof(uint32_t), 1, *ppFile);
 		bytecount += sizeof(uint32_t);
 		
-		printf("[Tagha Load Script] :: copied global var's name: \'%s\' | offset: %" PRIu32 "\n", strGlobal, *offset);
+		printf("[Tagha Load Script] :: copied global var's name: \'%s\' | offset: %" PRIu32 "\n", strGlobal, pGlobalData->m_uiOffset);
 		
 		// insert the global var's table to our hashmap.
-		Map_Insert(pSys->m_pmapGlobals, strGlobal, (uintptr_t)offset);
-		strGlobal = NULL;
+		pGlobalData->m_ucDefType = DefGlobal;
+		Map_Insert(pSys->m_pmapCDefs, strGlobal, (uintptr_t)pGlobalData);
+		strGlobal = NULL; pGlobalData = NULL;
 	} /* for( uint32_t i=0 ; i<pSys->m_uiGlobals ; i++ ) */
 	pSys = NULL;
 	return bytecount;
@@ -436,7 +425,7 @@ static uint32_t scripthdr_read_global_table(struct Tagha **ppSys, FILE **ppFile)
 
 void Tagha_BuildFromFile(struct Tagha *pSys, const char *restrict strFilename)
 {
-	if( !pSys or !strFilename )
+	if( !pSys or !pSys->m_pmapCDefs or !strFilename )
 		return;
 	
 	// open up our script in read-only binary mode.
@@ -447,7 +436,7 @@ void Tagha_BuildFromFile(struct Tagha *pSys, const char *restrict strFilename)
 	}
 	
 	// get_file_size stays here, it'll rewind the file 'cursor' back to beginning.
-	uint64_t filesize = get_file_size(pFile);
+	const uint64_t filesize = get_file_size(pFile);
 	
 	uint32_t bytecount = 0;	// bytecount is for separating the header data from the actual instruction stream.
 	uint16_t verify;
@@ -493,7 +482,7 @@ void Tagha_BuildFromFile(struct Tagha *pSys, const char *restrict strFilename)
 	if( !pFile )
 		return;
 	
-	pSys->m_uiMaxInstrs = 0xffff;	// helps to stop infinite/runaway loops
+	pSys->m_uiMaxInstrs = LOOP_COUNTER;	// helps to stop infinite/runaway loops
 	
 	
 	// header data is finished, subtract the filesize with the bytecount
@@ -508,7 +497,7 @@ void Tagha_BuildFromFile(struct Tagha *pSys, const char *restrict strFilename)
 	// scripts NEED memory, if memory is invalid then we can't use the script.
 	if( !pSys->m_pMemory ) {
 		printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for script%s ****\n", KRED, RESET, KGRN, RESET);
-		Tagha_Free(pSys), pSys = NULL;
+		Tagha_Free(pSys);
 		goto error;
 	}
 	
@@ -551,12 +540,12 @@ error:;
 	fclose(pFile), pFile=NULL;
 }
 
-void Tagha_BuildFromPtr(struct Tagha *restrict pSys, void *restrict pProgram, const uint64_t Programsize)
+void Tagha_BuildFromPtr(struct Tagha *restrict pSys, void *pProgram, const uint64_t Programsize)
 {
-	if( !pSys or !pProgram )
+	if( !pSys or !pSys->m_pmapCDefs or !pProgram )
 		return;
 	
-	union CValue Reader = (union CValue){.UCharPtr = pProgram};
+	union CValue Reader = (union CValue){.UCharPtr=pProgram};
 	uint32_t bytecount = 0;	// bytecount is for separating the header data from the actual instruction stream.
 	
 	if( *Reader.UShortPtr != 0xC0DE ) {
@@ -630,15 +619,6 @@ void Tagha_BuildFromPtr(struct Tagha *restrict pSys, void *restrict pProgram, co
 	
 	// if we have no functions, that means main is missing...
 	if( pSys->m_uiFuncs ) {
-		// allocate our function hashmap so we can call functions by name.
-		pSys->m_pmapFuncs = calloc(1, sizeof(struct Hashmap));
-		if( !pSys->m_pmapFuncs ) {
-			printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Func Hashmap%s ****\n", KRED, RESET, KGRN, RESET);
-			Tagha_Free(pSys);
-			return;
-		}
-		Map_Init(pSys->m_pmapFuncs);
-		
 		// copy the function data from the header.
 		for( uint32_t i=0 ; i<pSys->m_uiFuncs ; i++ ) {
 			uint32_t str_size = *Reader.UInt32Ptr++;
@@ -658,17 +638,18 @@ void Tagha_BuildFromPtr(struct Tagha *restrict pSys, void *restrict pProgram, co
 			// copy func's header data to our table
 			// then store the table to our function hashmap with the key
 			// we allocated earlier.
-			uint32_t *offset = calloc(1, sizeof(uint32_t));
-			if( !offset ) {
+			struct TaghaCDef *pFuncData = calloc(1, sizeof(struct TaghaCDef));
+			if( !pFuncData ) {
 				printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Func Offset%s ****\n", KRED, RESET, KGRN, RESET);
 				Tagha_Free(pSys);
 				return;
 			} /* if */
-			*offset = *Reader.UInt32Ptr++;
+			pFuncData->m_uiOffset = *Reader.UInt32Ptr++;
 			bytecount += sizeof(uint32_t);
 			
-			printf("[Tagha Load Script Ptr] :: Copied Function name \'%s\' | offset: %" PRIu32 "\n", strFunc, *offset);
-			Map_Insert(pSys->m_pmapFuncs, strFunc, (uintptr_t)offset);
+			printf("[Tagha Load Script Ptr] :: Copied Function name \'%s\' | offset: %" PRIu32 "\n", strFunc, pFuncData->m_uiOffset);
+			pFuncData->m_ucDefType = DefFunction;
+			Map_Insert(pSys->m_pmapCDefs, strFunc, (uintptr_t)pFuncData);
 			strFunc = NULL;
 		} /* for( uint32_t i=0 ; i<pSys->m_uiFuncs ; i++ ) */
 	}
@@ -685,15 +666,6 @@ void Tagha_BuildFromPtr(struct Tagha *restrict pSys, void *restrict pProgram, co
 	
 	uint32_t globalbytes = 0;
 	if( pSys->m_uiGlobals ) {
-		// script has globals, allocate our global var hashmap.
-		pSys->m_pmapGlobals = calloc(1, sizeof(struct Hashmap));
-		if( !pSys->m_pmapGlobals ) {
-			printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Global Var Hashmap%s ****\n", KRED, RESET, KGRN, RESET);
-			Tagha_Free(pSys);
-			return;
-		}
-		Map_Init(pSys->m_pmapGlobals);
-		
 		for( uint32_t i=0 ; i<pSys->m_uiGlobals ; i++ ) {
 			uint32_t str_size = *Reader.UInt32Ptr++;
 			bytecount += sizeof(uint32_t);
@@ -710,24 +682,25 @@ void Tagha_BuildFromPtr(struct Tagha *restrict pSys, void *restrict pProgram, co
 			
 			// read the global var's data from the header and add it to our hashmap.
 			// same procedure as our function hashmap.
-			uint32_t *offset = calloc(1, sizeof(uint32_t));
-			if( !offset ) {
+			struct TaghaCDef *pGlobalData = calloc(1, sizeof(struct TaghaCDef));
+			if( !pGlobalData ) {
 				printf("[%sTagha Load Script Error%s]: **** %sFailed to allocate memory for Global Var Offset%s ****\n", KRED, RESET, KGRN, RESET);
 				Tagha_Free(pSys);
 				return;
 			} /* if */
-			*offset = *Reader.UInt32Ptr++;
+			pGlobalData->m_uiOffset = *Reader.UInt32Ptr++;
 			bytecount += sizeof(uint32_t);
 			
-			printf("[Tagha Load Script Ptr] :: copied global var's name: \'%s\' | offset: %" PRIu32 "\n", strGlobal, *offset);
+			printf("[Tagha Load Script Ptr] :: copied global var's name: \'%s\' | offset: %" PRIu32 "\n", strGlobal, pGlobalData->m_uiOffset);
 			
 			// insert the global var's table to our hashmap.
-			Map_Insert(pSys->m_pmapGlobals, strGlobal, (uintptr_t)offset);
+			pGlobalData->m_ucDefType = DefGlobal;
+			Map_Insert(pSys->m_pmapCDefs, strGlobal, (uintptr_t)pGlobalData);
 			strGlobal = NULL;
 		} /* for( uint32_t i=0 ; i<pSys->m_uiGlobals ; i++ ) */
 	}
 	
-	pSys->m_uiMaxInstrs = 0xffff;	// helps to stop infinite/runaway loops
+	pSys->m_uiMaxInstrs = LOOP_COUNTER;	// helps to stop infinite/runaway loops
 	
 	// header data is finished, subtract the filesize with the bytecount
 	// and data segment size to get the size of our instruction stream.
@@ -782,7 +755,7 @@ void Tagha_BuildFromPtr(struct Tagha *restrict pSys, void *restrict pProgram, co
 	puts("\n");
 }
 
-void Tagha_Free(struct Tagha *pSys)
+void Tagha_Free(struct Tagha *restrict const pSys)
 {
 	if( !pSys )
 		return;
@@ -799,43 +772,24 @@ void Tagha_Free(struct Tagha *pSys)
 		memset(pSys->m_pstrNativeCalls, 0, pSys->m_uiNatives);
 		FREE_MEM(pSys->m_pstrNativeCalls);
 	}
-	// free our function hashmap and all the tables in it.
-	if( pSys->m_pmapFuncs ) {
+	// free our C definitions hashmap and all the tables in it.
+	if( pSys->m_pmapCDefs ) {
 		struct KeyNode
-			*kv = NULL,
+			*restrict kv = NULL,
 			*next = NULL
 		;
-		Size = pSys->m_pmapFuncs->size;
+		Size = pSys->m_pmapCDefs->size;
 		for( i=0 ; i<Size ; i++ ) {
-			for( kv = pSys->m_pmapFuncs->table[i] ; kv ; kv = next ) {
-				next = kv->pNext;
-				if( kv->pData )
-					free((void *)(uintptr_t)kv->pData), kv->pData = 0;
-				if( kv->strKey )
-					free((char *)kv->strKey), kv->strKey = NULL;
+			for( kv = pSys->m_pmapCDefs->m_ppTable[i] ; kv ; kv = next ) {
+				next = kv->m_pNext;
+				if( kv->m_pData )
+					free((struct TaghaCDef *)(uintptr_t)kv->m_pData), kv->m_pData = 0;
+				if( kv->m_strKey )
+					free((char *)kv->m_strKey), kv->m_strKey = NULL;
 			}
 		}
-		Map_Free(pSys->m_pmapFuncs);
-		FREE_MEM(pSys->m_pmapFuncs);
-	}
-	// free our global var hashmap and all the tables in it.
-	if( pSys->m_pmapGlobals ) {
-		struct KeyNode
-			*kv = NULL,
-			*next = NULL
-		;
-		Size = pSys->m_pmapGlobals->size;
-		for( i=0 ; i<Size ; i++ ) {
-			for( kv = pSys->m_pmapGlobals->table[i] ; kv ; kv = next ) {
-				next = kv->pNext;
-				if( kv->pData )
-					free((void *)(uintptr_t)kv->pData), kv->pData = 0;
-				if( kv->strKey )
-					free((char *)kv->strKey), kv->strKey = NULL;
-			}
-		}
-		Map_Free(pSys->m_pmapGlobals);
-		FREE_MEM(pSys->m_pmapGlobals);
+		Map_Free(pSys->m_pmapCDefs);
+		FREE_MEM(pSys->m_pmapCDefs);
 	}
 	
 	// since the system's native hashmap has nothing allocated,
@@ -857,7 +811,7 @@ void Tagha_Free(struct Tagha *pSys)
 }
 
 
-void Tagha_Reset(struct Tagha *pSys)
+void Tagha_Reset(struct Tagha *restrict const pSys)
 {
 	if( !pSys )
 		return;
@@ -871,17 +825,17 @@ void Tagha_Reset(struct Tagha *pSys)
 }
 
 
-void *Tagha_GetGlobalByName(struct Tagha *restrict pSys, const char *restrict strGlobalName)
+void *Tagha_GetGlobalByName(const struct Tagha *restrict const pSys, const char *restrict strGlobalName)
 {
-	if( !pSys or !pSys->m_pmapGlobals )
+	if( !pSys or !pSys->m_pmapCDefs )
 		return NULL;
 	
 	// get the global's .data segment offset then return the pointer to that offset.
-	uint32_t *offset = (uint32_t *)(uintptr_t)Map_Get(pSys->m_pmapGlobals, strGlobalName);
-	return offset ? (pSys->m_pTextSegment+1)+ *offset : NULL;
+	struct TaghaCDef *pOffset = (struct TaghaCDef *)(uintptr_t)Map_Get(pSys->m_pmapCDefs, strGlobalName);
+	return pOffset and pOffset->m_ucDefType==DefGlobal ? (pSys->m_pTextSegment+1)+ pOffset->m_uiOffset : NULL;
 }
 
-void Tagha_PushValues(struct Tagha *restrict pSys, const uint32_t uiArgs, union CValue values[])
+void Tagha_PushValues(struct Tagha *restrict const pSys, const uint32_t uiArgs, union CValue values[])
 {
 	if( !pSys or !pSys->m_pMemory )
 		return;
@@ -906,7 +860,7 @@ void Tagha_PushValues(struct Tagha *restrict pSys, const uint32_t uiArgs, union 
 	}
 }
 
-union CValue Tagha_PopValue(struct Tagha *pSys)
+union CValue Tagha_PopValue(struct Tagha *restrict const pSys)
 {
 	union CValue val={ .UInt64=0L };
 	if( !pSys or !pSys->m_pMemory ) {
@@ -916,7 +870,7 @@ union CValue Tagha_PopValue(struct Tagha *pSys)
 	return pSys->m_Regs[ras];
 }
 
-void Tagha_SetCmdArgs(struct Tagha *restrict pSys, char *argv[])
+void Tagha_SetCmdArgs(struct Tagha *restrict const pSys, char *argv[])
 {
 	if( !pSys or !pSys->m_pMemory or !argv )
 		return;
@@ -959,42 +913,42 @@ void Tagha_SetCmdArgs(struct Tagha *restrict pSys, char *argv[])
 }
 
 
-uint32_t Tagha_GetMemSize(const struct Tagha *pSys)
+uint32_t Tagha_GetMemSize(const struct Tagha *restrict const pSys)
 {
 	return !pSys ? 0 : pSys->m_uiMemsize;
 }
-uint32_t Tagha_GetInstrSize(const struct Tagha *pSys)
+uint32_t Tagha_GetInstrSize(const struct Tagha *restrict const pSys)
 {
 	return !pSys ? 0 : pSys->m_uiInstrSize;
 }
-uint32_t Tagha_GetMaxInstrs(const struct Tagha *pSys)
+uint32_t Tagha_GetMaxInstrs(const struct Tagha *restrict const pSys)
 {
 	return !pSys ? 0 : pSys->m_uiMaxInstrs;
 }
-uint32_t Tagha_GetNativeCount(const struct Tagha *pSys)
+uint32_t Tagha_GetNativeCount(const struct Tagha *restrict const pSys)
 {
 	return !pSys ? 0 : pSys->m_uiNatives;
 }
-uint32_t Tagha_GetFuncCount(const struct Tagha *pSys)
+uint32_t Tagha_GetFuncCount(const struct Tagha *restrict const pSys)
 {
 	return !pSys ? 0 : pSys->m_uiFuncs;
 }
-uint32_t Tagha_GetGlobalsCount(const struct Tagha *pSys)
+uint32_t Tagha_GetGlobalsCount(const struct Tagha *restrict const pSys)
 {
 	return !pSys ? 0 : pSys->m_uiGlobals;
 }
-bool Tagha_IsSafemodeActive(const struct Tagha *pSys)
+bool Tagha_IsSafemodeActive(const struct Tagha *restrict const pSys)
 {
 	return !pSys ? 0 : pSys->m_bSafeMode;
 }
-bool Tagha_IsDebugActive(const struct Tagha *pSys)
+bool Tagha_IsDebugActive(const struct Tagha *restrict const pSys)
 {
 	return !pSys ? 0 : pSys->m_bDebugMode;
 }
 
 
 
-void Tagha_PrintStack(const struct Tagha *pSys)
+void Tagha_PrintStack(const struct Tagha *restrict const pSys)
 {
 	if( !pSys or !pSys->m_pMemory )
 		return;
@@ -1013,7 +967,7 @@ void Tagha_PrintStack(const struct Tagha *pSys)
 	puts("\n");
 }
 
-void Tagha_PrintData(const struct Tagha *pSys)
+void Tagha_PrintData(const struct Tagha *restrict const pSys)
 {
 	if( !pSys or !pSys->m_pMemory )
 		return;
@@ -1025,7 +979,7 @@ void Tagha_PrintData(const struct Tagha *pSys)
 	puts("\n");
 }
 
-void Tagha_PrintInstrs(const struct Tagha *pSys)
+void Tagha_PrintInstrs(const struct Tagha *restrict const pSys)
 {
 	if( !pSys or !pSys->m_pMemory )
 		return;
@@ -1037,7 +991,7 @@ void Tagha_PrintInstrs(const struct Tagha *pSys)
 	puts("\n");
 }
 
-void Tagha_PrintPtrs(const struct Tagha *pSys)
+void Tagha_PrintPtrs(const struct Tagha *restrict const pSys)
 {
 	if( !pSys )
 		return;
@@ -1049,7 +1003,7 @@ void Tagha_PrintPtrs(const struct Tagha *pSys)
 	puts("\n");
 }
 
-void Tagha_PrintErr(struct Tagha *restrict pSys, const char *restrict funcname, const char *restrict err, ...)
+void Tagha_PrintErr(const struct Tagha *restrict const pSys, const char *restrict funcname, const char *restrict err, ...)
 {
 	if( !pSys or !err )
 		return;
@@ -1071,7 +1025,7 @@ void Tagha_PrintErr(struct Tagha *restrict pSys, const char *restrict funcname, 
 	printf("======== %sTagha Stack Trace END%s ========\n", KYEL, KNRM);
 }
 
-void Tagha_PrintRegData(const struct Tagha *pSys)
+void Tagha_PrintRegData(const struct Tagha *restrict const pSys)
 {
 	puts("\n\tPRINTING REGISTER DATA ==========================\n");
 	for( uint8_t i=0 ; i<regsize ; i++ )

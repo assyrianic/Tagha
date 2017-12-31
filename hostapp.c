@@ -17,44 +17,44 @@ struct Player {
 */
 
 /* void print_helloworld(void); */
-static void native_print_helloworld(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void Native_PrintHelloWorld(struct Tagha *const pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
-	puts("native_print_helloworld :: hello world from bytecode!\n");
+	puts("Native_PrintHelloWorld :: hello world from bytecode!\n");
 }
 
 /* void test(struct Player *p); */
-static void native_test(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void Native_Test(struct Tagha *const pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	struct Player *player=NULL;
 	
 	// get first arg which is the virtual address to our data.
 	player = (struct Player *)params[0].Ptr;
 	if( !player ) {
-		puts("native_test_ptr reported an ERROR :: **** param 'p' is NULL ****\n");
+		puts("Native_TestPtr reported an ERROR :: **** param 'p' is NULL ****\n");
 		return;
 	}
 	
 	// debug print to see if our data is accurate.
-	printf("native_test_ptr :: ammo: %" PRIu32 " | health: %" PRIu32 " | speed: %f\n", player->ammo, player->health, player->speed);
+	printf("Native_TestPtr :: ammo: %" PRIu32 " | health: %" PRIu32 " | speed: %f\n", player->ammo, player->health, player->speed);
 	player=NULL;
 }
 
 /* void getglobal(void); */
-static void native_getglobal(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void Native_TestGlobal(struct Tagha *const pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	int *p = Tagha_GetGlobalByName(pSys, "i");
 	if( !p )
 		return;
-	printf("native_getglobal :: i == %i\n", *p);
+	printf("Native_TestGlobal :: i == %i\n", *p);
 }
 
 
 /* int puts(const char *__s); */
-static void native_puts(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void Native_puts(struct Tagha *const pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	const char *restrict __s = params[0].String;
 	if( !__s ) {
-		puts("native_puts :: reported \'__s\' is NULL.\n");
+		puts("Native_puts :: reported \'__s\' is NULL.\n");
 		pRetval->Int32 = -1;
 		return;
 	}
@@ -62,7 +62,7 @@ static void native_puts(struct Tagha *pSys, union CValue params[], union CValue 
 }
 
 /* char *fgets(char *str, int num, FILE *stream); */
-static void native_fgets(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void Native_fgets(struct Tagha *const pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Ptr = fgets(params[0].Str, params[1].Int32, params[2].Ptr);
 }
@@ -81,11 +81,11 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 	struct NativeInfo tagha_host_natives[] = {
-		{"test", native_test},
-		{"printHW", native_print_helloworld},
-		{"getglobal", native_getglobal},
-		{"puts", native_puts},
-		{"fgets", native_fgets},
+		{"test", Native_Test},
+		{"printHW", Native_PrintHelloWorld},
+		{"getglobal", Native_TestGlobal},
+		{"puts", Native_puts},
+		{"fgets", Native_fgets},
 		{NULL, NULL}
 	};
 	Tagha_RegisterNatives(vm, tagha_host_natives);

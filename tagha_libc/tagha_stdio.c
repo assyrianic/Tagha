@@ -8,25 +8,25 @@
  */
 
 /* int remove(const char *filename); */
-static void native_remove(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_remove(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = remove(params[0].String);
 }
 
 /* int rename(const char *oldname, const char *newname); */
-static void native_rename(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_rename(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = rename(params[0].String, params[1].String);
 }
 
 /* FILE *tmpfile(void); */
-static void native_tmpfile(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_tmpfile(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Ptr = tmpfile();
 }
 
 /* char *tmpnam(char *str); */
-static void native_tmpnam(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_tmpnam(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Ptr = tmpnam(params[0].Str);
 }
@@ -37,87 +37,66 @@ static void native_tmpnam(struct Tagha *pSys, union CValue params[], union CValu
  */
 
 /* int fclose(FILE *stream); */
-static void native_fclose(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_fclose(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	if( params[0].Ptr ) {
-		puts("fclose:: closing FILE*\n");
 		pRetval->Int32 = fclose(params[0].Ptr);
+		return;
 	}
-	else {
-		puts("fclose:: FILE* is NULL\n");
-		pRetval->Int32 = -1;
-	}
+	pRetval->Int32 = -1;
 }
 
 /* int fflush(FILE *stream); */
-static void native_fflush(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_fflush(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = fflush(params[0].Ptr);
 }
 
 /* FILE *fopen(const char *filename, const char *modes); */
-static void native_fopen(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_fopen(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
-	const char *filename = params[0].String;
 	const char *mode = params[1].String;
-	if( !filename ) {
-		puts("fopen reported an ERROR :: **** param 'filename' is NULL ****\n");
-		goto error;
+	if( !mode ) {
+		puts("fopen reported :: **** ERROR: param 'modes' is NULL ****\n");
+		pRetval->Ptr = NULL;
+		return;
 	}
-	else if( !mode ) {
-		puts("fopen reported an ERROR :: **** param 'modes' is NULL ****\n");
-		goto error;
-	}
-	
-	FILE *pFile = fopen(filename, mode);
-	if( pFile )
-		printf("fopen:: opening file \'%s\' with mode: \'%s\'\n", filename, mode);
-	else printf("fopen: failed to get filename: \'%s\'\n", filename);
-	pRetval->Ptr = pFile;
-	return;
-error:;
-	pRetval->Ptr = NULL;
+	pRetval->Ptr = fopen(params[0].String, mode);
 }
 
 /* FILE *freopen(const char *filename, const char *mode, FILE *stream); */
-static void native_freopen(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_freopen(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	const char *filename = params[0].String;
 	const char *mode = params[1].String;
 	FILE *pStream = params[2].Ptr;
 	
 	if( !filename ) {
-		puts("freopen reported an ERROR :: **** param 'filename' is NULL ****\n");
+		puts("freopen reported :: **** ERROR: param 'filename' is NULL ****\n");
 		goto error;
 	} else if( !mode ) {
-		puts("freopen reported an ERROR :: **** param 'modes' is NULL ****\n");
+		puts("freopen reported :: **** ERROR: param 'modes' is NULL ****\n");
 		goto error;
 	} else if( !pStream ) {
-		puts("freopen reported an ERROR :: **** param 'stream' is NULL ****\n");
+		puts("freopen reported :: **** ERROR: param 'stream' is NULL ****\n");
 		goto error;
 	}
 	
-	FILE *pFile = freopen(filename, mode, pStream);
-	if( pFile )
-		printf("freopen:: opening file \'%s\' with mode: \'%s\'\n", filename, mode);
-	else printf("freopen: failed to get filename: \'%s\'\n", filename);
-	pRetval->Ptr = pFile;
+	pRetval->Ptr = freopen(filename, mode, pStream);
 	return;
 error:;
 	pRetval->Ptr = NULL;
 }
 
 /* void setbuf(FILE *stream, char *buffer); */
-static void native_setbuf(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_setbuf(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	FILE *pStream = params[0].Ptr;
-	char *pBuffer = params[1].Str;
-	
 	if( !pStream ) {
-		puts("setbuf reported an ERROR :: **** param 'stream' is NULL ****\n");
+		puts("setbuf reported :: **** ERROR: param 'stream' is NULL ****\n");
 		return;
 	}
-	setbuf(pStream, pBuffer);
+	setbuf(pStream, params[1].Str);
 }
 
 
@@ -128,19 +107,19 @@ static void native_setbuf(struct Tagha *pSys, union CValue params[], union CValu
 int32_t gnprintf(char *buffer, size_t maxlen, const char *format, CValue params[], uint32_t numparams, uint32_t *curparam);
 
 /* int fprintf(FILE *stream, const char *format, ...); */
-static void native_fprintf(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_fprintf(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	FILE *stream = params[0].Ptr;
 	if( !stream ) {
 		pRetval->Int32 = -1;
-		puts("fprintf reported an ERROR :: **** param 'stream' is NULL ****\n");
+		puts("fprintf reported :: **** ERROR: param 'stream' is NULL ****\n");
 		return;
 	}
 	
 	const char *format = params[1].String;
 	if( !format ) {
 		pRetval->Int32 = -1;
-		puts("fprintf reported an ERROR :: **** param 'format' is NULL ****\n");
+		puts("fprintf reported :: **** ERROR: param 'format' is NULL ****\n");
 		return;
 	}
 	
@@ -152,19 +131,19 @@ static void native_fprintf(struct Tagha *pSys, union CValue params[], union CVal
 }
 
 /* int fscanf(FILE *stream, const char *format, ...); */
-static void native_fscanf(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_fscanf(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	FILE *stream = params[0].Ptr;
 	if( !stream ) {
 		pRetval->Int32 = -1;
-		puts("fscanf reported an ERROR :: **** param 'stream' is NULL ****\n");
+		puts("fscanf reported :: **** ERROR: param 'stream' is NULL ****\n");
 		return;
 	}
 	
 	const char *format = params[1].String;
 	if( !format ) {
 		pRetval->Int32 = -1;
-		puts("fscanf reported an ERROR :: **** param 'format' is NULL ****\n");
+		puts("fscanf reported :: **** ERROR: param 'format' is NULL ****\n");
 		return;
 	}
 	
@@ -173,12 +152,12 @@ static void native_fscanf(struct Tagha *pSys, union CValue params[], union CValu
 }
 
 /* int printf(const char *fmt, ...); */
-static void native_printf(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_printf(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	const char *str = params[0].String;
 	if( !str ) {
 		pRetval->Int32 = -1;
-		puts("printf reported an ERROR :: **** param 'fmt' is NULL ****\n");
+		puts("printf reported :: **** ERROR: param 'fmt' is NULL ****\n");
 		return;
 	}
 	char data_buffer[4096] = {0};
@@ -189,12 +168,12 @@ static void native_printf(struct Tagha *pSys, union CValue params[], union CValu
 }
 
 /* int puts(const char *s); */
-static void native_puts(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_puts(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	const char *str = params[0].String;
 	if( !str ) {
 		pRetval->Int32 = -1;
-		puts("native_puts reported an ERROR :: **** param 's' is NULL ****\n");
+		puts("native_puts reported :: **** ERROR: param 's' is NULL ****\n");
 		return;
 	}
 	// push back the value of the return val of puts.
@@ -203,16 +182,17 @@ static void native_puts(struct Tagha *pSys, union CValue params[], union CValue 
 }
 
 /* int setvbuf(FILE *stream, char *buffer, int mode, size_t size); */
-static void native_setvbuf(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_setvbuf(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	FILE *stream = params[0].Ptr;
 	char *buffer = params[1].Str;
 	if( !stream ) {
-		puts("native_setvbuf reported an ERROR :: **** param 'stream' is NULL ****\n");
+		puts("native_setvbuf reported :: **** ERROR: param 'stream' is NULL ****\n");
 		pRetval->Int32 = -1;
 		return;
-	} else if( !buffer ) {
-		puts("native_setvbuf reported an ERROR :: **** param 'buffer' is NULL ****\n");
+	}
+	else if( !buffer ) {
+		puts("native_setvbuf reported :: **** ERROR: param 'buffer' is NULL ****\n");
 		pRetval->Int32 = -1;
 		return;
 	}
@@ -220,109 +200,109 @@ static void native_setvbuf(struct Tagha *pSys, union CValue params[], union CVal
 }
 
 /* int fgetc(FILE *stream); */
-static void native_fgetc(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_fgetc(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = fgetc(params[0].Ptr);
 }
 
 /* char *fgets(char *str, int num, FILE *stream); */
-static void native_fgets(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_fgets(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Ptr = fgets(params[0].Str, params[1].Int32, params[2].Ptr);
 }
 
 /* int fputc(int character, FILE *stream); */
-static void native_fputc(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_fputc(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = fputc(params[0].Int32, params[1].Ptr);
 }
 
 /* int fputs(const char *str, FILE *stream); */
-static void native_fputs(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_fputs(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = fputs(params[0].String, params[1].Ptr);
 }
 
 /* int getc(FILE *stream); */
-static void native_getc(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_getc(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = getc(params[0].Ptr);
 }
 
 /* int getchar(void); */
-static void native_getchar(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_getchar(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = getchar();
 }
 
 /* int putc(int character, FILE *stream); */
-static void native_putc(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_putc(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = putc(params[0].Int32, params[1].Ptr);
 }
 
 /* int putchar(int character); */
-static void native_putchar(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_putchar(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = putchar(params[0].Int32);
 }
 
 /* int ungetc(int character, FILE *stream); */
-static void native_ungetc(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_ungetc(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = ungetc(params[0].Int32, params[1].Ptr);
 }
 
 /* size_t fread(void *ptr, size_t size, size_t count, FILE *stream); */
-static void native_fread(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_fread(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->UInt64 = fread(params[0].Ptr, params[1].UInt64, params[2].UInt64, params[3].Ptr);
 }
 
 /* size_t fwrite(const void *ptr, size_t size, size_t count, FILE *stream); */
-static void native_fwrite(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_fwrite(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->UInt64 = fwrite(params[0].Ptr, params[1].UInt64, params[2].UInt64, params[3].Ptr);
 }
 
 /* int fseek(FILE *stream, long int offset, int origin); */
-static void native_fseek(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_fseek(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = fseek(params[0].Ptr, params[1].UInt64, params[2].Int32);
 }
 
 /* long int ftell(FILE *stream); */
-static void native_ftell(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_ftell(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int64 = ftell(params[0].Ptr);
 }
 
 /* void rewind(FILE *stream); */
-static void native_rewind(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_rewind(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	rewind(params[0].Ptr);
 }
 
 /* void clearerr(FILE *stream); */
-static void native_clearerr(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_clearerr(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	clearerr(params[0].Ptr);
 }
 
 /* int feof(FILE *stream); */
-static void native_feof(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_feof(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = feof(params[0].Ptr);
 }
 
 /* int ferror(FILE *stream); */
-static void native_ferror(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_ferror(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = ferror(params[0].Ptr);
 }
 
 /* void perror(const char *str); */
-static void native_perror(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_perror(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	perror(params[0].String);
 }
@@ -338,7 +318,7 @@ static void native_perror(struct Tagha *pSys, union CValue params[], union CValu
 #define LONGADJ			0x00000010		/* adjusting for longer values like "lli", etc. Added by Assyrianic */
 
 #define to_digit(c)		((c) - '0')
-#define is_digit(c)		((unsigned)to_digit(c) <= 9)
+#define is_digit(c)		((uint32_t)to_digit(c) <= 9)
 
 // minor edits is removing database string AND 'maxlen' is changed from a reference to a pointer.
 static bool AddString(char **buf_p, size_t *maxlen, const char *string, int width, int prec, int flags)
@@ -795,7 +775,7 @@ void AddOctal(char **buf_p, size_t *maxlen, uint64_t val, int width, int flags)
 int32_t gnprintf(char *buffer,
 					size_t maxlen,
 					const char *format,
-					CValue params[],
+					union CValue params[],
 					uint32_t numparams,
 					uint32_t *restrict curparam)
 {

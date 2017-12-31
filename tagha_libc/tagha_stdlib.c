@@ -2,21 +2,21 @@
 #include <stdlib.h>
 
 /* void *malloc(size_t size); */
-static void native_malloc(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_malloc(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	// size_t is 8 bytes on 64-bit systems
 	pRetval->Ptr = calloc(1, params[0].UInt64);
 }
 
 /* void free(void *ptr); */
-static void native_free(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_free(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	free(params[0].Ptr);
 }
 
 /* non-standard addition. */
 /* void safe_free(void **pptr); */
-static void native_safe_free(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_safe_free(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	void **pptr = params[0].PtrPtr;
 	if( *pptr ) {
@@ -26,55 +26,55 @@ static void native_safe_free(struct Tagha *pSys, union CValue params[], union CV
 }
 
 /* void *calloc(size_t num, size_t size); */
-static void native_calloc(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_calloc(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Ptr = calloc(params[0].UInt64, params[1].UInt64);
 }
 
 /* void *realloc(void *ptr, size_t size); */
-static void native_realloc(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_realloc(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Ptr = realloc(params[0].Ptr, params[1].UInt64);
 }
 
 /* void srand(unsigned int seed); */
-static void native_srand(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_srand(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	srand(params[0].UInt32);
 }
 
 /* int rand(void); */
-static void native_rand(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_rand(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = rand();
 }
 
 /* double atof(const char *str); */
-static void native_atof(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_atof(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Double = atof(params[0].String);
 }
 
 /* int atoi(const char *str); */
-static void native_atoi(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_atoi(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = atoi(params[0].String);
 }
 
 /* long int atol(const char *str); */
-static void native_atol(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_atol(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int64 = atol(params[0].String);
 }
 
 /* long long int atoll(const char *str); */
-static void native_atoll(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_atoll(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int64 = atoll(params[0].String);
 }
 
 /* double strtod(const char *str, char **endptr); */
-static void native_strtod(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_strtod(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -85,7 +85,7 @@ static void native_strtod(struct Tagha *pSys, union CValue params[], union CValu
 }
 
 /* float strtof(const char *str, char **endptr); */
-static void native_strtof(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_strtof(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -96,7 +96,7 @@ static void native_strtof(struct Tagha *pSys, union CValue params[], union CValu
 }
 
 /* long int strtol(const char *str, char **endptr, int base); */
-static void native_strtol(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_strtol(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -107,7 +107,7 @@ static void native_strtol(struct Tagha *pSys, union CValue params[], union CValu
 }
 
 /* long long int strtoll(const char *str, char **endptr, int base); */
-static void native_strtoll(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_strtoll(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -118,7 +118,7 @@ static void native_strtoll(struct Tagha *pSys, union CValue params[], union CVal
 }
 
 /* unsigned long int strtoul(const char *str, char **endptr, int base); */
-static void native_strtoul(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_strtoul(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -129,7 +129,7 @@ static void native_strtoul(struct Tagha *pSys, union CValue params[], union CVal
 }
 
 /* unsigned long long int strtoull(const char *str, char **endptr, int base); */
-static void native_strtoull(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_strtoull(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	const char *str = params[0].String;
 	if( !str ) {
@@ -140,20 +140,20 @@ static void native_strtoull(struct Tagha *pSys, union CValue params[], union CVa
 }
 
 /* void abort(void); */
-static void native_abort(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_abort(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	*pSys->m_Regs[rip].UCharPtr = halt;
 }
 
 /* void exit(int status); */
-static void native_exit(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_exit(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	*pSys->m_Regs[rip].UCharPtr = halt;
 	printf("Tagha: Exiting with status: %i\n", params[0].Int32);
 }
 
 /* int system(const char *command); */
-static void native_system(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_system(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	const char *command = params[0].String;
 	if( !command ) {
@@ -165,19 +165,19 @@ static void native_system(struct Tagha *pSys, union CValue params[], union CValu
 }
 
 /* int abs(int n); */
-static void native_abs(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_abs(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = abs(params[0].Int32);
 }
 
 /* long int labs(long int n); */
-static void native_labs(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_labs(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int64 = (int64_t)labs(params[0].Int64);
 }
 
 /* long long int llabs(long long int n); */
-static void native_llabs(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_llabs(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int64 = llabs(params[0].Int64);
 }
@@ -192,7 +192,7 @@ now how the fuck do we return a damn struct?
 registers are large enough to have an 8-byte struct though. Nope.
 void div(div_t *res, int numer, int denom);
 */
-static void native_div(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_div(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	div_t *res = params[0].Ptr;
 	*res = div(params[1].Int32, params[2].Int32);
@@ -211,7 +211,7 @@ Tagha's env and the host machine env...
 So in the end, for ldiv, you need to pass a ptr to ldiv_t struct for now.
 void ldiv(ldiv_t *res, long int numer, long int denom);
 */
-static void native_ldiv(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_ldiv(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	ldiv_t *res = params[0].Ptr;
 	*res = ldiv(params[1].Int64, params[2].Int64);
@@ -224,38 +224,38 @@ typedef struct {
 } lldiv_t;
 void ldiv(lldiv_t *res, long long int numer, long long int denom);
 */
-static void native_lldiv(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_lldiv(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	lldiv_t *res = params[0].Ptr;
 	*res = lldiv(params[1].Int64, params[2].Int64);
 }
 
 /* int mblen(const char *pmb, size_t max); */
-static void native_mblen(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_mblen(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = mblen(params[0].String, params[1].UInt64);
 }
 
 /* int mbtowc(wchar_t *pwc, const char *pmb, size_t max); */
-static void native_mbtowc(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_mbtowc(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = mbtowc(params[0].Ptr, params[1].String, params[2].UInt64);
 }
 
 /* int wctomb(char *pmb, wchar_t wc); */
-static void native_wctomb(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_wctomb(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->Int32 = wctomb(params[0].Str, sizeof(wchar_t)==2 ? params[1].UShort : params[1].UInt32);
 }
 
 /* size_t mbstowcs(wchar_t *dest, const char *src, size_t max); */
-static void native_mbstowcs(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_mbstowcs(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->UInt64 = mbstowcs((wchar_t *)params[0].Ptr, params[1].String, params[2].UInt64);
 }
 
 /* size_t wcstombs(char *dest, const wchar_t *src, size_t max); */
-static void native_wcstombs(struct Tagha *pSys, union CValue params[], union CValue *restrict pRetval, const uint32_t argc)
+static void native_wcstombs(struct Tagha *pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	pRetval->UInt64 = wcstombs(params[0].Str, (wchar_t *)params[1].Ptr, params[2].UInt64);
 }

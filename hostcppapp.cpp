@@ -9,13 +9,13 @@
 */
 
 /* void print_helloworld(void); */
-static void native_print_helloworld(Tagha_ *pSys, CValue params[], CValue *pRetval, const uint32_t argc)
+static void Native_PrintHelloWorld(Tagha_ *pSys, CValue params[], CValue *const pRetval, const uint32_t argc)
 {
-	puts("native_print_helloworld :: hello world from bytecode!\n");
+	puts("Native_PrintHelloWorld :: hello world from bytecode!\n");
 }
 
-/* void test_ptr(struct player *p); */
-static void native_test_ptr(Tagha_ *pSys, CValue params[], CValue *pRetval, const uint32_t argc)
+/* void test(struct player *p); */
+static void Native_Test(Tagha_ *pSys, CValue params[], CValue *const pRetval, const uint32_t argc)
 {
 	struct Player {
 		float		speed;
@@ -29,18 +29,18 @@ static void native_test_ptr(Tagha_ *pSys, CValue params[], CValue *pRetval, cons
 		return;
 	
 	// debug print to see if our data is accurate.
-	printf("native_test_ptr :: ammo: %" PRIu32 " | health: %" PRIu32 " | speed: %f\n", player->ammo, player->health, player->speed);
+	printf("Native_Test :: ammo: %" PRIu32 " | health: %" PRIu32 " | speed: %f\n", player->ammo, player->health, player->speed);
 	player=nullptr;
 }
 
 /* void getglobal(void); */
-static void native_getglobal(Tagha_ *pSys, CValue params[], CValue *pRetval, const uint32_t argc)
+static void Native_TestGlobal(Tagha_ *pSys, CValue params[], CValue *const pRetval, const uint32_t argc)
 {
 	int *p = (int *)pSys->GetGlobalByName("i");
 	if( !p )
 		return;
 	
-	printf("native_getglobal :: i == %i\n", *p);
+	printf("Native_TestGlobal :: i == %i\n", *p);
 }
 
 
@@ -53,9 +53,9 @@ int main(int argc, char *argv[])
 	}
 	Tagha_ *tagha = new Tagha_();
 	NativeInfo_ tagha_host_natives[] = {
-		{"test", native_test_ptr},
-		{"printHW", native_print_helloworld},
-		{"getglobal", native_getglobal},
+		{"test", Native_Test},
+		{"printHW", Native_PrintHelloWorld},
+		{"getglobal", Native_TestGlobal},
 		{nullptr, nullptr}
 	};
 	tagha->RegisterNatives(tagha_host_natives);

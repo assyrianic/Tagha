@@ -52,13 +52,13 @@ void PrintAddrMode(const enum AddrMode mode)
 
 
 //#include <unistd.h>	// sleep() func
-int32_t Tagha_Exec(struct Tagha *pSys)
+int32_t Tagha_Exec(struct Tagha *restrict const pSys)
 {
 	if( !pSys )
 		return -1;
 	
 	// make sure we have a valid instruction address.
-	if( !pSys->m_Regs[rip].UCharPtr ) {
+	else if( !pSys->m_Regs[rip].UCharPtr ) {
 		Tagha_PrintErr(pSys, __func__, "NULL instr ptr! if 'main' doesn't exist, call a function by name.");
 		return -1;
 	}
@@ -80,12 +80,12 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 	
 #define X(x) #x ,
 	// for debugging purposes.
-	const char *opcode2str[] = { INSTR_SET };
+	const char *restrict opcode2str[] = { INSTR_SET };
 #undef X
 	
 #define X(x) &&exec_##x ,
 	// our instruction dispatch table.
-	const void *dispatch[] = { INSTR_SET };
+	const void *restrict dispatch[] = { INSTR_SET };
 #undef X
 #undef INSTR_SET
 	
@@ -96,10 +96,6 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 	
 	int32_t offset;
 	while( 1 ) {
-		pSys->m_uiMaxInstrs--;
-		if( !pSys->m_uiMaxInstrs )
-			break;
-		
 		safemode = pSys->m_bSafeMode;
 		debugmode = pSys->m_bDebugMode;
 		if( safemode ) {
@@ -159,7 +155,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				(--pSys->m_Regs[rsp].SelfPtr)->UInt64 = pSys->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					(--pSys->m_Regs[rsp].SelfPtr)->UInt64 = 0;
 					continue;
@@ -178,7 +174,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].UInt64 = (*pSys->m_Regs[rsp].SelfPtr++).UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					pSys->m_Regs[rsp].SelfPtr++;
 					continue;
@@ -216,7 +212,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].UInt64 += 1;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -237,7 +233,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].UInt64 -= 1;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -258,7 +254,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].UInt64 = ~pSys->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -282,11 +278,21 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + pSys->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
 				pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + *(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset);
+			}
+			// cheap, garbage way of stopping infinite loops.
+			// probably a better idea to use the stack frame as a form of ID.
+			if( *pSys->m_Regs[rip].UCharPtr==jmp )
+				--pSys->m_uiMaxInstrs;
+			else pSys->m_uiMaxInstrs = LOOP_COUNTER;
+			
+			if( !pSys->m_uiMaxInstrs ) {
+				puts("Tagh Exec :: stopping suspected infinite loop.\n");
+				goto *dispatch[halt];
 			}
 			continue;
 		}
@@ -299,7 +305,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[rip].UCharPtr = (pSys->m_bZeroFlag) ? pSys->m_pMemory + pSys->m_Regs[a.UInt64].UInt64 : pSys->m_Regs[rip].UCharPtr;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -315,7 +321,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[rip].UCharPtr = (!pSys->m_bZeroFlag) ? pSys->m_pMemory + pSys->m_Regs[a.UInt64].UInt64 : pSys->m_Regs[rip].UCharPtr;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -339,7 +345,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + pSys->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -355,13 +361,12 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			}
 			
 			pSys->m_Regs[rbp].UInt64 = (*pSys->m_Regs[rsp].SelfPtr++).UInt64;	// pop rbp
-			// if we're popping Main's RBP, then halt the whole program.
+			// if we're popping Main's (or whatever called func) RBP, then halt the whole program.
 			if( pSys->m_Regs[rbp].UCharPtr == pMainRBP ) {
 				if( debugmode )
 					puts("ret :: return on empty stack");
 				goto *dispatch[halt];
 			}
-			
 			pSys->m_Regs[rip].UInt64 = (*pSys->m_Regs[rsp].SelfPtr++).UInt64;	// pop rip
 			if( addrmode & Immediate )
 				pSys->m_Regs[rsp].UCharPtr += *pSys->m_Regs[rip].UInt64Ptr++;
@@ -385,7 +390,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				index = pSys->m_Regs[a.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					pSys->m_Regs[rip].UInt32Ptr++;
 					continue;
@@ -443,7 +448,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].UInt64 = pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					pSys->m_Regs[a.UInt64].UInt64 = 0;
 					continue;
@@ -464,7 +469,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {	// moving value to register-based address
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -498,7 +503,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].UInt64 = pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					pSys->m_Regs[a.UInt64].UInt64 = 0;
 					continue;
@@ -519,7 +524,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].UInt64 = (uintptr_t)(pSys->m_pMemory + pSys->m_Regs[b.UInt64].UInt64);
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					pSys->m_Regs[a.UInt64].UInt64 = 0;
 					continue;
@@ -538,7 +543,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].Int64 += pSys->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -558,7 +563,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -594,7 +599,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].UInt64 += pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -614,7 +619,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -651,7 +656,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].Int64 -= pSys->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -671,7 +676,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -707,7 +712,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].UInt64 -= pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -727,7 +732,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -764,7 +769,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].Int64 *= pSys->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -784,7 +789,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -820,7 +825,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].UInt64 *= pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -840,7 +845,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -883,7 +888,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -915,7 +920,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -963,7 +968,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -995,7 +1000,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1044,7 +1049,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1076,7 +1081,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1124,7 +1129,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1156,7 +1161,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1199,7 +1204,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].UInt64 >>= pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1219,7 +1224,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1256,7 +1261,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].UInt64 <<= pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1276,7 +1281,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1313,7 +1318,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].UInt64 &= pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1333,7 +1338,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1370,7 +1375,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].UInt64 |= pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1390,7 +1395,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1427,7 +1432,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].UInt64 ^= pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1447,7 +1452,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1484,7 +1489,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 < pSys->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1504,7 +1509,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1540,7 +1545,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 < pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1560,7 +1565,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1597,7 +1602,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 > pSys->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1617,7 +1622,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1653,7 +1658,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 > pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1666,14 +1671,14 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				else if( addrmode & EightBytes )
 					pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 > *(uint64_t *)(pSys->m_Regs[b.UInt64].UCharPtr+offset);
 			}
-			break;
+			continue;
 		}
 		exec_ugtm:; {	// dest is memory and src is reg
 			a.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1710,7 +1715,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 == pSys->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1730,7 +1735,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1766,7 +1771,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 == pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1786,7 +1791,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1823,7 +1828,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Int64 != pSys->m_Regs[b.UInt64].Int64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1843,7 +1848,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1879,7 +1884,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].UInt64 != pSys->m_Regs[b.UInt64].UInt64;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1899,7 +1904,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1945,7 +1950,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1968,7 +1973,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -1994,7 +1999,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2019,7 +2024,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2039,7 +2044,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].Double += pSys->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2055,7 +2060,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2085,7 +2090,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].Double -= pSys->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2101,7 +2106,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2129,7 +2134,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].Double *= pSys->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2145,7 +2150,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2179,7 +2184,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			}
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2201,7 +2206,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2238,7 +2243,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_Regs[a.UInt64].Double = -pSys->m_Regs[a.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2258,7 +2263,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double < pSys->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2274,7 +2279,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2302,7 +2307,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double > pSys->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2318,7 +2323,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2346,7 +2351,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double == pSys->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2362,7 +2367,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2390,7 +2395,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 				pSys->m_bZeroFlag = pSys->m_Regs[a.UInt64].Double != pSys->m_Regs[b.UInt64].Double;
 			else if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[b.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}
@@ -2406,7 +2411,7 @@ int32_t Tagha_Exec(struct Tagha *pSys)
 			b.UInt64 = *pSys->m_Regs[rip].UInt64Ptr++;
 			if( addrmode & RegIndirect ) {
 				offset = *pSys->m_Regs[rip].Int32Ptr++;
-				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr+offset) ) {
+				if( safemode and !(pSys->m_Regs[a.UInt64].UCharPtr) ) {
 					Tagha_PrintErr(pSys, __func__, "NULL Pointer exception!");
 					continue;
 				}

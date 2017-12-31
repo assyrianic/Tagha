@@ -550,9 +550,8 @@ with open('test_3d_vecs.tbc', 'wb+') as tbc:
 	wrt_one_op_code(code, opcodes.dbl2float, Register, rgs);
 	# mov dword ptr [rds+8], rfs
 	wrt_two_op_code(code, opcodes.movm, RegIndirect|Register|FourBytes, rds, rgs, 8);
-	
-	wrt_non_op_code(code, 255, 0);
 	wrt_non_op_code(code, opcodes.ret, 0);
+	
 	tbc.write(code);
 
 
@@ -686,4 +685,3 @@ with open('test_main_args.tbc', 'wb+') as tbc:
 	#wrt_two_op_code(code, opcodes.movr, Immediate, ras, 0);
 	pcaddr += wrt_non_op_code(code, opcodes.ret, 0); #102
 	tbc.write(code);
-

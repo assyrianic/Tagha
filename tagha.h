@@ -21,7 +21,7 @@ extern "C" {
 #define KWHT	"\x1B[37m"
 #define RESET	"\033[0m"	// Reset obviously
 
-
+#define LOOP_COUNTER	1800000000
 
 struct Tagha;
 struct NativeInfo;
@@ -37,18 +37,18 @@ typedef struct NativeInfo		NativeInfo;
  * 		References
  */
 typedef union CValue {
-	bool Bool, *BoolPtr;
-	int8_t Char, *CharPtr;
-	int16_t Short, *ShortPtr;
-	int32_t Int32, *Int32Ptr;
+	bool Bool, *BoolPtr, BoolArr[8];
+	int8_t Char, *CharPtr, CharArr[8];
+	int16_t Short, *ShortPtr, ShortArr[4];
+	int32_t Int32, *Int32Ptr, Int32Arr[2];
 	int64_t Int64, *Int64Ptr;
 	
-	uint8_t UChar, *UCharPtr;
-	uint16_t UShort, *UShortPtr;
-	uint32_t UInt32, *UInt32Ptr;
+	uint8_t UChar, *UCharPtr, UCharArr[8];
+	uint16_t UShort, *UShortPtr, UShortArr[4];
+	uint32_t UInt32, *UInt32Ptr, UInt32Arr[2];
 	uint64_t UInt64, *UInt64Ptr;
 	
-	float Float, *FloatPtr;
+	float Float, *FloatPtr, FloatArr[2];
 	double Double, *DoublePtr;
 	
 	void *Ptr, **PtrPtr;
@@ -78,7 +78,7 @@ typedef union SIMDCValue {
 */
 
 //	API for scripts to call C/C++ host functions.
-typedef		void (*fnNative_t)(struct Tagha *, union CValue [], union CValue *, const uint32_t);
+typedef		void (*fnNative_t)(struct Tagha *const pEnv, union CValue params[], union CValue *const pRetval, uint32_t uiArgc);
 
 struct NativeInfo {
 	const char	*strName;	// use as string literals
@@ -131,17 +131,17 @@ enum RegID {
 
 
 /*
- * type generic Hashmap (uses 64-bit int for pointers to accomodate 32-bit and 64-bit)
+ * type generic Hash Multimap (uses 64-bit int for pointers to accomodate 32-bit and 64-bit)
  */
 typedef struct KeyNode {
-	uint64_t		pData;
-	const char		*strKey;
-	struct KeyNode	*pNext;
+	uint64_t		m_pData;
+	const char		*m_strKey;
+	struct KeyNode	*m_pNext;
 } KeyNode;
 
 typedef struct Hashmap {
 	uint32_t		size, count;
-	struct KeyNode	**table;
+	struct KeyNode	**m_ppTable;
 } Hashmap;
 
 
@@ -164,6 +164,21 @@ typedef struct TokenLine
 } TokenLine;
 */
 
+/* C global definitions.
+ * usually C modules contain either functions or global vars visibly.
+ * static variables and functions should NEVER be listed here as
+ * static data of all types have internal linkage.
+ * so a static local var, though "global", shouldn't come up in global var data
+ */
+enum DefType {
+	DefGlobal=0,
+	DefFunction=1,
+};
+
+typedef struct TaghaCDef {
+	uint32_t m_uiOffset;	// where is func or global var location in memory?
+	uint8_t m_ucDefType;	// type of definition, true if function.
+} TaghaCDef;
 
 struct Tagha {
 	union CValue m_Regs[regsize];
@@ -175,13 +190,11 @@ struct Tagha {
 	;
 	// stores a C/C++ function ptr using the script-side name as the key.
 	char **m_pstrNativeCalls;		// natives string table.
-	struct Hashmap *m_pmapNatives;	// native C/C++ interface hashmap.
-	
-	union CValue *m_pArgv;	// using union to force char** size to 8 bytes.
 	struct Hashmap
-		*m_pmapFuncs,		// stores the functions compiled to script.
-		*m_pmapGlobals		// stores global vars like string literals or variables.
+		*m_pmapNatives,	// native C/C++ interface hashmap.
+		*m_pmapCDefs	// stores C definitions data like global vars and functions.
 	;
+	union CValue *m_pArgv;	// using union to force char** size to 8 bytes.
 	uint32_t
 		m_uiMemsize,		// total size of m_pMemory
 		m_uiInstrSize,		// size of the text segment
@@ -218,16 +231,16 @@ Otherwise, you use an external machine to compile the binary, then move the bina
 
 
 // tagha_exec.c
-int32_t			Tagha_Exec(struct Tagha *pSys);
-const char		*RegIDToStr(const enum RegID id);
+int32_t			Tagha_Exec(struct Tagha *const pSys);
+const char		*RegIDToStr(enum RegID id);
 
 
 // tagha_api.c
 struct Tagha	*Tagha_New(void);
 void			Tagha_Init(struct Tagha *pSys);
 void			Tagha_LoadScriptByName(struct Tagha *pSys, char *filename);
-void			Tagha_LoadScriptFromMemory(struct Tagha *pSys, void *pMemory, const uint64_t memsize);
-bool			Tagha_RegisterNatives(struct Tagha *pSys, struct NativeInfo arrNatives[]);
+void			Tagha_LoadScriptFromMemory(struct Tagha *pSys, void *pMemory, uint64_t memsize);
+bool			Tagha_RegisterNatives(const struct Tagha *pSys, struct NativeInfo arrNatives[]);
 void			Tagha_Free(struct Tagha *pSys);
 int32_t			Tagha_RunScript(struct Tagha *pSys);
 int32_t			Tagha_CallFunc(struct Tagha *pSys, const char *strFunc);
@@ -237,7 +250,7 @@ int32_t			Tagha_CallFunc(struct Tagha *pSys, const char *strFunc);
 #endif
 
 void			Tagha_BuildFromFile(struct Tagha *pSys, const char *strFilename);
-void			Tagha_BuildFromPtr(struct Tagha *pSys, void *pProgram, const uint64_t Programsize);
+void			Tagha_BuildFromPtr(struct Tagha *pSys, void *pProgram, uint64_t Programsize);
 
 void			Tagha_PrintPtrs(const struct Tagha *pSys);
 void			Tagha_PrintStack(const struct Tagha *pSys);
@@ -246,8 +259,8 @@ void			Tagha_PrintInstrs(const struct Tagha *pSys);
 void			Tagha_PrintRegData(const struct Tagha *pSys);
 void			Tagha_Reset(struct Tagha *pSys);
 
-void			*Tagha_GetGlobalByName(struct Tagha *pSys, const char *strGlobalName);
-void			Tagha_PushValues(struct Tagha *pSys, const uint32_t uiArgs, union CValue values[]);
+void			*Tagha_GetGlobalByName(const struct Tagha *pSys, const char *strGlobalName);
+void			Tagha_PushValues(struct Tagha *pSys, uint32_t uiArgs, union CValue values[]);
 union CValue	Tagha_PopValue(struct Tagha *pSys);
 void			Tagha_SetCmdArgs(struct Tagha *pSys, char *argv[]);
 
@@ -259,21 +272,21 @@ uint32_t		Tagha_GetFuncCount(const struct Tagha *pSys);
 uint32_t		Tagha_GetGlobalsCount(const struct Tagha *pSys);
 bool			Tagha_IsSafemodeActive(const struct Tagha *pSys);
 bool			Tagha_IsDebugActive(const struct Tagha *pSys);
-void			Tagha_PrintErr(struct Tagha *pSys, const char *funcname, const char *err, ...);
+void			Tagha_PrintErr(const struct Tagha *pSys, const char *funcname, const char *err, ...);
 
 // ds.c
 struct Hashmap	*Map_New(void);
-void			Map_Init(struct Hashmap *);
-void			Map_Free(struct Hashmap *);
-uint64_t		Map_Len(const struct Hashmap *);
+void			Map_Init(struct Hashmap *map);
+void			Map_Free(struct Hashmap *map);
+uint64_t		Map_Len(const struct Hashmap *map);
 
-void			Map_Rehash(struct Hashmap *);
-bool			Map_Insert(struct Hashmap *, const char *, const uint64_t);
-uint64_t		Map_Get(const struct Hashmap *, const char *);
-void			Map_Set(struct Hashmap *, const char *, const uint64_t);
-void			Map_Delete(struct Hashmap *, const char *);
-bool			Map_HasKey(const struct Hashmap *, const char *);
-const char		*Map_GetKey(const struct Hashmap *, const char *);
+void			Map_Rehash(struct Hashmap *map);
+bool			Map_Insert(struct Hashmap *map, const char *strKey, uint64_t pData);
+uint64_t		Map_Get(const struct Hashmap *map, const char *strKey);
+void			Map_Set(const struct Hashmap *map, const char *strKey, uint64_t pData);
+void			Map_Delete(struct Hashmap *map, const char *strKey);
+bool			Map_HasKey(const struct Hashmap *map, const char *strKey);
+const char		*Map_GetKey(const struct Hashmap *map, const char *strKey);
 
 /*
 void			Map_Rehash_int(struct Hashmap *);

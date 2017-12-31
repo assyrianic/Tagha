@@ -18,13 +18,11 @@ struct Tagha_ {
 	;
 	// stores a C/C++ function ptr using the script-side name as the key.
 	char **m_pstrNativeCalls;		// natives string table.
-	struct Hashmap *m_pmapNatives;	// native C/C++ interface hashmap.
-	
-	union CValue *m_pArgv;	// using union to force char** size to 8 bytes.
 	struct Hashmap
-		*m_pmapFuncs,		// stores the functions compiled to script.
-		*m_pmapGlobals		// stores global vars like string literals or variables.
+		*m_pmapNatives,	// native C/C++ interface hashmap.
+		*m_pmapCDefs	// stores C definitions data like global vars and functions.
 	;
+	union CValue *m_pArgv;	// using union to force char** size to 8 bytes.
 	uint32_t
 		m_uiMemsize,		// total size of m_pMemory
 		m_uiInstrSize,		// size of the text segment
@@ -50,7 +48,7 @@ struct Tagha_ {
 	void PrintRegData(void);
 	void Reset(void);
 	void *GetGlobalByName(const char *strGlobalName);
-	void PushValues(const uint32_t uiArgs, union CValue values[]);
+	void PushValues(uint32_t uiArgs, union CValue values[]);
 	CValue PopValue(void);
 	void SetCmdArgs(char *argv[]);
 	
@@ -64,14 +62,14 @@ struct Tagha_ {
 	bool IsDebugActive(void);
 	
 	void LoadScriptByName(char *filename);
-	void LoadScriptFromMemory(void *pMemory, const uint64_t memsize);
+	void LoadScriptFromMemory(void *pMemory, uint64_t memsize);
 	bool RegisterNatives(NativeInfo_ arrNatives[]);
 	int32_t RunScript(void);
 	int32_t CallFunc(const char *strFunc);
 };
 
 
-typedef		void (*fnNative_)(struct Tagha_ *, union CValue [], union CValue *, const uint32_t);
+typedef		void (*fnNative_)(struct Tagha_ *const pEnv, union CValue Params[], union CValue *const pRetval, uint32_t uiArgc);
 
 struct NativeInfo_ {
 	const char	*strName;	// use as string literals
