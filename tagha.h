@@ -25,13 +25,18 @@ extern "C" {
 
 struct Tagha;
 struct NativeInfo;
-union CValue;
 
 typedef struct Tagha			Tagha;
 typedef struct NativeInfo		NativeInfo;
-typedef union CValue			CValue;
 
-union CValue {
+/* the most basic values in C.
+ * In ALL of programming, there's only 4 fundamental data:
+ * 		Integers
+ * 		Floats
+ * 		Strings
+ * 		References
+ */
+typedef union CValue {
 	bool Bool, *BoolPtr;
 	int8_t Char, *CharPtr;
 	int16_t Short, *ShortPtr;
@@ -50,7 +55,27 @@ union CValue {
 	const char *String, **StringPtr;
 	char *Str, **StrPtr;
 	union CValue *SelfPtr;
-};
+} CValue;
+
+/* // Just gonna leave this here in case we ever need it.
+#define	SIMD_BYTES		32
+typedef union SIMDCValue {
+	union CValue cvalue;
+	bool BoolSIMD[SIMD_BYTES];
+	int8_t CharSIMD[SIMD_BYTES];
+	int16_t ShortSIMD[SIMD_BYTES/2];
+	int32_t Int32SIMD[SIMD_BYTES/4];
+	int64_t Int64SIMD[SIMD_BYTES/8];
+	
+	uint8_t UCharSIMD[SIMD_BYTES];
+	uint16_t UShortSIMD[SIMD_BYTES/2];
+	uint32_t UInt32SIMD[SIMD_BYTES/4];
+	uint64_t UInt64SIMD[SIMD_BYTES/8];
+	
+	float FloatIMD[SIMD_BYTES/4];
+	double DoubleSIMD[SIMD_BYTES/8];
+} SIMDCValue;
+*/
 
 //	API for scripts to call C/C++ host functions.
 typedef		void (*fnNative_t)(struct Tagha *, union CValue [], union CValue *, const uint32_t);
@@ -71,7 +96,7 @@ enum AddrMode {
 	Immediate	= 1,
 	Register	= 2,
 	RegIndirect	= 4,
-	IPRelative	= 8,	// unused, will be replaced in the future with useful addr mode.
+	//IPRelative	= 8,	// unused, will be replaced in the future with useful addr mode.
 	Byte		= 16,
 	TwoBytes	= 32,
 	FourBytes	= 64,
@@ -138,6 +163,7 @@ typedef struct TokenLine
 	uint32_t m_uiNumBytes;
 } TokenLine;
 */
+
 
 struct Tagha {
 	union CValue m_Regs[regsize];
@@ -244,6 +270,7 @@ uint64_t		Map_Len(const struct Hashmap *);
 void			Map_Rehash(struct Hashmap *);
 bool			Map_Insert(struct Hashmap *, const char *, const uint64_t);
 uint64_t		Map_Get(const struct Hashmap *, const char *);
+void			Map_Set(struct Hashmap *, const char *, const uint64_t);
 void			Map_Delete(struct Hashmap *, const char *);
 bool			Map_HasKey(const struct Hashmap *, const char *);
 const char		*Map_GetKey(const struct Hashmap *, const char *);

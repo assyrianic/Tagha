@@ -69,7 +69,7 @@ void Tagha_Init(struct Tagha *pSys)
 		pSys->m_pArgv = calloc(pSys->m_iArgc+1, sizeof(union CValue));
 		if( !pSys->m_pArgv )
 			printf("[%sTagha Init Error%s]: **** %sUnable to initialize Command-line Args String Vector%s ****\n", KRED, RESET, KGRN, RESET);
-		pSys->m_pArgv[pSys->m_iArgc].Str = NULL;
+		else pSys->m_pArgv[pSys->m_iArgc].Str = NULL;
 	}
 }
 
@@ -235,7 +235,7 @@ int32_t Tagha_CallFunc(struct Tagha *restrict pSys, const char *restrict strFunc
 	pSys->m_Regs[rip].UCharPtr = pSys->m_pMemory + *offset;
 	
 	// push bp and copy sp to bp.
-	(--pSys->m_Regs[rsp].SelfPtr)->UInt64 = (uintptr_t)pSys->m_Regs[rbp].UCharPtr;
+	(--pSys->m_Regs[rsp].SelfPtr)->UInt64 = pSys->m_Regs[rbp].UInt64;
 	
 	return Tagha_Exec(pSys);
 }
@@ -469,22 +469,20 @@ void Tagha_BuildFromFile(struct Tagha *pSys, const char *restrict strFilename)
 	
 	// align by 8 bytes
 	stacksize = stacksize + 7 & -8;
-	printf("[Tagha Load Script] :: Stack Size: %" PRIu32 "\n", stacksize);
 	
 	// get static data (global vars, string literals) memory size.
 	ignore_warns = fread(&datasize, sizeof(uint32_t), 1, pFile);
 	bytecount += sizeof(uint32_t);
-	printf("[Tagha Load Script] :: Data Size: %" PRIu32 "\n", datasize);
 	
 	// check if the script is either in safemode or debug mode.
 	char modeflags;
 	ignore_warns = fread(&modeflags, sizeof(char), 1, pFile);
 	bytecount += sizeof(char);
 	pSys->m_bSafeMode = (modeflags & 1) >= 1;
-	printf("[Tagha Load Script] :: Safe Mode: %" PRIu32 "\n", pSys->m_bSafeMode);
 	
 	pSys->m_bDebugMode = (modeflags & 2) >= 1;
-	printf("[Tagha Load Script] :: Debug Mode: %" PRIu32 "\n", pSys->m_bDebugMode);
+	if( pSys->m_bDebugMode )
+		printf("[Tagha Load Script] :: Stack Size: %" PRIu32 "\n[Tagha Load Script] :: Data Size: %" PRIu32 "\n[Tagha Load Script] :: Safe Mode: %" PRIu32 "\n[Tagha Load Script] :: Debug Mode: %" PRIu32 "\n", stacksize, datasize, pSys->m_bSafeMode, pSys->m_bDebugMode);
 	
 	bytecount += scripthdr_read_natives_table(&pSys, &pFile);
 	bytecount += scripthdr_read_func_table(&pSys, &pFile);
@@ -934,7 +932,8 @@ void Tagha_SetCmdArgs(struct Tagha *restrict pSys, char *argv[])
 	// resize our system's argument vector.
 	if( pSys->m_iArgc != newargc ) {
 		pSys->m_iArgc = newargc;
-		pSys->m_pArgv = realloc(pSys->m_pArgv, newargc);
+		FREE_MEM(pSys->m_pArgv);
+		pSys->m_pArgv = calloc(pSys->m_iArgc+1, sizeof(union CValue));
 	}
 	
 	/* For Implementing 'int argc' and 'char *argv[]'
@@ -1000,7 +999,7 @@ void Tagha_PrintStack(const struct Tagha *pSys)
 	if( !pSys or !pSys->m_pMemory )
 		return;
 	
-	printf("DEBUG PRINT: .stack Segment\n");
+	puts("DEBUG PRINT: .stack Segment\n");
 	
 	uint32_t size = pSys->m_uiMemsize;
 	union CValue *p = (union CValue *)(pSys->m_pMemory + (size-1));
@@ -1011,7 +1010,7 @@ void Tagha_PrintStack(const struct Tagha *pSys)
 		else printf("Stack[%.10" PRIu32 "] == %" PRIu64 "\n", (uint8_t *)p-pSys->m_pMemory, p->UInt64);
 		--p;
 	} /* while( p>=pSys->m_pStackSegment ) */
-	printf("\n");
+	puts("\n");
 }
 
 void Tagha_PrintData(const struct Tagha *pSys)
@@ -1019,11 +1018,11 @@ void Tagha_PrintData(const struct Tagha *pSys)
 	if( !pSys or !pSys->m_pMemory )
 		return;
 	
-	printf("DEBUG PRINT: .data Segment\n");
+	puts("DEBUG PRINT: .data Segment\n");
 	for( uint8_t *p = pSys->m_pDataSegment ; p > pSys->m_pTextSegment ; --p )
 		printf("Data[%.10" PRIu32 "] == %" PRIu32 "\n", p-pSys->m_pMemory, *p);
 	
-	printf("\n");
+	puts("\n");
 }
 
 void Tagha_PrintInstrs(const struct Tagha *pSys)
@@ -1031,11 +1030,11 @@ void Tagha_PrintInstrs(const struct Tagha *pSys)
 	if( !pSys or !pSys->m_pMemory )
 		return;
 	
-	printf("DEBUG PRINT: .text Segment\n");
+	puts("DEBUG PRINT: .text Segment\n");
 	for( uint8_t *p = pSys->m_pMemory ; p <= pSys->m_pTextSegment ; p++ )
 		printf("Text[%.10" PRIu32 "] == %" PRIu32 "\n", p-pSys->m_pMemory, *p);
 	
-	printf("\n");
+	puts("\n");
 }
 
 void Tagha_PrintPtrs(const struct Tagha *pSys)
@@ -1043,11 +1042,11 @@ void Tagha_PrintPtrs(const struct Tagha *pSys)
 	if( !pSys )
 		return;
 	
-	printf("DEBUG ...---===---... Printing Pointers...\n");
+	puts("DEBUG ...---===---... Printing Pointers...\n");
 	printf("Instruction Ptr: %p\
 			\nStack Ptr: %p\
 			\nStack Frame Ptr: %p\n", pSys->m_Regs[rip].UCharPtr, pSys->m_Regs[rsp].UCharPtr, pSys->m_Regs[rbp].UCharPtr);
-	printf("\n");
+	puts("\n");
 }
 
 void Tagha_PrintErr(struct Tagha *restrict pSys, const char *restrict funcname, const char *restrict err, ...)
@@ -1060,8 +1059,16 @@ void Tagha_PrintErr(struct Tagha *restrict pSys, const char *restrict funcname, 
 	printf("[%sTagha Error%s]: **** %s reported: \'", KRED, KNRM, funcname);
 	vprintf(err, args);
 	va_end(args);
-	printf("\' ****\nCurrent Instr Addr: %s%p | offset: %" PRIuPTR "%s\nCurrent Stack Addr: %s%p | offset: %" PRIuPTR "%s\n",
-		KGRN, pSys->m_Regs[rip].UCharPtr, pSys->m_Regs[rip].UCharPtr-pSys->m_pMemory, RESET, KGRN, pSys->m_Regs[rsp].UCharPtr, pSys->m_Regs[rsp].UCharPtr-pSys->m_pMemory, RESET);
+	printf("\' ****\nCurrent Instr Addr: %s%p | offset: %" PRIuPTR "%s\n", KGRN, pSys->m_Regs[rip].UCharPtr, pSys->m_Regs[rip].UCharPtr-pSys->m_pMemory, RESET);
+	
+	// do a stack trace by using rbp as a linked list to older rbp frames.
+	printf("[%sTagha Stack Trace%s]:\n", KYEL, KNRM);
+	for( union CValue *iter=pSys->m_Regs[rbp].SelfPtr ;
+			(uint8_t *)iter >= pSys->m_pStackSegment and (uint8_t *)iter < pSys->m_pMemory+pSys->m_uiMemsize ;
+			iter = iter->SelfPtr )
+		printf("[%s%p%s]\n", KGRN, iter, RESET);
+	
+	printf("======== %sTagha Stack Trace END%s ========\n", KYEL, KNRM);
 }
 
 void Tagha_PrintRegData(const struct Tagha *pSys)

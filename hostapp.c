@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 	/*
 	int32_t x;
 	do {
-		printf("0 or less to exit.\n");
+		puts("0 or less to exit.\n");
 		scanf("%i", &x);
 	}
 	while( x>0 );

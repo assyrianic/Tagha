@@ -86,31 +86,29 @@ void Map_Free(struct Hashmap *map)
 bool Map_Insert(struct Hashmap *restrict map, const char *restrict strKey, const uint64_t pData)
 {
 	if( !map ) {
-		printf("**** Hashmap Error **** Map_Insert::map is NULL\n");
+		puts("**** Hashmap Error **** Map_Insert::map is NULL\n");
 		return false;
 	}
 	if( map->size == 0 ) {
 		map->size = 8;
 		map->table = calloc(map->size, sizeof(struct KeyNode));
 		if( !map->table ) {
-			printf("**** Memory Allocation Error **** Map_Insert::map->table is NULL\n");
+			puts("**** Memory Allocation Error **** Map_Insert::map->table is NULL\n");
 			map->size = 0;
 			return false;
 		}
 	}
 	else if( map->count >= map->size ) {
 		Map_Rehash(map);
-		//printf("**** Rehashed struct Hashmapionary ****\n");
-		//printf("**** struct Hashmapionary Size is now %llu ****\n", map->size);
 	}
 	else if( Map_HasKey(map, strKey) ) {
-		printf("Map_Insert::map already has entry!\n");
+		puts("Map_Insert::map already has entry!\n");
 		return false;
 	}
 	
 	struct KeyNode *node = calloc(1, sizeof(struct KeyNode) );
 	if( !node ) {
-		printf("**** Memory Allocation Error **** Map_Insert::node is NULL\n");
+		puts("**** Memory Allocation Error **** Map_Insert::node is NULL\n");
 		return false;
 	}
 	node->strKey = strKey;
@@ -138,6 +136,18 @@ uint64_t Map_Get(const struct Hashmap *restrict map, const char *restrict strKey
 		if( !strcmp(kv->strKey, strKey) )
 			return kv->pData;
 	return 0;
+}
+
+void Map_Set(struct Hashmap *restrict map, const char *restrict strKey, const uint64_t pData)
+{
+	if( !map || !Map_HasKey(map, strKey) )
+		return;
+	
+	uint32_t hash = gethash32(strKey) % map->size;
+	struct KeyNode *kv = NULL;
+	for( kv=map->table[hash] ; kv ; kv = kv->pNext )
+		if( !strcmp(kv->strKey, strKey) )
+			kv->pData = pData;
 }
 
 void Map_Delete(struct Hashmap *restrict map, const char *restrict strKey)
@@ -215,7 +225,6 @@ void Map_Rehash(struct Hashmap *map)
 			// free the inner nodes since they'll be re-hashed
 			kv->strKey=NULL, kv->pData=0;
 			free(kv), kv = NULL;
-			//printf("**** Rehashed Entry ****\n");
 		}
 	}
 	if( curr )
@@ -250,24 +259,22 @@ bool Map_Insert_int(struct Hashmap *restrict map, const uint64_t key, void *rest
 		map->table = calloc(map->size, sizeof(struct KeyNode));
 		
 		if( !map->table ) {
-			printf("**** Memory Allocation Error **** Map_Insert_int::map->table is NULL\n");
+			puts("**** Memory Allocation Error **** Map_Insert_int::map->table is NULL\n");
 			map->size = 0;
 			return false;
 		}
 	}
 	else if( map->count >= map->size ) {
 		Map_Rehash(map);
-		//printf("**** Rehashed struct Hashmapionary ****\n");
-		//printf("**** struct Hashmapionary Size is now %llu ****\n", map->size);
 	}
 	else if( Map_HasKey_int(map, key) ) {
-		printf("Map_Insert_int::map already has entry!\n");
+		puts("Map_Insert_int::map already has entry!\n");
 		return false;
 	}
 	
 	struct KeyNode *node = calloc(1, sizeof(struct KeyNode) );
 	if( !node ) {
-		printf("**** Memory Allocation Error **** Map_Insert_int::node is NULL\n");
+		puts("**** Memory Allocation Error **** Map_Insert_int::node is NULL\n");
 		return false;
 	}
 	node->i64Key = key;
@@ -344,7 +351,7 @@ void Map_Rehash_int(struct Hashmap *map)
 	struct KeyNode **curr, **temp;
 	temp = calloc(map->size, sizeof(struct KeyNode));
 	if( !temp ) {
-		printf("**** Memory Allocation Error **** Map_Insert::temp is NULL\n");
+		puts("**** Memory Allocation Error **** Map_Insert::temp is NULL\n");
 		map->size = 0;
 		return;
 	}
@@ -364,7 +371,6 @@ void Map_Rehash_int(struct Hashmap *map)
 			Map_Insert_int(map, kv->i64Key, kv->pData);
 			// free the inner nodes since they'll be re-hashed
 			free(kv), kv = NULL;
-			//printf("**** Rehashed Entry ****\n");
 		}
 	}
 	if( curr )

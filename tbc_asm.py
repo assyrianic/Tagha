@@ -17,7 +17,7 @@ opcodes = enum('halt', 'push', 'pop', 'neg', 'inc', 'dec', 'bnot', 'jmp', 'jz', 
 Immediate	= 1;
 Register	= 2;
 RegIndirect	= 4;
-IPRelative	= 8;
+#IPRelative	= 8;
 Byte		= 16;
 TwoBytes	= 32;
 FourBytes	= 64;
@@ -522,31 +522,36 @@ with open('test_3d_vecs.tbc', 'wb+') as tbc:
 	
 # VecInvert:
 	# v[0] = -v[0];
-	
-	# load the address in rds to rfs
+	# mov rfs, dword ptr [rds]
 	wrt_two_op_code(code, opcodes.movr, RegIndirect|FourBytes, rfs, rds, 0);
 	
 	wrt_one_op_code(code, opcodes.float2dbl, Register, rfs);
 	wrt_one_op_code(code, opcodes.fneg, Register, rfs);
 	wrt_one_op_code(code, opcodes.dbl2float, Register, rfs);
+	# mov dword ptr [rds], rfs
 	wrt_two_op_code(code, opcodes.movm, RegIndirect|Register|FourBytes, rds, rfs, 0);
 	
 	# v[1] = -v[1];
+	# mov rfs, dword ptr [rds+4]
 	wrt_two_op_code(code, opcodes.movr, RegIndirect|FourBytes, rhs, rds, 4);
 	
 	wrt_one_op_code(code, opcodes.float2dbl, Register, rhs);
 	wrt_one_op_code(code, opcodes.fneg, Register, rhs);
 	wrt_one_op_code(code, opcodes.dbl2float, Register, rhs);
+	# mov dword ptr [rds+4], rfs
 	wrt_two_op_code(code, opcodes.movm, RegIndirect|Register|FourBytes, rds, rhs, 4);
 	
 	# v[2] = -v[2];
+	# mov rfs, dword ptr [rds+8]
 	wrt_two_op_code(code, opcodes.movr, RegIndirect|FourBytes, rgs, rds, 8);
 	
 	wrt_one_op_code(code, opcodes.float2dbl, Register, rgs);
 	wrt_one_op_code(code, opcodes.fneg, Register, rgs);
 	wrt_one_op_code(code, opcodes.dbl2float, Register, rgs);
+	# mov dword ptr [rds+8], rfs
 	wrt_two_op_code(code, opcodes.movm, RegIndirect|Register|FourBytes, rds, rgs, 8);
 	
+	wrt_non_op_code(code, 255, 0);
 	wrt_non_op_code(code, opcodes.ret, 0);
 	tbc.write(code);
 

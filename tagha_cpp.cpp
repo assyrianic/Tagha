@@ -1,6 +1,5 @@
 #include "tagha.hpp"
 
-
 Tagha_::~Tagha_()
 {
 	Tagha_Free((struct Tagha *)this);
