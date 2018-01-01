@@ -53,12 +53,7 @@ static void Native_TestGlobal(struct Tagha *const pSys, union CValue params[], u
 static void Native_puts(struct Tagha *const pSys, union CValue params[], union CValue *restrict const pRetval, const uint32_t argc)
 {
 	const char *restrict __s = params[0].String;
-	if( !__s ) {
-		puts("Native_puts :: reported \'__s\' is NULL.\n");
-		pRetval->Int32 = -1;
-		return;
-	}
-	pRetval->Int32 = puts(__s);
+	pRetval->Int32 = __s ? puts(__s) : -1;
 }
 
 /* char *fgets(char *str, int num, FILE *stream); */

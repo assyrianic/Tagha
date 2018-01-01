@@ -361,7 +361,7 @@ int32_t Tagha_Exec(struct Tagha *restrict const pSys)
 			}
 			
 			pSys->m_Regs[rbp].UInt64 = (*pSys->m_Regs[rsp].SelfPtr++).UInt64;	// pop rbp
-			// if we're popping Main's (or whatever called func) RBP, then halt the whole program.
+			// if we're popping Main's (or whatever called func's) RBP, then halt the whole program.
 			if( pSys->m_Regs[rbp].UCharPtr == pMainRBP ) {
 				if( debugmode )
 					puts("ret :: return on empty stack");
