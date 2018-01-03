@@ -1,8 +1,8 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-clang-3.5	-std=c11 -Os -fPIC -c tagha_libc.c
-clang-3.5	-shared -Wl,-soname, libtagha_libc.so.1 -o libtagha_libc_clang.so.1.0.0 tagha_libc.o
 
-gcc			-std=c11 -Os -fPIC -c tagha_libc.c
-gcc			-shared -Wl,-soname, libtagha_libc.so.1 -o libtagha_libc_gcc.so.1.0.0 tagha_libc.o
+#gcc -g -fPIC -Wall -Werror -Wextra -pedantic *.c -shared -o liball.so
+
+clang-3.5	-std=c99 -fPIC -Os tagha_libc.c -shared -o libtagha_libc_clang.so
+gcc			-std=c99 -fPIC -Os tagha_libc.c -shared -o libtagha_libc_gcc.so
 

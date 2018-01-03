@@ -165,9 +165,8 @@ def wrt_callnat(f:bytearray, addrmode:int, argcount:int, operand:int, offset=Non
 	f += opcodes.callnat.to_bytes(1, byteorder='little');
 	f += addrmode.to_bytes(1, byteorder='little');
 	InstrAddr += 2;
-	if operand != None:
-		f += operand.to_bytes(8, byteorder='little');
-		InstrAddr += 8;
+	f += operand.to_bytes(8, byteorder='little');
+	InstrAddr += 8;
 	if offset != None:
 		ba = bytearray(struct.pack("i", offset));
 		i = int.from_bytes(ba, byteorder='little');
@@ -684,4 +683,17 @@ with open('test_main_args.tbc', 'wb+') as tbc:
 	
 	#wrt_two_op_code(code, opcodes.movr, Immediate, ras, 0);
 	pcaddr += wrt_non_op_code(code, opcodes.ret, 0); #102
+	tbc.write(code);
+
+
+with open('test_infloop.tbc', 'wb+') as tbc:
+	code = bytearray();
+	wrt_hdr(code, 128, 0, modes=1);
+	wrt_hdr_natives(code);
+	wrt_hdr_funcs(code, 'main', 0);
+	wrt_hdr_globals(code);
+	wrt_global_values(code);
+	
+# main:
+	pcaddr += wrt_one_op_code(code, opcodes.jmp, Immediate, 0);
 	tbc.write(code);

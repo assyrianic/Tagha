@@ -23,11 +23,23 @@ extern "C" {
 
 #define LOOP_COUNTER	1800000000
 
-struct Tagha;
-struct NativeInfo;
+/*
+ * type generic Hashmap (uses 64-bit int as pointers to accomodate 32-bit and 64-bit)
+ */
+typedef struct KeyNode {
+	uint64_t		m_pData;
+	const char		*m_strKey;
+	struct KeyNode	*m_pNext;
+} KeyNode;
 
-typedef struct Tagha			Tagha;
-typedef struct NativeInfo		NativeInfo;
+typedef struct Hashmap {
+	uint32_t		size, count;
+	struct KeyNode	**m_ppTable;
+} Hashmap;
+
+struct Tagha;
+typedef struct Tagha	Tagha;
+
 
 /* the most basic values in C.
  * In ALL of programming, there's only 4 fundamental data:
@@ -80,10 +92,10 @@ typedef union SIMDCValue {
 //	API for scripts to call C/C++ host functions.
 typedef		void (*fnNative_t)(struct Tagha *const pEnv, union CValue params[], union CValue *const pRetval, uint32_t uiArgc);
 
-struct NativeInfo {
+typedef struct NativeInfo {
 	const char	*strName;	// use as string literals
 	fnNative_t	pFunc;
-};
+} NativeInfo;
 
 
 /* addressing modes
@@ -130,30 +142,6 @@ enum RegID {
 };
 
 
-/*
- * type generic Hash Multimap (uses 64-bit int for pointers to accomodate 32-bit and 64-bit)
- */
-typedef struct KeyNode {
-	uint64_t		m_pData;
-	const char		*m_strKey;
-	struct KeyNode	*m_pNext;
-} KeyNode;
-
-typedef struct Hashmap {
-	uint32_t		size, count;
-	struct KeyNode	**m_ppTable;
-} Hashmap;
-
-
-/* Script File Structure.
- * magic verifier
- * Stack Vector
- * Native Table Vector
- * Func Table Dictionary
- * Data Table Dictionary
- */
-
-
 // for interactive mode.
 /*
 typedef struct TokenLine
@@ -176,8 +164,8 @@ enum DefType {
 };
 
 typedef struct TaghaCDef {
-	uint32_t m_uiOffset;	// where is func or global var location in memory?
-	uint8_t m_ucDefType;	// type of definition, true if function.
+	uint32_t m_uiOffset; // where is func or global var location in memory?
+	uint8_t m_ucDefType; // type of definition, true if function.
 } TaghaCDef;
 
 struct Tagha {
