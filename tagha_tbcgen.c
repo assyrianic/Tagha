@@ -21,30 +21,9 @@ static void		ByteBuffer_Resize	(struct ByteBuffer *);
 static void		ByteBuffer_DumpToFile(struct ByteBuffer *, FILE *);
 static void		ByteBuffer_ReadFromFile(struct ByteBuffer *, FILE *);
 static void		ByteBuffer_Append	(struct ByteBuffer *, struct ByteBuffer *);
-static uint32_t	FloatToInt			(float);
-static uint64_t	DoubleToLong		(double);
+
 
 static const uint16_t TBCMagic = 0xC0DE;
-
-static uint32_t FloatToInt(const float fval)
-{
-	union {
-		float f;
-		uint32_t i;
-	} conv;
-	conv.f = fval;
-	return conv.i;
-}
-
-static uint64_t DoubleToLong(const double fval)
-{
-	union {
-		double f;
-		uint64_t i;
-	} conv;
-	conv.f = fval;
-	return conv.i;
-}
 
 
 static struct ByteBuffer *ByteBuffer_New(void)

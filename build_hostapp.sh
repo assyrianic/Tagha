@@ -1,7 +1,7 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-clang-3.5	-Os hostapp.c -L. -ltaghaclang -o TaghaClang
-gcc			-Os hostapp.c -L. -ltaghagcc -o TaghaGCC
+clang-3.5	-Wall -Os hostapp.c -L. -ltaghaclang -o TaghaClang
+gcc			-Wall -Os hostapp.c -L. -ltaghagcc -o TaghaGCC
 
 clang-3.5	-std=c++11 -Os tagha_cpp.cpp hostcppapp.cpp -L. -ltaghaclang -o TaghaClang++
 g++			-std=c++11 -Os tagha_cpp.cpp hostcppapp.cpp -L. -ltaghagcc -o TaghaGCCg++

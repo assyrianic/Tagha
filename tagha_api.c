@@ -38,10 +38,10 @@
  * n bytes: .text section
  */
 
-static uint64_t get_file_size(FILE *pFile);
-static uint32_t scripthdr_read_natives_table(struct Tagha **const ppSys, FILE **const ppFile);
-static uint32_t scripthdr_read_func_table(struct Tagha **const ppSys, FILE **const ppFile);
-static uint32_t scripthdr_read_global_table(struct Tagha **const ppSys, FILE **const ppFile);
+static uint64_t GetFileSize(FILE *pFile);
+static uint32_t ScriptHDR_ReadNativesTable(struct Tagha **const ppSys, FILE **const ppFile);
+static uint32_t ScriptHDR_ReadFuncTable(struct Tagha **const ppSys, FILE **const ppFile);
+static uint32_t ScriptHDR_ReadGlobalTable(struct Tagha **const ppSys, FILE **const ppFile);
 
 
 struct Tagha *Tagha_New(void)
@@ -56,7 +56,7 @@ void Tagha_Init(struct Tagha *restrict const pSys)
 	if( !pSys )
 		return;
 	
-	*pSys = (struct Tagha){0};
+	memset(pSys, 0, sizeof *pSys);
 	
 	if( !pSys->m_pmapCDefs ) {
 		pSys->m_pmapCDefs = Map_New();
@@ -250,33 +250,35 @@ int32_t Tagha_CallFunc(struct Tagha *restrict const pSys, const char *restrict s
 
 
 // need this to determine the text segment size.
-static uint64_t get_file_size(FILE *restrict pFile)
+static uint64_t GetFileSize(FILE *restrict pFile)
 {
-	uint64_t size = 0L;
+	int64_t size = 0L;
 	if( !pFile )
 		return size;
 	
 	if( !fseek(pFile, 0, SEEK_END) ) {
-		size = (uint64_t)ftell(pFile);
+		size = ftell(pFile);
+		if( size == -1 )
+			return 0L;
 		rewind(pFile);
 	}
-	return size;
+	return (uint64_t)size;
 }
 
-static uint32_t scripthdr_read_natives_table(struct Tagha **const ppSys, FILE **const ppFile)
+static uint32_t ScriptHDR_ReadNativesTable(struct Tagha **const ppSys, FILE **const ppFile)
 {
 	if( !*ppSys or !*ppFile )
 		return 0;
 	
 	struct Tagha *pSys = *ppSys;
 	uint32_t	bytecount = 0;
-	int32_t		ignores = 0;
+	int32_t		ignore_warns = 0;
 	
-	// see if the script is using any natives.
+	// see if the script is using any native C/C++ functions.
 	pSys->m_pstrNativeCalls = NULL;
-	ignores = fread(&pSys->m_uiNatives, sizeof(uint32_t), 1, *ppFile);
+	ignore_warns = fread(&pSys->m_uiNatives, sizeof pSys->m_uiNatives, 1, *ppFile);
 	printf("[Tagha Load Script] :: Amount of Natives: \'%" PRIu32 "\'\n", pSys->m_uiNatives);
-	bytecount += sizeof(uint32_t);
+	bytecount += sizeof pSys->m_uiNatives;
 	if( !pSys->m_uiNatives )
 		return bytecount;
 	
@@ -291,8 +293,8 @@ static uint32_t scripthdr_read_natives_table(struct Tagha **const ppSys, FILE **
 	
 	for( uint32_t i=0 ; i<pSys->m_uiNatives ; i++ ) {
 		uint32_t str_size;
-		ignores = fread(&str_size, sizeof(uint32_t), 1, *ppFile);
-		bytecount += sizeof(uint32_t);
+		ignore_warns = fread(&str_size, sizeof str_size, 1, *ppFile);
+		bytecount += sizeof str_size;
 		
 		// allocate memory to hold the native's name.
 		pSys->m_pstrNativeCalls[i] = calloc(str_size, sizeof(char));
@@ -304,7 +306,7 @@ static uint32_t scripthdr_read_natives_table(struct Tagha **const ppSys, FILE **
 		}
 		
 		// read in the native's name.
-		ignores = fread(pSys->m_pstrNativeCalls[i], sizeof(char), str_size, *ppFile);
+		ignore_warns = fread(pSys->m_pstrNativeCalls[i], sizeof(char), str_size, *ppFile);
 		bytecount += str_size;
 		printf("[Tagha Load Script] :: Copied Native Name: \'%s\' @ %p\n", pSys->m_pstrNativeCalls[i], pSys->m_pstrNativeCalls+i);
 	}
@@ -312,7 +314,7 @@ static uint32_t scripthdr_read_natives_table(struct Tagha **const ppSys, FILE **
 	return bytecount;
 }
 
-static uint32_t scripthdr_read_func_table(struct Tagha **const ppSys, FILE **const ppFile)
+static uint32_t ScriptHDR_ReadFuncTable(struct Tagha **const ppSys, FILE **const ppFile)
 {
 	if( !*ppSys or !*ppFile )
 		return 0;
@@ -322,17 +324,17 @@ static uint32_t scripthdr_read_func_table(struct Tagha **const ppSys, FILE **con
 	int32_t		ignore_warns = 0;
 	
 	// see if the script has its own functions.
-	// This table is so host or other script can call these functions by name or address.
-	ignore_warns = fread(&pSys->m_uiFuncs, sizeof(uint32_t), 1, *ppFile);
-	bytecount += sizeof(uint32_t);
+	// This table is so host or other script can call these functions by name.
+	ignore_warns = fread(&pSys->m_uiFuncs, sizeof pSys->m_uiFuncs, 1, *ppFile);
+	bytecount += sizeof pSys->m_uiFuncs;
 	if( !pSys->m_uiFuncs )
 		return bytecount;
 	
 	// copy the function data from the header.
 	for( uint32_t i=0 ; i<pSys->m_uiFuncs ; i++ ) {
 		uint32_t str_size;
-		ignore_warns = fread(&str_size, sizeof(uint32_t), 1, *ppFile);
-		bytecount += sizeof(uint32_t);
+		ignore_warns = fread(&str_size, sizeof str_size, 1, *ppFile);
+		bytecount += sizeof str_size;
 		
 		// allocate the hashmap function key.
 		char *strFunc = calloc(str_size, sizeof(char));
@@ -356,8 +358,8 @@ static uint32_t scripthdr_read_func_table(struct Tagha **const ppSys, FILE **con
 			return 0;
 		} /* if */
 		
-		ignore_warns = fread(&pFuncData->m_uiOffset, sizeof(uint32_t), 1, *ppFile);
-		bytecount += sizeof(uint32_t);
+		ignore_warns = fread(&pFuncData->m_uiOffset, sizeof pFuncData->m_uiOffset, 1, *ppFile);
+		bytecount += sizeof pFuncData->m_uiOffset;
 		printf("[Tagha Load Script] :: Copied Function name \'%s\' | offset: %" PRIu32 "\n", strFunc, pFuncData->m_uiOffset);
 		pFuncData->m_ucDefType = DefFunction;
 		Map_Insert(pSys->m_pmapCDefs, strFunc, (uintptr_t)pFuncData);
@@ -367,7 +369,7 @@ static uint32_t scripthdr_read_func_table(struct Tagha **const ppSys, FILE **con
 	return bytecount;
 }
 
-static uint32_t scripthdr_read_global_table(struct Tagha **const ppSys, FILE **const ppFile)
+static uint32_t ScriptHDR_ReadGlobalTable(struct Tagha **const ppSys, FILE **const ppFile)
 {
 	if( !*ppSys or !*ppFile )
 		return 0;
@@ -377,16 +379,15 @@ static uint32_t scripthdr_read_global_table(struct Tagha **const ppSys, FILE **c
 	int32_t		ignore_warns = 0;
 	
 	// check if the script has global variables.
-	ignore_warns = fread(&pSys->m_uiGlobals, sizeof(uint32_t), 1, *ppFile);
+	ignore_warns = fread(&pSys->m_uiGlobals, sizeof pSys->m_uiGlobals, 1, *ppFile);
 	printf("[Tagha Load Script] :: Amount of Global Vars: %" PRIu32 "\n", pSys->m_uiGlobals);
-	bytecount += sizeof(uint32_t);
-	uint32_t globalbytes = 0;
+	bytecount += sizeof pSys->m_uiGlobals;
 	if( !pSys->m_uiGlobals )
 		return bytecount;
 	
 	for( uint32_t i=0 ; i<pSys->m_uiGlobals ; i++ ) {
 		uint32_t str_size;
-		ignore_warns = fread(&str_size, sizeof(uint32_t), 1, *ppFile);
+		ignore_warns = fread(&str_size, sizeof str_size, 1, *ppFile);
 		bytecount += sizeof(uint32_t);
 		// allocate string to use as a key for our global var.
 		char *strGlobal = calloc(str_size, sizeof(char));
@@ -409,8 +410,8 @@ static uint32_t scripthdr_read_global_table(struct Tagha **const ppSys, FILE **c
 			return 0;
 		} /* if */
 		
-		ignore_warns = fread(&pGlobalData->m_uiOffset, sizeof(uint32_t), 1, *ppFile);
-		bytecount += sizeof(uint32_t);
+		ignore_warns = fread(&pGlobalData->m_uiOffset, sizeof pGlobalData->m_uiOffset, 1, *ppFile);
+		bytecount += sizeof pGlobalData->m_uiOffset;
 		
 		printf("[Tagha Load Script] :: copied global var's name: \'%s\' | offset: %" PRIu32 "\n", strGlobal, pGlobalData->m_uiOffset);
 		
@@ -435,14 +436,14 @@ void Tagha_BuildFromFile(struct Tagha *pSys, const char *restrict strFilename)
 		return;
 	}
 	
-	// get_file_size stays here, it'll rewind the file 'cursor' back to beginning.
-	const uint64_t filesize = get_file_size(pFile);
+	// GetFileSize stays here, it'll rewind the file 'cursor' back to beginning.
+	const uint64_t filesize = GetFileSize(pFile);
 	
 	uint32_t bytecount = 0;	// bytecount is for separating the header data from the actual instruction stream.
 	uint16_t verify;
 	int32_t ignore_warns;
-	ignore_warns = fread(&verify, sizeof(uint16_t), 1, pFile);
-	bytecount += sizeof(uint16_t);
+	ignore_warns = fread(&verify, sizeof verify, 1, pFile);
+	bytecount += sizeof verify;
 	
 	if( verify != 0xC0DE ) {
 		printf("[%sTagha Load Script Error%s]: **** %sUnknown or Invalid script file format%s ****\n", KRED, RESET, KGRN, RESET);
@@ -452,33 +453,33 @@ void Tagha_BuildFromFile(struct Tagha *pSys, const char *restrict strFilename)
 	
 	// get stack memory size.
 	uint32_t stacksize, datasize;
-	ignore_warns = fread(&stacksize, sizeof(uint32_t), 1, pFile);
-	bytecount += sizeof(uint32_t);
+	ignore_warns = fread(&stacksize, sizeof stacksize, 1, pFile);
+	bytecount += sizeof stacksize;
 	stacksize = stacksize<0x1000 ? 0x1000 : stacksize;
 	
 	// align by 8 bytes
-	stacksize = stacksize + 7 & -8;
+	stacksize = (stacksize + 7) & -8;
 	
 	// get static data (global vars, string literals) memory size.
-	ignore_warns = fread(&datasize, sizeof(uint32_t), 1, pFile);
-	bytecount += sizeof(uint32_t);
+	ignore_warns = fread(&datasize, sizeof datasize, 1, pFile);
+	bytecount += sizeof datasize;
 	
 	// check if the script is either in safemode or debug mode.
 	char modeflags;
-	ignore_warns = fread(&modeflags, sizeof(char), 1, pFile);
-	bytecount += sizeof(char);
+	ignore_warns = fread(&modeflags, sizeof modeflags, 1, pFile);
+	bytecount += sizeof modeflags;
 	pSys->m_bSafeMode = (modeflags & 1) >= 1;
 	
 	pSys->m_bDebugMode = (modeflags & 2) >= 1;
 	if( pSys->m_bDebugMode )
 		printf("[Tagha Load Script] :: Stack Size: %" PRIu32 "\n[Tagha Load Script] :: Data Size: %" PRIu32 "\n[Tagha Load Script] :: Safe Mode: %" PRIu32 "\n[Tagha Load Script] :: Debug Mode: %" PRIu32 "\n", stacksize, datasize, pSys->m_bSafeMode, pSys->m_bDebugMode);
 	
-	bytecount += scripthdr_read_natives_table(&pSys, &pFile);
-	bytecount += scripthdr_read_func_table(&pSys, &pFile);
+	bytecount += ScriptHDR_ReadNativesTable(&pSys, &pFile);
+	bytecount += ScriptHDR_ReadFuncTable(&pSys, &pFile);
 	if( !pFile )
 		return;
 	
-	bytecount += scripthdr_read_global_table(&pSys, &pFile);
+	bytecount += ScriptHDR_ReadGlobalTable(&pSys, &pFile);
 	if( !pFile )
 		return;
 	
@@ -560,20 +561,20 @@ void Tagha_BuildFromPtr(struct Tagha *restrict pSys, void *pProgram, const uint6
 	// get stack memory size.
 	uint32_t stacksize, datasize;
 	stacksize = *Reader.UInt32Ptr++;
-	bytecount += sizeof(uint32_t);
+	bytecount += sizeof stacksize;
 	
 	stacksize = stacksize<0x1000 ? 0x1000 : stacksize;
-	stacksize = stacksize + 7 & -8;	// align size by 8 bytes
+	stacksize = (stacksize + 7) & -8;	// align size by 8 bytes
 	printf("[Tagha Load Script Ptr] :: Stack Size: %" PRIu32 "\n", stacksize);
 	
 	// get static data (global vars, string literals) memory size.
 	datasize = *Reader.UInt32Ptr++;
-	bytecount += sizeof(uint32_t);
+	bytecount += sizeof datasize;
 	printf("[Tagha Load Script Ptr] :: Data Size: %" PRIu32 "\n", datasize);
 	
 	
 	char modeflags = *Reader.CharPtr++;
-	bytecount += sizeof(char);
+	bytecount += sizeof modeflags;
 	pSys->m_bSafeMode = (modeflags & 1) >= 1;
 	printf("[Tagha Load Script Ptr] :: script Safe Mode: %" PRIu32 "\n", pSys->m_bSafeMode);
 	
@@ -582,7 +583,7 @@ void Tagha_BuildFromPtr(struct Tagha *restrict pSys, void *pProgram, const uint6
 	
 	// get natives table.
 	pSys->m_uiNatives = *Reader.UInt32Ptr++;
-	bytecount += sizeof(uint32_t);
+	bytecount += sizeof pSys->m_uiNatives;
 	if( pSys->m_uiNatives ) {
 		// script has natives? Copy their names so we can use them on VM natives hashmap later.
 		pSys->m_pstrNativeCalls = calloc(pSys->m_uiNatives, sizeof(char *));
@@ -594,7 +595,7 @@ void Tagha_BuildFromPtr(struct Tagha *restrict pSys, void *pProgram, const uint6
 		
 		for( uint32_t i=0 ; i<pSys->m_uiNatives ; i++ ) {
 			uint32_t str_size = *Reader.UInt32Ptr++;
-			bytecount += sizeof(uint32_t);
+			bytecount += sizeof str_size;
 			
 			// allocate memory to hold the native's name.
 			pSys->m_pstrNativeCalls[i] = calloc(str_size, sizeof(char));
@@ -615,14 +616,14 @@ void Tagha_BuildFromPtr(struct Tagha *restrict pSys, void *pProgram, const uint6
 	// see if the script has its own functions.
 	// This table is so host or other script can call these functions by name or address.
 	pSys->m_uiFuncs = *Reader.UInt32Ptr++;
-	bytecount += sizeof(uint32_t);
+	bytecount += sizeof pSys->m_uiFuncs;
 	
 	// if we have no functions, that means main is missing...
 	if( pSys->m_uiFuncs ) {
 		// copy the function data from the header.
 		for( uint32_t i=0 ; i<pSys->m_uiFuncs ; i++ ) {
 			uint32_t str_size = *Reader.UInt32Ptr++;
-			bytecount += sizeof(uint32_t);
+			bytecount += sizeof str_size;
 			
 			// allocate the hashmap function key.
 			char *strFunc = calloc(str_size, sizeof(char));
@@ -645,7 +646,7 @@ void Tagha_BuildFromPtr(struct Tagha *restrict pSys, void *pProgram, const uint6
 				return;
 			} /* if */
 			pFuncData->m_uiOffset = *Reader.UInt32Ptr++;
-			bytecount += sizeof(uint32_t);
+			bytecount += sizeof pFuncData->m_uiOffset;
 			
 			printf("[Tagha Load Script Ptr] :: Copied Function name \'%s\' | offset: %" PRIu32 "\n", strFunc, pFuncData->m_uiOffset);
 			pFuncData->m_ucDefType = DefFunction;
@@ -662,13 +663,12 @@ void Tagha_BuildFromPtr(struct Tagha *restrict pSys, void *pProgram, const uint6
 	// check if the script has global variables.
 	pSys->m_uiGlobals = *Reader.UInt32Ptr++;
 	printf("[Tagha Load Script Ptr] :: Amount of Global Vars: %" PRIu32 "\n", pSys->m_uiGlobals);
-	bytecount += sizeof(uint32_t);
+	bytecount += sizeof pSys->m_uiGlobals;
 	
-	uint32_t globalbytes = 0;
 	if( pSys->m_uiGlobals ) {
 		for( uint32_t i=0 ; i<pSys->m_uiGlobals ; i++ ) {
 			uint32_t str_size = *Reader.UInt32Ptr++;
-			bytecount += sizeof(uint32_t);
+			bytecount += sizeof str_size;
 			// allocate string to use as a key for our global var.
 			char *strGlobal = calloc(str_size, sizeof(char));
 			if( !strGlobal ) {
@@ -689,7 +689,7 @@ void Tagha_BuildFromPtr(struct Tagha *restrict pSys, void *pProgram, const uint6
 				return;
 			} /* if */
 			pGlobalData->m_uiOffset = *Reader.UInt32Ptr++;
-			bytecount += sizeof(uint32_t);
+			bytecount += sizeof pGlobalData->m_uiOffset;
 			
 			printf("[Tagha Load Script Ptr] :: copied global var's name: \'%s\' | offset: %" PRIu32 "\n", strGlobal, pGlobalData->m_uiOffset);
 			
@@ -974,7 +974,7 @@ void Tagha_PrintData(const struct Tagha *restrict const pSys)
 	
 	puts("DEBUG PRINT: .data Segment\n");
 	for( uint8_t *p = pSys->m_pDataSegment ; p > pSys->m_pTextSegment ; --p )
-		printf("Data[%.10" PRIu32 "] == %" PRIu32 "\n", p-pSys->m_pMemory, *p);
+		printf("Data[%.10" PRIu32 "] == %" PRIu8 "\n", p-pSys->m_pMemory, *p);
 	
 	puts("\n");
 }
@@ -986,7 +986,7 @@ void Tagha_PrintInstrs(const struct Tagha *restrict const pSys)
 	
 	puts("DEBUG PRINT: .text Segment\n");
 	for( uint8_t *p = pSys->m_pMemory ; p <= pSys->m_pTextSegment ; p++ )
-		printf("Text[%.10" PRIu32 "] == %" PRIu32 "\n", p-pSys->m_pMemory, *p);
+		printf("Text[%.10" PRIu32 "] == %" PRIu8 "\n", p-pSys->m_pMemory, *p);
 	
 	puts("\n");
 }

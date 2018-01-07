@@ -70,8 +70,8 @@ int32_t Tagha_Exec(struct Tagha *restrict const pSys)
 		debugmode = pSys->m_bDebugMode
 	;
 	uint8_t
-		instr,
-		addrmode	// what addressing mode to use
+		instr=0,
+		addrmode=0	// what addressing mode to use
 	;
 	union CValue
 		a,	// 1st operand temporary
@@ -397,6 +397,7 @@ int32_t Tagha_Exec(struct Tagha *restrict const pSys)
 				}
 				index = *(uint64_t *)(pSys->m_Regs[a.UInt64].UCharPtr+offset);
 			}
+			else index = -1;
 			
 			if( safemode and index >= pSys->m_uiNatives  ) {
 				Tagha_PrintErr(pSys, __func__, "exec_callnat :: Native Index \'%" PRIu64 "\' is out of bounds!", index);

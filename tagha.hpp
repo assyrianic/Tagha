@@ -16,11 +16,10 @@ struct Tagha_ {
 		*m_pDataSegment,	// data segment is the address AFTER the stack segment ptr. Aligned by 8 bytes.
 		*m_pTextSegment		// text segment is the address after the last global variable AKA the last opcode.
 	;
-	// stores a C/C++ function ptr using the script-side name as the key.
 	char **m_pstrNativeCalls;		// natives string table.
 	struct Hashmap
-		*m_pmapNatives,	// native C/C++ interface hashmap.
-		*m_pmapCDefs	// stores C definitions data like global vars and functions.
+		*m_pmapNatives,		// native C/C++ interface hashmap. Stores a C/C++ function ptr using the script-side name as the key.
+		*m_pmapCDefs		// stores C definitions data like global vars and functions.
 	;
 	union CValue *m_pArgv;	// using union to force char** size to 8 bytes.
 	uint32_t
@@ -37,7 +36,6 @@ struct Tagha_ {
 		m_bDebugMode : 1,	// print debug info.
 		m_bZeroFlag : 1		// conditional zero flag.
 	;
-	
 	
 	Tagha_(void);
 	~Tagha_(void);
