@@ -13,6 +13,13 @@ Tagha is a minimal yet complex register-based virtual machine and scripting engi
 * No dependencies except libc!
 * easy to use, seamless C++ wrapper.
 
+## Motivation/Inspiration
+What motivated and inspired me to create Tagha was...
+* the QuakeC scripting language - inspired in the idea of using C as-is as a scripting language.
+* the Pawn scripting language - a C-like (really B-like) scripting language with no real type system but very small enough to fit on embedded systems.
+* Dynamically Loaded Libraries - the idea of an alternative to dynamically loaded libs.
+* Virtual Machines - the idea of emulating a computer system and a programming language on top of virtual system made me set out to do similar.
+
 ## Installation/Building
 download or git clone the project. The build scripts in the project give you the option to build Tagha as a static or shared library.
 
