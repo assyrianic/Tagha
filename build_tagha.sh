@@ -1,4 +1,5 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-gcc -Wall -Wextra -O3 -g -std=c99 tagha_api.c hostapp.c -L. -lDataStructColl -o taghavm
+gcc -Wall -Wextra -O3 -g -std=c99 hostapp.c -L. -ltagha -lDataStructColl -o taghavm
+g++ -Wall -Wextra -O3 -g -std=c++11 hostapp.cpp -L. -ltaghacpp -ltagha -lDataStructColl -o taghavmcpp
 #clang-3.5 -S -emit-llvm tagha_api.c

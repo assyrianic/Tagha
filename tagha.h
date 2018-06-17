@@ -188,7 +188,39 @@ enum AddrMode {
 enum InstrSet { INSTR_SET };
 #undef X
 
-
 #ifdef __cplusplus
 }
+#endif
+
+
+#ifdef __cplusplus
+
+class CTagha;
+struct CNativeInfo {
+	const char *Name;
+	void (*NativeFunc)(class CTagha *, union Value *, size_t, union Value []);
+};
+
+class CTagha {
+	union Value Regs[regsize];
+	struct Hashmap Natives;
+	union Value
+		ScriptHdr,
+		FuncTable,
+		GVarTable
+	;
+	bool CondFlag : 1; // conditional flag for conditional jumps!
+	
+ public:
+	CTagha(void *);
+	CTagha(void *, struct CNativeInfo []);
+	~CTagha();
+	
+	bool RegisterNatives(struct CNativeInfo []);
+	void *GetGlobalVarByName(const char *);
+	int32_t CallFunc(const char *, size_t, union Value []);
+	union Value GetReturnValue();
+	int32_t RunScript(int32_t, char *[]);
+};
+
 #endif
