@@ -95,6 +95,7 @@ enum RegID {
 	regDalath, regDhalath, regHeh, regWaw, regZain,
 	regHeth, regTeth, regYodh, regKaf, regKhaf, regLamad,
 	regMeem, regNoon, regSemkath, reg_Eh,
+	// Peh is start of first reg param, Thaw is last.
 	regPeh, regFeh, regSade, regQof, regReesh,
 	regSheen, regTaw, regThaw,
 	// Syriac alphabet makes great register names!

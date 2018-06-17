@@ -153,8 +153,8 @@ int main(int argc, char *argv[static argc])
 	
 	char i[] = "hello from main argv!";
 	char *arguments[] = {i, NULL};
-	int32_t result = Tagha_RunScript(&vm, 1, arguments);
-	//int32_t result = Tagha_CallFunc(&vm, "factorial", 1, &(union Value){.UInt64 = 30});
+	//int32_t result = Tagha_RunScript(&vm, 1, arguments);
+	int32_t result = Tagha_CallFunc(&vm, "factorial", 1, &(union Value){.UInt64 = 5});
 	if( pp )
 		printf("player.speed: '%f' | player.health: '%u' | player.ammo: '%u'\n", player.speed, player.health, player.ammo);
 	printf("result?: '%i'\n", result);

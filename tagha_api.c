@@ -101,30 +101,6 @@ bool Tagha_RegisterNatives(struct Tagha *const __restrict vm, struct NativeInfo 
 	return true;
 }
 
-void Tagha_PushValues(struct Tagha *const __restrict vm, const size_t args, union Value values[static args])
-{
-	if( !vm or !args )
-		return;
-	
-	// remember that arguments must be passed right to left.
-	// we have enough args to fit in registers.
-	const size_t reg_params = 8;
-	const enum RegID reg_param_initial = regPeh;
-	const size_t bytecount = sizeof(union Value) * args;
-	
-	// save stack space by using the registers for passing arguments.
-	// the other registers can then be used for other data operations.
-	if( args <= reg_params ) {
-		memcpy(vm->Regs+reg_param_initial, values, bytecount);
-	}
-	// if the native has more than a certain num of params, get from both registers and stack.
-	else if( args > reg_params ) {
-		memcpy(vm->Regs+reg_param_initial, values, sizeof(union Value) * reg_params);
-		memcpy(vm->Regs[regStk].SelfPtr, values+reg_params, sizeof(union Value) * (args-reg_params));
-		vm->Regs[regStk].SelfPtr -= (args-reg_params);
-	}
-}
-
 static uint8_t *GetFunctionOffsetByName(struct Tagha *const __restrict vm, const char *__restrict funcname)
 {
 	if( !funcname or !vm or !vm->FuncTable.UCharPtr )
@@ -2117,12 +2093,6 @@ int32_t Tagha_CallFunc(struct Tagha *const __restrict vm, const char *__restrict
 		puts("Tagha_CallFunc :: ERROR: cannot find function: '%s'.");
 		return -1;
 	}
-	vm->Regs[regInstr].UCharPtr = func_offset;
-	
-	// push argv and argc to registers.
-	// TODO: use a vector for these.
-	//vm->Regs[res].UInt64 = (uintptr_t)vm->Argv;
-	//vm->Regs[rds].Int64 = vm->Argc;
 	
 	// check out stack size and align it by the size of union Value.
 	size_t stacksize = *(uint32_t *)(vm->ScriptHdr.UCharPtr+2);
@@ -2152,9 +2122,9 @@ int32_t Tagha_CallFunc(struct Tagha *const __restrict vm, const char *__restrict
 		vm->Regs[regStk].SelfPtr -= (args-reg_params);
 	}
 	
-	(--vm->Regs[regStk].SelfPtr)->UCharPtr = vm->Regs[regInstr].UCharPtr+1;	// push return address.
-	vm->Regs[regInstr].UCharPtr = func_offset;
+	*--vm->Regs[regStk].SelfPtr = vm->Regs[regInstr];	// push return address.
 	*--vm->Regs[regStk].SelfPtr = vm->Regs[regBase]; // push rbp
+	vm->Regs[regInstr].UCharPtr = func_offset;
 	return Tagha_Exec(vm);
 }
 
