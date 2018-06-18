@@ -201,16 +201,7 @@ struct CNativeInfo {
 	void (*NativeFunc)(class CTagha *, union Value *, size_t, union Value []);
 };
 
-class CTagha {
-	union Value Regs[regsize];
-	struct Hashmap Natives;
-	union Value
-		ScriptHdr,
-		FuncTable,
-		GVarTable
-	;
-	bool CondFlag : 1; // conditional flag for conditional jumps!
-	
+class CTagha : public Tagha {
  public:
 	CTagha(void *);
 	CTagha(void *, struct CNativeInfo []);
