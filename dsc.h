@@ -6,6 +6,7 @@ extern "C" {
 
 #if _WIN32 || _WIN64
 	#define OS_WINDOWS 1
+	#define restrict __restrict
 #elif unix || __unix || __unix__ || __linux__ || linux || __linux || __FreeBSD__
 	#define OS_LINUX_UNIX 1
 #elif __ANDROID__
@@ -61,7 +62,7 @@ union Value {
 	struct LinkMap *LinkMapPtr, (*LinkMapFunc)(), *(*LinkMapPtrFunc)();
 };
 
-typedef enum ValType {
+enum ValType {
 	TypeInvalid=0,
 	// integer types
 	TypeBool, TypeBoolPtr, TypeBoolFunc, TypeBoolPtrFunc,
@@ -92,7 +93,8 @@ typedef enum ValType {
 	TypeGraphPtr, TypeGraphFunc, TypeGraphPtrFunc,
 	TypeTreePtr, TypeTreeFunc, TypeTreePtrFunc,
 	TypeLinkMapPtr, TypeLinkMapFunc, TypeLinkMapPtrFunc,
-} ValType;
+	TypeEnd,
+};
 
 // discriminated union type
 struct Variant {
@@ -120,11 +122,13 @@ char *String_GetStr(const struct String *);
 size_t String_Len(const struct String *);
 void String_Copy(struct String *, const struct String *);
 void String_CopyStr(struct String *, const char *);
-int32_t String_StrCmpCStr(const struct String *, const char *);
-int32_t String_StrCmpStr(const struct String *, const struct String *);
-int32_t String_StrnCmpCStr(const struct String *, const char *, size_t);
-int32_t String_StrnCmpStr(const struct String *, const struct String *, size_t);
+int32_t String_CmpCStr(const struct String *, const char *);
+int32_t String_CmpStr(const struct String *, const struct String *);
+int32_t String_NCmpCStr(const struct String *, const char *, size_t);
+int32_t String_NCmpStr(const struct String *, const struct String *, size_t);
 bool String_IsEmpty(const struct String *);
+bool String_Reserve(struct String *, size_t);
+char *String_fgets(struct String *, size_t, void *);
 /***************/
 
 
@@ -368,8 +372,8 @@ void ByteBuffer_InsertString(struct ByteBuffer *, const char *, size_t);
 void ByteBuffer_InsertObject(struct ByteBuffer *, const void *, size_t);
 void ByteBuffer_Delete(struct ByteBuffer *, size_t);
 void ByteBuffer_Resize(struct ByteBuffer *);
-void ByteBuffer_DumpToFile(/* struct ByteBuffer *, FILE * */);
-size_t ByteBuffer_ReadFromFile(/* struct ByteBuffer *, FILE * */);
+void ByteBuffer_DumpToFile(const struct ByteBuffer *, void *);
+size_t ByteBuffer_ReadFromFile(struct ByteBuffer *, void *);
 void ByteBuffer_Append(struct ByteBuffer *, struct ByteBuffer *);
 /***************/
 
@@ -557,62 +561,6 @@ size_t TreeNode_GetChildCount(const struct TreeNode *);
 /***************/
 
 
-/************* C Plugin Architecture (pluginarch.c) *************/
-struct PluginData {
-	// hashmap for functions or global vars.
-	struct Hashmap Symbols;
-	struct String
-		Name,	// plugin name
-		Version,	// plugin version
-		Author,	// plugin author's name (and possible contact info)
-		RunTimeName, // plugin runtime/file name.
-		Descr	// plugin description of operations.
-	;
-#if _WIN32 || _WIN64
-	HMODULE ModulePtr;
-#else
-	void *ModulePtr;
-#endif
-};
-
-struct PluginData *Plugin_New(void);
-void Plugin_Del(struct PluginData *);
-void Plugin_Free(struct PluginData **);
-const char *Plugin_GetName(const struct PluginData *);
-const char *Plugin_GetVersion(const struct PluginData *);
-const char *Plugin_GetAuthor(const struct PluginData *);
-const char *Plugin_GetRuntimeName(const struct PluginData *);
-const char *Plugin_GetDescription(const struct PluginData *);
-
-void Plugin_SetName(struct PluginData *, const char *);
-void Plugin_SetVersion(struct PluginData *, const char *);
-void Plugin_SetAuthor(struct PluginData *, const char *);
-void Plugin_SetDescription(struct PluginData *, const char *);
-
-void *Plugin_GetModulePtr(const struct PluginData *);
-void *Plugin_GetExportedSymbol(const struct PluginData *, const char *);
-
-
-struct PluginManager {
-	struct Hashmap ModuleMap;
-	struct Vector ModuleVec; // purpose of vector is for knowing insertion order.
-	struct String PluginDir;
-};
-
-struct PluginManager *PluginManager_New(const char *);
-void PluginManager_Init(struct PluginManager *, const char *);
-void PluginManager_Del(struct PluginManager *);
-void PluginManager_Free(struct PluginManager **);
-
-bool PluginManager_LoadModule(struct PluginManager *, const char *, size_t, void *[]);
-bool PluginManager_ReloadModule(struct PluginManager *, const char *, size_t, void *[]);
-bool PluginManager_ReloadAllModules(struct PluginManager *, size_t, void *[]);
-bool PluginManager_UnloadModule(struct PluginManager *, const char *, size_t, void *[]);
-bool PluginManager_UnloadAllModules(struct PluginManager *, size_t, void *[]);
-
-/***************/
-
-
 /************* Ordered Hashmap (linkmap.c) *************/
 
 struct LinkNode {
@@ -657,6 +605,9 @@ void LinkMap_DeleteByIndex(struct LinkMap *, size_t);
 bool LinkMap_HasKey(const struct LinkMap *, const char *);
 struct LinkNode *LinkMap_GetNodeByKey(const struct LinkMap *, const char *);
 struct LinkNode **LinkMap_GetKeyTable(const struct LinkMap *);
+size_t LinkMap_GetIndexByName(const struct LinkMap *, const char *);
+size_t LinkMap_GetIndexByNode(const struct LinkMap *, struct LinkNode *);
+size_t LinkMap_GetIndexByValue(const struct LinkMap *, union Value);
 
 void LinkMap_FromMap(struct LinkMap *, const struct Hashmap *);
 void LinkMap_FromUniLinkedList(struct LinkMap *, const struct UniLinkedList *);
@@ -671,6 +622,61 @@ struct LinkMap *LinkMap_NewFromBiLinkedList(const struct BiLinkedList *);
 struct LinkMap *LinkMap_NewFromVector(const struct Vector *);
 struct LinkMap *LinkMap_NewFromTuple(const struct Tuple *);
 struct LinkMap *LinkMap_NewFromGraph(const struct Graph *);
+
+/***************/
+
+
+/************* C Plugin Architecture (pluginarch.c) *************/
+struct PluginData {
+	// hashmap for functions or global vars.
+	struct Hashmap Symbols;
+	struct String
+		Name,	// plugin name
+		Version,	// plugin version
+		Author,	// plugin author's name (and possible contact info)
+		RunTimeName, // plugin runtime/file name.
+		Descr	// plugin description of operations.
+	;
+#if _WIN32 || _WIN64
+	HMODULE ModulePtr;
+#else
+	void *ModulePtr;
+#endif
+};
+
+struct PluginData *Plugin_New(void);
+void Plugin_Del(struct PluginData *);
+void Plugin_Free(struct PluginData **);
+const char *Plugin_GetName(const struct PluginData *);
+const char *Plugin_GetVersion(const struct PluginData *);
+const char *Plugin_GetAuthor(const struct PluginData *);
+const char *Plugin_GetRuntimeName(const struct PluginData *);
+const char *Plugin_GetDescription(const struct PluginData *);
+
+void Plugin_SetName(struct PluginData *, const char *);
+void Plugin_SetVersion(struct PluginData *, const char *);
+void Plugin_SetAuthor(struct PluginData *, const char *);
+void Plugin_SetDescription(struct PluginData *, const char *);
+
+void *Plugin_GetModulePtr(const struct PluginData *);
+void *Plugin_GetExportedSymbol(const struct PluginData *, const char *);
+
+
+struct PluginManager {
+	struct LinkMap ModuleMap;
+	struct String PluginDir;
+};
+
+struct PluginManager *PluginManager_New(const char *);
+void PluginManager_Init(struct PluginManager *, const char *);
+void PluginManager_Del(struct PluginManager *);
+void PluginManager_Free(struct PluginManager **);
+
+bool PluginManager_LoadModule(struct PluginManager *, const char *, size_t, void *[]);
+bool PluginManager_ReloadModule(struct PluginManager *, const char *, size_t, void *[]);
+bool PluginManager_ReloadAllModules(struct PluginManager *, size_t, void *[]);
+bool PluginManager_UnloadModule(struct PluginManager *, const char *, size_t, void *[]);
+bool PluginManager_UnloadAllModules(struct PluginManager *, size_t, void *[]);
 
 /***************/
 
