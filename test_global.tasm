@@ -1,0 +1,47 @@
+##########################
+# struct Player {
+# 	float		speed;
+# 	uint32_t	health, ammo;
+# };
+# struct Player *g_pPlayer;
+# g_pPlayer is defined in this script
+# but its pointer value will be supplied from the host!
+# that makes g_pPlayer a pointer to a host variable.
+##########################
+$stacksize 0xFFFF
+$global g_pPlayer, 8,	word 0
+$global module_str, 19, "test_factorial.tbc"
+$global factorial_str, 10, "factorial"
+
+$native %Tagha_LoadModule ; void *Tagha_LoadModule(const char *);
+$native %Tagha_InvokeFunc ; bool Tagha_InvokeFunc(void *, const char *, union Value *, size_t, union Value []);
+$native %Tagha_FreeModule ; void Tagha_FreeModule(void *);
+
+%main: {
+	lea rgamal, g_pPlayer
+	mov rgamal, [word rgamal]
+	mov [long rgamal], 0x43960000 # 300.f as a 32-bit int hex
+	mov [long rgamal+4], 100
+	mov [long rgamal+8], 32
+	
+	lea rsemkath, module_str
+	syscall %Tagha_LoadModule, 1
+	mov [word rbp-24], ralaf ; module ptr is in ralaf, copy it to stack
+	
+	; load array
+	mov [word rbp-16], 5
+	lea rqof, [word rbp-16]
+	; load constant
+	mov rsadhe, 1
+	; load return value ptr.
+	lea rpeh, [word rbp-8]
+	
+	lea r_eh, factorial_str
+	mov rsemkath, [word rbp-24]
+	syscall %Tagha_InvokeFunc, 5
+	
+	lea rsemkath, [word rbp-24]
+	syscall %Tagha_FreeModule, 1
+	mov ralaf, [word rbp-8]
+	ret
+}

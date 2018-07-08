@@ -1,0 +1,31 @@
+%main: {
+	sub rsp, 32
+	lea rsemkath, [word rbp-24]
+	mov [long rbp-24], 0x40000000 ; 2.f
+	mov [long rbp-20], 0x40400000 ; 3.f
+	mov [long rbp-16], 0x40800000 ; 4.f
+	call %VecInvert
+	ret
+}
+
+# void VecInvert(float v[3])
+# {
+# 	v[0] = -v[0];
+# 	v[1] = -v[1];
+# 	v[2] = -v[2];
+# }
+
+%VecInvert: {
+	mov rbeth, [long rsemkath]
+	negf long rbeth
+	mov [long rsemkath], rbeth
+	
+	mov rgamal, [long rsemkath+4]
+	negf long rgamal
+	mov [long rsemkath+4], rgamal
+	
+	mov rdalath, [long rsemkath+8]
+	negf long rdalath
+	mov [long rsemkath+8], rdalath
+	ret
+}
