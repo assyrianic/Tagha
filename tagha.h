@@ -7,7 +7,7 @@ extern "C" {
 #include "dsc.h"
 
 /* For Colored Debugging Printing! */
-#define KNRM	"\x1B[0m"	// Normal
+#define KNRM	"\x1B[0m"	/* Normal */
 #define KRED	"\x1B[31m"
 #define KGRN	"\x1B[32m"
 #define KYEL	"\x1B[33m"
@@ -15,7 +15,7 @@ extern "C" {
 #define KMAG	"\x1B[35m"
 #define KCYN	"\x1B[36m"
 #define KWHT	"\x1B[37m"
-#define RESET	"\033[0m"	// Reset obviously
+#define RESET	"\033[0m"	/* Reset obviously */
 
 #define TAGHA_VERSION_STR		"0.0.1a"
 
@@ -51,7 +51,7 @@ extern "C" {
 enum ScriptFlags {
 	FlagSafeMode	= 0x01,
 	FlagDebug		= 0x02,
-	FlagAllocMem	= 0x04, // allows malloc calls (for systems with healthy amounts of memory.)
+	FlagAllocMem	= 0x04, /* allow malloc calls (for systems with good amount of memory.) */
 };
 
 
@@ -79,7 +79,7 @@ enum ScriptFlags {
 struct Tagha;
 struct NativeInfo {
 	const char *Name;
-	void (*NativeCFunc)(struct Tagha *, void *, union Value *, size_t, union Value []);
+	void (*NativeCFunc)(struct Tagha *, union Value *, size_t, union Value []);
 };
 
 
@@ -95,35 +95,10 @@ struct NativeInfo {
 enum RegID { REGISTER_FILE };
 #undef Y
 
-/*
-struct TaghaVar {
-	union {
-		struct ByteBuffer VarData;
-		union Value NativePtr;
-	};
-};
-
-struct TaghaFunc {
-	union {
-		struct ByteBuffer ByteCode;
-		void (*NativeCFunc)();
-	};
-	bool IsNative : 1;
-};
-
-struct TaghaModule {
-	struct LinkMap
-		Vars, Funcs;
-	;
-	uint8_t Flags;
-	bool HasMain : 1;
-};
-*/
-
 struct Tagha {
 	union Value Regs[regsize];
 	union Value CurrScript;
-	bool CondFlag : 1; // conditional flag for conditional jumps!
+	bool CondFlag : 1; /* conditional flag for conditional jumps! */
 };
 
 void Tagha_Init(struct Tagha *, void *);
@@ -208,7 +183,7 @@ enum InstrSet { INSTR_SET };
 class CTagha;
 struct CNativeInfo {
 	const char *Name;
-	void (*NativeFunc)(class CTagha *, void *, union Value *, size_t, union Value []);
+	void (*NativeFunc)(class CTagha *, union Value *, size_t, union Value []);
 };
 
 class CTagha : public Tagha {

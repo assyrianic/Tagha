@@ -1,0 +1,47 @@
+$stacksize 0xaffff
+
+%main:{
+	mov rsemkath, 43
+	call %fib
+	ret
+}
+
+; int fib(int n)
+; {
+; 	if(n==0 || n==1)
+; 		return n;
+; 	return fib(n-1)+fib(n-2);
+; }
+
+%fib: {
+	push	rbeth
+	mov	[long rbp-4], rsemkath
+	
+	cmp	[long rbp-4], 0    ; if( i==0 )
+	jnz	.exit
+	cmp	[long rbp-4], 1    ; if( i==1 )
+	jz	.evalfib
+	
+.exit:
+	mov	ralaf, [long rbp-4]
+	ret
+	
+.evalfib:
+; return fib(n-1) + fib(n-2);
+	; fib(n-1)
+	mov	ralaf, [long rbp-4]
+	sub    ralaf, 1
+	mov	rsemkath, ralaf
+	call	%fib
+	
+	mov	rbeth, ralaf
+	; fib(n-2)
+	mov	ralaf, [long rbp-4]
+	sub    ralaf, 2
+	mov	rsemkath, ralaf
+	call	%fib
+	; +
+	add    ralaf, rbeth
+	pop    rbeth
+	ret
+}

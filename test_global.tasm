@@ -20,9 +20,9 @@ $native %Tagha_FreeModule ; void Tagha_FreeModule(void *);
 %main: {
 	lea rgamal, g_pPlayer
 	mov rgamal, [word rgamal]
-	mov [long rgamal], 0x43960000 # 300.f as a 32-bit int hex
-	mov [long rgamal+4], 100
-	mov [long rgamal+8], 32
+	mov [long rgamal], 0x43960000 ; 300.f as a 32-bit int hex
+	mov [long rgamal+4], 100 ; g_pPlayer->health = 100;
+	mov [long rgamal+8], 32 ; g_pPlayer->ammo = 32;
 	
 	lea rsemkath, module_str
 	syscall %Tagha_LoadModule, 1
@@ -34,13 +34,13 @@ $native %Tagha_FreeModule ; void Tagha_FreeModule(void *);
 	; load constant
 	mov rsadhe, 1
 	; load return value ptr.
-	lea rpeh, [word rbp-8]
+	lea rpeh, [rbp-8]
 	
 	lea r_eh, factorial_str
 	mov rsemkath, [word rbp-24]
 	syscall %Tagha_InvokeFunc, 5
 	
-	lea rsemkath, [word rbp-24]
+	lea rsemkath, [rbp-24]
 	syscall %Tagha_FreeModule, 1
 	mov ralaf, [word rbp-8]
 	ret

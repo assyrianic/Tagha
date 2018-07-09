@@ -11,18 +11,18 @@ struct Player {
 };
 
 /* lldiv_t lldiv(long long int numer, long long int denom); */
-void Native_lldiv(struct Tagha *sys, void *__restrict script, union Value *retval, const size_t args, union Value params[static args])
+void Native_lldiv(struct Tagha *sys, union Value *retval, const size_t args, union Value params[static args])
 {
-	(void)sys; (void)script;
+	(void)sys;
 	(void)retval; // makes the compiler stop bitching.
 	lldiv_t *val = params[0].Ptr;
 	*val = lldiv(params[1].Int64, params[2].Int64);
 }
 
 /* int puts(const char *str); */
-void Native_puts(struct Tagha *sys, void *__restrict script, union Value *retval, const size_t args, union Value params[static args])
+void Native_puts(struct Tagha *sys, union Value *retval, const size_t args, union Value params[static args])
 {
-	(void)sys; (void)script;
+	(void)sys;
 	const char *p = params[0].Ptr;
 	if( !p ) {
 		puts("Native_puts :: ERROR **** p is NULL ****");
@@ -33,9 +33,9 @@ void Native_puts(struct Tagha *sys, void *__restrict script, union Value *retval
 }
 
 /* char *fgets(char *buffer, int num, FILE *stream); */
-void Native_fgets(struct Tagha *sys, void *__restrict script, union Value *retval, const size_t args, union Value params[static args])
+void Native_fgets(struct Tagha *sys, union Value *retval, const size_t args, union Value params[static args])
 {
-	(void)sys; (void)script;
+	(void)sys;
 	char *buf = params[0].Ptr;
 	if( !buf ) {
 		puts("buf is NULL");
@@ -51,7 +51,7 @@ void Native_fgets(struct Tagha *sys, void *__restrict script, union Value *retva
 	retval->Ptr = fgets(buf, params[1].Int32, stream);
 }
 
-static size_t GetFileSize(FILE *const __restrict file)
+static size_t GetFileSize(FILE *const restrict file)
 {
 	int64_t size = 0L;
 	if( !file )
@@ -101,10 +101,11 @@ int main(int argc, char *argv[static argc])
 	
 	char i[] = "hello from main argv!";
 	char *arguments[] = {i, NULL};
+	clock_t start = clock();
 	int32_t result = Tagha_RunScript(&vm, 1, arguments);
 	//int32_t result = Tagha_CallFunc(&vm, "factorial", 1, &(union Value){.UInt64 = 5});
 	if( pp )
 		printf("player.speed: '%f' | player.health: '%u' | player.ammo: '%u'\n", player.speed, player.health, player.ammo);
-	printf("result?: '%i'\n", result);
+	printf("result?: '%i' | %f\n", result, (clock()-start)/(double)CLOCKS_PER_SEC);
 	TaghaDebug_PrintRegisters(&vm);
 }

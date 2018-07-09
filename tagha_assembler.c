@@ -173,6 +173,18 @@ bool TaghaAsm_ParseGlobalVarDirective(struct TaghaAsmbler *const restrict tasm)
 		}
 		else if( *tasm->Iter==',' )
 			tasm->Iter++;
+		else if( IsDecimal(*tasm->Iter) ) {
+			LexNumber(&tasm->Iter, tasm->Lexeme);
+			const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
+			const uint64_t data = strtoull(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
+			if( data ) {
+				printf("tasm error: single numeric arguments for global vars must be 0! on line: %zu\n", tasm->CurrLine);
+				exit(-1);
+			}
+			while( bytes-- )
+				ByteBuffer_InsertByte(vardata, 0);
+			break;
+		}
 		else if( IsAlphabetic(*tasm->Iter) ) {
 			LexIdentifier(&tasm->Iter, tasm->Lexeme);
 			if( !String_NCmpCStr(tasm->Lexeme, "byte", sizeof "byte") ) {
@@ -188,24 +200,24 @@ bool TaghaAsm_ParseGlobalVarDirective(struct TaghaAsmbler *const restrict tasm)
 				LexNumber(&tasm->Iter, tasm->Lexeme);
 				const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
 				const uint16_t data = strtoull(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
-				ByteBuffer_InsertInt(vardata, data, sizeof data);
-				bytes -= sizeof data;
+				ByteBuffer_InsertInt(vardata, data, sizeof(uint16_t));
+				bytes -= sizeof(uint16_t);
 			}
 			else if( !String_NCmpCStr(tasm->Lexeme, "long", sizeof "long") ) {
 				SkipWhiteSpace(&tasm->Iter);
 				LexNumber(&tasm->Iter, tasm->Lexeme);
 				const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
 				const uint32_t data = strtoull(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
-				ByteBuffer_InsertInt(vardata, data, sizeof data);
-				bytes -= sizeof data;
+				ByteBuffer_InsertInt(vardata, data, sizeof(uint32_t));
+				bytes -= sizeof(uint32_t);
 			}
 			else if( !String_NCmpCStr(tasm->Lexeme, "word", sizeof "word") ) {
 				SkipWhiteSpace(&tasm->Iter);
 				LexNumber(&tasm->Iter, tasm->Lexeme);
 				const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
 				const uint64_t data = strtoull(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
-				ByteBuffer_InsertInt(vardata, data, sizeof data);
-				bytes -= sizeof data;
+				ByteBuffer_InsertInt(vardata, data, sizeof(uint64_t));
+				bytes -= sizeof(uint64_t);
 			}
 		}
 		else {
@@ -213,6 +225,9 @@ bool TaghaAsm_ParseGlobalVarDirective(struct TaghaAsmbler *const restrict tasm)
 			exit(-1);
 		}
 	}
+#ifdef TASM_DEBUG
+	printf("tasm debug: vardata.Count: %zu\n", vardata->Count);
+#endif
 	/*
 	printf("tasm: adding global var '%s'\n", varname->CStr);
 	for( size_t i=0 ; i<ByteBuffer_Count(vardata) ; i++ )
@@ -686,14 +701,13 @@ bool TaghaAsm_ParseLEAInstr(struct TaghaAsmbler *const restrict tasm, const bool
 		// register indirection operand + register indirect addressing mode + 4 byte offset.
 		SkipWhiteSpace(&tasm->Iter);
 		
-		// get memory dereferencing size.
+		// get memory dereferencing size IF available
 		LexIdentifier(&tasm->Iter, tasm->Lexeme);
 		if( !String_NCmpCStr(tasm->Lexeme, "byte", sizeof "byte")
 				or !String_NCmpCStr(tasm->Lexeme, "half", sizeof "half")
 				or !String_NCmpCStr(tasm->Lexeme, "long", sizeof "long")
 				or !String_NCmpCStr(tasm->Lexeme, "word", sizeof "word") )
 		{
-			addrmode1 = RegIndirect;
 			switch( *tasm->Lexeme->CStr ) {
 				case 'b': addrmode1 |= Byte; break;
 				case 'h': addrmode1 |= TwoBytes; break;
@@ -701,46 +715,42 @@ bool TaghaAsm_ParseLEAInstr(struct TaghaAsmbler *const restrict tasm, const bool
 				case 'w': addrmode1 |= EightBytes; break;
 			}
 			SkipWhiteSpace(&tasm->Iter);
-			tasm->ProgramCounter += 5;
-			// get register name.
 			LexIdentifier(&tasm->Iter, tasm->Lexeme);
-			if( !LinkMap_HasKey(tasm->Registers, tasm->Lexeme->CStr) ) {
-				printf("tasm error: invalid register name '%s' in register indirection on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
-				exit(-1);
-			}
-			imm.UInt64 = LinkMap_Get(tasm->Registers, tasm->Lexeme->CStr).UInt64;
-			
-			SkipWhiteSpace(&tasm->Iter);
-			// if there's no plus/minus equation, assume `[reg+0]`.
-			const char closer = *tasm->Iter;
-			if( closer != '-' and closer != '+' and closer != ']' ) {
-				printf("tasm error: invalid offset math operator '%c' in register indirection on line: %zu\n", closer, tasm->CurrLine);
-				exit(-1);
-			}
-			else if( closer=='-' or closer=='+' ) {
-				tasm->Iter++;
-				SkipWhiteSpace(&tasm->Iter);
-				if( !IsDecimal(*tasm->Iter) ) {
-					printf("tasm error: invalid offset '%s' in register indirection on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
-					exit(-1);
-				}
-				LexNumber(&tasm->Iter, tasm->Lexeme);
-				SkipWhiteSpace(&tasm->Iter);
-				const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
-				offset = strtol(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
-				offset = closer=='-' ? -offset : offset;
-				//printf("offset == %i\n", offset);
-			}
-			if( *tasm->Iter != ']' ) {
-				printf("tasm error: missing closing ']' bracket in register indirection on line: %zu\n", tasm->CurrLine);
-				exit(-1);
-			}
-			tasm->Iter++;
 		}
-		else {
-			printf("tasm error: missing or invalid indirection size '%s' on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
+		addrmode1 = RegIndirect;
+		tasm->ProgramCounter += 5;
+		if( !LinkMap_HasKey(tasm->Registers, tasm->Lexeme->CStr) ) {
+			printf("tasm error: invalid register name '%s' in register indirection on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
 			exit(-1);
 		}
+		imm.UInt64 = LinkMap_Get(tasm->Registers, tasm->Lexeme->CStr).UInt64;
+		
+		SkipWhiteSpace(&tasm->Iter);
+		// if there's no plus/minus equation, assume `[reg+0]`.
+		const char closer = *tasm->Iter;
+		if( closer != '-' and closer != '+' and closer != ']' ) {
+			printf("tasm error: invalid offset math operator '%c' in register indirection on line: %zu\n", closer, tasm->CurrLine);
+			exit(-1);
+		}
+		else if( closer=='-' or closer=='+' ) {
+			tasm->Iter++;
+			SkipWhiteSpace(&tasm->Iter);
+			if( !IsDecimal(*tasm->Iter) ) {
+				printf("tasm error: invalid offset '%s' in register indirection on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
+				exit(-1);
+			}
+			LexNumber(&tasm->Iter, tasm->Lexeme);
+			SkipWhiteSpace(&tasm->Iter);
+			const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
+			offset = strtol(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
+			offset = closer=='-' ? -offset : offset;
+			//printf("offset == %i\n", offset);
+		}
+		if( *tasm->Iter != ']' ) {
+			printf("tasm error: missing closing ']' bracket in register indirection on line: %zu\n", tasm->CurrLine);
+			exit(-1);
+		}
+		tasm->Iter++;
 	}
 	else {
 		printf("tasm error: invalid second operand for LEA opcode on line: %zu\n", tasm->CurrLine);
@@ -1395,9 +1405,6 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 	LinkMap_Insert(tasm->Registers, "RBP", (union Value){.UInt64 = regBase});
 	LinkMap_Insert(tasm->Registers, "rbp", (union Value){.UInt64 = regBase});
 	
-	LinkMap_Insert(tasm->Registers, "RIP", (union Value){.UInt64 = regInstr});
-	LinkMap_Insert(tasm->Registers, "rip", (union Value){.UInt64 = regInstr});
-	
 	// set up our instruction set!
 	#define X(x) LinkMap_Insert(tasm->Opcodes, #x, (union Value){.UInt64 = x});
 		INSTR_SET;
@@ -1460,7 +1467,7 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 				SkipWhiteSpace(&tasm->Iter);
 				if( funclbl ) {
 					if( *tasm->Iter != '{' ) {
-						printf("tasm error: missing curly '{' bracket! line: %zu\n", tasm->CurrLine);
+						printf("tasm error: missing curly '{' bracket! Curly bracket must be on the same line as label. line: %zu\n", tasm->CurrLine);
 						exit(-1);
 					}
 					tasm->Iter++;
@@ -1493,6 +1500,10 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 			}
 			// it's an opcode!
 			else if( IsAlphabetic(*tasm->Iter) ) {
+				if( !tasm->ActiveFuncLabel ) {
+					printf("tasm error: opcode outside of function blocks on line: %zu\n", tasm->CurrLine);
+					exit(-1);
+				}
 				LexIdentifier(&tasm->Iter, tasm->Lexeme);
 				if( !LinkMap_HasKey(tasm->Opcodes, tasm->Lexeme->CStr) ) {
 					printf("tasm error: unknown opcode '%s' on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
@@ -1692,15 +1703,17 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 			continue;
 		
 		ByteBuffer_InsertByte(&datatable, 0);
-		ByteBuffer_InsertInt(&datatable, t->KeyName.Len, sizeof(uint32_t));
-		ByteBuffer_InsertInt(&datatable, bytedata->Count, sizeof(uint32_t));
-		ByteBuffer_InsertString(&datatable, t->KeyName.CStr, t->KeyName.Len-1);
-		ByteBuffer_Append(&datatable, bytedata);
+		ByteBuffer_InsertInt(&datatable, t->KeyName.Len+1, sizeof(uint32_t));
 		
-		//printf("global var: %s\nData:\n", t->KeyName.CStr);
-		//for( size_t i=0 ; i<bytedata->Count ; i++ )
-		//	printf("bytecode[%zu] == %u\n", i, bytedata->Buffer[i]);
-		//puts("\n");
+		ByteBuffer_InsertInt(&datatable, bytedata->Count, sizeof(uint32_t));
+		ByteBuffer_InsertString(&datatable, t->KeyName.CStr, t->KeyName.Len);
+		ByteBuffer_Append(&datatable, bytedata);
+	#ifdef TASM_DEBUG
+		printf("global var: %s\nData:\n", t->KeyName.CStr);
+		for( size_t i=0 ; i<bytedata->Count ; i++ )
+			printf("bytecode[%zu] == %u\n", i, bytedata->Buffer[i]);
+		puts("\n");
+	#endif
 	}
 	
 	size_t datacount = 0;

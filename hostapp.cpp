@@ -12,17 +12,17 @@ struct Player {
 
 
 /* lldiv_t lldiv(long long int numer, long long int denom); */
-void Native_lldiv(class CTagha *sys, void *script, union Value *retval, const size_t args, union Value params[])
+void Native_lldiv(class CTagha *sys, union Value *retval, const size_t args, union Value params[])
 {
-	(void)sys; (void)script; (void)args; (void)retval; // makes the compiler stop bitching.
+	(void)sys; (void)args; (void)retval; // makes the compiler stop bitching.
 	lldiv_t *val = (lldiv_t *)params[0].Ptr;
 	*val = lldiv(params[1].Int64, params[2].Int64);
 }
 
 /* int puts(const char *str); */
-void Native_puts(class CTagha *sys, void *script, union Value *retval, const size_t args, union Value params[])
+void Native_puts(class CTagha *sys, union Value *retval, const size_t args, union Value params[])
 {
-	(void)sys; (void)args; (void)script;
+	(void)sys; (void)args;
 	const char *p = (const char *)params[0].Ptr;
 	if( !p ) {
 		puts("Native_puts :: ERROR **** p is nullptr ****");
@@ -33,9 +33,9 @@ void Native_puts(class CTagha *sys, void *script, union Value *retval, const siz
 }
 
 /* char *fgets(char *buffer, int num, FILE *stream); */
-void Native_fgets(class CTagha *sys, void *script, union Value *retval, const size_t args, union Value params[])
+void Native_fgets(class CTagha *sys, union Value *retval, const size_t args, union Value params[])
 {
-	(void)sys; (void)args; (void)script;
+	(void)sys; (void)args;
 	char *buf = (char *)params[0].Ptr;
 	if( !buf ) {
 		puts("buf is nullptr");
