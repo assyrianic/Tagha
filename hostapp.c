@@ -107,5 +107,5 @@ int main(int argc, char *argv[static argc])
 	if( pp )
 		printf("player.speed: '%f' | player.health: '%u' | player.ammo: '%u'\n", player.speed, player.health, player.ammo);
 	printf("result?: '%i' | %f\n", result, (clock()-start)/(double)CLOCKS_PER_SEC);
-	TaghaDebug_PrintRegisters(&vm);
+	//TaghaDebug_PrintRegisters(&vm);
 }
