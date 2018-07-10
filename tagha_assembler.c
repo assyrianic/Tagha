@@ -277,12 +277,12 @@ bool TaghaAsm_ParseTwoOpInstr(struct TaghaAsmbler *const restrict tasm, const bo
 	if( !tasm or !tasm->Src or !tasm->Iter )
 		return false;
 	
-	tasm->ProgramCounter += 4;
+	tasm->ProgramCounter += 3;
 	SkipWhiteSpace(&tasm->Iter);
 	bool IsMemoryDeref = false;
 	uint8_t
 		addrmode1=0,
-		addrmode2=0,
+		//addrmode2=0,
 		reg1=0
 	;
 	union Value imm = (union Value){0};
@@ -296,7 +296,7 @@ bool TaghaAsm_ParseTwoOpInstr(struct TaghaAsmbler *const restrict tasm, const bo
 			printf("tasm error: invalid register name '%s' on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
 			exit(-1);
 		}
-		addrmode1 = Register;
+		addrmode1 |= Reserved;
 		reg1 = LinkMap_Get(tasm->Registers, tasm->Lexeme->CStr).UInt64;
 	}
 	else if( *tasm->Iter=='[' ) {
@@ -312,7 +312,7 @@ bool TaghaAsm_ParseTwoOpInstr(struct TaghaAsmbler *const restrict tasm, const bo
 				or !String_NCmpCStr(tasm->Lexeme, "long", sizeof "long")
 				or !String_NCmpCStr(tasm->Lexeme, "word", sizeof "word") )
 		{
-			addrmode1 = RegIndirect;
+			//addrmode1 = RegIndirect;
 			switch( *tasm->Lexeme->CStr ) {
 				case 'b': addrmode1 |= Byte; break;
 				case 'h': addrmode1 |= TwoBytes; break;
@@ -379,7 +379,7 @@ bool TaghaAsm_ParseTwoOpInstr(struct TaghaAsmbler *const restrict tasm, const bo
 	if( IsDecimal(*tasm->Iter) ) {
 		LexNumber(&tasm->Iter, tasm->Lexeme);
 		tasm->ProgramCounter += 8;
-		addrmode2 = Immediate;
+		addrmode1 |= Immediate;
 		const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
 		imm.UInt64 = strtoull(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
 	}
@@ -391,7 +391,7 @@ bool TaghaAsm_ParseTwoOpInstr(struct TaghaAsmbler *const restrict tasm, const bo
 			exit(-1);
 		}
 		tasm->ProgramCounter++;
-		addrmode2 = Register;
+		addrmode1 |= Register;
 		imm.UInt64 = LinkMap_Get(tasm->Registers, tasm->Lexeme->CStr).UInt64;
 	}
 	else if( *tasm->Iter=='[' ) {
@@ -409,12 +409,12 @@ bool TaghaAsm_ParseTwoOpInstr(struct TaghaAsmbler *const restrict tasm, const bo
 				or !String_NCmpCStr(tasm->Lexeme, "long", sizeof "long")
 				or !String_NCmpCStr(tasm->Lexeme, "word", sizeof "word") )
 		{
-			addrmode2 = RegIndirect;
+			addrmode1 |= RegIndirect;
 			switch( *tasm->Lexeme->CStr ) {
-				case 'b': addrmode2 |= Byte; break;
-				case 'h': addrmode2 |= TwoBytes; break;
-				case 'l': addrmode2 |= FourBytes; break;
-				case 'w': addrmode2 |= EightBytes; break;
+				case 'b': addrmode1 |= Byte; break;
+				case 'h': addrmode1 |= TwoBytes; break;
+				case 'l': addrmode1 |= FourBytes; break;
+				case 'w': addrmode1 |= EightBytes; break;
 			}
 			tasm->ProgramCounter += 5;
 			SkipWhiteSpace(&tasm->Iter);
@@ -464,9 +464,10 @@ bool TaghaAsm_ParseTwoOpInstr(struct TaghaAsmbler *const restrict tasm, const bo
 			exit(-1);
 		}
 		ByteBuffer_InsertByte(&label->Bytecode, addrmode1);
-		ByteBuffer_InsertByte(&label->Bytecode, addrmode2);
+		//ByteBuffer_InsertByte(&label->Bytecode, addrmode2);
 		ByteBuffer_InsertByte(&label->Bytecode, reg1);
-		if( addrmode2 & Immediate )
+		//if( addrmode2 & Immediate )
+		if( addrmode1 & Immediate )
 			ByteBuffer_InsertInt(&label->Bytecode, imm.UInt64, sizeof imm.UInt64);
 		else ByteBuffer_InsertByte(&label->Bytecode, imm.UChar);
 		if( IsMemoryDeref )
@@ -948,12 +949,12 @@ bool TaghaAsm_ParseTwoOpFloatInstr(struct TaghaAsmbler *const restrict tasm, con
 	if( !tasm or !tasm->Src or !tasm->Iter )
 		return false;
 	
-	tasm->ProgramCounter += 4;
+	tasm->ProgramCounter += 3;
 	SkipWhiteSpace(&tasm->Iter);
 	bool IsMemoryDeref = false;
 	uint8_t
 		addrmode1=0,
-		addrmode2=0,
+		//addrmode2=0,
 		reg1=0
 	;
 	union Value imm = (union Value){0};
@@ -980,7 +981,7 @@ bool TaghaAsm_ParseTwoOpFloatInstr(struct TaghaAsmbler *const restrict tasm, con
 			printf("tasm error: invalid register name '%s' on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
 			exit(-1);
 		}
-		addrmode1 = Register;
+		addrmode1 |= Reserved;
 		reg1 = LinkMap_Get(tasm->Registers, tasm->Lexeme->CStr).UInt64;
 	}
 	else if( *tasm->Iter=='[' ) {
@@ -994,7 +995,7 @@ bool TaghaAsm_ParseTwoOpFloatInstr(struct TaghaAsmbler *const restrict tasm, con
 		if( !String_NCmpCStr(tasm->Lexeme, "long", sizeof "long")
 				or !String_NCmpCStr(tasm->Lexeme, "word", sizeof "word") )
 		{
-			addrmode1 = RegIndirect;
+			//addrmode1 = RegIndirect;
 			switch( *tasm->Lexeme->CStr ) {
 				case 'l': addrmode1 |= FourBytes; break;
 				case 'w': addrmode1 |= EightBytes; break;
@@ -1059,7 +1060,7 @@ bool TaghaAsm_ParseTwoOpFloatInstr(struct TaghaAsmbler *const restrict tasm, con
 	if( IsDecimal(*tasm->Iter) ) {
 		LexNumber(&tasm->Iter, tasm->Lexeme);
 		tasm->ProgramCounter += 8;
-		addrmode2 = Immediate;
+		addrmode1 |= Immediate;
 		const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
 		imm.UInt64 = strtoull(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
 	}
@@ -1071,7 +1072,7 @@ bool TaghaAsm_ParseTwoOpFloatInstr(struct TaghaAsmbler *const restrict tasm, con
 			exit(-1);
 		}
 		tasm->ProgramCounter++;
-		addrmode2 = Register;
+		addrmode1 |= Register;
 		imm.UInt64 = LinkMap_Get(tasm->Registers, tasm->Lexeme->CStr).UInt64;
 	}
 	else if( *tasm->Iter=='[' ) {
@@ -1087,10 +1088,10 @@ bool TaghaAsm_ParseTwoOpFloatInstr(struct TaghaAsmbler *const restrict tasm, con
 		if( !String_NCmpCStr(tasm->Lexeme, "long", sizeof "long")
 				or !String_NCmpCStr(tasm->Lexeme, "word", sizeof "word") )
 		{
-			addrmode2 = RegIndirect;
+			addrmode1 |= RegIndirect;
 			switch( *tasm->Lexeme->CStr ) {
-				case 'l': addrmode2 |= FourBytes; break;
-				case 'w': addrmode2 |= EightBytes; break;
+				case 'l': addrmode1 |= FourBytes; break;
+				case 'w': addrmode1 |= EightBytes; break;
 			}
 			tasm->ProgramCounter += 5;
 			SkipWhiteSpace(&tasm->Iter);
@@ -1145,12 +1146,12 @@ bool TaghaAsm_ParseTwoOpFloatInstr(struct TaghaAsmbler *const restrict tasm, con
 			printf("tasm error: undefined label '%s' on line: %zu\n", tasm->ActiveFuncLabel->CStr, tasm->CurrLine);
 			exit(-1);
 		}
-		ByteBuffer_InsertByte(&label->Bytecode, addrmode1);
 		if( !IsMemoryDeref )
-			addrmode2 |= floatsize;
-		ByteBuffer_InsertByte(&label->Bytecode, addrmode2);
+			addrmode1 |= floatsize;
+		ByteBuffer_InsertByte(&label->Bytecode, addrmode1);
+		//ByteBuffer_InsertByte(&label->Bytecode, addrmode2);
 		ByteBuffer_InsertByte(&label->Bytecode, reg1);
-		if( addrmode2 & Immediate )
+		if( addrmode1 & Immediate )
 			ByteBuffer_InsertInt(&label->Bytecode, imm.UInt64, sizeof imm.UInt64);
 		else ByteBuffer_InsertByte(&label->Bytecode, imm.UChar);
 		if( IsMemoryDeref )

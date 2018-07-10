@@ -106,6 +106,6 @@ int main(int argc, char *argv[static argc])
 	//int32_t result = Tagha_CallFunc(&vm, "factorial", 1, &(union Value){.UInt64 = 5});
 	if( pp )
 		printf("player.speed: '%f' | player.health: '%u' | player.ammo: '%u'\n", player.speed, player.health, player.ammo);
-	printf("result?: '%i' | %f\n", result, (clock()-start)/(double)CLOCKS_PER_SEC);
+	printf("result?: '%i' | profile time: '%f'\n", result, (clock()-start)/(double)CLOCKS_PER_SEC);
 	//TaghaDebug_PrintRegisters(&vm);
 }

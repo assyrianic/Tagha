@@ -34,18 +34,18 @@ struct LinkMap;
 struct Heap;
 
 union Value {
-	bool Bool, *BoolPtr, (*BoolFunc)(), *(*BoolPtrFunc)();
-	int8_t Char, *CharPtr, (*CharFunc)(), *(*CharPtrFunc)();
-	int16_t Short, *ShortPtr, (*ShortFunc)(), *(*ShortPtrFunc)();
-	int32_t Int32, *Int32Ptr, (*Int32Func)(), *(*Int32PtrFunc)();
+	bool Bool, BoolArray[8], *BoolPtr, (*BoolFunc)(), *(*BoolPtrFunc)();
+	int8_t Char, CharArray[8], *CharPtr, (*CharFunc)(), *(*CharPtrFunc)();
+	int16_t Short, ShortArray[4], *ShortPtr, (*ShortFunc)(), *(*ShortPtrFunc)();
+	int32_t Int32, Int32Array[2], *Int32Ptr, (*Int32Func)(), *(*Int32PtrFunc)();
 	int64_t Int64, *Int64Ptr, (*Int64Func)(), *(*Int64PtrFunc)();
 	
-	uint8_t UChar, *UCharPtr, (*UCharFunc)(), *(*UCharPtrFunc)();
-	uint16_t UShort, *UShortPtr, (*UShortFunc)(), *(*UShortPtrFunc)();
-	uint32_t UInt32, *UInt32Ptr, (*UInt32Func)(), *(*UInt32PtrFunc)();
+	uint8_t UChar, UCharArray[8], *UCharPtr, (*UCharFunc)(), *(*UCharPtrFunc)();
+	uint16_t UShort, UShortArray[4], *UShortPtr, (*UShortFunc)(), *(*UShortPtrFunc)();
+	uint32_t UInt32, UInt32Array[2], *UInt32Ptr, (*UInt32Func)(), *(*UInt32PtrFunc)();
 	uint64_t UInt64, *UInt64Ptr, (*UInt64Func)(), *(*UInt64PtrFunc)();
 	
-	float Float, *FloatPtr, (*FloatFunc)(), *(*FloatPtrFunc)();
+	float Float, FloatArray[2], *FloatPtr, (*FloatFunc)(), *(*FloatPtrFunc)();
 	double Double, *DoublePtr, (*DoubleFunc)(), *(*DoublePtrFunc)();
 	
 	void *Ptr, **PtrPtr, (*VoidFunc)(), *(*VoidPtrFunc)();

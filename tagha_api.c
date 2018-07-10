@@ -428,8 +428,8 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		addrmode = opcode >> 8; \
 		\
 		if( instr>nop ) { \
-			puts("Tagha_Exec :: instr out of bounds."); \
-			return instr; \
+			/*puts("Tagha_Exec :: instr out of bounds.");*/ \
+			return -1; \
 		} \
 		\
 		/*TaghaDebug_PrintRegisters(vm);*/ \
@@ -458,7 +458,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		else if( addrmode & Register )
 			*--regs[regStk].SelfPtr = regs[*regs[regInstr].UCharPtr++];
 		/* push the contents of a memory address inside a register. */
-		else if( addrmode & RegIndirect ) {
+		else {
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			*--regs[regStk].SelfPtr = *effective_address.SelfPtr;
@@ -475,7 +475,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			regs[regInstr].SelfPtr++;
 		else if( addrmode & Register )
 			regs[*regs[regInstr].UCharPtr++] = *regs[regStk].SelfPtr++;
-		else if( addrmode & RegIndirect ) {
+		else {
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			*effective_address.SelfPtr = *regs[regStk].SelfPtr++;
@@ -497,7 +497,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		else if( addrmode & Register ) { /* Register mode will load a function address which could be a native */
 			regs[regid].Int64 = *regs[regInstr].Int64Ptr++;
 		}
-		else if( addrmode & RegIndirect ) {
+		else {
 			const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 			regs[regid].UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++;
 		}
@@ -512,34 +512,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	 * mov [reg+offset], reg
 	 */
 	exec_mov:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		
-		/* get secondary addressing mode for the second operand. */
-		const uint8_t sec_addrmode = op_args & 255;
-		
-		/* get 1st register id. */
-		const uint8_t regid = op_args >> 8;
-		
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate )
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate )
 				regs[regid].UInt64 = *regs[regInstr].UInt64Ptr++;
-			else if( sec_addrmode & Register )
+			else if( addrmode & Register )
 				regs[regid] = regs[*regs[regInstr].UCharPtr++];
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & Byte )
+				if( addrmode & Byte )
 					regs[regid].UChar = *effective_address.UCharPtr;
-				else if( sec_addrmode & TwoBytes )
+				else if( addrmode & TwoBytes )
 					regs[regid].UShort = *effective_address.UShortPtr;
-				else if( sec_addrmode & FourBytes )
+				else if( addrmode & FourBytes )
 					regs[regid].UInt32 = *effective_address.UInt32Ptr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].UInt64 = *effective_address.UInt64Ptr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -551,7 +544,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					*effective_address.UInt64Ptr = imm.UInt64;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -575,33 +568,30 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	 * add [reg+offset], imm
 	 */
 	exec_add:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate ) {
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate ) {
 				regs[regid].UInt64 += *regs[regInstr].UInt64Ptr++;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				regs[regid].UInt64 += regs[sec_regid].UInt64;
 			}
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & Byte )
+				if( addrmode & Byte )
 					regs[regid].UChar += *effective_address.UCharPtr;
-				else if( sec_addrmode & TwoBytes )
+				else if( addrmode & TwoBytes )
 					regs[regid].UShort += *effective_address.UShortPtr;
-				else if( sec_addrmode & FourBytes )
+				else if( addrmode & FourBytes )
 					regs[regid].UInt32 += *effective_address.UInt32Ptr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].UInt64 += *effective_address.UInt64Ptr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -613,7 +603,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					*effective_address.UInt64Ptr += imm.UInt64;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -629,29 +619,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_sub:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate )
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate )
 				regs[regid].UInt64 -= *regs[regInstr].UInt64Ptr++;
-			else if( sec_addrmode & Register )
+			else if( addrmode & Register )
 				regs[regid].UInt64 -= regs[*regs[regInstr].UCharPtr++].UInt64;
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & Byte )
+				if( addrmode & Byte )
 					regs[regid].UChar -= *effective_address.UCharPtr;
-				else if( sec_addrmode & TwoBytes )
+				else if( addrmode & TwoBytes )
 					regs[regid].UShort -= *effective_address.UShortPtr;
-				else if( sec_addrmode & FourBytes )
+				else if( addrmode & FourBytes )
 					regs[regid].UInt32 -= *effective_address.UInt32Ptr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].UInt64 -= *effective_address.UInt64Ptr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -663,7 +651,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					*effective_address.UInt64Ptr -= imm.UInt64;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -679,29 +667,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_mul:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate )
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate )
 				regs[regid].UInt64 *= *regs[regInstr].UInt64Ptr++;
-			else if( sec_addrmode & Register )
+			else if( addrmode & Register )
 				regs[regid].UInt64 *= regs[*regs[regInstr].UCharPtr++].UInt64;
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & Byte )
+				if( addrmode & Byte )
 					regs[regid].UChar *= *effective_address.UCharPtr;
-				else if( sec_addrmode & TwoBytes )
+				else if( addrmode & TwoBytes )
 					regs[regid].UShort *= *effective_address.UShortPtr;
-				else if( sec_addrmode & FourBytes )
+				else if( addrmode & FourBytes )
 					regs[regid].UInt32 *= *effective_address.UInt32Ptr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].UInt64 *= *effective_address.UInt64Ptr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -713,7 +699,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					*effective_address.UInt64Ptr *= imm.UInt64;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -729,29 +715,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_divi:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate )
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate )
 				regs[regid].UInt64 /= *regs[regInstr].UInt64Ptr++;
-			else if( sec_addrmode & Register )
+			else if( addrmode & Register )
 				regs[regid].UInt64 /= regs[*regs[regInstr].UCharPtr++].UInt64;
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & Byte )
+				if( addrmode & Byte )
 					regs[regid].UChar /= *effective_address.UCharPtr;
-				else if( sec_addrmode & TwoBytes )
+				else if( addrmode & TwoBytes )
 					regs[regid].UShort /= *effective_address.UShortPtr;
-				else if( sec_addrmode & FourBytes )
+				else if( addrmode & FourBytes )
 					regs[regid].UInt32 /= *effective_address.UInt32Ptr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].UInt64 /= *effective_address.UInt64Ptr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -763,7 +747,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					*effective_address.UInt64Ptr /= imm.UInt64;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -779,29 +763,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_mod:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate )
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate )
 				regs[regid].UInt64 %= *regs[regInstr].UInt64Ptr++;
-			else if( sec_addrmode & Register )
+			else if( addrmode & Register )
 				regs[regid].UInt64 %= regs[*regs[regInstr].UCharPtr++].UInt64;
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & Byte )
+				if( addrmode & Byte )
 					regs[regid].UChar %= *effective_address.UCharPtr;
-				else if( sec_addrmode & TwoBytes )
+				else if( addrmode & TwoBytes )
 					regs[regid].UShort %= *effective_address.UShortPtr;
-				else if( sec_addrmode & FourBytes )
+				else if( addrmode & FourBytes )
 					regs[regid].UInt32 %= *effective_address.UInt32Ptr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].UInt64 %= *effective_address.UInt64Ptr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -813,7 +795,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					*effective_address.UInt64Ptr %= imm.UInt64;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -829,29 +811,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_andb:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate )
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate )
 				regs[regid].UInt64 &= *regs[regInstr].UInt64Ptr++;
-			else if( sec_addrmode & Register )
+			else if( addrmode & Register )
 				regs[regid].UInt64 &= regs[*regs[regInstr].UCharPtr++].UInt64;
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & Byte )
+				if( addrmode & Byte )
 					regs[regid].UChar &= *effective_address.UCharPtr;
-				else if( sec_addrmode & TwoBytes )
+				else if( addrmode & TwoBytes )
 					regs[regid].UShort &= *effective_address.UShortPtr;
-				else if( sec_addrmode & FourBytes )
+				else if( addrmode & FourBytes )
 					regs[regid].UInt32 &= *effective_address.UInt32Ptr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].UInt64 &= *effective_address.UInt64Ptr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -863,7 +843,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					*effective_address.UInt64Ptr &= imm.UInt64;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -879,29 +859,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_orb:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate )
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate )
 				regs[regid].UInt64 |= *regs[regInstr].UInt64Ptr++;
-			else if( sec_addrmode & Register )
+			else if( addrmode & Register )
 				regs[regid].UInt64 |= regs[*regs[regInstr].UCharPtr++].UInt64;
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & Byte )
+				if( addrmode & Byte )
 					regs[regid].UChar |= *effective_address.UCharPtr;
-				else if( sec_addrmode & TwoBytes )
+				else if( addrmode & TwoBytes )
 					regs[regid].UShort |= *effective_address.UShortPtr;
-				else if( sec_addrmode & FourBytes )
+				else if( addrmode & FourBytes )
 					regs[regid].UInt32 |= *effective_address.UInt32Ptr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].UInt64 |= *effective_address.UInt64Ptr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -913,7 +891,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					*effective_address.UInt64Ptr |= imm.UInt64;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -929,29 +907,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_xorb:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate )
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate )
 				regs[regid].UInt64 ^= *regs[regInstr].UInt64Ptr++;
-			else if( sec_addrmode & Register )
+			else if( addrmode & Register )
 				regs[regid].UInt64 ^= regs[*regs[regInstr].UCharPtr++].UInt64;
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & Byte )
+				if( addrmode & Byte )
 					regs[regid].UChar ^= *effective_address.UCharPtr;
-				else if( sec_addrmode & TwoBytes )
+				else if( addrmode & TwoBytes )
 					regs[regid].UShort ^= *effective_address.UShortPtr;
-				else if( sec_addrmode & FourBytes )
+				else if( addrmode & FourBytes )
 					regs[regid].UInt32 ^= *effective_address.UInt32Ptr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].UInt64 ^= *effective_address.UInt64Ptr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -963,7 +939,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					*effective_address.UInt64Ptr ^= imm.UInt64;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -982,36 +958,34 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Register )
 			regs[regid].UInt64 = ~regs[regid].UInt64;
-		else if( addrmode & RegIndirect ) {
+		else {
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			*effective_address.UInt64Ptr = ~*effective_address.UInt64Ptr;
 		}
 		DISPATCH();
 	}
 	exec_shl:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate )
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate )
 				regs[regid].UInt64 <<= *regs[regInstr].UInt64Ptr++;
-			else if( sec_addrmode & Register )
+			else if( addrmode & Register )
 				regs[regid].UInt64 <<= regs[*regs[regInstr].UCharPtr++].UInt64;
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & Byte )
+				if( addrmode & Byte )
 					regs[regid].UChar <<= *effective_address.UCharPtr;
-				else if( sec_addrmode & TwoBytes )
+				else if( addrmode & TwoBytes )
 					regs[regid].UShort <<= *effective_address.UShortPtr;
-				else if( sec_addrmode & FourBytes )
+				else if( addrmode & FourBytes )
 					regs[regid].UInt32 <<= *effective_address.UInt32Ptr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].UInt64 <<= *effective_address.UInt64Ptr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -1023,7 +997,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					*effective_address.UInt64Ptr <<= imm.UInt64;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -1039,29 +1013,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_shr:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate )
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate )
 				regs[regid].UInt64 >>= *regs[regInstr].UInt64Ptr++;
-			else if( sec_addrmode & Register )
+			else if( addrmode & Register )
 				regs[regid].UInt64 >>= regs[*regs[regInstr].UCharPtr++].UInt64;
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & Byte )
+				if( addrmode & Byte )
 					regs[regid].UChar >>= *effective_address.UCharPtr;
-				else if( sec_addrmode & TwoBytes )
+				else if( addrmode & TwoBytes )
 					regs[regid].UShort >>= *effective_address.UShortPtr;
-				else if( sec_addrmode & FourBytes )
+				else if( addrmode & FourBytes )
 					regs[regid].UInt32 >>= *effective_address.UInt32Ptr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].UInt64 >>= *effective_address.UInt64Ptr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -1073,7 +1045,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					*effective_address.UInt64Ptr >>= imm.UInt64;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -1092,7 +1064,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Register )
 			++regs[regid].UInt64;
-		else if( addrmode & RegIndirect ) {
+		else {
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			++*effective_address.UInt64Ptr;
 		}
@@ -1102,7 +1074,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Register )
 			--regs[regid].UInt64;
-		else if( addrmode & RegIndirect ) {
+		else {
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			--*effective_address.UInt64Ptr;
 		}
@@ -1112,36 +1084,34 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Register )
 			regs[regid].UInt64 = -regs[regid].UInt64;
-		else if( addrmode & RegIndirect ) {
+		else {
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			*effective_address.UInt64Ptr = -*effective_address.UInt64Ptr;
 		}
 		DISPATCH();
 	}
 	exec_lt:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate )
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate )
 				vm->CondFlag = regs[regid].UInt64 < *regs[regInstr].UInt64Ptr++;
-			else if( sec_addrmode & Register )
+			else if( addrmode & Register )
 				vm->CondFlag = regs[regid].UInt64 < regs[*regs[regInstr].UCharPtr++].UInt64;
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & Byte )
+				if( addrmode & Byte )
 					vm->CondFlag = regs[regid].UChar < *effective_address.UCharPtr;
-				else if( sec_addrmode & TwoBytes )
+				else if( addrmode & TwoBytes )
 					vm->CondFlag = regs[regid].UShort < *effective_address.UShortPtr;
-				else if( sec_addrmode & FourBytes )
+				else if( addrmode & FourBytes )
 					vm->CondFlag = regs[regid].UInt32 < *effective_address.UInt32Ptr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					vm->CondFlag = regs[regid].UInt64 < *effective_address.UInt64Ptr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -1153,7 +1123,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					vm->CondFlag = *effective_address.UInt64Ptr < imm.UInt64;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -1169,29 +1139,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_gt:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate )
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate )
 				vm->CondFlag = regs[regid].UInt64 > *regs[regInstr].UInt64Ptr++;
-			else if( sec_addrmode & Register )
+			else if( addrmode & Register )
 				vm->CondFlag = regs[regid].UInt64 > regs[*regs[regInstr].UCharPtr++].UInt64;
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & Byte )
+				if( addrmode & Byte )
 					vm->CondFlag = regs[regid].UChar > *effective_address.UCharPtr;
-				else if( sec_addrmode & TwoBytes )
+				else if( addrmode & TwoBytes )
 					vm->CondFlag = regs[regid].UShort > *effective_address.UShortPtr;
-				else if( sec_addrmode & FourBytes )
+				else if( addrmode & FourBytes )
 					vm->CondFlag = regs[regid].UInt32 > *effective_address.UInt32Ptr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					vm->CondFlag = regs[regid].UInt64 > *effective_address.UInt64Ptr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -1203,7 +1171,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					vm->CondFlag = *effective_address.UInt64Ptr > imm.UInt64;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -1219,29 +1187,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_cmp:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate )
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate )
 				vm->CondFlag = regs[regid].UInt64 == *regs[regInstr].UInt64Ptr++;
-			else if( sec_addrmode & Register )
+			else if( addrmode & Register )
 				vm->CondFlag = regs[regid].UInt64 == regs[*regs[regInstr].UCharPtr++].UInt64;
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & Byte )
+				if( addrmode & Byte )
 					vm->CondFlag = regs[regid].UChar == *effective_address.UCharPtr;
-				else if( sec_addrmode & TwoBytes )
+				else if( addrmode & TwoBytes )
 					vm->CondFlag = regs[regid].UShort == *effective_address.UShortPtr;
-				else if( sec_addrmode & FourBytes )
+				else if( addrmode & FourBytes )
 					vm->CondFlag = regs[regid].UInt32 == *effective_address.UInt32Ptr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					vm->CondFlag = regs[regid].UInt64 == *effective_address.UInt64Ptr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -1253,7 +1219,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					vm->CondFlag = *effective_address.UInt64Ptr == imm.UInt64;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -1269,29 +1235,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_neq:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate )
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate )
 				vm->CondFlag = regs[regid].UInt64 != *regs[regInstr].UInt64Ptr++;
-			else if( sec_addrmode & Register )
+			else if( addrmode & Register )
 				vm->CondFlag = regs[regid].UInt64 != regs[*regs[regInstr].UCharPtr++].UInt64;
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & Byte )
+				if( addrmode & Byte )
 					vm->CondFlag = regs[regid].UChar != *effective_address.UCharPtr;
-				else if( sec_addrmode & TwoBytes )
+				else if( addrmode & TwoBytes )
 					vm->CondFlag = regs[regid].UShort != *effective_address.UShortPtr;
-				else if( sec_addrmode & FourBytes )
+				else if( addrmode & FourBytes )
 					vm->CondFlag = regs[regid].UInt32 != *effective_address.UInt32Ptr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					vm->CondFlag = regs[regid].UInt64 != *effective_address.UInt64Ptr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & Byte )
@@ -1327,7 +1291,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			regs[regInstr].UCharPtr += regs[regid].Int64;
 		}
-		else if( addrmode & RegIndirect ) {
+		else {
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			
@@ -1351,7 +1315,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			!vm->CondFlag ? (regs[regInstr].UCharPtr += regs[regid].Int64) : (void)vm->CondFlag;
 		}
-		else if( addrmode & RegIndirect ) {
+		else {
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			if( addrmode & Byte )
@@ -1374,7 +1338,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			vm->CondFlag ? (regs[regInstr].UCharPtr += regs[regid].Int64) : (void)vm->CondFlag;
 		}
-		else if( addrmode & RegIndirect ) {
+		else {
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			if( addrmode & Byte )
@@ -1395,14 +1359,14 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		}
 		else if( addrmode & Register )
 			call_addr = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, regs[*regs[regInstr].UCharPtr++].UInt64 - 1, NULL);
-		else if( addrmode & RegIndirect ) {
+		else {
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			if( addrmode & EightBytes )
 				call_addr = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, *effective_address.UInt64Ptr - 1, NULL);
 		}
 		if( !call_addr ) {
-			puts("Tagha_Exec :: exec_call reported 'call_addr' is NULL");
+			//puts("Tagha_Exec :: exec_call reported 'call_addr' is NULL");
 			DISPATCH();
 		}
 		
@@ -1433,37 +1397,31 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		if( addrmode & Immediate ) {
 			bool native_check = false;
 			union Value *nativref = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, -1 - *regs[regInstr].Int64Ptr++, &native_check);
-			if( !native_check ) {
-				puts("exec_syscall :: averted trying to syscall a non-native function!");
-			}
-			else NativeFunc = nativref->VoidFunc;
+			if( native_check )
+				NativeFunc = nativref->VoidFunc;
 		}
 		else if( addrmode & Register ) {
 			bool native_check = false;
 			union Value *nativref = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, -1 - regs[*regs[regInstr].UCharPtr++].Int64, &native_check);
-			if( !native_check ) {
-				puts("exec_syscall :: averted trying to syscall a non-native function!");
-			}
-			else NativeFunc = nativref->VoidFunc;
+			if( native_check )
+				NativeFunc = nativref->VoidFunc;
 		}
-		else if( addrmode & RegIndirect ) {
+		else {
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			bool native_check = false;
 			union Value *nativref = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, -1 - *effective_address.Int64Ptr, &native_check);
-			if( !native_check ) {
-				puts("exec_syscall :: averted trying to syscall a non-native function!");
-			}
-			else NativeFunc = nativref->VoidFunc;
+			if( native_check )
+				NativeFunc = nativref->VoidFunc;
 		}
 		/* native call interface
 		 * Limitations:
 		 *  - any argument larger than 8 bytes must be passed as a pointer.
 		 *  - any return value larger than 8 bytes must be passed as a hidden pointer argument and render the function as void.
-		 * void NativeFunc(struct Tagha *sys, void *restrict script union Value *retval, const size_t args, union Value params[static args]);
+		 * void NativeFunc(struct Tagha *sys, union Value *retval, const size_t args, union Value params[static args]);
 		 */
 		if( !NativeFunc ) {
-			puts("Tagha_Exec :: exec_syscall reported 'NativeFunc' is NULL");
+			//puts("Tagha_Exec :: exec_syscall reported 'NativeFunc' is NULL");
 			DISPATCH();
 		}
 		
@@ -1518,38 +1476,35 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_addf:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate ) {
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate ) {
 				const union Value convert = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					regs[regid].Float += convert.Float;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].Double += convert.Double;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					regs[regid].Float += regs[sec_regid].Float;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].Double += regs[sec_regid].Double;
 			}
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				regs[regid].Float += *effective_address.FloatPtr;
 				
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					regs[regid].Float += *effective_address.FloatPtr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].Double += *effective_address.DoublePtr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & FourBytes )
@@ -1557,7 +1512,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					*effective_address.DoublePtr += imm.Double;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & FourBytes )
@@ -1569,36 +1524,33 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_subf:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate ) {
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate ) {
 				const union Value convert = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					regs[regid].Float -= convert.Float;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].Double -= convert.Double;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					regs[regid].Float -= regs[sec_regid].Float;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].Double -= regs[sec_regid].Double;
 			}
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					regs[regid].Float -= *effective_address.FloatPtr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].Double -= *effective_address.DoublePtr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.Double = *regs[regInstr].DoublePtr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & FourBytes )
@@ -1606,7 +1558,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					*effective_address.DoublePtr -= imm.Double;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & FourBytes )
@@ -1618,36 +1570,33 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_mulf:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate ) {
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate ) {
 				const union Value convert = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					regs[regid].Float *= convert.Float;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].Double *= convert.Double;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					regs[regid].Float *= regs[sec_regid].Float;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].Double *= regs[sec_regid].Double;
 			}
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					regs[regid].Float *= *effective_address.FloatPtr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].Double *= *effective_address.DoublePtr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.Double = *regs[regInstr].DoublePtr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & FourBytes )
@@ -1655,7 +1604,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					*effective_address.DoublePtr *= imm.Double;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & FourBytes )
@@ -1667,36 +1616,33 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_divf:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate ) {
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate ) {
 				const union Value convert = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					regs[regid].Float /= convert.Float;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].Double /= convert.Double;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					regs[regid].Float /= regs[sec_regid].Float;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].Double /= regs[sec_regid].Double;
 			}
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					regs[regid].Float /= *effective_address.FloatPtr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					regs[regid].Double /= *effective_address.DoublePtr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.Double = *regs[regInstr].DoublePtr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & FourBytes )
@@ -1704,7 +1650,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					*effective_address.DoublePtr /= imm.Double;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & FourBytes )
@@ -1716,36 +1662,33 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_ltf:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate ) {
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate ) {
 				const union Value convert = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					vm->CondFlag = regs[regid].Float < convert.Float;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					vm->CondFlag = regs[regid].Double < convert.Double;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					vm->CondFlag = regs[regid].Float < regs[sec_regid].Float;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					vm->CondFlag = regs[regid].Double < regs[sec_regid].Double;
 			}
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					vm->CondFlag = regs[regid].Float < *effective_address.FloatPtr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					vm->CondFlag = regs[regid].Double < *effective_address.DoublePtr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.Double = *regs[regInstr].DoublePtr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & FourBytes )
@@ -1753,7 +1696,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					vm->CondFlag = *effective_address.DoublePtr < imm.Double;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & FourBytes )
@@ -1765,36 +1708,33 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_gtf:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate ) {
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate ) {
 				const union Value convert = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					vm->CondFlag = regs[regid].Float > convert.Float;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					vm->CondFlag = regs[regid].Double > convert.Double;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					vm->CondFlag = regs[regid].Float > regs[sec_regid].Float;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					vm->CondFlag = regs[regid].Double > regs[sec_regid].Double;
 			}
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					vm->CondFlag = regs[regid].Float > *effective_address.FloatPtr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					vm->CondFlag = regs[regid].Double > *effective_address.DoublePtr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.Double = *regs[regInstr].DoublePtr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & FourBytes )
@@ -1802,7 +1742,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					vm->CondFlag = *effective_address.DoublePtr > imm.Double;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & FourBytes )
@@ -1814,36 +1754,33 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_cmpf:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate ) {
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate ) {
 				const union Value convert = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					vm->CondFlag = regs[regid].Float == convert.Float;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					vm->CondFlag = regs[regid].Double == convert.Double;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					vm->CondFlag = regs[regid].Float == regs[sec_regid].Float;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					vm->CondFlag = regs[regid].Double == regs[sec_regid].Double;
 			}
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					vm->CondFlag = regs[regid].Float == *effective_address.FloatPtr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					vm->CondFlag = regs[regid].Double == *effective_address.DoublePtr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.Double = *regs[regInstr].DoublePtr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & FourBytes )
@@ -1851,7 +1788,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					vm->CondFlag = *effective_address.DoublePtr == imm.Double;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & FourBytes )
@@ -1863,36 +1800,33 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_neqf:; {
-		const uint16_t op_args = *regs[regInstr].UShortPtr++;
-		const uint8_t sec_addrmode = op_args & 255;
-		const uint8_t regid = op_args >> 8;
-		
-		if( addrmode & Register ) {
-			if( sec_addrmode & Immediate ) {
+		const uint8_t regid = *regs[regInstr].UCharPtr++;
+		if( addrmode & Reserved ) {
+			if( addrmode & Immediate ) {
 				const union Value convert = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					vm->CondFlag = regs[regid].Float != convert.Float;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					vm->CondFlag = regs[regid].Double != convert.Double;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					vm->CondFlag = regs[regid].Float != regs[sec_regid].Float;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					vm->CondFlag = regs[regid].Double != regs[sec_regid].Double;
 			}
-			else if( sec_addrmode & RegIndirect ) {
+			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				if( sec_addrmode & FourBytes )
+				if( addrmode & FourBytes )
 					vm->CondFlag = regs[regid].Float != *effective_address.FloatPtr;
-				else if( sec_addrmode & EightBytes )
+				else if( addrmode & EightBytes )
 					vm->CondFlag = regs[regid].Double != *effective_address.DoublePtr;
 			}
 		}
-		else if( addrmode & RegIndirect ) {
-			if( sec_addrmode & Immediate ) {
+		else {
+			if( addrmode & Immediate ) {
 				const union Value imm = (union Value){.Double = *regs[regInstr].DoublePtr++};
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & FourBytes )
@@ -1900,7 +1834,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				else if( addrmode & EightBytes )
 					vm->CondFlag = *effective_address.DoublePtr != imm.Double;
 			}
-			else if( sec_addrmode & Register ) {
+			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 				if( addrmode & FourBytes )
@@ -1919,7 +1853,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			else if( addrmode & EightBytes )
 				++regs[regid].Double;
 		}
-		else if( addrmode & RegIndirect ) {
+		else {
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			if( addrmode & FourBytes )
 				++*effective_address.FloatPtr;
@@ -1936,7 +1870,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			else if( addrmode & EightBytes )
 				--regs[regid].Double;
 		}
-		else if( addrmode & RegIndirect ) {
+		else {
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			if( addrmode & FourBytes )
 				--*effective_address.FloatPtr;
@@ -1953,7 +1887,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			else if( addrmode & EightBytes )
 				regs[regid].Double = -regs[regid].Double;
 		}
-		else if( addrmode & RegIndirect ) {
+		else {
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			if( addrmode & FourBytes )
 				*effective_address.FloatPtr = -*effective_address.FloatPtr;
