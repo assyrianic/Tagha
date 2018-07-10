@@ -133,7 +133,7 @@ void Tagha_Init(struct Tagha *const restrict vm, void *script)
 	if( stderrref )
 		*stderrref = stderr;
 		
-	FILE **stdoutref = GetVariableOffsetByName(script, "stderr");
+	FILE **stdoutref = GetVariableOffsetByName(script, "stdout");
 	if( stdoutref )
 		*stdoutref = stdout;
 	
