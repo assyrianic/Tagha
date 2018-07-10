@@ -1353,18 +1353,19 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_call:; {
-		uint8_t *call_addr = NULL;
+		size_t index = 0;
 		if( addrmode & Immediate ) {
-			call_addr = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, (*regs[regInstr].UInt64Ptr++) - 1, NULL);
+			index = ((*regs[regInstr].UInt64Ptr++) - 1);
 		}
 		else if( addrmode & Register )
-			call_addr = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, regs[*regs[regInstr].UCharPtr++].UInt64 - 1, NULL);
+			index = (regs[*regs[regInstr].UCharPtr++].UInt64 - 1);
 		else {
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			if( addrmode & EightBytes )
-				call_addr = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, *effective_address.UInt64Ptr - 1, NULL);
+				index = (*effective_address.UInt64Ptr - 1);
 		}
+		uint8_t *const call_addr = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, index, NULL);
 		if( !call_addr ) {
 			//puts("Tagha_Exec :: exec_call reported 'call_addr' is NULL");
 			DISPATCH();
@@ -1390,29 +1391,18 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	exec_syscall:; {
 		/* how many args given to the native call. */
 		const uint32_t argcount = *regs[regInstr].UInt32Ptr++;
-		/* how many bytes does the native return? */
-		void (*NativeFunc)() = NULL;
-		
+		size_t index = -1;
 		/* trying to directly call a specific native. Allow this by imm only! */
 		if( addrmode & Immediate ) {
-			bool native_check = false;
-			union Value *nativref = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, -1 - *regs[regInstr].Int64Ptr++, &native_check);
-			if( native_check )
-				NativeFunc = nativref->VoidFunc;
+			index = (-1 - *regs[regInstr].Int64Ptr++);
 		}
 		else if( addrmode & Register ) {
-			bool native_check = false;
-			union Value *nativref = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, -1 - regs[*regs[regInstr].UCharPtr++].Int64, &native_check);
-			if( native_check )
-				NativeFunc = nativref->VoidFunc;
+			index = (-1 - regs[*regs[regInstr].UCharPtr++].Int64);
 		}
 		else {
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-			bool native_check = false;
-			union Value *nativref = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, -1 - *effective_address.Int64Ptr, &native_check);
-			if( native_check )
-				NativeFunc = nativref->VoidFunc;
+			index = (-1 - *effective_address.Int64Ptr);
 		}
 		/* native call interface
 		 * Limitations:
@@ -1420,7 +1410,9 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		 *  - any return value larger than 8 bytes must be passed as a hidden pointer argument and render the function as void.
 		 * void NativeFunc(struct Tagha *sys, union Value *retval, const size_t args, union Value params[static args]);
 		 */
-		if( !NativeFunc ) {
+		bool native_check = false;
+		const union Value *const restrict nativeref = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, index, &native_check);
+		if( !native_check or !nativeref or !nativeref->VoidFunc ) {
 			//puts("Tagha_Exec :: exec_syscall reported 'NativeFunc' is NULL");
 			DISPATCH();
 		}
@@ -1444,7 +1436,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			regs[regStk].SelfPtr += (argcount-reg_params);
 		}
 		regs[regAlaf].UInt64 = 0;
-		(*NativeFunc)(vm, regs+regAlaf, argcount, params);
+		(*nativeref->VoidFunc)(vm, regs+regAlaf, argcount, params);
 		DISPATCH();
 	}
 	/* import loads another tbc module to tagha. */
