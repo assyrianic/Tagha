@@ -6,15 +6,11 @@
 #include <stdarg.h>
 #include "tagha.h"
 
-inline static void			*GetFunctionOffsetByName(void *, const char *, bool *);
-inline static void			*GetFunctionOffsetByIndex(void *, size_t, bool *);
-inline static size_t		GetFunctionIndexByName(void *, const char *, bool *);
-inline static const char	*GetFunctionNameByIndex(void *, size_t, bool *);
+inline static void			*GetFunctionOffsetByName(uint8_t *, const char *);
+inline static void			*GetFunctionOffsetByIndex(uint8_t *, size_t);
 
-inline static void			*GetVariableOffsetByName(void *, const char *);
-inline static void			*GetVariableOffsetByIndex(void *, size_t);
-inline static size_t		GetVariableIndexByName(void *, const char *);
-inline static const char	*GetVariableNameByIndex(void *, size_t);
+inline static void			*GetVariableOffsetByName(uint8_t *, const char *);
+inline static void			*GetVariableOffsetByIndex(uint8_t *, size_t);
 
 
 /* void *Tagha_LoadModule(const char *tbc_module_name); */
@@ -22,11 +18,11 @@ static void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value
 {
 	(void)sys; (void)args;
 	const char *restrict module_name = params[0].Ptr;
-	puts(module_name);
+	//puts(module_name);
 	
-	FILE *tbcfile = fopen(module_name, "rb");
+	FILE *restrict tbcfile = fopen(module_name, "rb");
 	if( !tbcfile ) {
-		printf("Tagha_LoadModule :: cannot find module '%s'\n", module_name);
+		//printf("Tagha_LoadModule :: cannot find module '%s'\n", module_name);
 		return;
 	}
 	
@@ -34,7 +30,7 @@ static void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value
 	if( !fseek(tbcfile, 0, SEEK_END) ) {
 		int64_t size = ftell(tbcfile);
 		if( size == -1LL ) {
-			printf("Tagha_LoadModule :: cannot read module file '%s'!\n", module_name);
+			//printf("Tagha_LoadModule :: cannot read module file '%s'!\n", module_name);
 			fclose(tbcfile), tbcfile=NULL;
 			return;
 		}
@@ -44,7 +40,7 @@ static void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value
 	
 	uint8_t *module = calloc(filesize, sizeof *module);
 	if( !module ) {
-		printf("Tagha_LoadModule :: failed to load module (\"%s\") into memory!\n", module_name);
+		//printf("Tagha_LoadModule :: failed to load module (\"%s\") into memory!\n", module_name);
 		fclose(tbcfile), tbcfile=NULL;
 		return;
 	}
@@ -53,7 +49,7 @@ static void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value
 	fclose(tbcfile), tbcfile=NULL;
 	
 	if( *(uint16_t *)module != 0xC0DE ) {
-		printf("Tagha_LoadModule :: module (\"%s\") is not a valid TBC script!\n", module_name);
+		//printf("Tagha_LoadModule :: module (\"%s\") is not a valid TBC script!\n", module_name);
 		free(module), module=NULL;
 		return;
 	}
@@ -66,7 +62,6 @@ static void Native_TaghaGetGlobal(struct Tagha *const restrict sys, union Value 
 	(void)sys; (void)args;
 	void *restrict module = params[0].Ptr;
 	const char *restrict symname = params[1].Ptr;
-	puts(symname);
 	
 	retval->Ptr = GetVariableOffsetByName(module, symname);
 }
@@ -77,20 +72,17 @@ static void Native_TaghaInvoke(struct Tagha *const restrict sys, union Value *co
 	(void)sys; (void)args;
 	void *module = params[0].Ptr;
 	if( !module ) {
-		puts("Tagha_InvokeFunc :: module ptr is NULL!");
 		retval->Bool = false;
 		return;
 	}
 	const char *funcname = params[1].Ptr;
 	if( !funcname ) {
-		puts("Tagha_InvokeFunc :: funcname ptr is NULL!");
 		retval->Bool = false;
 		return;
 	}
 	const size_t argcount = params[3].UInt64;
 	union Value *array = params[4].SelfPtr;
 	if( !array ) {
-		puts("Tagha_InvokeFunc :: array ptr is NULL!");
 		retval->Bool = false;
 		return;
 	}
@@ -110,7 +102,6 @@ static void Native_TaghaFreeModule(struct Tagha *const restrict sys, union Value
 	(void)sys; (void)args; (void)retval;
 	void **module = params[0].PtrPtr;
 	if( !module or !*module ) {
-		puts("Tagha_FreeModule :: module reference is NULL!");
 		return;
 	}
 	free(*module), *module = NULL;
@@ -125,17 +116,17 @@ void Tagha_Init(struct Tagha *const restrict vm, void *script)
 	*vm = (struct Tagha){0};
 	vm->CurrScript.Ptr = script;
 	
-	FILE **stdinref = GetVariableOffsetByName(script, "stdin");
-	if( stdinref )
-		*stdinref = stdin;
+	FILE **restrict fileptr = GetVariableOffsetByName(script, "stdin");
+	if( fileptr )
+		*fileptr = stdin;
 	
-	FILE **stderrref = GetVariableOffsetByName(script, "stderr");
-	if( stderrref )
-		*stderrref = stderr;
+	fileptr = GetVariableOffsetByName(script, "stderr");
+	if( fileptr )
+		*fileptr = stderr;
 		
-	FILE **stdoutref = GetVariableOffsetByName(script, "stdout");
-	if( stdoutref )
-		*stdoutref = stdout;
+	fileptr = GetVariableOffsetByName(script, "stdout");
+	if( fileptr )
+		*fileptr = stdout;
 	
 	struct NativeInfo dynamic_loading[] = {
 		{"Tagha_LoadModule", Native_TaghaLoadModule},
@@ -169,16 +160,15 @@ bool Tagha_RegisterNatives(struct Tagha *const restrict vm, struct NativeInfo na
 		return false;
 	
 	union Value func_addr = (union Value){0};
-	bool check_native = false;
 	for( struct NativeInfo *n=natives ; n->NativeCFunc and n->Name ; n++ ) {
-		func_addr.Ptr = GetFunctionOffsetByName(vm->CurrScript.Ptr, n->Name, &check_native);
-		if( func_addr.Ptr and check_native )
+		func_addr.Ptr = GetFunctionOffsetByName(vm->CurrScript.Ptr, n->Name);
+		if( func_addr.Ptr )
 			func_addr.SelfPtr->VoidFunc = n->NativeCFunc;
 	}
 	return true;
 }
 
-inline static void *GetFunctionOffsetByName(void *script, const char *restrict funcname, bool *const restrict isnative)
+inline static void *GetFunctionOffsetByName(uint8_t *const script, const char *restrict funcname)
 {
 	if( !funcname or !script )
 		return NULL;
@@ -187,48 +177,18 @@ inline static void *GetFunctionOffsetByName(void *script, const char *restrict f
 	reader.UCharPtr += 11;
 	
 	const size_t funcs = *reader.UInt32Ptr++;
+	
 	for( size_t i=0 ; i<funcs ; i++ ) {
-		if( isnative )
-			*isnative = *reader.UCharPtr;
-		reader.UCharPtr++;
-		const uint64_t sizes = *reader.UInt64Ptr++;
-		const size_t stringlen = sizes & 0xffFFffFF;
-		const size_t instrlen = sizes >> 32;
+		const struct TaghaItem *const restrict item = reader.Ptr;
+		reader.UCharPtr += sizeof *item;
 		if( !strcmp(funcname, reader.Ptr) )
-			return reader.UCharPtr + stringlen;
-		
-		/* skip to the next */
-		reader.UCharPtr += (stringlen + instrlen);
+			return reader.UCharPtr + item->StrLen;
+		else reader.UCharPtr += (item->StrLen + item->DataLen);
 	}
 	return NULL;
 }
 
-inline static size_t GetFunctionIndexByName(void *script, const char *restrict funcname, bool *const restrict isnative)
-{
-	if( !funcname or !script )
-		return SIZE_MAX;
-	
-	union Value reader = (union Value){.Ptr = script};
-	reader.UCharPtr += 11;
-	
-	const size_t funcs = *reader.UInt32Ptr++;
-	for( size_t i=0 ; i<funcs ; i++ ) {
-		if( isnative )
-			*isnative = *reader.UCharPtr;
-		reader.UCharPtr++;
-		const uint64_t sizes = *reader.UInt64Ptr++;
-		const size_t stringlen = sizes & 0xffFFffFF;
-		const size_t instrlen = sizes >> 32;
-		if( !strncmp(funcname, reader.Ptr, stringlen-1) )
-			return i;
-		
-		/* skip to the next */
-		reader.UCharPtr += (stringlen + instrlen);
-	}
-	return SIZE_MAX;
-}
-
-inline static void *GetFunctionOffsetByIndex(void *script, const size_t index, bool *const restrict isnative)
+inline static void *GetFunctionOffsetByIndex(uint8_t *const script, const size_t index)
 {
 	if( !script )
 		return NULL;
@@ -241,50 +201,17 @@ inline static void *GetFunctionOffsetByIndex(void *script, const size_t index, b
 		return NULL;
 	
 	for( size_t i=0 ; i<funcs ; i++ ) {
-		if( isnative )
-			*isnative = *reader.UCharPtr;
-		reader.UCharPtr++;
-		const uint64_t sizes = *reader.UInt64Ptr++;
-		const size_t stringlen = sizes & 0xffFFffFF;
-		const size_t instrlen = sizes >> 32;
-		if( i==index )
-			return reader.UCharPtr + stringlen;
+		const struct TaghaItem *const restrict item = reader.Ptr;
+		reader.UCharPtr += sizeof *item;
 		
-		/* skip to the next */
-		reader.UCharPtr += (stringlen + instrlen);
+		if( i==index )
+			return reader.UCharPtr + item->StrLen;
+		else reader.UCharPtr += (item->StrLen + item->DataLen);
 	}
 	return NULL;
 }
 
-inline static const char *GetFunctionNameByIndex(void *script, const size_t index, bool *const restrict isnative)
-{
-	if( !script )
-		return NULL;
-	
-	union Value reader = (union Value){.Ptr = script};
-	reader.UCharPtr += 11;
-	
-	const size_t funcs = *reader.UInt32Ptr++;
-	if( index >= funcs )
-		return NULL;
-	
-	for( size_t i=0 ; i<funcs ; i++ ) {
-		if( isnative )
-			*isnative = *reader.UCharPtr;
-		reader.UCharPtr++;
-		const uint64_t sizes = *reader.UInt64Ptr++;
-		const size_t stringlen = sizes & 0xffFFffFF;
-		const size_t instrlen = sizes >> 32;
-		if( i==index )
-			return reader.Ptr;
-		
-		/* skip to the next */
-		reader.UCharPtr += (stringlen + instrlen);
-	}
-	return NULL;
-}
-
-inline static void *GetVariableOffsetByName(void *script, const char *restrict varname)
+inline static void *GetVariableOffsetByName(uint8_t *const script, const char *restrict varname)
 {
 	if( !script or !varname )
 		return NULL;
@@ -296,45 +223,16 @@ inline static void *GetVariableOffsetByName(void *script, const char *restrict v
 	
 	const size_t globalvars = *reader.UInt32Ptr++;
 	for( size_t i=0 ; i<globalvars ; i++ ) {
-		reader.UCharPtr++;
-		const uint64_t sizes = *reader.UInt64Ptr++;
-		const size_t stringlen = sizes & 0xffFFffFF;
-		const size_t bytelen = sizes >> 32;
-		if( !strncmp(varname, reader.Ptr, stringlen-1) )
-			return reader.UCharPtr + stringlen;
-		
-		/* skip to the next var */
-		reader.UCharPtr += (stringlen + bytelen);
+		const struct TaghaItem *const restrict item = reader.Ptr;
+		reader.UCharPtr += sizeof *item;
+		if( !strcmp(varname, reader.Ptr) )
+			return reader.UCharPtr + item->StrLen;
+		else reader.UCharPtr += (item->StrLen + item->DataLen);
 	}
 	return NULL;
 }
 
-inline static size_t GetVariableIndexByName(void *script, const char *restrict varname)
-{
-	if( !script or !varname )
-		return SIZE_MAX;
-	
-	union Value reader = (union Value){.Ptr = script};
-	reader.UCharPtr += 7;
-	const size_t vartable_offset = *reader.UInt32Ptr++;
-	reader.UCharPtr += vartable_offset;
-	
-	const size_t globalvars = *reader.UInt32Ptr++;
-	for( size_t i=0 ; i<globalvars ; i++ ) {
-		reader.UCharPtr++;
-		const uint64_t sizes = *reader.UInt64Ptr++;
-		const size_t stringlen = sizes & 0xffFFffFF;
-		const size_t bytelen = sizes >> 32;
-		if( !strncmp(varname, reader.Ptr, stringlen-1) )
-			return i;
-		
-		/* skip to the next var */
-		reader.UCharPtr += (stringlen + bytelen);
-	}
-	return SIZE_MAX;
-}
-
-inline static void *GetVariableOffsetByIndex(void *script, const size_t index)
+inline static void *GetVariableOffsetByIndex(uint8_t *const script, const size_t index)
 {
 	if( !script )
 		return NULL;
@@ -349,43 +247,13 @@ inline static void *GetVariableOffsetByIndex(void *script, const size_t index)
 		return NULL;
 	
 	for( size_t i=0 ; i<globalvars ; i++ ) {
-		reader.UCharPtr++;
-		const uint64_t sizes = *reader.UInt64Ptr++;
-		const size_t stringlen = sizes & 0xffFFffFF;
-		const size_t bytelen = sizes >> 32;
+		const struct TaghaItem *const restrict item = reader.Ptr;
+		reader.UCharPtr += sizeof *item;
 		if( i==index )
-			return reader.UCharPtr + stringlen;
+			return reader.UCharPtr + item->StrLen;
 		
 		/* skip to the next global var index */
-		reader.UCharPtr += (stringlen + bytelen);
-	}
-	return NULL;
-}
-
-inline static const char *GetVariableNameByIndex(void *script, const size_t index)
-{
-	if( !script )
-		return NULL;
-	
-	union Value reader = (union Value){.Ptr = script};
-	reader.UCharPtr += 7;
-	const size_t vartable_offset = *reader.UInt32Ptr++;
-	reader.UCharPtr += vartable_offset;
-	
-	const size_t globalvars = *reader.UInt32Ptr++;
-	if( index >= globalvars )
-		return NULL;
-	
-	for( size_t i=0 ; i<globalvars ; i++ ) {
-		reader.UCharPtr++;
-		const uint64_t sizes = *reader.UInt64Ptr++;
-		const size_t stringlen = sizes & 0xffFFffFF;
-		const size_t bytelen = sizes >> 32;
-		if( i==index )
-			return reader.Ptr;
-		
-		/* skip to the next */
-		reader.UCharPtr += (stringlen + bytelen);
+		reader.UCharPtr += (item->StrLen + item->DataLen);
 	}
 	return NULL;
 }
@@ -395,7 +263,6 @@ inline static const char *GetVariableNameByIndex(void *script, const size_t inde
 int32_t Tagha_Exec(struct Tagha *const restrict vm)
 {
 	if( !vm ) {
-		puts("Tagha_Exec :: vm ptr is NULL.");
 		return -1;
 	}
 	union Value *const restrict regs = vm->Regs;
@@ -442,8 +309,9 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	exec_halt:;
 		return regs[regAlaf].Int32;
 	
-	exec_nop:;
+	exec_nop:; {
 		DISPATCH();
+	}
 	
 	/* pushes a value to the top of the stack, raises the stack pointer by 8 bytes.
 	 * push reg (1 byte for register id)
@@ -475,7 +343,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			regs[regInstr].SelfPtr++;
 		else if( addrmode & Register )
 			regs[*regs[regInstr].UCharPtr++] = *regs[regStk].SelfPtr++;
-		else {
+		else if( addrmode & RegIndirect ) {
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			*effective_address.SelfPtr = *regs[regStk].SelfPtr++;
@@ -497,7 +365,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		else if( addrmode & Register ) { /* Register mode will load a function address which could be a native */
 			regs[regid].Int64 = *regs[regInstr].Int64Ptr++;
 		}
-		else {
+		else if( addrmode & RegIndirect ) {
 			const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 			regs[regid].UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++;
 		}
@@ -574,8 +442,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				regs[regid].UInt64 += *regs[regInstr].UInt64Ptr++;
 			}
 			else if( addrmode & Register ) {
-				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
-				regs[regid].UInt64 += regs[sec_regid].UInt64;
+				regs[regid].UInt64 += regs[*regs[regInstr].UCharPtr++].UInt64;
 			}
 			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
@@ -1365,7 +1232,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( addrmode & EightBytes )
 				index = (*effective_address.UInt64Ptr - 1);
 		}
-		uint8_t *const call_addr = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, index, NULL);
+		uint8_t *const call_addr = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, index);
 		if( !call_addr ) {
 			//puts("Tagha_Exec :: exec_call reported 'call_addr' is NULL");
 			DISPATCH();
@@ -1410,9 +1277,8 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		 *  - any return value larger than 8 bytes must be passed as a hidden pointer argument and render the function as void.
 		 * void NativeFunc(struct Tagha *sys, union Value *retval, const size_t args, union Value params[static args]);
 		 */
-		bool native_check = false;
-		const union Value *const restrict nativeref = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, index, &native_check);
-		if( !native_check or !nativeref or !nativeref->VoidFunc ) {
+		const union Value *const restrict nativeref = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, index);
+		if( !nativeref or !nativeref->VoidFunc ) {
 			//puts("Tagha_Exec :: exec_syscall reported 'NativeFunc' is NULL");
 			DISPATCH();
 		}
@@ -1898,13 +1764,13 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 		return -1;
 	
 	else if( *vm->CurrScript.UShortPtr != 0xC0DE ) {
-		puts("Tagha_RunScript :: ERROR: Script has invalid main verifier.");
+		//puts("Tagha_RunScript :: ERROR: Script has invalid main verifier.");
 		return -1;
 	}
 	
-	uint8_t *main_offset = GetFunctionOffsetByName(vm->CurrScript.Ptr, "main", NULL);
+	uint8_t *const main_offset = GetFunctionOffsetByName(vm->CurrScript.Ptr, "main");
 	if( !main_offset ) {
-		puts("Tagha_RunScript :: ERROR: script contains no 'main' function.");
+		//puts("Tagha_RunScript :: ERROR: script contains no 'main' function.");
 		return -1;
 	}
 	
@@ -1939,13 +1805,13 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 		return -1;
 	
 	else if( *vm->CurrScript.UShortPtr != 0xC0DE ) {
-		puts("Tagha_RunScript :: ERROR: Script has invalid main verifier.");
+		//puts("Tagha_RunScript :: ERROR: Script has invalid main verifier.");
 		return -1;
 	}
 	
-	uint8_t *func_offset = GetFunctionOffsetByName(vm->CurrScript.Ptr, funcname, NULL);
+	uint8_t *const func_offset = GetFunctionOffsetByName(vm->CurrScript.Ptr, funcname);
 	if( !func_offset ) {
-		printf("Tagha_CallFunc :: ERROR: cannot find function: '%s'.", funcname);
+		//printf("Tagha_CallFunc :: ERROR: cannot find function: '%s'.", funcname);
 		return -1;
 	}
 	
@@ -1953,7 +1819,7 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 	size_t stacksize = *(uint32_t *)(vm->CurrScript.UCharPtr+2);
 	stacksize = (stacksize + (sizeof(union Value)-1)) & -(sizeof(union Value));
 	if( !stacksize ) {
-		puts("Tagha_CallFunc :: ERROR: stack size is 0!");
+		//puts("Tagha_CallFunc :: ERROR: stack size is 0!");
 		return -1;
 	}
 	

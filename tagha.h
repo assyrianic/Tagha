@@ -54,6 +54,23 @@ enum ScriptFlags {
 	FlagAllocMem	= 0x04, /* allow malloc calls (for systems with good amount of memory.) */
 };
 
+#pragma pack(push, 1)
+struct TaghaItem {
+	uint8_t Flags;
+	uint32_t StrLen, DataLen;
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct TaghaModule {
+	uint16_t Magic;
+	uint32_t StackSize;
+	uint8_t Flags;
+	uint32_t FuncTblSize;
+	uint32_t FuncCount;
+};
+#pragma pack(pop)
+
 
 /*
  Things to consider concerning Native functions:
