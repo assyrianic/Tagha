@@ -128,7 +128,7 @@ void Tagha_Init(struct Tagha *const restrict vm, void *script)
 	if( fileptr )
 		*fileptr = stdout;
 	
-	struct NativeInfo dynamic_loading[] = {
+	const struct NativeInfo dynamic_loading[] = {
 		{"Tagha_LoadModule", Native_TaghaLoadModule},
 		{"Tagha_GetGlobal", Native_TaghaGetGlobal},
 		{"Tagha_InvokeFunc", Native_TaghaInvoke},
@@ -138,7 +138,7 @@ void Tagha_Init(struct Tagha *const restrict vm, void *script)
 	Tagha_RegisterNatives(vm, dynamic_loading);
 }
 
-void Tagha_InitN(struct Tagha *const restrict vm, void *script, struct NativeInfo natives[])
+void Tagha_InitN(struct Tagha *const restrict vm, void *script, const struct NativeInfo natives[])
 {
 	Tagha_Init(vm, script);
 	Tagha_RegisterNatives(vm, natives);
@@ -154,13 +154,13 @@ void TaghaDebug_PrintRegisters(const struct Tagha *const restrict vm)
 	puts("\n");
 }
 
-bool Tagha_RegisterNatives(struct Tagha *const restrict vm, struct NativeInfo natives[])
+bool Tagha_RegisterNatives(struct Tagha *const restrict vm, const struct NativeInfo natives[])
 {
 	if( !vm or !natives )
 		return false;
 	
 	union Value func_addr = (union Value){0};
-	for( struct NativeInfo *n=natives ; n->NativeCFunc and n->Name ; n++ ) {
+	for( const struct NativeInfo *restrict n=natives ; n->NativeCFunc and n->Name ; n++ ) {
 		func_addr.Ptr = GetFunctionOffsetByName(vm->CurrScript.Ptr, n->Name);
 		if( func_addr.Ptr )
 			func_addr.SelfPtr->VoidFunc = n->NativeCFunc;
@@ -326,7 +326,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		else if( addrmode & Register )
 			*--regs[regStk].SelfPtr = regs[*regs[regInstr].UCharPtr++];
 		/* push the contents of a memory address inside a register. */
-		else {
+		else if( addrmode & RegIndirect ) {
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			*--regs[regStk].SelfPtr = *effective_address.SelfPtr;
@@ -825,9 +825,16 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Register )
 			regs[regid].UInt64 = ~regs[regid].UInt64;
-		else {
+		else if( addrmode & RegIndirect ) {
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-			*effective_address.UInt64Ptr = ~*effective_address.UInt64Ptr;
+			if( addrmode & Byte )
+				*effective_address.UCharPtr = ~*effective_address.UCharPtr;
+			else if( addrmode & TwoBytes )
+				*effective_address.UShortPtr = ~*effective_address.UShortPtr;
+			else if( addrmode & FourBytes )
+				*effective_address.UInt32Ptr = ~*effective_address.UInt32Ptr;
+			else if( addrmode & EightBytes )
+				*effective_address.UInt64Ptr = ~*effective_address.UInt64Ptr;
 		}
 		DISPATCH();
 	}
@@ -931,9 +938,16 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Register )
 			++regs[regid].UInt64;
-		else {
+		else if( addrmode & RegIndirect ) {
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-			++*effective_address.UInt64Ptr;
+			if( addrmode & Byte )
+				++*effective_address.UCharPtr;
+			else if( addrmode & TwoBytes )
+				++*effective_address.UShortPtr;
+			else if( addrmode & FourBytes )
+				++*effective_address.UInt32Ptr;
+			else if( addrmode & EightBytes )
+				++*effective_address.UInt64Ptr;
 		}
 		DISPATCH();
 	}
@@ -941,9 +955,16 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Register )
 			--regs[regid].UInt64;
-		else {
+		else if( addrmode & RegIndirect ) {
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-			--*effective_address.UInt64Ptr;
+			if( addrmode & Byte )
+				--*effective_address.UCharPtr;
+			else if( addrmode & TwoBytes )
+				--*effective_address.UShortPtr;
+			else if( addrmode & FourBytes )
+				--*effective_address.UInt32Ptr;
+			else if( addrmode & EightBytes )
+				--*effective_address.UInt64Ptr;
 		}
 		DISPATCH();
 	}
@@ -951,9 +972,16 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Register )
 			regs[regid].UInt64 = -regs[regid].UInt64;
-		else {
+		else if( addrmode & RegIndirect ) {
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-			*effective_address.UInt64Ptr = -*effective_address.UInt64Ptr;
+			if( addrmode & Byte )
+				*effective_address.UCharPtr = -*effective_address.UCharPtr;
+			else if( addrmode & TwoBytes )
+				*effective_address.UShortPtr = -*effective_address.UShortPtr;
+			else if( addrmode & FourBytes )
+				*effective_address.UInt32Ptr = -*effective_address.UInt32Ptr;
+			else if( addrmode & EightBytes )
+				*effective_address.UInt64Ptr = -*effective_address.UInt64Ptr;
 		}
 		DISPATCH();
 	}
@@ -1158,7 +1186,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			regs[regInstr].UCharPtr += regs[regid].Int64;
 		}
-		else {
+		else if( addrmode & RegIndirect ) {
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			
@@ -1182,7 +1210,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			!vm->CondFlag ? (regs[regInstr].UCharPtr += regs[regid].Int64) : (void)vm->CondFlag;
 		}
-		else {
+		else if( addrmode & RegIndirect ) {
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			if( addrmode & Byte )
@@ -1205,7 +1233,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			vm->CondFlag ? (regs[regInstr].UCharPtr += regs[regid].Int64) : (void)vm->CondFlag;
 		}
-		else {
+		else if( addrmode & RegIndirect ) {
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			if( addrmode & Byte )
@@ -1226,7 +1254,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		}
 		else if( addrmode & Register )
 			index = (regs[*regs[regInstr].UCharPtr++].UInt64 - 1);
-		else {
+		else if( addrmode & RegIndirect ) {
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			if( addrmode & EightBytes )
@@ -1266,7 +1294,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		else if( addrmode & Register ) {
 			index = (-1 - regs[*regs[regInstr].UCharPtr++].Int64);
 		}
-		else {
+		else if( addrmode & RegIndirect ) {
 			const uint8_t regid = *regs[regInstr].UCharPtr++;
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			index = (-1 - *effective_address.Int64Ptr);
@@ -1279,7 +1307,6 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		 */
 		const union Value *const restrict nativeref = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, index);
 		if( !nativeref or !nativeref->VoidFunc ) {
-			//puts("Tagha_Exec :: exec_syscall reported 'NativeFunc' is NULL");
 			DISPATCH();
 		}
 		
@@ -1303,16 +1330,6 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		}
 		regs[regAlaf].UInt64 = 0;
 		(*nativeref->VoidFunc)(vm, regs+regAlaf, argcount, params);
-		DISPATCH();
-	}
-	/* import loads another tbc module to tagha. */
-	exec_import:; {
-		
-		DISPATCH();
-	}
-	/* invoke calls a method or loads a global variable from another module. */
-	exec_invoke:; {
-		
 		DISPATCH();
 	}
 #if FLOATING_POINT_OPS
@@ -1711,7 +1728,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			else if( addrmode & EightBytes )
 				++regs[regid].Double;
 		}
-		else {
+		else if( addrmode & RegIndirect ) {
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			if( addrmode & FourBytes )
 				++*effective_address.FloatPtr;
@@ -1728,7 +1745,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			else if( addrmode & EightBytes )
 				--regs[regid].Double;
 		}
-		else {
+		else if( addrmode & RegIndirect ) {
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			if( addrmode & FourBytes )
 				--*effective_address.FloatPtr;
@@ -1745,7 +1762,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			else if( addrmode & EightBytes )
 				regs[regid].Double = -regs[regid].Double;
 		}
-		else {
+		else if( addrmode & RegIndirect ) {
 			const union Value effective_address = (union Value){.UCharPtr = regs[regid].UCharPtr + *regs[regInstr].Int32Ptr++};
 			if( addrmode & FourBytes )
 				*effective_address.FloatPtr = -*effective_address.FloatPtr;

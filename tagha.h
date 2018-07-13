@@ -6,6 +6,8 @@ extern "C" {
 
 #include "dsc.h"
 
+#define FLOATING_POINT_OPS 1
+
 /* For Colored Debugging Printing! */
 #define KNRM	"\x1B[0m"	/* Normal */
 #define KRED	"\x1B[31m"
@@ -51,12 +53,11 @@ extern "C" {
 enum ScriptFlags {
 	FlagSafeMode	= 0x01,
 	FlagDebug		= 0x02,
-	FlagAllocMem	= 0x04, /* allow malloc calls (for systems with good amount of memory.) */
 };
 
 #pragma pack(push, 1)
 struct TaghaItem {
-	uint8_t Flags;
+	uint8_t DataFlags;
 	uint32_t StrLen, DataLen;
 };
 #pragma pack(pop)
@@ -65,7 +66,7 @@ struct TaghaItem {
 struct TaghaModule {
 	uint16_t Magic;
 	uint32_t StackSize;
-	uint8_t Flags;
+	uint8_t ModuleFlags;
 	uint32_t FuncTblSize;
 	uint32_t FuncCount;
 };
@@ -89,7 +90,7 @@ struct TaghaModule {
  * If 8 params, Taw will hold the 8th param, Semkath the first.
  * 
  * Return values must be 8 or less bytes in size in register 'Alaf'.
- * For Natives, structs must always be passed by pointer, even if they're smaller than 8 bytes.
+ * For Natives, structs must always be passed by pointer, unless they're smaller than 8 bytes.
  *
  * Since 'Alaf' is the return value register and Semkath to Taw are for functions, they need preservation, all other registers are volatile.
  */
@@ -112,22 +113,31 @@ struct NativeInfo {
 enum RegID { REGISTER_FILE };
 #undef Y
 
+enum /* Tagha Error Codes. */ {
+	ErrNone=0,
+	ErrMissingFunc = -1,
+	ErrInstrBounds = -2,
+	ErrInvalidScript = -3,
+	ErrStackSize = -4, 
+};
+
 struct Tagha {
 	union Value Regs[regsize];
-	union Value CurrScript;
+	union {
+		union Value CurrScript;
+		struct TaghaModule *Module;
+	};
 	bool CondFlag : 1; /* conditional flag for conditional jumps! */
 };
 
 void Tagha_Init(struct Tagha *, void *);
-void Tagha_InitN(struct Tagha *, void *, struct NativeInfo []);
+void Tagha_InitN(struct Tagha *, void *, const struct NativeInfo []);
 
-void TaghaDebug_PrintRegisters(const struct Tagha *);
-bool Tagha_RegisterNatives(struct Tagha *, struct NativeInfo []);
+bool Tagha_RegisterNatives(struct Tagha *, const struct NativeInfo []);
 void *Tagha_GetGlobalVarByName(struct Tagha *, const char *);
 int32_t Tagha_CallFunc(struct Tagha *, const char *, size_t, union Value []);
 union Value Tagha_GetReturnValue(const struct Tagha *);
 int32_t Tagha_RunScript(struct Tagha *, int32_t, char *[]);
-int32_t Tagha_Exec(struct Tagha *);
 
 
 enum AddrMode {
@@ -142,7 +152,28 @@ enum AddrMode {
 };
 
 
-#define FLOATING_POINT_OPS 1
+#pragma pack(push, 1)
+struct InstrRegIMM {
+	uint8_t RegID;
+	union Value IMM;
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct InstrRegMem {
+	uint8_t RegID1, RegID2;
+	uint32_t Offset;
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct InstrMemIMM {
+	uint8_t RegID;
+	union Value IMM;
+	uint32_t Offset;
+};
+#pragma pack(pop)
+
 
 #ifdef FLOATING_POINT_OPS
 	#define INSTR_SET	\
@@ -159,7 +190,7 @@ enum AddrMode {
 		X(lt) X(gt) X(cmp) X(neq) \
 		\
 		X(jmp) X(jz) X(jnz) \
-		X(call) X(syscall) X(ret) X(import) X(invoke) \
+		X(call) X(syscall) X(ret) \
 		\
 		X(flt2dbl) X(dbl2flt) \
 		X(addf) X(subf) X(mulf) X(divf) \
@@ -181,7 +212,7 @@ enum AddrMode {
 		X(lt) X(gt) X(cmp) X(neq) \
 		\
 		X(jmp) X(jz) X(jnz) \
-		X(call) X(syscall) X(ret) X(import) X(invoke) \
+		X(call) X(syscall) X(ret) \
 		\
 		X(nop)
 #endif
