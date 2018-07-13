@@ -114,11 +114,12 @@ enum RegID { REGISTER_FILE };
 #undef Y
 
 enum /* Tagha Error Codes. */ {
+	ErrInstrBounds = -1,
 	ErrNone=0,
-	ErrMissingFunc = -1,
-	ErrInstrBounds = -2,
-	ErrInvalidScript = -3,
-	ErrStackSize = -4, 
+	ErrBadPtr,
+	ErrMissingFunc,
+	ErrInvalidScript,
+	ErrStackSize, 
 };
 
 struct Tagha {
@@ -150,29 +151,6 @@ enum AddrMode {
 	FourBytes	= 64, /* use data as (u)int32_t& */
 	EightBytes	= 128, /* use data as (u)int64_t& */
 };
-
-
-#pragma pack(push, 1)
-struct InstrRegIMM {
-	uint8_t RegID;
-	union Value IMM;
-};
-#pragma pack(pop)
-
-#pragma pack(push, 1)
-struct InstrRegMem {
-	uint8_t RegID1, RegID2;
-	uint32_t Offset;
-};
-#pragma pack(pop)
-
-#pragma pack(push, 1)
-struct InstrMemIMM {
-	uint8_t RegID;
-	union Value IMM;
-	uint32_t Offset;
-};
-#pragma pack(pop)
 
 
 #ifdef FLOATING_POINT_OPS

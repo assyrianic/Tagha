@@ -12,48 +12,66 @@ inline static void			*GetFunctionOffsetByIndex(uint8_t *, size_t);
 inline static void			*GetVariableOffsetByName(uint8_t *, const char *);
 inline static void			*GetVariableOffsetByIndex(uint8_t *, size_t);
 
+static void PrepModule(uint8_t *const module)
+{
+	if( !module )
+		return;
+	
+	FILE **restrict fileptr = GetVariableOffsetByName(module, "stdin");
+	if( fileptr )
+		*fileptr = stdin;
+	
+	fileptr = GetVariableOffsetByName(module, "stderr");
+	if( fileptr )
+		*fileptr = stderr;
+		
+	fileptr = GetVariableOffsetByName(module, "stdout");
+	if( fileptr )
+		*fileptr = stdout;
+}
+
+static uint8_t *Tagha_LoadModule(const char *restrict module_name)
+{
+	if( !module_name )
+		return NULL;
+	
+	FILE *restrict tbcfile = fopen(module_name, "rb");
+	if( !tbcfile )
+		return NULL;
+	
+	size_t filesize = 0L;
+	if( !fseek(tbcfile, 0, SEEK_END) ) {
+		int64_t size = ftell(tbcfile);
+		if( size == -1LL ) {
+			fclose(tbcfile), tbcfile=NULL;
+			return NULL;
+		}
+		rewind(tbcfile);
+		filesize = (size_t)size;
+	}
+	
+	uint8_t buffer[filesize];
+	const size_t val = fread(buffer, sizeof(uint8_t), filesize, tbcfile);
+	(void)val;
+	fclose(tbcfile), tbcfile=NULL;
+	
+	if( !(buffer[0] == 0xDE and buffer[1]==0xC0) )
+		return NULL;
+	
+	uint8_t *module = calloc(filesize, sizeof *module);
+	if( !module )
+		return NULL;
+	
+	memcpy(module, buffer, filesize);
+	return module;
+}
 
 /* void *Tagha_LoadModule(const char *tbc_module_name); */
 static void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[static args])
 {
 	(void)sys; (void)args;
 	const char *restrict module_name = params[0].Ptr;
-	//puts(module_name);
-	
-	FILE *restrict tbcfile = fopen(module_name, "rb");
-	if( !tbcfile ) {
-		//printf("Tagha_LoadModule :: cannot find module '%s'\n", module_name);
-		return;
-	}
-	
-	size_t filesize = 0L;
-	if( !fseek(tbcfile, 0, SEEK_END) ) {
-		int64_t size = ftell(tbcfile);
-		if( size == -1LL ) {
-			//printf("Tagha_LoadModule :: cannot read module file '%s'!\n", module_name);
-			fclose(tbcfile), tbcfile=NULL;
-			return;
-		}
-		rewind(tbcfile);
-		filesize = (size_t) size;
-	}
-	
-	uint8_t *module = calloc(filesize, sizeof *module);
-	if( !module ) {
-		//printf("Tagha_LoadModule :: failed to load module (\"%s\") into memory!\n", module_name);
-		fclose(tbcfile), tbcfile=NULL;
-		return;
-	}
-	const size_t val = fread(module, sizeof(uint8_t), filesize, tbcfile);
-	(void)val;
-	fclose(tbcfile), tbcfile=NULL;
-	
-	if( *(uint16_t *)module != 0xC0DE ) {
-		//printf("Tagha_LoadModule :: module (\"%s\") is not a valid TBC script!\n", module_name);
-		free(module), module=NULL;
-		return;
-	}
-	retval->Ptr = module;
+	retval->Ptr = Tagha_LoadModule(module_name);
 }
 
 /* void *Tagha_GetGlobal(void *module, const char *symname); */
@@ -115,18 +133,7 @@ void Tagha_Init(struct Tagha *const restrict vm, void *script)
 	
 	*vm = (struct Tagha){0};
 	vm->CurrScript.Ptr = script;
-	
-	FILE **restrict fileptr = GetVariableOffsetByName(script, "stdin");
-	if( fileptr )
-		*fileptr = stdin;
-	
-	fileptr = GetVariableOffsetByName(script, "stderr");
-	if( fileptr )
-		*fileptr = stderr;
-		
-	fileptr = GetVariableOffsetByName(script, "stdout");
-	if( fileptr )
-		*fileptr = stdout;
+	PrepModule(script);
 	
 	const struct NativeInfo dynamic_loading[] = {
 		{"Tagha_LoadModule", Native_TaghaLoadModule},
@@ -262,8 +269,8 @@ inline static void *GetVariableOffsetByIndex(uint8_t *const script, const size_t
 
 int32_t Tagha_Exec(struct Tagha *const restrict vm)
 {
-	if( !vm ) {
-		return -1;
+	if( !vm or !vm->Module ) {
+		return ErrInstrBounds;
 	}
 	union Value *const restrict regs = vm->Regs;
 	const union Value *const restrict MainBasePtr = regs[regBase].SelfPtr;
@@ -296,7 +303,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		\
 		if( instr>nop ) { \
 			/*puts("Tagha_Exec :: instr out of bounds.");*/ \
-			return -1; \
+			return ErrInstrBounds; \
 		} \
 		\
 		/*TaghaDebug_PrintRegisters(vm);*/ \
@@ -1354,11 +1361,11 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Reserved ) {
 			if( addrmode & Immediate ) {
-				const union Value convert = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
+				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				if( addrmode & FourBytes )
-					regs[regid].Float += convert.Float;
+					regs[regid].Float += imm.Float;
 				else if( addrmode & EightBytes )
-					regs[regid].Double += convert.Double;
+					regs[regid].Double += imm.Double;
 			}
 			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
@@ -1402,11 +1409,11 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Reserved ) {
 			if( addrmode & Immediate ) {
-				const union Value convert = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
+				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				if( addrmode & FourBytes )
-					regs[regid].Float -= convert.Float;
+					regs[regid].Float -= imm.Float;
 				else if( addrmode & EightBytes )
-					regs[regid].Double -= convert.Double;
+					regs[regid].Double -= imm.Double;
 			}
 			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
@@ -1448,11 +1455,11 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Reserved ) {
 			if( addrmode & Immediate ) {
-				const union Value convert = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
+				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				if( addrmode & FourBytes )
-					regs[regid].Float *= convert.Float;
+					regs[regid].Float *= imm.Float;
 				else if( addrmode & EightBytes )
-					regs[regid].Double *= convert.Double;
+					regs[regid].Double *= imm.Double;
 			}
 			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
@@ -1494,11 +1501,11 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Reserved ) {
 			if( addrmode & Immediate ) {
-				const union Value convert = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
+				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				if( addrmode & FourBytes )
-					regs[regid].Float /= convert.Float;
+					regs[regid].Float /= imm.Float;
 				else if( addrmode & EightBytes )
-					regs[regid].Double /= convert.Double;
+					regs[regid].Double /= imm.Double;
 			}
 			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
@@ -1540,11 +1547,11 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Reserved ) {
 			if( addrmode & Immediate ) {
-				const union Value convert = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
+				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				if( addrmode & FourBytes )
-					vm->CondFlag = regs[regid].Float < convert.Float;
+					vm->CondFlag = regs[regid].Float < imm.Float;
 				else if( addrmode & EightBytes )
-					vm->CondFlag = regs[regid].Double < convert.Double;
+					vm->CondFlag = regs[regid].Double < imm.Double;
 			}
 			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
@@ -1586,11 +1593,11 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Reserved ) {
 			if( addrmode & Immediate ) {
-				const union Value convert = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
+				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				if( addrmode & FourBytes )
-					vm->CondFlag = regs[regid].Float > convert.Float;
+					vm->CondFlag = regs[regid].Float > imm.Float;
 				else if( addrmode & EightBytes )
-					vm->CondFlag = regs[regid].Double > convert.Double;
+					vm->CondFlag = regs[regid].Double > imm.Double;
 			}
 			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
@@ -1632,11 +1639,11 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Reserved ) {
 			if( addrmode & Immediate ) {
-				const union Value convert = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
+				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				if( addrmode & FourBytes )
-					vm->CondFlag = regs[regid].Float == convert.Float;
+					vm->CondFlag = regs[regid].Float == imm.Float;
 				else if( addrmode & EightBytes )
-					vm->CondFlag = regs[regid].Double == convert.Double;
+					vm->CondFlag = regs[regid].Double == imm.Double;
 			}
 			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
@@ -1678,11 +1685,11 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Reserved ) {
 			if( addrmode & Immediate ) {
-				const union Value convert = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
+				const union Value imm = (union Value){.UInt64 = *regs[regInstr].UInt64Ptr++};
 				if( addrmode & FourBytes )
-					vm->CondFlag = regs[regid].Float != convert.Float;
+					vm->CondFlag = regs[regid].Float != imm.Float;
 				else if( addrmode & EightBytes )
-					vm->CondFlag = regs[regid].Double != convert.Double;
+					vm->CondFlag = regs[regid].Double != imm.Double;
 			}
 			else if( addrmode & Register ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
@@ -1772,23 +1779,21 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 #endif
-	return -1;
+	return ErrInstrBounds;
 }
 
 int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, char *argv[])
 {
 	if( !vm )
-		return -1;
-	
-	else if( *vm->CurrScript.UShortPtr != 0xC0DE ) {
-		//puts("Tagha_RunScript :: ERROR: Script has invalid main verifier.");
-		return -1;
+		return ErrBadPtr;
+	else if( !vm->Module or vm->Module->Magic != 0xC0DE ) {
+		return ErrInvalidScript;
 	}
 	
 	uint8_t *const main_offset = GetFunctionOffsetByName(vm->CurrScript.Ptr, "main");
 	if( !main_offset ) {
 		//puts("Tagha_RunScript :: ERROR: script contains no 'main' function.");
-		return -1;
+		return ErrMissingFunc;
 	}
 	
 	/* push argc, argv to registers. */
@@ -1800,10 +1805,9 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	vm->Regs[regSemkath].Int32 = argc;
 	
 	/* check out stack size and align it by the size of union Value. */
-	size_t stacksize = *(uint32_t *)(vm->CurrScript.UCharPtr+2);
-	stacksize = (stacksize + (sizeof(union Value)-1)) & -(sizeof(union Value));
+	const size_t stacksize = (vm->Module->StackSize + (sizeof(union Value)-1)) & -(sizeof(union Value));
 	if( !stacksize )
-		return -1;
+		return ErrStackSize;
 	
 	union Value Stack[stacksize];
 	memset(Stack, 0, sizeof(union Value) * stacksize);
@@ -1819,25 +1823,20 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict funcname, const size_t args, union Value values[static args])
 {
 	if( !vm or !funcname )
-		return -1;
-	
-	else if( *vm->CurrScript.UShortPtr != 0xC0DE ) {
-		//puts("Tagha_RunScript :: ERROR: Script has invalid main verifier.");
-		return -1;
+		return ErrBadPtr;
+	else if( !vm->Module or vm->Module->Magic != 0xC0DE ) {
+		return ErrInvalidScript;
 	}
 	
 	uint8_t *const func_offset = GetFunctionOffsetByName(vm->CurrScript.Ptr, funcname);
 	if( !func_offset ) {
-		//printf("Tagha_CallFunc :: ERROR: cannot find function: '%s'.", funcname);
-		return -1;
+		return ErrMissingFunc;
 	}
 	
 	/* check out stack size and align it by the size of union Value. */
-	size_t stacksize = *(uint32_t *)(vm->CurrScript.UCharPtr+2);
-	stacksize = (stacksize + (sizeof(union Value)-1)) & -(sizeof(union Value));
+	const size_t stacksize = (vm->Module->StackSize + (sizeof(union Value)-1)) & -(sizeof(union Value));
 	if( !stacksize ) {
-		//puts("Tagha_CallFunc :: ERROR: stack size is 0!");
-		return -1;
+		return ErrStackSize;
 	}
 	
 	union Value Stack[stacksize+1];

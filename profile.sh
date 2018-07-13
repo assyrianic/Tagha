@@ -10,7 +10,7 @@ ar			cr libtaghagcc.a	tagha_api.o
 
 rm	tagha_api.o
 
-gcc -Wall -Wextra -std=c99 -pg -O2 hostapp.c -L. -ltaghagcc -o taghavm
+gcc -Wextra -Wall -std=c99 -pg -O2 hostapp.c -L. -ltaghagcc -o taghavm
 
 
 ./taghavm "test_fib.tbc"
