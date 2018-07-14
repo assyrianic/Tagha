@@ -24,7 +24,7 @@ static void PrepModule(uint8_t *const module)
 	fileptr = GetVariableOffsetByName(module, "stderr");
 	if( fileptr )
 		*fileptr = stderr;
-		
+	
 	fileptr = GetVariableOffsetByName(module, "stdout");
 	if( fileptr )
 		*fileptr = stdout;
