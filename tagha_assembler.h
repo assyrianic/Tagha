@@ -5,7 +5,6 @@ extern "C" {
 #endif
 
 #include <stdio.h>
-#include "dsc.h"
 #include "tagha.h"
 
 //#define TASM_DEBUG
