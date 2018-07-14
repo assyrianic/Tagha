@@ -9,9 +9,11 @@ Four reasons:
 * 4. Create a minimal and easy to use library for others to use in their projects.
 
 # How to Build Tagha
-Tagha's repo contains many build scripts. If you simply want a working static library and not have to fuss about, then edit or run `build_libtagha_static.sh`. You might need to edit it if you don't want a clang version or you wish to change the clang version.
-
-Once you run the script, `libtagha.a` should be generated. Now you can do `#include "tagha.h"` and link `libtagha.a` to your application and you've successfully embedded Tagha.
+Tagha's repo contains many build scripts. If you simply want a working static library and not have to fuss about...
+* edit and/or run `build_libtagha_static.sh`. You might need to edit it if you don't want a clang version or you wish to change the clang version.
+* `libtagha.a` should be generated.
+* Now you can do `#include "tagha.h"`
+* link `libtagha.a` to your application and you've successfully embedded Tagha.
 
 To know how to effectively use the Tagha API, please read the embedding tutorial in the [Tagha Wiki](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)). A [C++ tutorial](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C-Plus-Plus)) is also available if needed!
 
