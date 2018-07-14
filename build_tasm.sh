@@ -1,3 +1,4 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-gcc -Wall -Wextra -O3 -std=c99 -g tagha_assembler.c -L. -lDataStructColl -o tasm
+./build_libCDSC_static.sh
+gcc -Wall -Wextra -O2 -std=c99 -g tagha_assembler.c -L. -lDataStructColl -o tasm
