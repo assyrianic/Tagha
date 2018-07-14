@@ -1357,6 +1357,23 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		}
 		DISPATCH();
 	}
+	exec_int2dbl:; {
+		if( addrmode & Register ) {
+			const uint8_t regid = *regs[regInstr].UCharPtr++;
+			const uint64_t i = regs[regid].UInt64;
+			regs[regid].Double = (double)i;
+		}
+		DISPATCH();
+	}
+	exec_int2flt:; {
+		if( addrmode & Register ) {
+			const uint8_t regid = *regs[regInstr].UCharPtr++;
+			const uint64_t i = regs[regid].UInt64;
+			regs[regid].UInt64 = 0;
+			regs[regid].Float = (float)i;
+		}
+		DISPATCH();
+	}
 	exec_addf:; {
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
 		if( addrmode & Reserved ) {

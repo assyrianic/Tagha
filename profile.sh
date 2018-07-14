@@ -10,10 +10,10 @@ ar			cr libtagha.a	tagha_api.o
 
 rm	tagha_api.o
 
-gcc -Wextra -Wall -std=c99 -pg -O2 hostapp.c -L. -ltagha -o taghavm_hosttest
+gcc -Wextra -Wall -std=c99 -pg -O2 test_hostapp.c -L. -ltagha -o taghavm_hosttest
 
 
-./taghavm "test_fib.tbc"
-gprof taghavm gmon.out > Tagha_profile.txt
+./taghavm_hosttest "test_fib.tbc"
+gprof taghavm_hosttest gmon.out > Tagha_profile.txt
 
 rm gmon.out

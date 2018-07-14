@@ -1536,6 +1536,7 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 						break;
 				#ifdef FLOATING_POINT_OPS
 					case flt2dbl: case dbl2flt:
+					case int2dbl: case int2flt:
 						TaghaAsm_ParseFloatConvInstr(tasm, true);
 						break;
 					case addf: case subf: case mulf: case divf:

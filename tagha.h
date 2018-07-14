@@ -170,7 +170,7 @@ enum AddrMode {
 		X(jmp) X(jz) X(jnz) \
 		X(call) X(syscall) X(ret) \
 		\
-		X(flt2dbl) X(dbl2flt) \
+		X(flt2dbl) X(dbl2flt) X(int2dbl) X(int2flt) \
 		X(addf) X(subf) X(mulf) X(divf) \
 		X(incf) X(decf) X(negf) \
 		X(ltf) X(gtf) X(cmpf) X(neqf) \
