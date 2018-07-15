@@ -1253,7 +1253,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_call:; {
-		size_t index = 0;
+		size_t index = -1;
 		if( addrmode & Immediate ) {
 			index = ((*regs[regInstr].UInt64Ptr++) - 1);
 		}
