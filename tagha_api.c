@@ -287,7 +287,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	
 #define X(x) &&exec_##x ,
 	/* our instruction dispatch table. */
-	const void *const restrict dispatch[] = { INSTR_SET };
+	static const void *const restrict dispatch[] = { INSTR_SET };
 #undef X
 #undef INSTR_SET
 	/* #ifdef _UNISTD_H */
