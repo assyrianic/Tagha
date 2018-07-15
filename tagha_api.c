@@ -258,9 +258,7 @@ inline static void *GetVariableOffsetByIndex(uint8_t *const script, const size_t
 		reader.UCharPtr += sizeof *item;
 		if( i==index )
 			return reader.UCharPtr + item->StrLen;
-		
-		/* skip to the next global var index */
-		reader.UCharPtr += (item->StrLen + item->DataLen);
+		else reader.UCharPtr += (item->StrLen + item->DataLen);
 	}
 	return NULL;
 }
