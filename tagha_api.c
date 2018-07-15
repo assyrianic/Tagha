@@ -1826,7 +1826,7 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	if( !stacksize )
 		return ErrStackSize;
 	
-	union Value Stack[stacksize];
+	union Value Stack[stacksize+1];
 	memset(Stack, 0, sizeof(union Value) * stacksize);
 	/*union Value *StackLimit = Stack + stacksize+1; */
 	vm->Regs[regStk].SelfPtr = vm->Regs[regBase].SelfPtr = Stack + stacksize;
