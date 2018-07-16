@@ -26,7 +26,9 @@ The TASM Assembler has a single software dependency by using my [C Data Structur
 * you should have an executable called `tasm`
 
 # How to create TBC Scripts with TASM.
-* Once you've created a tasm script, run `./tasm 'my_tasm_source.tasm'
-* if there's no errors reported, a `.tbc` file with the same name as your tasm script should be generated!
+* Once you've created a tasm script, run `./tasm 'my_tasm_source.tasm`
+* if there's no errors reported, a `.tbc` file with the same filename as your tasm script should be generated.
+* to use the TBC scripts, embed Tagha into your C or C++ application and direct your application to the file directly or a special directory for tbc scripts.
+* Tagha is not natively threaded, this is by design, you can thread Tagha in anyway you wish whether by having a single VM instance run multiple scripts in a multi-threaded, managed way OR have an array of Tagha VM instances each running their own scripts in a threaded manner.
 
 For more information, please check out the [Tagha Wiki](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki).
