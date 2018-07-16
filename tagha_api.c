@@ -66,6 +66,24 @@ static uint8_t *Tagha_LoadModule(const char *restrict module_name)
 	return module;
 }
 
+static void InvokeNative(struct Tagha *const restrict vm, union Value *const restrict regs, const size_t argcount, void (*const NativeCall)())
+{
+	const uint8_t reg_params = 8;
+	const uint8_t first_param_register = regSemkath;
+	
+	/* save stack space by using the registers for passing arguments.
+	 * the other registers can then be used for other data operations.
+	 */
+	union Value params[argcount];
+	// copy native params from registers first.
+	memcpy(params, regs+first_param_register, sizeof params[0] * reg_params);
+	// now copy the remaining params off the stack and pop them.
+	memcpy(params+reg_params, regs[regStk].SelfPtr, sizeof params[0] * (argcount-reg_params));
+	regs[regStk].SelfPtr += (argcount-reg_params);
+	// invoke!
+	(*NativeCall)(vm, regs+regAlaf, argcount, params);
+}
+
 /* void *Tagha_LoadModule(const char *tbc_module_name); */
 static void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[static args])
 {
@@ -186,11 +204,11 @@ inline static void *GetFunctionOffsetByName(uint8_t *const script, const char *r
 	const size_t funcs = *reader.UInt32Ptr++;
 	
 	for( size_t i=0 ; i<funcs ; i++ ) {
-		const struct TaghaItem *const restrict item = reader.Ptr;
-		reader.UCharPtr += sizeof *item;
+		const struct TaghaItem item = *(struct TaghaItem *)reader.Ptr;
+		reader.UCharPtr += sizeof item;
 		if( !strcmp(funcname, reader.Ptr) )
-			return reader.UCharPtr + item->StrLen;
-		else reader.UCharPtr += (item->StrLen + item->DataLen);
+			return reader.UCharPtr + item.StrLen;
+		else reader.UCharPtr += (item.StrLen + item.DataLen);
 	}
 	return NULL;
 }
@@ -208,12 +226,11 @@ inline static void *GetFunctionOffsetByIndex(uint8_t *const script, const size_t
 		return NULL;
 	
 	for( size_t i=0 ; i<funcs ; i++ ) {
-		const struct TaghaItem *const restrict item = reader.Ptr;
-		reader.UCharPtr += sizeof *item;
-		
+		const struct TaghaItem item = *(struct TaghaItem *)reader.Ptr;
+		reader.UCharPtr += sizeof item;
 		if( i==index )
-			return reader.UCharPtr + item->StrLen;
-		else reader.UCharPtr += (item->StrLen + item->DataLen);
+			return reader.UCharPtr + item.StrLen;
+		else reader.UCharPtr += (item.StrLen + item.DataLen);
 	}
 	return NULL;
 }
@@ -230,11 +247,11 @@ inline static void *GetVariableOffsetByName(uint8_t *const script, const char *r
 	
 	const size_t globalvars = *reader.UInt32Ptr++;
 	for( size_t i=0 ; i<globalvars ; i++ ) {
-		const struct TaghaItem *const restrict item = reader.Ptr;
-		reader.UCharPtr += sizeof *item;
+		const struct TaghaItem item = *(struct TaghaItem *)reader.Ptr;
+		reader.UCharPtr += sizeof item;
 		if( !strcmp(varname, reader.Ptr) )
-			return reader.UCharPtr + item->StrLen;
-		else reader.UCharPtr += (item->StrLen + item->DataLen);
+			return reader.UCharPtr + item.StrLen;
+		else reader.UCharPtr += (item.StrLen + item.DataLen);
 	}
 	return NULL;
 }
@@ -254,11 +271,11 @@ inline static void *GetVariableOffsetByIndex(uint8_t *const script, const size_t
 		return NULL;
 	
 	for( size_t i=0 ; i<globalvars ; i++ ) {
-		const struct TaghaItem *const restrict item = reader.Ptr;
-		reader.UCharPtr += sizeof *item;
+		const struct TaghaItem item = *(struct TaghaItem *)reader.Ptr;
+		reader.UCharPtr += sizeof item;
 		if( i==index )
-			return reader.UCharPtr + item->StrLen;
-		else reader.UCharPtr += (item->StrLen + item->DataLen);
+			return reader.UCharPtr + item.StrLen;
+		else reader.UCharPtr += (item.StrLen + item.DataLen);
 	}
 	return NULL;
 }
@@ -300,20 +317,19 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		addrmode = opcode >> 8; \
 		\
 		if( instr>nop ) { \
-			/*puts("Tagha_Exec :: instr out of bounds.");*/ \
 			return ErrInstrBounds; \
 		} \
 		\
-		/*TaghaDebug_PrintRegisters(vm);*/ \
 		/*sleep(1);*/ \
 		/*printf("dispatching to '%s'\n", opcode2str[instr]);*/ \
 		goto *dispatch[instr]
 	
 	DISPATCH();
 	
-	exec_halt:;
+	exec_halt:; {
+		//TaghaDebug_PrintRegisters(vm);
 		return regs[regAlaf].Int32;
-	
+	}
 	exec_nop:; {
 		DISPATCH();
 	}
@@ -1311,30 +1327,21 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		 * void NativeFunc(struct Tagha *sys, union Value *retval, const size_t args, union Value params[static args]);
 		 */
 		const union Value *const restrict nativeref = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, index);
-		if( !nativeref or !nativeref->VoidFunc ) {
-			DISPATCH();
-		}
+		if( nativeref and nativeref->VoidFunc ) {
+			const uint8_t reg_params = 8;
+			const uint8_t reg_param_initial = regSemkath;
+			regs[regAlaf].UInt64 = 0;
 		
-		union Value params[argcount];
-		const size_t bytecount = sizeof(union Value) * argcount;
-		/*memset(params, 0, bytecount); */
-		
-		const size_t reg_params = 8;
-		const enum RegID reg_param_initial = regSemkath;
-		
-		/* save stack space by using the registers for passing arguments. */
-		/* the other registers can then be used for other data operations. */
-		if( argcount <= reg_params ) {
-			memcpy(params, regs+reg_param_initial, bytecount);
+			/* save stack space by using the registers for passing arguments. */
+			/* the other registers can then be used for other data operations. */
+			if( argcount <= reg_params ) {
+				(*nativeref->VoidFunc)(vm, regs+regAlaf, argcount, regs+reg_param_initial);
+			}
+			/* if the native has more than a certain num of params, get from both registers and stack. */
+			else if( argcount > reg_params ) {
+				InvokeNative(vm, regs, argcount, nativeref->VoidFunc);
+			}
 		}
-		/* if the native has more than a certain num of params, get from both registers and stack. */
-		else if( argcount > reg_params ) {
-			memcpy(params, regs+reg_param_initial, sizeof(union Value) * reg_params);
-			memcpy(params+reg_params, regs[regStk].SelfPtr, sizeof(union Value) * (argcount-reg_params));
-			regs[regStk].SelfPtr += (argcount-reg_params);
-		}
-		regs[regAlaf].UInt64 = 0;
-		(*nativeref->VoidFunc)(vm, regs+regAlaf, argcount, params);
 		DISPATCH();
 	}
 #if FLOATING_POINT_OPS
@@ -1807,7 +1814,6 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	
 	uint8_t *const main_offset = GetFunctionOffsetByName(vm->CurrScript.Ptr, "main");
 	if( !main_offset ) {
-		//puts("Tagha_RunScript :: ERROR: script contains no 'main' function.");
 		return ErrMissingFunc;
 	}
 	
@@ -1824,9 +1830,7 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	if( !stacksize )
 		return ErrStackSize;
 	
-	union Value Stack[stacksize+1];
-	memset(Stack, 0, sizeof(union Value) * stacksize);
-	/*union Value *StackLimit = Stack + stacksize+1; */
+	union Value Stack[stacksize+1]; memset(Stack, 0, sizeof Stack[0] * stacksize+1);
 	vm->Regs[regStk].SelfPtr = vm->Regs[regBase].SelfPtr = Stack + stacksize;
 	
 	(--vm->Regs[regStk].SelfPtr)->Int64 = -1LL;	/* push bullshit ret address. */
@@ -1854,14 +1858,13 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 		return ErrStackSize;
 	}
 	
-	union Value Stack[stacksize+1];
-	/* union Value *StackLimit = Stack + stacksize+1; */
+	union Value Stack[stacksize+1]; memset(Stack, 0, sizeof Stack[0] * stacksize+1);
 	vm->Regs[regStk].SelfPtr = vm->Regs[regBase].SelfPtr = Stack + stacksize;
 	
 	/* remember that arguments must be passed right to left. */
 	/* we have enough args to fit in registers. */
-	const size_t reg_params = 8;
-	const enum RegID reg_param_initial = regSemkath;
+	const uint8_t reg_params = 8;
+	const uint8_t reg_param_initial = regSemkath;
 	const size_t bytecount = sizeof(union Value) * args;
 	
 	/* save stack space by using the registers for passing arguments. */
@@ -1869,7 +1872,7 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 	if( args <= reg_params ) {
 		memcpy(vm->Regs+reg_param_initial, values, bytecount);
 	}
-	/* if the native has more than a certain num of params, get from both registers and stack. */
+	/* if the function has more than a certain num of params, push from both registers and stack. */
 	else if( args > reg_params ) {
 		memcpy(vm->Regs+reg_param_initial, values, sizeof(union Value) * reg_params);
 		memcpy(vm->Regs[regStk].SelfPtr, values+reg_params, sizeof(union Value) * (args-reg_params));
@@ -1893,3 +1896,4 @@ void *Tagha_GetGlobalVarByName(struct Tagha *const restrict vm, const char *rest
 }
 
 /************************************************/
+

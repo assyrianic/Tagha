@@ -15,5 +15,4 @@ gcc -Wextra -Wall -std=c99 -pg -O2 test_hostapp.c -L. -ltagha -o taghavm_hosttes
 
 ./taghavm_hosttest "test_fib.tbc"
 gprof taghavm_hosttest gmon.out > Tagha_profile.txt
-
 rm gmon.out

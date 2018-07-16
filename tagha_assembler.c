@@ -158,15 +158,36 @@ bool TaghaAsm_ParseGlobalVarDirective(struct TaghaAsmbler *const restrict tasm)
 			String_Del(tasm->Lexeme);
 			const char quote = *tasm->Iter++;
 			while( *tasm->Iter and *tasm->Iter != quote ) {
-				char charval = *tasm->Iter++;
+				const char charval = *tasm->Iter++;
 				if( !charval ) { // sudden EOF?
 					puts("tasm error: sudden EOF in global directive string copying!");
 					exit(-1);
 				}
-				String_AddChar(tasm->Lexeme, charval);
 				// handle escape chars
-				if( charval=='\\' )
-					String_AddChar(tasm->Lexeme, *tasm->Iter++);
+				if( charval=='\\' ) {
+					const char escape = *tasm->Iter++;
+					switch( escape ) {
+						case 'a':
+							String_AddChar(tasm->Lexeme, '\a'); break;
+						case 'n':
+							String_AddChar(tasm->Lexeme, '\n'); break;
+						case 'r':
+							String_AddChar(tasm->Lexeme, '\r'); break;
+						case 't':
+							String_AddChar(tasm->Lexeme, '\t'); break;
+						case 'v':
+							String_AddChar(tasm->Lexeme, '\v'); break;
+						case 'f':
+							String_AddChar(tasm->Lexeme, '\f'); break;
+						case '\'':
+							String_AddChar(tasm->Lexeme, '\''); break;
+						case '"':
+							String_AddChar(tasm->Lexeme, '"'); break;
+						case '\\':
+							String_AddChar(tasm->Lexeme, '\\'); break;
+					}
+				}
+				else String_AddChar(tasm->Lexeme, charval);
 			}
 			ByteBuffer_InsertString(vardata, tasm->Lexeme->CStr, tasm->Lexeme->Len);
 			bytes = 0;
@@ -775,7 +796,7 @@ bool TaghaAsm_ParseLEAInstr(struct TaghaAsmbler *const restrict tasm, const bool
 	return true;
 }
 
-// syscall func_name, number_of_arguments
+// syscall func_name
 bool TaghaAsm_ParseSysCallInstr(struct TaghaAsmbler *const restrict tasm, const bool firstpass)
 {
 	if( !tasm or !tasm->Src or !tasm->Iter )
@@ -894,6 +915,7 @@ bool TaghaAsm_ParseSysCallInstr(struct TaghaAsmbler *const restrict tasm, const 
 	const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
 	argcount = strtoul(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
 	SkipWhiteSpace(&tasm->Iter);
+	
 	
 	if( !firstpass ) {
 		struct LabelInfo *label = LinkMap_Get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
@@ -1630,6 +1652,7 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 						break;
 				#ifdef FLOATING_POINT_OPS
 					case flt2dbl: case dbl2flt:
+					case int2dbl: case int2flt:
 						TaghaAsm_ParseFloatConvInstr(tasm, false);
 						break;
 					case addf: case subf: case mulf: case divf:

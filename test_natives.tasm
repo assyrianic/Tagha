@@ -1,0 +1,27 @@
+$stacksize 0xFF
+$global test_str, 13, "hello world\n"
+$native %strlen    ; size_t strlen(const char *);
+
+; int main()
+; {
+; 	int length = 0; // 10000000
+; 	for (int i = 0; i < iterations; i++)
+; 		length = strlen(s);
+; }
+
+%main: {
+	mov [long rbp-4], 0 ; int length = 0;
+	mov [long rbp-8], 0 ; int i = 0;
+	jmp .L2
+.L3:
+	lea rsemkath, test_str
+	syscall %strlen, 1
+	mov [long rbp-4], ralaf
+	inc [long rbp-8]
+.L2:
+	lt [long rbp-8], 10000000
+	jnz .L3
+	mul [long rbp-4], 10000000
+	mov ralaf, [long rbp-4]
+	ret
+}

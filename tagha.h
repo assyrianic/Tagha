@@ -50,11 +50,6 @@ extern "C" {
  *		else: 8 bytes: var address (0 at first, filled in during runtime)
  */
 
-enum ScriptFlags {
-	FlagSafeMode	= 0x01,
-	FlagDebug		= 0x02,
-};
-
 #pragma pack(push, 1)
 struct TaghaItem {
 	uint8_t DataFlags;
@@ -66,7 +61,7 @@ struct TaghaItem {
 struct TaghaModule {
 	uint16_t Magic;
 	uint32_t StackSize;
-	uint8_t ModuleFlags;
+	uint8_t Flags;
 	uint32_t FuncTblSize;
 	uint32_t FuncCount;
 };
@@ -215,10 +210,10 @@ struct CNativeInfo {
 class CTagha : public Tagha {
  public:
 	CTagha(void *);
-	CTagha(void *, struct CNativeInfo []);
+	CTagha(void *, const struct CNativeInfo []);
 	~CTagha();
 	
-	bool RegisterNatives(struct CNativeInfo []);
+	bool RegisterNatives(const struct CNativeInfo []);
 	void *GetGlobalVarByName(const char *);
 	int32_t CallFunc(const char *, size_t, union Value []);
 	union Value GetReturnValue();

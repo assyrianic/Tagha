@@ -57,7 +57,6 @@ static void native_fopen(struct Tagha *const restrict sys, union Value *const re
 {
 	const char *mode = params[1].Ptr;
 	if( !mode ) {
-		RetVal->Ptr = NULL;
 		return;
 	}
 	RetVal->Ptr = fopen(params[0].Ptr, mode);
@@ -70,13 +69,10 @@ static void native_freopen(struct Tagha *const restrict sys, union Value *const 
 	const char *mode = params[1].Ptr;
 	FILE *pStream = params[2].Ptr;
 	
-	if( !filename or !mode or !pStream )
-		goto error;
-	
+	if( !filename or !mode or !pStream ) {
+		return; // retval data is already zeroed out.
+	}
 	RetVal->Ptr = freopen(filename, mode, pStream);
-	return;
-error:;
-	RetVal->Ptr = NULL;
 }
 
 /* void setbuf(FILE *stream, char *buffer); */

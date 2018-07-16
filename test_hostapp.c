@@ -25,7 +25,6 @@ void Native_puts(struct Tagha *sys, union Value *retval, const size_t args, unio
 	(void)sys;
 	const char *p = params[0].Ptr;
 	if( !p ) {
-		puts("Native_puts :: ERROR **** p is NULL ****");
 		retval->Int32 = -1;
 		return;
 	}
@@ -38,17 +37,24 @@ void Native_fgets(struct Tagha *sys, union Value *retval, const size_t args, uni
 	(void)sys;
 	char *buf = params[0].Ptr;
 	if( !buf ) {
-		puts("buf is NULL");
 		retval->Ptr = NULL;
 		return;
 	}
 	FILE *stream = params[2].Ptr;
 	if( !stream ) {
-		puts("stream is NULL");
 		retval->Ptr = NULL;
 		return;
 	}
 	retval->Ptr = fgets(buf, params[1].Int32, stream);
+}
+
+/* size_t strlen(const char *s); */
+void Native_strlen(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[static args])
+{
+	(void)sys; (void)args;
+	const char *s = params[0].Ptr;
+	for( ; *s ; s++ );
+	retval->UInt64 = (s - (const char *)params[0].Ptr);
 }
 
 static size_t GetFileSize(FILE *const restrict file)
@@ -83,9 +89,10 @@ int main(int argc, char *argv[static argc])
 	(void)val;
 	fclose(script), script=NULL;
 	
-	struct NativeInfo host_natives[] = {
+	const struct NativeInfo host_natives[] = {
 		{"puts", Native_puts},
 		{"fgets", Native_fgets},
+		{"strlen", Native_strlen},
 		{NULL, NULL}
 	};
 	
@@ -107,5 +114,4 @@ int main(int argc, char *argv[static argc])
 	if( pp )
 		printf("player.speed: '%f' | player.health: '%u' | player.ammo: '%u'\n", player.speed, player.health, player.ammo);
 	printf("result?: '%i' | profile time: '%f'\n", result, (clock()-start)/(double)CLOCKS_PER_SEC);
-	//TaghaDebug_PrintRegisters(&vm);
 }

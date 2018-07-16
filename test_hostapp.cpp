@@ -51,6 +51,13 @@ void Native_fgets(class CTagha *sys, union Value *retval, const size_t args, uni
 	retval->Ptr = (void *)fgets(buf, params[1].Int32, stream);
 }
 
+/* size_t strlen(const char *s); */
+void Native_strlen(class CTagha *sys, union Value *retval, const size_t args, union Value params[])
+{
+	(void)sys; (void)args;
+	retval->UInt64 = strlen((const char *)params[0].Ptr);
+}
+
 static size_t GetFileSize(FILE *const __restrict file)
 {
 	int64_t size = 0L;
@@ -88,6 +95,7 @@ int main(int argc, char *argv[])
 	struct CNativeInfo host_natives[] = {
 		{"puts", Native_puts},
 		{"fgets", Native_fgets},
+		{"strlen", Native_strlen},
 		{nullptr, nullptr}
 	};
 	CTagha vm = CTagha(process, host_natives);

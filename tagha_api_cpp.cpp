@@ -5,19 +5,19 @@ CTagha::CTagha(void *script)
 	Tagha_Init((struct Tagha *)this, script);
 }
 
-CTagha::CTagha(void *script, struct CNativeInfo natives[])
+CTagha::CTagha(void *script, const struct CNativeInfo natives[])
 {
 	Tagha_Init((struct Tagha *)this, script);
-	Tagha_RegisterNatives((struct Tagha *)this, (struct NativeInfo *)natives);
+	Tagha_RegisterNatives((struct Tagha *)this, (const struct NativeInfo *)natives);
 }
 CTagha::~CTagha()
 {
 	
 }
 
-bool CTagha::RegisterNatives(struct CNativeInfo natives[])
+bool CTagha::RegisterNatives(const struct CNativeInfo natives[])
 {
-	return Tagha_RegisterNatives((struct Tagha *)this, (struct NativeInfo *)natives);
+	return Tagha_RegisterNatives((struct Tagha *)this, (const struct NativeInfo *)natives);
 }
 void *CTagha::GetGlobalVarByName(const char *varname)
 {
