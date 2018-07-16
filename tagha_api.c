@@ -1818,8 +1818,10 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	
 	/* push argc, argv to registers. */
 	union Value MainArgs[argc+1];
-	for( int i=0 ; i<=argc ; i++ )
-		MainArgs[i].Ptr = argv[i];
+	MainArgs[argc].Ptr = NULL;
+	if( argv )
+		for( int i=0 ; i<=argc ; i++ )
+			MainArgs[i].Ptr = argv[i];
 	
 	vm->Regs[reg_Eh].Ptr = MainArgs;
 	vm->Regs[regSemkath].Int32 = argc;
