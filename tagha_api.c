@@ -379,7 +379,6 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	 */
 	exec_lea:; {
 		const uint8_t regid = *regs[regInstr].UCharPtr++;
-		
 		if( addrmode & Immediate ) { /* Immediate mode will load a global value */
 			regs[regid].Ptr = GetVariableOffsetByIndex(vm->CurrScript.Ptr, *regs[regInstr].UInt64Ptr++);
 		}
