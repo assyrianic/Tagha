@@ -57,6 +57,12 @@ void Native_strlen(struct Tagha *const restrict sys, union Value *const restrict
 	retval->UInt64 = (s - (const char *)params[0].Ptr);
 }
 
+void Native_AddOne(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[static args])
+{
+	(void)sys; (void)args;
+	retval->Int32 = params[0].Int32 + 1;
+}
+
 static size_t GetFileSize(FILE *const restrict file)
 {
 	int64_t size = 0L;
@@ -93,6 +99,7 @@ int main(int argc, char *argv[static argc])
 		{"puts", Native_puts},
 		{"fgets", Native_fgets},
 		{"strlen", Native_strlen},
+		{"AddOne", Native_AddOne},
 		{NULL, NULL}
 	};
 	

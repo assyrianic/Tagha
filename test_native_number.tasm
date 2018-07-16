@@ -1,12 +1,11 @@
 $stacksize 0xFF
-$global test_str, 13, "hello world\n"
-$native %strlen    ; size_t strlen(const char *);
+$native %AddOne    ; int AddOne(const int n);
 
 ; int main()
 ; {
-; 	int length = 0; // 10,000,000
+; 	int count = 0; // 1,000,000,000
 ; 	for (int i = 0; i < iterations; i++)
-; 		length = strlen(s);
+; 		count = AddOne(count);
 ; }
 
 %main: {
@@ -14,14 +13,13 @@ $native %strlen    ; size_t strlen(const char *);
 	mov [long rbp-8], 0 ; int i = 0;
 	jmp .L2
 .L3:
-	lea rsemkath, test_str
-	syscall %strlen, 1
+	mov rsemkath, [long rbp-4]
+	syscall %AddOne, 1
 	mov [long rbp-4], ralaf
 	inc [long rbp-8]
 .L2:
-	lt [long rbp-8], 10000000
+	lt [long rbp-8], 1000000000
 	jnz .L3
-	mul [long rbp-4],	10000000
 	mov ralaf, [long rbp-4]
 	ret
 }

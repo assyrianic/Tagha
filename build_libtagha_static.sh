@@ -1,6 +1,6 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-gcc			-Wextra -Wall -g -std=c99 -O2 -c	tagha_api.c #-fno-guess-branch-probability -fomit-frame-pointer -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations
+gcc			-Wextra -Wall -std=c99 -O2 -c	tagha_api.c #-fno-guess-branch-probability -fomit-frame-pointer -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations
 ar			cr libtagha.a	tagha_api.o
 
 #gcc		-Wextra -Wall -std=c99 -Os -S -masm=intel tagha_api.c

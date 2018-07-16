@@ -9,7 +9,7 @@ test_factorial.tbc - purpose: test stack and recursive call frames.
 		register[0] == 120 <--
 		factorial result == 120 <--
 
-test_native.tbc - purpose: calling a native and testing a host app-side variable being modified by the script.
+test_global.tbc - purpose: calling a native and testing a host app-side variable being modified by the script.
 	accurate result:
 		player.speed: '300.000000' | player.health: '100' | player.ammo: '32'
 
@@ -22,3 +22,10 @@ test_stdin.tbc - purpose: advanced test combo of calling natives, passing host e
 		register[15] == 256 <-- size of buffer array.
 		register[16] == 3077363104 <-- ptr value of 'stdin'. (random number because ptr)
 
+test_native_string.tbc - purpose: profile loading a string and calling a C function 10 million times.
+	accurate result:
+		result?: '120000000' <-- "120,000,000"
+
+test_native_number.tbc - purpose: profile calling a C function 1 billion times with a number and adding it.
+	accurate result:
+		result?: '1000000000' <-- "1,000,000,000"

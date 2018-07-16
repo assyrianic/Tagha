@@ -58,6 +58,13 @@ void Native_strlen(class CTagha *sys, union Value *retval, const size_t args, un
 	retval->UInt64 = strlen((const char *)params[0].Ptr);
 }
 
+void Native_AddOne(class CTagha *sys, union Value *retval, const size_t args, union Value params[])
+{
+	(void)sys; (void)args;
+	retval->Int32 = params[0].Int32 + 1;
+}
+
+
 static size_t GetFileSize(FILE *const __restrict file)
 {
 	int64_t size = 0L;
@@ -96,6 +103,7 @@ int main(int argc, char *argv[])
 		{"puts", Native_puts},
 		{"fgets", Native_fgets},
 		{"strlen", Native_strlen},
+		{"AddOne", Native_AddOne},
 		{nullptr, nullptr}
 	};
 	CTagha vm = CTagha(process, host_natives);
