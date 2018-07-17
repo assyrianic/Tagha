@@ -3,7 +3,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
 #include "tagha.h"
 
 inline static void			*GetFunctionOffsetByName(uint8_t *, const char *);
@@ -1326,20 +1325,21 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		 * void NativeFunc(struct Tagha *sys, union Value *retval, const size_t args, union Value params[static args]);
 		 */
 		const union Value *const restrict nativeref = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, index);
-		if( nativeref and nativeref->VoidFunc ) {
-			const uint8_t reg_params = 8;
-			const uint8_t reg_param_initial = regSemkath;
-			regs[regAlaf].UInt64 = 0;
-		
-			/* save stack space by using the registers for passing arguments. */
-			/* the other registers can then be used for other data operations. */
-			if( argcount <= reg_params ) {
-				(*nativeref->VoidFunc)(vm, regs+regAlaf, argcount, regs+reg_param_initial);
-			}
-			/* if the native has more than a certain num of params, get from both registers and stack. */
-			else if( argcount > reg_params ) {
-				InvokeNative(vm, regs, argcount, nativeref->VoidFunc);
-			}
+		if( !nativeref or !nativeref->VoidFunc ) {
+			DISPATCH();
+		}
+		const uint8_t reg_params = 8;
+		const uint8_t reg_param_initial = regSemkath;
+		regs[regAlaf].UInt64 = 0;
+	
+		/* save stack space by using the registers for passing arguments. */
+		/* the other registers can then be used for other data operations. */
+		if( argcount <= reg_params ) {
+			(*nativeref->VoidFunc)(vm, regs+regAlaf, argcount, regs+reg_param_initial);
+		}
+		/* if the native has more than a certain num of params, get from both registers and stack. */
+		else if( argcount > reg_params ) {
+			InvokeNative(vm, regs, argcount, nativeref->VoidFunc);
 		}
 		DISPATCH();
 	}
@@ -1822,7 +1822,6 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	if( argv )
 		for( int i=0 ; i<=argc ; i++ )
 			MainArgs[i].Ptr = argv[i];
-	
 	vm->Regs[reg_Eh].Ptr = MainArgs;
 	vm->Regs[regSemkath].Int32 = argc;
 	
