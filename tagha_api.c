@@ -1398,7 +1398,6 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			else if( addrmode & RegIndirect ) {
 				const uint8_t sec_regid = *regs[regInstr].UCharPtr++;
 				const union Value effective_address = (union Value){.UCharPtr = regs[sec_regid].UCharPtr + *regs[regInstr].Int32Ptr++};
-				regs[regid].Float += *effective_address.FloatPtr;
 				
 				if( addrmode & FourBytes )
 					regs[regid].Float += *effective_address.FloatPtr;
