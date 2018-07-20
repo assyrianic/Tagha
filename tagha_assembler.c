@@ -1416,12 +1416,6 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 	LinkMap_Insert(tasm->Registers, "RTAW", (union Value){.UInt64 = regTaw});
 	LinkMap_Insert(tasm->Registers, "rtaw", (union Value){.UInt64 = regTaw});
 	
-	LinkMap_Insert(tasm->Registers, "RTAW", (union Value){.UInt64 = regTaw});
-	LinkMap_Insert(tasm->Registers, "rtaw", (union Value){.UInt64 = regTaw});
-	
-	LinkMap_Insert(tasm->Registers, "RTAW", (union Value){.UInt64 = regTaw});
-	LinkMap_Insert(tasm->Registers, "rtaw", (union Value){.UInt64 = regTaw});
-	
 	LinkMap_Insert(tasm->Registers, "RSP", (union Value){.UInt64 = regStk});
 	LinkMap_Insert(tasm->Registers, "rsp", (union Value){.UInt64 = regStk});
 	
@@ -1484,6 +1478,7 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 				const bool funclbl = *tasm->Iter == '%';
 				// the dot or percent is added to our lexeme
 				LexIdentifier(&tasm->Iter, tasm->Lexeme);
+				SkipWhiteSpace(&tasm->Iter);
 				if( *tasm->Iter == ':' )
 					tasm->Iter++;
 				

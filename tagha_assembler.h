@@ -31,7 +31,6 @@ struct TaghaAsmbler {
 };
 
 bool TaghaAsm_Assemble(struct TaghaAsmbler *);
-bool TaghaAsm_Del(struct TaghaAsmbler *);
 
 
 #ifdef __cplusplus

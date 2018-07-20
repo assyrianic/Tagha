@@ -10,8 +10,8 @@ struct Player {
 	uint32_t	health, ammo;
 };
 
-/* lldiv_t lldiv(long long int numer, long long int denom); */
-void Native_lldiv(struct Tagha *sys, union Value *retval, const size_t args, union Value params[static args])
+// lldiv_t lldiv(long long int numer, long long int denom);
+void Native_lldiv(struct Tagha *sys, union Value *retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys;
 	(void)retval; // makes the compiler stop bitching.
@@ -19,8 +19,8 @@ void Native_lldiv(struct Tagha *sys, union Value *retval, const size_t args, uni
 	*val = lldiv(params[1].Int64, params[2].Int64);
 }
 
-/* int puts(const char *str); */
-void Native_puts(struct Tagha *sys, union Value *retval, const size_t args, union Value params[static args])
+// int puts(const char *str);
+void Native_puts(struct Tagha *sys, union Value *retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys;
 	const char *p = params[0].Ptr;
@@ -31,8 +31,8 @@ void Native_puts(struct Tagha *sys, union Value *retval, const size_t args, unio
 	retval->Int32 = puts(p);
 }
 
-/* char *fgets(char *buffer, int num, FILE *stream); */
-void Native_fgets(struct Tagha *sys, union Value *retval, const size_t args, union Value params[static args])
+// char *fgets(char *buffer, int num, FILE *stream);
+void Native_fgets(struct Tagha *sys, union Value *retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys;
 	char *buf = params[0].Ptr;
@@ -48,8 +48,8 @@ void Native_fgets(struct Tagha *sys, union Value *retval, const size_t args, uni
 	retval->Ptr = fgets(buf, params[1].Int32, stream);
 }
 
-/* size_t strlen(const char *s); */
-void Native_strlen(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[static args])
+// size_t strlen(const char *s);
+void Native_strlen(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys; (void)args;
 	const char *s = params[0].Ptr;
@@ -57,11 +57,12 @@ void Native_strlen(struct Tagha *const restrict sys, union Value *const restrict
 	retval->UInt64 = (s - (const char *)params[0].Ptr);
 }
 
-void Native_AddOne(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[static args])
+void Native_AddOne(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys; (void)args;
 	retval->Int32 = params[0].Int32 + 1;
 }
+
 
 static size_t GetFileSize(FILE *const restrict file)
 {
@@ -78,7 +79,7 @@ static size_t GetFileSize(FILE *const restrict file)
 	return (size_t)size;
 }
 
-int main(int argc, char *argv[static argc])
+int main(int argc, char *argv[restrict static argc])
 {
 	if( !argv[1] ) {
 		printf("[TaghaVM Usage]: '%s' '.tbc filepath' \n", argv[0]);
@@ -115,6 +116,7 @@ int main(int argc, char *argv[static argc])
 	
 	char i[] = "hello from main argv!";
 	char *arguments[] = {i, NULL};
+	
 	clock_t start = clock();
 	int32_t result = Tagha_RunScript(&vm, 1, arguments);
 	//int32_t result = Tagha_CallFunc(&vm, "factorial", 1, &(union Value){.UInt64 = 5});

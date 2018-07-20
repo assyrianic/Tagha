@@ -1,7 +1,7 @@
 $stacksize 0xaffff
 
 %main:{
-	mov rsemkath, 43
+	mov rsemkath, 34
 	call %fib
 	ret
 }
@@ -17,9 +17,7 @@ $stacksize 0xaffff
 	push	rbeth
 	mov	[long rbp-4], rsemkath
 	
-	cmp	[long rbp-4], 0    ; if( i==0 )
-	jnz	.exit
-	cmp	[long rbp-4], 1    ; if( i==1 )
+	lt	[long rbp-4], 2    ; if( i==0 )
 	jz	.evalfib
 	
 .exit:
