@@ -8,16 +8,14 @@ $stacksize 0xaffff
 
 ; int fib(int n)
 ; {
-; 	if(n==0 || n==1)
-; 		return n;
-; 	return fib(n-1)+fib(n-2);
+; 	return (n<2) ? n : fib(n-1)+fib(n-2);
 ; }
 
 %fib: {
 	push	rbeth
 	mov	[long rbp-4], rsemkath
 	
-	lt	[long rbp-4], 2    ; if( i==0 )
+	lt	[long rbp-4], 2    ; if( i<2 )
 	jz	.evalfib
 	
 .exit:

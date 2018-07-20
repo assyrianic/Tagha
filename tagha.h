@@ -50,6 +50,24 @@ extern "C" {
  *		else: 8 bytes: var address (0 at first, filled in during runtime)
  */
 
+union Pointer {
+	uint8_t *restrict UInt8Ptr;
+	uint16_t *restrict UInt16Ptr;
+	uint32_t *restrict UInt32Ptr;
+	uint64_t *restrict UInt64Ptr;
+	
+	int8_t *restrict Int8Ptr;
+	int16_t *restrict Int16Ptr;
+	int32_t *restrict Int32Ptr;
+	int64_t *restrict Int64Ptr;
+	
+	float *restrict FloatPtr;
+	double *restrict DoublePtr;
+	
+	union Value *restrict ValPtr;
+	void *restrict Ptr;
+};
+
 #pragma pack(push, 1)
 struct TaghaItem {
 	uint8_t DataFlags;
