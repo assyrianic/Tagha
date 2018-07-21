@@ -1,5 +1,5 @@
 # Tagha Virtual Machine
-TaghaVM is a minimal yet complex register-based virtual machine && runtime environment designed as an alternative to a C dynamic loading plugin system as well as giving binary portability to C code!
+TaghaVM is a minimal, fast, self-contained, and complex register-based virtual machine && runtime environment designed as an alternative to a C dynamic loading plugin system as well as giving binary portability to C code!
 
 Why? (See the Wiki for the full explanations)
 Four reasons:
@@ -9,6 +9,8 @@ Four reasons:
 * 4. Create a minimal and easy to use library for others to use in their projects.
 
 # Features
+* self-contained.
+* has its own implementation of libc specially for TaghaVM.
 * register-based virtual machine with 3 different addressing modes to tackle any kind of operation.
 * 22 **general purpose registers** + 3 reserved-use (stack pointers and instruction pointer) registers.
 * floats and doubles are supported.
