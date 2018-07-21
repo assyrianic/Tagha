@@ -65,7 +65,7 @@ void Tagha_InitN(struct Tagha *const restrict vm, void *script, const struct Nat
 	Tagha_RegisterNatives(vm, natives);
 }
 
-
+/*
 void TaghaDebug_PrintRegisters(const struct Tagha *const restrict vm)
 {
 	if( !vm )
@@ -74,7 +74,7 @@ void TaghaDebug_PrintRegisters(const struct Tagha *const restrict vm)
 		printf("register[%zu] == '%" PRIu64 "'\n", i, vm->Regs[i].UInt64);
 	puts("\n");
 }
-
+*/
 bool Tagha_RegisterNatives(struct Tagha *const restrict vm, const struct NativeInfo natives[])
 {
 	if( !vm or !natives )
@@ -94,17 +94,17 @@ inline static void *GetFunctionOffsetByName(uint8_t *const script, const char *r
 	if( !funcname or !script )
 		return NULL;
 	
-	union Value reader = (union Value){.Ptr = script};
-	reader.UCharPtr += 11;
+	union Pointer reader = (union Pointer){.Ptr = script + 11};
+	const uint32_t funcs = *reader.UInt32Ptr++;
 	
-	const size_t funcs = *reader.UInt32Ptr++;
-	
-	for( size_t i=0 ; i<funcs ; i++ ) {
-		const struct TaghaItem *const restrict item = reader.Ptr;
-		reader.UCharPtr += sizeof *item;
-		if( !strcmp(funcname, reader.Ptr) )
-			return reader.UCharPtr + item->StrLen;
-		else reader.UCharPtr += (item->StrLen + item->DataLen);
+	for( uint32_t i=0 ; i<funcs ; i++ ) {
+		reader.UInt8Ptr++;
+		const uint64_t sizes = *reader.UInt64Ptr++;
+		const uint32_t cstrlen = sizes & 0xffFFffFF;
+		const uint32_t datalen = sizes >> 32;
+		if( !strcmp(funcname, reader.CStrPtr) )
+			return reader.UInt8Ptr + cstrlen;
+		else reader.UInt8Ptr += (cstrlen + datalen);
 	}
 	return NULL;
 }
@@ -114,19 +114,19 @@ inline static void *GetFunctionOffsetByIndex(uint8_t *const script, const size_t
 	if( !script )
 		return NULL;
 	
-	union Value reader = (union Value){.Ptr = script};
-	reader.UCharPtr += 11;
-	
-	const size_t funcs = *reader.UInt32Ptr++;
+	union Pointer reader = (union Pointer){.Ptr = script + 11};
+	const uint32_t funcs = *reader.UInt32Ptr++;
 	if( index >= funcs )
 		return NULL;
 	
-	for( size_t i=0 ; i<funcs ; i++ ) {
-		const struct TaghaItem *const restrict item = reader.Ptr;
-		reader.UCharPtr += sizeof *item;
+	for( uint32_t i=0 ; i<funcs ; i++ ) {
+		reader.UInt8Ptr++;
+		const uint64_t sizes = *reader.UInt64Ptr++;
+		const uint32_t cstrlen = sizes & 0xffFFffFF;
+		const uint32_t datalen = sizes >> 32;
 		if( i==index )
-			return reader.UCharPtr + item->StrLen;
-		else reader.UCharPtr += (item->StrLen + item->DataLen);
+			return reader.UInt8Ptr + cstrlen;
+		else reader.UInt8Ptr += (cstrlen + datalen);
 	}
 	return NULL;
 }
@@ -136,18 +136,19 @@ inline static void *GetVariableOffsetByName(uint8_t *const script, const char *r
 	if( !script or !varname )
 		return NULL;
 	
-	union Value reader = (union Value){.Ptr = script};
-	reader.UCharPtr += 7;
-	const size_t vartable_offset = *reader.UInt32Ptr++;
-	reader.UCharPtr += vartable_offset;
+	union Pointer reader = (union Pointer){.Ptr = script + 7};
+	const uint32_t vartable_offset = *reader.UInt32Ptr++;
+	reader.UInt8Ptr += vartable_offset;
 	
-	const size_t globalvars = *reader.UInt32Ptr++;
-	for( size_t i=0 ; i<globalvars ; i++ ) {
-		const struct TaghaItem *const restrict item = reader.Ptr;
-		reader.UCharPtr += sizeof *item;
-		if( !strcmp(varname, reader.Ptr) )
-			return reader.UCharPtr + item->StrLen;
-		else reader.UCharPtr += (item->StrLen + item->DataLen);
+	const uint32_t globalvars = *reader.UInt32Ptr++;
+	for( uint32_t i=0 ; i<globalvars ; i++ ) {
+		reader.UInt8Ptr++;
+		const uint64_t sizes = *reader.UInt64Ptr++;
+		const uint32_t cstrlen = sizes & 0xffFFffFF;
+		const uint32_t datalen = sizes >> 32;
+		if( !strcmp(varname, reader.CStrPtr) )
+			return reader.UInt8Ptr + cstrlen;
+		else reader.UInt8Ptr += (cstrlen + datalen);
 	}
 	return NULL;
 }
@@ -157,21 +158,22 @@ inline static void *GetVariableOffsetByIndex(uint8_t *const script, const size_t
 	if( !script )
 		return NULL;
 	
-	union Value reader = (union Value){.Ptr = script};
-	reader.UCharPtr += 7;
-	const size_t vartable_offset = *reader.UInt32Ptr++;
-	reader.UCharPtr += vartable_offset;
+	union Pointer reader = (union Pointer){.Ptr = script + 7};
+	const uint32_t vartable_offset = *reader.UInt32Ptr++;
+	reader.UInt8Ptr += vartable_offset;
 	
-	const size_t globalvars = *reader.UInt32Ptr++;
+	const uint32_t globalvars = *reader.UInt32Ptr++;
 	if( index >= globalvars )
 		return NULL;
 	
-	for( size_t i=0 ; i<globalvars ; i++ ) {
-		const struct TaghaItem *const restrict item = reader.Ptr;
-		reader.UCharPtr += sizeof *item;
+	for( uint32_t i=0 ; i<globalvars ; i++ ) {
+		reader.UInt8Ptr++;
+		const uint64_t sizes = *reader.UInt64Ptr++;
+		const uint32_t cstrlen = sizes & 0xffFFffFF;
+		const uint32_t datalen = sizes >> 32;
 		if( i==index )
-			return reader.UCharPtr + item->StrLen;
-		else reader.UCharPtr += (item->StrLen + item->DataLen);
+			return reader.UInt8Ptr + cstrlen;
+		else reader.UInt8Ptr += (cstrlen + datalen);
 	}
 	return NULL;
 }
@@ -225,7 +227,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	DISPATCH();
 	
 	exec_halt:; {
-		TaghaDebug_PrintRegisters(vm);
+		//TaghaDebug_PrintRegisters(vm);
 		return regs[regAlaf].Int32;
 	}
 	exec_nop:; {
@@ -1224,7 +1226,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_call:; {
-		size_t index = -1;
+		uint64_t index = -1;
 		if( addrmode & Immediate ) {
 			index = ((*pc.UInt64Ptr++) - 1);
 		}
@@ -1262,7 +1264,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	exec_syscall:; {
 		/* how many args given to the native call. */
 		const uint32_t argcount = *pc.UInt32Ptr++;
-		size_t index = -1;
+		uint64_t index = -1;
 		/* trying to directly call a specific native. Allow this by imm only! */
 		if( addrmode & Immediate ) {
 			index = (-1 - *pc.Int64Ptr++);
@@ -1836,7 +1838,7 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 	/* we have enough args to fit in registers. */
 	const uint8_t reg_params = 8;
 	const uint8_t reg_param_initial = regSemkath;
-	const size_t bytecount = sizeof(union Value) * args;
+	const uint16_t bytecount = sizeof(union Value) * args;
 	
 	/* save stack space by using the registers for passing arguments. */
 	/* the other registers can be used for other data ops. */

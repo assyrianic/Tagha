@@ -64,6 +64,8 @@ union Pointer {
 	float *restrict FloatPtr;
 	double *restrict DoublePtr;
 	
+	const char *restrict CStrPtr;
+	
 	union Value *restrict ValPtr;
 	void *restrict Ptr;
 };
