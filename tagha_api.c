@@ -65,16 +65,41 @@ void Tagha_InitN(struct Tagha *const restrict vm, void *script, const struct Nat
 	Tagha_RegisterNatives(vm, natives);
 }
 
-/*
-void TaghaDebug_PrintRegisters(const struct Tagha *const restrict vm)
+void Tagha_PrintVMState(const struct Tagha *const restrict vm)
 {
 	if( !vm )
 		return;
-	for( size_t i=0 ; i<regsize ; i++ )
-		printf("register[%zu] == '%" PRIu64 "'\n", i, vm->Regs[i].UInt64);
-	puts("\n");
+	const union Value *const restrict regs = vm->Regs;
+	
+	printf("=== Tagha VM State Info ===\n\nPrinting Registers:\nregister alaf: '%" PRIu64 "'\nregister beth: '%" PRIu64 "'\nregister gamal: '%" PRIu64 "'\nregister dalath: '%" PRIu64 "'\nregister heh: '%" PRIu64 "'\nregister waw: '%" PRIu64 "'\nregister zain: '%" PRIu64 "'\nregister heth: '%" PRIu64 "'\nregister teth: '%" PRIu64 "'\nregister yodh: '%" PRIu64 "'\nregister kaf: '%" PRIu64 "'\nregister lamadh: '%" PRIu64 "'\nregister meem: '%" PRIu64 "'\nregister noon: '%" PRIu64 "'\nregister semkath: '%" PRIu64 "'\nregister eh: '%" PRIu64 "'\nregister peh: '%" PRIu64 "'\nregister sadhe: '%" PRIu64 "'\nregister qof: '%" PRIu64 "'\nregister reesh: '%" PRIu64 "'\nregister sheen: '%" PRIu64 "'\nregister taw: '%" PRIu64 "'\nregister stack pointer: '%p'\nregister base pointer: '%p'\nregister instruction pointer: '%p'\n\nPrinting Condition Flag: %u\n=== End Tagha VM State Info ===\n",
+	regs[regAlaf].UInt64,
+	regs[regBeth].UInt64,
+	regs[regGamal].UInt64,
+	regs[regDalath].UInt64,
+	regs[regHeh].UInt64,
+	regs[regWaw].UInt64,
+	regs[regZain].UInt64,
+	regs[regHeth].UInt64,
+	regs[regTeth].UInt64,
+	regs[regYodh].UInt64,
+	regs[regKaf].UInt64,
+	regs[regLamadh].UInt64,
+	regs[regMeem].UInt64,
+	regs[regNoon].UInt64,
+	regs[regSemkath].UInt64,
+	regs[reg_Eh].UInt64,
+	regs[regPeh].UInt64,
+	regs[regSadhe].UInt64,
+	regs[regQof].UInt64,
+	regs[regReesh].UInt64,
+	regs[regSheen].UInt64,
+	regs[regTaw].UInt64,
+	regs[regStk].Ptr,
+	regs[regBase].Ptr,
+	regs[regInstr].Ptr,
+	vm->CondFlag);
 }
-*/
+
 bool Tagha_RegisterNatives(struct Tagha *const restrict vm, const struct NativeInfo natives[])
 {
 	if( !vm or !natives )

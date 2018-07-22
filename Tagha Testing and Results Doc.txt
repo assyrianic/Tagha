@@ -1,12 +1,12 @@
 test_3d_vecs.tbc - purpose: test float and pointer/array arithmetics.
 	accurate result:
-		register[1] == 3221225472 <-- -2.f
-		register[2] == 3225419776 <-- -3.f
-		register[3] == 3229614080 <-- -4.f
+		register[beth] == 3221225472 <-- -2.f
+		register[gamal] == 3225419776 <-- -3.f
+		register[dalath] == 3229614080 <-- -4.f
 
 test_factorial.tbc - purpose: test stack and recursive call frames.
 	accurate result:
-		register[0] == 120 <--
+		register[alaf] == 120 <--
 		factorial result == 120 <--
 
 test_global.tbc - purpose: calling a native and testing a host app-side variable being modified by the script.
@@ -18,9 +18,9 @@ test_stdin.tbc - purpose: advanced test combo of calling natives, passing host e
 		Please enter a long string:  <--
 		*long pause because you're supposed to type stuff and hit enter.*
 		...
-		register[14] == 163399954 <-- address of buffer array. (random number because ptr)
-		register[15] == 256 <-- size of buffer array.
-		register[16] == 3077363104 <-- ptr value of 'stdin'. (random number because ptr)
+		register[semkath] == 163399954 <-- address of buffer array. (random number because ptr)
+		register[eh] == 256 <-- size of buffer array.
+		register[peh] == 3077363104 <-- ptr value of 'stdin'. (random number because ptr)
 
 test_native_string.tbc - purpose: profile loading a string and calling a C function 10 million times.
 	accurate result:

@@ -12,6 +12,7 @@ $stacksize 0xaffff
 ; }
 
 %fib: {
+	sub    rsp, 16
 	push	rbeth
 	mov	[long rbp-4], rsemkath
 	

@@ -37,12 +37,10 @@ void Native_fgets(struct Tagha *sys, union Value *retval, const size_t args, uni
 	(void)sys;
 	char *buf = params[0].Ptr;
 	if( !buf ) {
-		retval->Ptr = NULL;
 		return;
 	}
 	FILE *stream = params[2].Ptr;
 	if( !stream ) {
-		retval->Ptr = NULL;
 		return;
 	}
 	retval->Ptr = fgets(buf, params[1].Int32, stream);
@@ -122,5 +120,6 @@ int main(int argc, char *argv[restrict static argc])
 	//int32_t result = Tagha_CallFunc(&vm, "factorial", 1, &(union Value){.UInt64 = 5});
 	if( pp )
 		printf("player.speed: '%f' | player.health: '%u' | player.ammo: '%u'\n", player.speed, player.health, player.ammo);
+	Tagha_PrintVMState(&vm);
 	printf("result?: '%i' | profile time: '%f'\n", result, (clock()-start)/(double)CLOCKS_PER_SEC);
 }

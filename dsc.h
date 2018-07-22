@@ -3,10 +3,10 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#define restrict __restrict
 
 #if _WIN32 || _WIN64
 	#define OS_WINDOWS 1
-	#define restrict __restrict
 #elif unix || __unix || __unix__ || __linux__ || linux || __linux || __FreeBSD__
 	#define OS_LINUX_UNIX 1
 #elif __ANDROID__

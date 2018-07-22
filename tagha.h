@@ -71,13 +71,6 @@ union Pointer {
 };
 
 #pragma pack(push, 1)
-struct TaghaItem {
-	uint8_t DataFlags;
-	uint32_t StrLen, DataLen;
-};
-#pragma pack(pop)
-
-#pragma pack(push, 1)
 struct TaghaModule {
 	uint16_t Magic;
 	uint32_t StackSize;
@@ -148,6 +141,7 @@ struct Tagha {
 
 void Tagha_Init(struct Tagha *, void *);
 void Tagha_InitN(struct Tagha *, void *, const struct NativeInfo []);
+void Tagha_PrintVMState(const struct Tagha *);
 
 bool Tagha_RegisterNatives(struct Tagha *, const struct NativeInfo []);
 void *Tagha_GetGlobalVarByName(struct Tagha *, const char *);

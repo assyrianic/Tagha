@@ -25,7 +25,7 @@ $native %fgets  # char *fgets(char *, int, FILE *);
 	lea rpeh, stdin # loading a global only loads its address, we need the actual ptr value of stdin.
 	mov rpeh, [word rpeh]
 	mov r_eh, 256
-	lea rsemkath, [word rbp-256]
+	lea rsemkath, [rbp-256]
 	syscall %fgets, 3
 	ret
 }

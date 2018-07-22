@@ -8,18 +8,34 @@ $native %AddOne    ; int AddOne(const int n);
 ; 		count = AddOne(count);
 ; }
 
+;%main: {
+;	mov [long rbp-4], 0 ; int length = 0;
+;	mov [long rbp-8], 0 ; int i = 0;
+;	jmp .L2
+;.L3:
+;	mov rsemkath, [long rbp-4]
+;	syscall %AddOne, 1
+;	mov [long rbp-4], ralaf
+;	inc [long rbp-8]
+;.L2:
+;	lt [long rbp-8], 1000000000
+;	jnz .L3
+;	mov ralaf, [long rbp-4]
+;	ret
+;}
+
+
 %main: {
-	mov [long rbp-4], 0 ; int length = 0;
-	mov [long rbp-8], 0 ; int i = 0;
-	jmp .L2
-.L3:
-	mov rsemkath, [long rbp-4]
+	push rbeth
+	mov rbeth, 1000000000
+	xorb ralaf, ralaf
+
+.loop:
+	mov rsemkath, ralaf
 	syscall %AddOne, 1
-	mov [long rbp-4], ralaf
-	inc [long rbp-8]
-.L2:
-	lt [long rbp-8], 1000000000
-	jnz .L3
-	mov ralaf, [long rbp-4]
+	dec rbeth
+	cmp rbeth, 0
+	jz .loop
+	pop rbeth
 	ret
 }

@@ -39,13 +39,11 @@ void Native_fgets(class CTagha *sys, union Value *retval, const size_t args, uni
 	char *buf = (char *)params[0].Ptr;
 	if( !buf ) {
 		puts("buf is nullptr");
-		retval->Ptr = nullptr;
 		return;
 	}
 	FILE *stream = (FILE *)params[2].Ptr;
 	if( !stream ) {
 		puts("stream is nullptr");
-		retval->Ptr = nullptr;
 		return;
 	}
 	retval->Ptr = (void *)fgets(buf, params[1].Int32, stream);
