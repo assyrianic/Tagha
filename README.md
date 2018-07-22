@@ -13,7 +13,7 @@ Four reasons:
 * has its own implementation of libc specially for TaghaVM.
 * register-based virtual machine with 3 different addressing modes to tackle any kind of operation.
 * 22 **general purpose registers** + 3 reserved-use (stack pointers and instruction pointer) registers.
-* floats and doubles are supported.
+* floats and doubles are supported (can be compiled without).
 * uses computed gotos (the ones that use a void\*) which is 20%-25% faster than a switch {[citation](http://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables)}.
 * Tagha is "64-bit" as the registers and memory addresses are 64-bit. (will run slower on 32-bit systems/OSes)
 * Embeddable.
