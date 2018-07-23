@@ -203,7 +203,7 @@ inline static void *GetVariableOffsetByIndex(uint8_t *const script, const size_t
 	return NULL;
 }
 
-#include <unistd.h>	// sleep() func
+//#include <unistd.h>	// sleep() func
 
 int32_t Tagha_Exec(struct Tagha *const restrict vm)
 {
