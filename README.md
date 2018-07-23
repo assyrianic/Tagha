@@ -25,8 +25,7 @@ Four reasons:
 * little-endian format (only).
 * small. The runtime environment static library is only ~30kb.
 * Tagha is not natively threaded, this is by design, this is so any developer can thread Tagha in anyway you wish whether by having a single VM instance run multiple scripts in a multi-threaded, managed way OR have an array of Tagha VM instances each running their own scripts in a threaded manner.
-* Speed, tagha is arguably the fastest virtual machine that does not use a JIT. Compiled with GCC 6.4 under flags `-O2 -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations`, Tagha on a 64-bit system has reached speeds **below 0.7 seconds**![citation] If you don't believe this, build tasm, assemble `test_fib.tasm`, and profile it with the `profile.sh` script!
-- **[citation]** - [reference used](https://github.com/r-lyeh-archived/scriptorium#results)
+* Speed, tagha is very fast for a virtual machine that does not use a JIT.
 
 # How to Build Tagha
 Tagha's repo contains many build scripts. If you simply want a working static library and not have to fuss about...
