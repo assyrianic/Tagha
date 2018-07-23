@@ -203,7 +203,7 @@ inline static void *GetVariableOffsetByIndex(uint8_t *const script, const size_t
 	return NULL;
 }
 
-/* #include <unistd.h>	// sleep() func */
+#include <unistd.h>	// sleep() func
 
 int32_t Tagha_Exec(struct Tagha *const restrict vm)
 {
@@ -221,7 +221,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	
 #define X(x) #x ,
 	/* for debugging purposes. */
-	/*const char *const restrict opcode2str[] = { INSTR_SET };*/
+	//const char *const restrict opcode2str[] = { INSTR_SET };
 #undef X
 	
 	
@@ -245,8 +245,9 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			return ErrInstrBounds; \
 		} \
 		\
-		/*sleep(1);*/ \
+		/*usleep(100); */\
 		/*printf("dispatching to '%s'\n", opcode2str[instr]);*/ \
+		/*Tagha_PrintVMState(vm);*/ \
 		goto *dispatch[instr]
 	
 	DISPATCH();
@@ -1268,7 +1269,12 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			//puts("Tagha_Exec :: exec_call reported 'call_addr' is NULL");
 			DISPATCH();
 		}
-		
+		/* The restrict type qualifier is an indication to the compiler that,
+		 * if the memory addressed by the restrict-qualified pointer is modified,
+		 * no other pointer will access that same memory.
+		 * Since we're pushing the restrict-qualified pointer's memory that it points to,
+		 * This is NOT undefined behavior because it's not aliasing access of the instruction stream.
+		 */
 		(--regs[regStk].SelfPtr)->Ptr = pc.Ptr;	/* push rip */
 		*--regs[regStk].SelfPtr = regs[regBase];	/* push rbp */
 		regs[regBase] = regs[regStk];	/* mov rbp, rsp */
@@ -1315,7 +1321,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint8_t reg_params = 8;
 		const uint8_t reg_param_initial = regSemkath;
 		regs[regAlaf].UInt64 = 0;
-	
+		
 		/* save stack space by using the registers for passing arguments. */
 		/* the other registers can then be used for other data operations. */
 		if( argcount <= reg_params ) {

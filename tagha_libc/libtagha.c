@@ -38,7 +38,7 @@ static uint8_t *Tagha_LoadModule(const char *restrict module_name)
 }
 
 /* void *Tagha_LoadModule(const char *tbc_module_name); */
-static void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
+static void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[static args])
 {
 	(void)sys; (void)args;
 	const char *restrict module_name = params[0].Ptr;
@@ -46,7 +46,7 @@ static void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value
 }
 
 /* void *Tagha_GetGlobal(void *module, const char *symname); */
-static void Native_TaghaGetGlobal(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
+static void Native_TaghaGetGlobal(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[static args])
 {
 	(void)sys; (void)args;
 	const char *restrict symname = params[1].Ptr;
@@ -70,9 +70,9 @@ static void Native_TaghaGetGlobal(struct Tagha *const restrict sys, union Value 
 }
 
 /* bool Tagha_InvokeFunc(void *, const char *, union Value *, size_t, union Value []); */
-static void Native_TaghaInvoke(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
+static void Native_TaghaInvoke(struct Tagha *const restrict sys, union Value *const retval, const size_t args, union Value params[static args])
 {
-	(void)args;
+	(void)sys; (void)args;
 	uint8_t *const restrict module = params[0].Ptr;
 	if( !module ) {
 		return;
@@ -81,7 +81,10 @@ static void Native_TaghaInvoke(struct Tagha *const restrict sys, union Value *co
 	if( !funcname ) {
 		return;
 	}
-	const size_t argcount = params[3].UInt64;
+	union Value *const restrict retdata = params[2].SelfPtr;
+	if( !retdata ) {
+		return;
+	}
 	union Value *const restrict array = params[4].SelfPtr;
 	if( !array ) {
 		return;
@@ -93,33 +96,19 @@ static void Native_TaghaInvoke(struct Tagha *const restrict sys, union Value *co
 	 * doing so will make the old stack memory lost which is not good.
 	 * So let's save some of that data to prevent stack frame corruption.
 	 */
-	const struct TaghaModule *const callermodule = sys->Module;
-	const union Value stkptr = sys->Regs[regStk];
-	const union Value baseptr = sys->Regs[regBase];
-	Tagha_Init(sys, module);
+	struct Tagha *const restrict vmswitch = &(struct Tagha){0};
+	Tagha_Init(vmswitch, module);
 	
 	// make the call.
-	Tagha_CallFunc(sys, funcname, argcount, array);
-	
-	// pass return value.
-	*params[2].SelfPtr = sys->Regs[regAlaf];
-	
-	// pop instruction pointer to original function.
-	sys->Regs[regInstr].UCharPtr = (*sys->Regs[regStk].SelfPtr++).UCharPtr;
-	
-	// since we've popped instruction pointer from the new frame, we can restore old frame.
-	sys->Regs[regStk] = stkptr;
-	sys->Regs[regBase] = baseptr;
-	
-	// restore old module pointer.
-	sys->Module = callermodule;
+	Tagha_CallFunc(vmswitch, funcname, params[3].UInt64, array);
+	*retdata = vmswitch->Regs[regAlaf];
 	retval->Bool = true;
 }
 
 /* bool Tagha_FreeModule(void **module); */
 static void Native_TaghaFreeModule(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
 {
-	(void)sys; (void)args; (void)retval;
+	(void)sys; (void)args;
 	uint8_t **module = params[0].Ptr;
 	if( !module or !*module ) {
 		return;
@@ -138,9 +127,11 @@ bool Tagha_Load_libTagha_Natives(struct Tagha *const restrict sys)
 		{"Tagha_LoadModule", Native_TaghaLoadModule}, {"Tagha_GetGlobal", Native_TaghaGetGlobal},
 		{"Tagha_InvokeFunc", Native_TaghaInvoke}, {"Tagha_FreeModule", Native_TaghaFreeModule},
 		
-		{"tagha_load_module", Native_TaghaLoadModule}, {"tagha_get_global", Native_TaghaGetGlobal},
-		{"tagha_invoke_func", Native_TaghaInvoke}, {"tagha_free_module", Native_TaghaFreeModule},
+		{"tagha_load_module", Native_TaghaLoadModule},
+		{"tagha_get_global", Native_TaghaGetGlobal},
+		{"tagha_invoke_func", Native_TaghaInvoke},
+		{"tagha_free_module", Native_TaghaFreeModule},
 		{NULL, NULL}
 	};
-	return Tagha_RegisterNatives(sys, libtagha_natives);
+	return Tagha_RegisterNatives(sys, dynamic_loading);
 }

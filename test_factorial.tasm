@@ -5,7 +5,7 @@
 # also, the stack size will be aligned to a size of 8
 # so 129 will not actually make a stack size of 129 * 8 bytes,
 # 129 will be changed at runtime to 136 * 8
-$stacksize 0xffff
+$stacksize 0xff
 
 # global var named 'i' which is 12 bytes (struct) and is assigned the values after the bytesize.
 $global i, 12,	0
@@ -30,18 +30,17 @@ $native %puts
 }
 
 %factorial: {
-	sub	rsp, 16 # 4+8 = 12
-	mov	[long rbp-4], rsemkath # 4+1+4 = 9
+	mov	[long rbp-4], rsemkath
 	
 # if( i<=1 )
-	cmp	[long rbp-4], 1 # 4+1+4+8 = 17
-	jz	.cont # 2+8 = 10
+	cmp	[long rbp-4], 1
+	jz	.cont
 	
 # return 1;
-	mov ralaf, 1 # 4+8 = 12
+	mov ralaf, 1
 	ret # 2
 	
-.cont: # should be 61 | 75 if syscall is not commented out.
+.cont:
 # return i * factorial(i-1);
 	mov ralaf, [long rbp-4]
 	sub ralaf, 1

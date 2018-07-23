@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <time.h>
 #include "tagha.h"
+#include "tagha_libc/libtagha.c"
 
 struct Player {
 	float		speed;
@@ -104,6 +105,7 @@ int main(int argc, char *argv[restrict static argc])
 	
 	struct Tagha vm;
 	Tagha_InitN(&vm, process, host_natives);
+	Tagha_Load_libTagha_Natives(&vm); // from tagha_libc/libtagha.c
 	
 	struct Player player = (struct Player){0};
 	// GetGlobalVarByName returns a pointer to the data.
@@ -120,6 +122,6 @@ int main(int argc, char *argv[restrict static argc])
 	//int32_t result = Tagha_CallFunc(&vm, "factorial", 1, &(union Value){.UInt64 = 5});
 	if( pp )
 		printf("player.speed: '%f' | player.health: '%u' | player.ammo: '%u'\n", player.speed, player.health, player.ammo);
-	Tagha_PrintVMState(&vm);
+	//Tagha_PrintVMState(&vm);
 	printf("result?: '%i' | profile time: '%f'\n", result, (clock()-start)/(double)CLOCKS_PER_SEC);
 }
