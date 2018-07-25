@@ -1,12 +1,25 @@
 # Tagha Virtual Machine
 TaghaVM is a minimal, fast, self-contained, and complex register-based virtual machine && runtime environment designed as an alternative to a C dynamic loading plugin system as well as giving binary portability to C code!
 
-Why? (See the Wiki for the full explanations)
-Four reasons:
-* 1. C interpreters exist but, in my opinion, they're not self-contained nor minimal with a focus on speed like Tagha is.
-* 2. I wanted to learn how to make a virtual machine.
-* 3. I wanted a way to allow C to be portable at the binary level so that C or C++ plugins could be shared without recompiliation.
-* 4. Create a minimal and easy to use library for others to use in their projects.
+## Rationale:
+You might be thinking, why not just pick a scripting language? You're correct. One could simply choose a scripting language but not all developers want to use a scripting language and they could have various reasons like performance, syntax, maybe the runtime is too bloated.
+
+Another idea you might think is that one could use a C interpreter and embed that but so far, the only C interpreters (that I currently know of) are **CINT**, **PicoC**, **TCC [1]**, **Cling** and **Ch**:
+- The problems with CINT is that it's old, clunky to use, outdated, and deprecated.
+- PicoC is ok but its problem is that it uses old-school interpreting (just runs literal code) instead of compiling to bytecode which would allow it to execute faster.
+- Cling (developed by CERN ROOT) is very good in what it does but it creates a massive dependency called LLVM and Clang. Secondly, not all the features of Cling are sometimes necessary in a project.
+- The problem with Ch is that, though it's embeddable and updated, it's proprietary and it's unknown how it interprets code; as the usual problem with proprietary code, you don't know what code it could contain and there's no telling what security issues Ch could possibly have; not to mention that proprietary code shuts out enthusiastic individuals or groups from contributing to the software. **UPDATE**: I read on the Ch's developers website that Ch also interprets source code directly, doesn't use a bytecode machine! Specifically, Ch uses an AST-walking interpreter that's combined with a JIT Compiler **[2]**, that'll speed up things alot but reduces portability significantly. **[3]**
+- **[1]** - Tiny C Compiler, it can compile and run scripts for testing but it can't be embedded the same way a scripting system can be.
+- **[2]** - [citation from Ch dev website](https://www.softintegration.com/support/faq/embed.html#bytecode)
+- **[3]** - Embeddable Ch is **NOT** free, you must get a price quote for it and purchase it.
+
+The Rationale for Tagha is...
++ 1. give C (and by extension C++) binary portability.
++ 2. have the clear execution speed advantage bytecode interpreters have over more traditional interpreters.
++ 3. be open-source.
++ 4. have a runtime environment without having dependencies (beyond libc of course)
++ 5. be portable and embeddable for any program and platform.
++ 6. be small and minimal.
 
 # Features
 * self-contained.
@@ -24,7 +37,7 @@ Four reasons:
 * function call and return opcodes automatically execute function prologues and epilogues.
 * little-endian format (only).
 * small. The runtime environment static library is only ~30kb.
-* Tagha is not natively threaded, this is by design, this is so any developer can thread Tagha in anyway you wish whether by having a single VM instance run multiple scripts in a multi-threaded, managed way OR have an array of Tagha VM instances each running their own scripts in a threaded manner.
+* Tagha is not natively threaded, this is by design, this is so any developer can thread Tagha in anyway they wish whether by having a single VM instance run multiple scripts in a multi-threaded way OR use an array of Tagha VM instances each running their own scripts in a threaded manner.
 * Speed, tagha is very fast for a virtual machine that does not use a JIT.
 
 # How to Build Tagha
