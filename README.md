@@ -1,5 +1,5 @@
 # Tagha Virtual Machine
-TaghaVM is a minimal, fast, self-contained, and complex register-based virtual machine && runtime environment designed as an alternative to a C dynamic loading plugin system as well as giving binary portability to C code!
+TaghaVM is a minimal, fast, self-contained register-based virtual machine && runtime environment designed as an alternative to a C dynamic loading plugin system as well as giving binary portability to C code!
 
 ## Rationale:
 You might be thinking, why not just pick a scripting language? You're correct. One could simply choose a scripting language but not all developers want to use a scripting language and they could have various reasons like performance, syntax, maybe the runtime is too bloated.
