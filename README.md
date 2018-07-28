@@ -52,9 +52,7 @@ To know how to effectively use the Tagha API, please read the embedding tutorial
 # How to Build Tagha TASM Assembler
 The TASM Assembler has a single software dependency by using my [C Data Structure Collection](https://github.com/assyrianic/C-Data-Structure-Collection) to accomodate data structures like the symbol tables, etc.
 
-* Build the data structure collection static library by running the build script `build_libCDSC_static.sh` for the C data structure collection.
-* copy the static library `.a` file to the directory of the TASM Assembler source files.
-* run the `build_tasm.sh` script
+* run the `build_tagha_toolchain.sh` script which will build the C data structure collection library and link it to a build of the Tagha Assembler.
 * you should have an executable called `tasm`
 
 # How to create TBC Scripts with TASM.
