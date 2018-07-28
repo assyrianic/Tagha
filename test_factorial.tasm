@@ -21,7 +21,7 @@ $native %puts
 #     return i * factorial(i-1);
 # }
 
-%main:{
+%main: {
 	mov rsemkath, 5
 	call %factorial
 	#mov rsemkath, 0x40a00000 ; 5.f
@@ -38,7 +38,7 @@ $native %puts
 	
 # return 1;
 	mov ralaf, 1
-	ret # 2
+	ret
 	
 .cont:
 # return i * factorial(i-1);

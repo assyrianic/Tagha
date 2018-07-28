@@ -188,12 +188,14 @@ typedef struct {
 	long int quot;
 	long int rem;
 } ldiv_t;
-*/
+
 static void native_ldiv(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
 {
 	lldiv_t *res = params[0].Ptr;
 	*res = lldiv(params[1].Int64, params[2].Int64);
 }
+*/
+
 /*
 lldiv_t lldiv(long long int numer, long long int denom);
 typedef struct {
@@ -269,7 +271,7 @@ bool Tagha_Load_stdlibNatives(struct Tagha *const restrict sys)
 		{"labs", native_labs},
 		{"llabs", native_llabs},
 		{"div", native_div},
-		{"ldiv", native_ldiv},
+		{"ldiv", native_lldiv}, //native_ldiv}, long and long long are both 8 bytes for Tagha...
 		{"lldiv", native_lldiv},
 		{"mblen", native_mblen},
 		{"mbtowc", native_mbtowc},

@@ -1,6 +1,6 @@
-$stacksize 0xaffff
+$stacksize 0x1fff
 
-%main:{
+%main: {
 	mov rsemkath, 34
 	call %fib
 	ret
@@ -8,7 +8,7 @@ $stacksize 0xaffff
 
 ; int fib(int n)
 ; {
-; 	return (n<2) ? n : fib(n-1)+fib(n-2);
+;     return (n<2) ? n : fib(n-1)+fib(n-2);
 ; }
 
 %fib: {

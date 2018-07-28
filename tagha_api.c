@@ -1265,10 +1265,8 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				index = (*address_ptr.UInt64Ptr - 1);
 		}
 		uint8_t *const call_addr = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, index);
-		if( !call_addr ) {
-			//puts("Tagha_Exec :: exec_call reported 'call_addr' is NULL");
-			DISPATCH();
-		}
+		if( !call_addr )
+			goto *dispatch[halt];
 		/* The restrict type qualifier is an indication to the compiler that,
 		 * if the memory addressed by the restrict-qualified pointer is modified,
 		 * no other pointer will access that same memory.
@@ -1314,10 +1312,11 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		 *  - any return value larger than 8 bytes must be passed as a hidden pointer argument and render the function as void.
 		 * void NativeFunc(struct Tagha *sys, union Value *retval, const size_t args, union Value params[static args]);
 		 */
-		const union Value *const restrict nativeref = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, index);
-		if( !nativeref or !nativeref->VoidFunc ) {
-			DISPATCH();
-		}
+		
+		void (**const restrict nativeref)() = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, index);
+		if( !nativeref or !*nativeref )
+			goto *dispatch[halt];
+		
 		const uint8_t reg_params = 8;
 		const uint8_t reg_param_initial = regSemkath;
 		regs[regAlaf].UInt64 = 0;
@@ -1325,11 +1324,11 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		/* save stack space by using the registers for passing arguments. */
 		/* the other registers can then be used for other data operations. */
 		if( argcount <= reg_params ) {
-			(*nativeref->VoidFunc)(vm, regs+regAlaf, argcount, regs+reg_param_initial);
+			(**nativeref)(vm, regs+regAlaf, argcount, regs+reg_param_initial);
 		}
 		/* if the native has more than a certain num of params, get from both registers and stack. */
 		else if( argcount > reg_params ) {
-			InvokeNative(vm, regs, argcount, nativeref->VoidFunc);
+			InvokeNative(vm, regs, argcount, *nativeref);
 		}
 		DISPATCH();
 	}

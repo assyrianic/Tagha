@@ -185,6 +185,8 @@ bool TaghaAsm_ParseGlobalVarDirective(struct TaghaAsmbler *const restrict tasm)
 							String_AddChar(tasm->Lexeme, '"'); break;
 						case '\\':
 							String_AddChar(tasm->Lexeme, '\\'); break;
+						case '0':
+							String_AddChar(tasm->Lexeme, '\0'); break;
 					}
 				}
 				else String_AddChar(tasm->Lexeme, charval);
@@ -1542,7 +1544,7 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 						TaghaAsm_ParseOneOpInstr(tasm, true);
 						break;
 					
-					case ret: case nop:
+					case ret:
 						TaghaAsm_ParseNoOpsInstr(tasm, true);
 						break;
 					case lea:
@@ -1636,7 +1638,7 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 						TaghaAsm_ParseOneOpInstr(tasm, false);
 						break;
 					
-					case ret: case nop:
+					case ret:
 						TaghaAsm_ParseNoOpsInstr(tasm, false);
 						break;
 					case lea:
@@ -1753,13 +1755,13 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 	while( *--iter != '.' )
 		++len;
 	
-	iter++;
-	*iter = 't'; iter++; --len;
-	*iter = 'b'; iter++; --len;
-	*iter = 'c'; iter++; --len;
 	memset(iter, 0, len);
 	
-	FILE *tbcscript = fopen(tasm->OutputName.CStr, "w+");
+	// use line_buffer instead of wasting more stack space.
+	memset(line_buffer, 0, sizeof line_buffer);
+	sprintf(line_buffer, "%.2000s.tbc", tasm->OutputName.CStr);
+	
+	FILE *tbcscript = fopen(line_buffer, "w+");
 	if( !tbcscript ) {
 		puts("tasm error: unable to create output file!");
 		exit(-1);
@@ -1806,19 +1808,20 @@ static size_t GetFileSize(FILE *const restrict file)
 	return (size_t)size;
 }
 
-int main(int argc, char *argv[static argc])
+int main(int argc, char *argv[])
 {
-	if( !argv[1] ) {
+	if( argc<=1 )
 		return -1;
+	
+	for( int i=1 ; i<argc ; i++ ) {
+		FILE *tasmfile = fopen(argv[i], "r");
+		if( !tasmfile )
+			continue;
+		
+		struct TaghaAsmbler *restrict tasm = &(struct TaghaAsmbler){0};
+		tasm->Src = tasmfile;
+		tasm->SrcSize = GetFileSize(tasmfile);
+		String_InitStr(&tasm->OutputName, argv[i]);
+		TaghaAsm_Assemble(tasm);
 	}
-	
-	FILE *tasmfile = fopen(argv[1], "r");
-	if( !tasmfile )
-		return -1;
-	
-	struct TaghaAsmbler *tasm = &(struct TaghaAsmbler){0};
-	tasm->Src = tasmfile;
-	tasm->SrcSize = GetFileSize(tasmfile);
-	String_InitStr(&tasm->OutputName, argv[1]);
-	return !TaghaAsm_Assemble(tasm);
 }

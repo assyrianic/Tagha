@@ -1,10 +1,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
 #include <time.h>
 #include "tagha.h"
-#include "tagha_libc/libtagha.c"
+//#include "tagha_libc/libtagha.c"
 
 struct Player {
 	float		speed;
@@ -14,8 +13,7 @@ struct Player {
 // lldiv_t lldiv(long long int numer, long long int denom);
 void Native_lldiv(struct Tagha *sys, union Value *retval, const size_t args, union Value params[restrict static args])
 {
-	(void)sys;
-	(void)retval; // makes the compiler stop bitching.
+	(void)sys; (void)retval; // makes the compiler stop bitching.
 	lldiv_t *val = params[0].Ptr;
 	*val = lldiv(params[1].Int64, params[2].Int64);
 }
@@ -95,7 +93,7 @@ int main(int argc, char *argv[restrict static argc])
 	(void)val;
 	fclose(script), script=NULL;
 	
-	const struct NativeInfo host_natives[] = {
+	struct NativeInfo host_natives[] = {
 		{"puts", Native_puts},
 		{"fgets", Native_fgets},
 		{"strlen", Native_strlen},
@@ -105,18 +103,17 @@ int main(int argc, char *argv[restrict static argc])
 	
 	struct Tagha vm;
 	Tagha_InitN(&vm, process, host_natives);
-	Tagha_Load_libTagha_Natives(&vm); // from tagha_libc/libtagha.c
+	//Tagha_Load_libTagha_Natives(&vm); // from tagha_libc/libtagha.c
 	
 	struct Player player = (struct Player){0};
 	// GetGlobalVarByName returns a pointer to the data.
 	// if the data itself is a pointer, then you gotta use a pointer-pointer.
-	struct Player **pp = Tagha_GetGlobalVarByName(&vm, "g_pPlayer");
+	struct Player **restrict pp = Tagha_GetGlobalVarByName(&vm, "g_pPlayer");
 	if( pp )
 		*pp = &player;
 	
 	char i[] = "hello from main argv!";
 	char *arguments[] = {i, NULL};
-	
 	clock_t start = clock();
 	int32_t result = Tagha_RunScript(&vm, 1, arguments);
 	//int32_t result = Tagha_CallFunc(&vm, "factorial", 1, &(union Value){.UInt64 = 5});

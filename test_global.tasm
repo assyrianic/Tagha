@@ -24,6 +24,7 @@ $native %Tagha_FreeModule ; void Tagha_FreeModule(void *);
 	mov [long rgamal+4], 100 ; g_pPlayer->health = 100;
 	mov [long rgamal+8], 32 ; g_pPlayer->ammo = 32;
 	
+	mov rbeth, 1000000000
 	lea rsemkath, module_str
 	syscall %Tagha_LoadModule, 1
 	mov [word rbp-24], ralaf ; module ptr is in ralaf, copy it to stack
@@ -35,13 +36,21 @@ $native %Tagha_FreeModule ; void Tagha_FreeModule(void *);
 	mov rsadhe, 1
 	; load return value ptr.
 	lea rpeh, [rbp-8]
-	
+	; load string of function we want to execute.
 	lea r_eh, factorial_str
+	; copy the module ptr to register semkath.
 	mov rsemkath, [word rbp-24]
+	
+	; test dynamic loading function invocation overhead
+.loop:
 	syscall %Tagha_InvokeFunc, 5
+	dec rbeth
+	cmp rbeth, 0
+	jz .loop
 	
 	lea rsemkath, [rbp-24]
 	syscall %Tagha_FreeModule, 1
 	mov ralaf, [word rbp-8]
 	ret
 }
+
