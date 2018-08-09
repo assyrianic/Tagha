@@ -16,7 +16,7 @@ $stacksize 0x1fff
 	push	rbeth
 	mov	[long rbp-4], rsemkath
 	
-	lt	[long rbp-4], 2    ; if( i<2 )
+	ilt	[long rbp-4], 2    ; if( i<2 )
 	jz	.evalfib
 	
 .exit:

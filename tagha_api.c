@@ -185,7 +185,7 @@ inline static void *GetVariableOffsetByIndex(uint8_t *const script, const size_t
 	
 	union Pointer reader = (union Pointer){.Ptr = script + 7};
 	const uint32_t vartable_offset = *reader.UInt32Ptr++;
-	reader.UInt8Ptr += vartable_offset;
+	reader.UInt8Ptr += (vartable_offset + 4);
 	
 	const uint32_t globalvars = *reader.UInt32Ptr++;
 	if( index >= globalvars )
@@ -216,8 +216,12 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	const union Value *const restrict MainBasePtr = regs[regBase].SelfPtr;
 	regs[regBase] = regs[regStk];
 	
-	uint8_t instr=0, addrmode=0;
-	uint16_t opcode = 0;
+	union {
+		uint16_t opcode;
+		struct { uint8_t instr, addrmode; };
+	} decode;
+	//uint8_t instr=0, addrmode=0;
+	//uint16_t opcode = 0;
 	
 #define X(x) #x ,
 	/* for debugging purposes. */
@@ -233,33 +237,22 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	/* #ifdef _UNISTD_H */
 	
 	#define DISPATCH() \
-		opcode = *pc.UInt16Ptr++; \
+	{ \
+		decode.opcode = *pc.UInt16Ptr++; \
 		\
-		/* get the instruction from the first byte. */ \
-		instr = opcode & 255; \
-		\
-		/* get addressing mode from second byte. */ \
-		addrmode = opcode >> 8; \
-		\
-		if( instr>nop ) { \
+		if( decode.instr>nop ) { \
 			return ErrInstrBounds; \
 		} \
 		\
 		/*usleep(100); */\
-		/*printf("dispatching to '%s'\n", opcode2str[instr]);*/ \
+		/*printf("dispatching to '%s'\n", opcode2str[decode.instr]);*/ \
 		/*Tagha_PrintVMState(vm);*/ \
-		goto *dispatch[instr]
+		goto *dispatch[decode.instr]; \
+	} 
 	
-	DISPATCH();
-	
-	exec_halt:; {
-		//TaghaDebug_PrintRegisters(vm);
-		return regs[regAlaf].Int32;
-	}
 	exec_nop:; {
 		DISPATCH();
 	}
-	
 	/* pushes a value to the top of the stack, raises the stack pointer by 8 bytes.
 	 * push reg (1 byte for register id)
 	 * push imm (8 bytes for constant values)
@@ -267,13 +260,13 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	 */
 	exec_push:; {
 		/* push an imm constant. */
-		if( addrmode & Immediate )
+		if( decode.addrmode & Immediate )
 			*--regs[regStk].SelfPtr = *pc.ValPtr++;
 		/* push a register's contents. */
-		else if( addrmode & Register )
+		else if( decode.addrmode & Register )
 			*--regs[regStk].SelfPtr = regs[*pc.UInt8Ptr++];
 		/* push the contents of a memory address inside a register. */
-		else if( addrmode & RegIndirect ) {
+		else if( decode.addrmode & RegIndirect ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
 			const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
 			*--regs[regStk].SelfPtr = *address_ptr.ValPtr;
@@ -286,11 +279,9 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	 * pop [reg+offset]
 	 */
 	exec_pop:; {
-		if( addrmode & Immediate )
-			pc.ValPtr++;
-		else if( addrmode & Register )
+		if( decode.addrmode & Register )
 			regs[*pc.UInt8Ptr++] = *regs[regStk].SelfPtr++;
-		else if( addrmode & RegIndirect ) {
+		else if( decode.addrmode & RegIndirect ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
 			const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
 			*address_ptr.ValPtr = *regs[regStk].SelfPtr++;
@@ -304,16 +295,17 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	 * lea reg, [reg+offset] (not dereferenced)
 	 */
 	exec_lea:; {
-		const uint8_t regid = *pc.UInt8Ptr++;
-		if( addrmode & Immediate ) { /* Immediate mode will load a global value */
+		if( decode.addrmode & Immediate ) { /* Immediate mode will load a global value */
+			const uint8_t regid = *pc.UInt8Ptr++;
 			regs[regid].Ptr = GetVariableOffsetByIndex(vm->CurrScript.Ptr, *pc.UInt64Ptr++);
 		}
-		else if( addrmode & Register ) { /* Register mode will load a function address which could be a native */
+		else if( decode.addrmode & Register ) { /* Register mode will load a function address which could be a native */
+			const uint8_t regid = *pc.UInt8Ptr++;
 			regs[regid].Int64 = *pc.Int64Ptr++;
 		}
-		else if( addrmode & RegIndirect ) {
-			const uint8_t sec_regid = *pc.UInt8Ptr++;
-			regs[regid].UCharPtr = regs[sec_regid].UCharPtr + *pc.Int32Ptr++;
+		else if( decode.addrmode & RegIndirect ) {
+			const uint16_t regids = *pc.UInt16Ptr++;
+			regs[regids & 255].UCharPtr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++;
 		}
 		DISPATCH();
 	}
@@ -326,52 +318,52 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	 * mov [reg+offset], reg
 	 */
 	exec_mov:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				regs[regid] = *pc.ValPtr++;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				regs[regids & 255] = regs[regids >> 8];
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					regs[regids & 255].UChar = *address_ptr.UInt8Ptr;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					regs[regids & 255].UShort = *address_ptr.UInt16Ptr;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					regs[regids & 255].UInt32 = *address_ptr.UInt32Ptr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].UInt64 = *address_ptr.UInt64Ptr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr = imm.UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr = imm.UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr = imm.UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr = imm.UInt64;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr = regs[regids >> 8].UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr = regs[regids >> 8].UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr = regs[regids >> 8].UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr = regs[regids >> 8].UInt64;
 			}
 		}
@@ -386,416 +378,416 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	 * add [reg+offset], imm
 	 */
 	exec_add:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				regs[regid].UInt64 += *pc.UInt64Ptr++;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				regs[regids & 255].UInt64 += regs[regids >> 8].UInt64;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					regs[regids & 255].UChar += *address_ptr.UInt8Ptr;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					regs[regids & 255].UShort += *address_ptr.UInt16Ptr;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					regs[regids & 255].UInt32 += *address_ptr.UInt32Ptr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].UInt64 += *address_ptr.UInt64Ptr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr += imm.UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr += imm.UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr += imm.UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr += imm.UInt64;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr += regs[regids >> 8].UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr += regs[regids >> 8].UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr += regs[regids >> 8].UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr += regs[regids >> 8].UInt64;
 			}
 		}
 		DISPATCH();
 	}
 	exec_sub:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				regs[regid].UInt64 -= *pc.UInt64Ptr++;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				regs[regids & 255].UInt64 -= regs[regids >> 8].UInt64;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					regs[regids & 255].UChar -= *address_ptr.UInt8Ptr;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					regs[regids & 255].UShort -= *address_ptr.UInt16Ptr;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					regs[regids & 255].UInt32 -= *address_ptr.UInt32Ptr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].UInt64 -= *address_ptr.UInt64Ptr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr -= imm.UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr -= imm.UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr -= imm.UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr -= imm.UInt64;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr -= regs[regids >> 8].UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr -= regs[regids >> 8].UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr -= regs[regids >> 8].UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr -= regs[regids >> 8].UInt64;
 			}
 		}
 		DISPATCH();
 	}
 	exec_mul:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				regs[regid].UInt64 *= *pc.UInt64Ptr++;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				regs[regids & 255].UInt64 *= regs[regids >> 8].UInt64;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					regs[regids & 255].UChar *= *address_ptr.UInt8Ptr;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					regs[regids & 255].UShort *= *address_ptr.UInt16Ptr;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					regs[regids & 255].UInt32 *= *address_ptr.UInt32Ptr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].UInt64 *= *address_ptr.UInt64Ptr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr *= imm.UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr *= imm.UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr *= imm.UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr *= imm.UInt64;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr *= regs[regids >> 8].UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr *= regs[regids >> 8].UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr *= regs[regids >> 8].UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr *= regs[regids >> 8].UInt64;
 			}
 		}
 		DISPATCH();
 	}
 	exec_divi:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				regs[regid].UInt64 /= *pc.UInt64Ptr++;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				regs[regids & 255].UInt64 /= regs[regids >> 8].UInt64;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					regs[regids & 255].UChar /= *address_ptr.UInt8Ptr;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					regs[regids & 255].UShort /= *address_ptr.UInt16Ptr;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					regs[regids & 255].UInt32 /= *address_ptr.UInt32Ptr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].UInt64 /= *address_ptr.UInt64Ptr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr /= imm.UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr /= imm.UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr /= imm.UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr /= imm.UInt64;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr /= regs[regids >> 8].UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr /= regs[regids >> 8].UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr /= regs[regids >> 8].UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr /= regs[regids >> 8].UInt64;
 			}
 		}
 		DISPATCH();
 	}
 	exec_mod:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				regs[regid].UInt64 %= *pc.UInt64Ptr++;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				regs[regids & 255].UInt64 %= regs[regids >> 8].UInt64;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					regs[regids & 255].UChar %= *address_ptr.UInt8Ptr;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					regs[regids & 255].UShort %= *address_ptr.UInt16Ptr;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					regs[regids & 255].UInt32 %= *address_ptr.UInt32Ptr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].UInt64 %= *address_ptr.UInt64Ptr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr %= imm.UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr %= imm.UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr %= imm.UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr %= imm.UInt64;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr %= regs[regids >> 8].UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr %= regs[regids >> 8].UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr %= regs[regids >> 8].UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr %= regs[regids >> 8].UInt64;
 			}
 		}
 		DISPATCH();
 	}
 	exec_andb:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				regs[regid].UInt64 &= *pc.UInt64Ptr++;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				regs[regids & 255].UInt64 &= regs[regids >> 8].UInt64;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					regs[regids & 255].UChar &= *address_ptr.UInt8Ptr;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					regs[regids & 255].UShort &= *address_ptr.UInt16Ptr;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					regs[regids & 255].UInt32 &= *address_ptr.UInt32Ptr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].UInt64 &= *address_ptr.UInt64Ptr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr &= imm.UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr &= imm.UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr &= imm.UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr &= imm.UInt64;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr &= regs[regids >> 8].UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr &= regs[regids >> 8].UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr &= regs[regids >> 8].UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr &= regs[regids >> 8].UInt64;
 			}
 		}
 		DISPATCH();
 	}
 	exec_orb:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				regs[regid].UInt64 |= *pc.UInt64Ptr++;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				regs[regids & 255].UInt64 |= regs[regids >> 8].UInt64;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					regs[regids & 255].UChar |= *address_ptr.UInt8Ptr;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					regs[regids & 255].UShort |= *address_ptr.UInt16Ptr;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					regs[regids & 255].UInt32 |= *address_ptr.UInt32Ptr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].UInt64 |= *address_ptr.UInt64Ptr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr |= imm.UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr |= imm.UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr |= imm.UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr |= imm.UInt64;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr |= regs[regids >> 8].UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr |= regs[regids >> 8].UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr |= regs[regids >> 8].UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr |= regs[regids >> 8].UInt64;
 			}
 		}
 		DISPATCH();
 	}
 	exec_xorb:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				regs[regid].UInt64 ^= *pc.UInt64Ptr++;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				regs[regids & 255].UInt64 ^= regs[regids >> 8].UInt64;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					regs[regids & 255].UChar ^= *address_ptr.UInt8Ptr;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					regs[regids & 255].UShort ^= *address_ptr.UInt16Ptr;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					regs[regids & 255].UInt32 ^= *address_ptr.UInt32Ptr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].UInt64 ^= *address_ptr.UInt64Ptr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr ^= imm.UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr ^= imm.UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr ^= imm.UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr ^= imm.UInt64;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr ^= regs[regids >> 8].UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr ^= regs[regids >> 8].UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr ^= regs[regids >> 8].UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr ^= regs[regids >> 8].UInt64;
 			}
 		}
@@ -803,120 +795,120 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	}
 	exec_notb:; {
 		const uint8_t regid = *pc.UInt8Ptr++;
-		if( addrmode & Register )
+		if( decode.addrmode & Register )
 			regs[regid].UInt64 = ~regs[regid].UInt64;
-		else if( addrmode & RegIndirect ) {
+		else if( decode.addrmode & RegIndirect ) {
 			const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-			if( addrmode & Byte )
+			if( decode.addrmode & Byte )
 				*address_ptr.UInt8Ptr = ~*address_ptr.UInt8Ptr;
-			else if( addrmode & TwoBytes )
+			else if( decode.addrmode & TwoBytes )
 				*address_ptr.UInt16Ptr = ~*address_ptr.UInt16Ptr;
-			else if( addrmode & FourBytes )
+			else if( decode.addrmode & FourBytes )
 				*address_ptr.UInt32Ptr = ~*address_ptr.UInt32Ptr;
-			else if( addrmode & EightBytes )
+			else if( decode.addrmode & EightBytes )
 				*address_ptr.UInt64Ptr = ~*address_ptr.UInt64Ptr;
 		}
 		DISPATCH();
 	}
 	exec_shl:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				regs[regid].UInt64 <<= *pc.UInt64Ptr++;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				regs[regids & 255].UInt64 <<= regs[regids >> 8].UInt64;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					regs[regids & 255].UChar <<= *address_ptr.UInt8Ptr;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					regs[regids & 255].UShort <<= *address_ptr.UInt16Ptr;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					regs[regids & 255].UInt32 <<= *address_ptr.UInt32Ptr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].UInt64 <<= *address_ptr.UInt64Ptr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr <<= imm.UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr <<= imm.UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr <<= imm.UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr <<= imm.UInt64;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr <<= regs[regids >> 8].UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr <<= regs[regids >> 8].UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr <<= regs[regids >> 8].UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr <<= regs[regids >> 8].UInt64;
 			}
 		}
 		DISPATCH();
 	}
 	exec_shr:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				regs[regid].UInt64 >>= *pc.UInt64Ptr++;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				regs[regids & 255].UInt64 >>= regs[regids >> 8].UInt64;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					regs[regids & 255].UChar >>= *address_ptr.UInt8Ptr;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					regs[regids & 255].UShort >>= *address_ptr.UInt16Ptr;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					regs[regids & 255].UInt32 >>= *address_ptr.UInt32Ptr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].UInt64 >>= *address_ptr.UInt64Ptr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr >>= imm.UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr >>= imm.UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr >>= imm.UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr >>= imm.UInt64;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					*address_ptr.UInt8Ptr >>= regs[regids >> 8].UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					*address_ptr.UInt16Ptr >>= regs[regids >> 8].UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					*address_ptr.UInt32Ptr >>= regs[regids >> 8].UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.UInt64Ptr >>= regs[regids >> 8].UInt64;
 			}
 		}
@@ -924,344 +916,448 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	}
 	exec_inc:; {
 		const uint8_t regid = *pc.UInt8Ptr++;
-		if( addrmode & Register )
+		if( decode.addrmode & Register )
 			++regs[regid].UInt64;
-		else if( addrmode & RegIndirect ) {
+		else if( decode.addrmode & RegIndirect ) {
 			const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-			if( addrmode & Byte )
+			if( decode.addrmode & Byte )
 				++*address_ptr.UInt8Ptr;
-			else if( addrmode & TwoBytes )
+			else if( decode.addrmode & TwoBytes )
 				++*address_ptr.UInt16Ptr;
-			else if( addrmode & FourBytes )
+			else if( decode.addrmode & FourBytes )
 				++*address_ptr.UInt32Ptr;
-			else if( addrmode & EightBytes )
+			else if( decode.addrmode & EightBytes )
 				++*address_ptr.UInt64Ptr;
 		}
 		DISPATCH();
 	}
 	exec_dec:; {
 		const uint8_t regid = *pc.UInt8Ptr++;
-		if( addrmode & Register )
+		if( decode.addrmode & Register )
 			--regs[regid].UInt64;
-		else if( addrmode & RegIndirect ) {
+		else if( decode.addrmode & RegIndirect ) {
 			const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-			if( addrmode & Byte )
+			if( decode.addrmode & Byte )
 				--*address_ptr.UInt8Ptr;
-			else if( addrmode & TwoBytes )
+			else if( decode.addrmode & TwoBytes )
 				--*address_ptr.UInt16Ptr;
-			else if( addrmode & FourBytes )
+			else if( decode.addrmode & FourBytes )
 				--*address_ptr.UInt32Ptr;
-			else if( addrmode & EightBytes )
+			else if( decode.addrmode & EightBytes )
 				--*address_ptr.UInt64Ptr;
 		}
 		DISPATCH();
 	}
 	exec_neg:; {
 		const uint8_t regid = *pc.UInt8Ptr++;
-		if( addrmode & Register )
+		if( decode.addrmode & Register )
 			regs[regid].UInt64 = -regs[regid].UInt64;
-		else if( addrmode & RegIndirect ) {
+		else if( decode.addrmode & RegIndirect ) {
 			const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-			if( addrmode & Byte )
+			if( decode.addrmode & Byte )
 				*address_ptr.UInt8Ptr = -*address_ptr.UInt8Ptr;
-			else if( addrmode & TwoBytes )
+			else if( decode.addrmode & TwoBytes )
 				*address_ptr.UInt16Ptr = -*address_ptr.UInt16Ptr;
-			else if( addrmode & FourBytes )
+			else if( decode.addrmode & FourBytes )
 				*address_ptr.UInt32Ptr = -*address_ptr.UInt32Ptr;
-			else if( addrmode & EightBytes )
+			else if( decode.addrmode & EightBytes )
 				*address_ptr.UInt64Ptr = -*address_ptr.UInt64Ptr;
 		}
 		DISPATCH();
 	}
-	exec_lt:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+	exec_ilt:; {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
+				const uint8_t regid = *pc.UInt8Ptr++;
+				vm->CondFlag = regs[regid].Int64 < *pc.Int64Ptr++;
+			}
+			else if( decode.addrmode & Register ) {
+				const uint16_t regids = *pc.UInt16Ptr++;
+				vm->CondFlag = regs[regids & 255].Int64 < regs[regids >> 8].Int64;
+			}
+			else if( decode.addrmode & RegIndirect ) {
+				const uint16_t regids = *pc.UInt16Ptr++;
+				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
+				if( decode.addrmode & Byte )
+					vm->CondFlag = regs[regids & 255].Char < *address_ptr.Int8Ptr;
+				else if( decode.addrmode & TwoBytes )
+					vm->CondFlag = regs[regids & 255].Short < *address_ptr.Int16Ptr;
+				else if( decode.addrmode & FourBytes )
+					vm->CondFlag = regs[regids & 255].Int32 < *address_ptr.Int32Ptr;
+				else if( decode.addrmode & EightBytes )
+					vm->CondFlag = regs[regids & 255].Int64 < *address_ptr.Int64Ptr;
+			}
+		}
+		else {
+			if( decode.addrmode & Immediate ) {
+				const uint8_t regid = *pc.UInt8Ptr++;
+				const union Value imm = *pc.ValPtr++;
+				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
+				if( decode.addrmode & Byte )
+					vm->CondFlag = *address_ptr.Int8Ptr < imm.Char;
+				else if( decode.addrmode & TwoBytes )
+					vm->CondFlag = *address_ptr.Int16Ptr < imm.Short;
+				else if( decode.addrmode & FourBytes )
+					vm->CondFlag = *address_ptr.Int32Ptr < imm.Int32;
+				else if( decode.addrmode & EightBytes )
+					vm->CondFlag = *address_ptr.Int64Ptr < imm.Int64;
+			}
+			else if( decode.addrmode & Register ) {
+				const uint16_t regids = *pc.UInt16Ptr++;
+				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
+				if( decode.addrmode & Byte )
+					vm->CondFlag = *address_ptr.Int8Ptr < regs[regids >> 8].Char;
+				else if( decode.addrmode & TwoBytes )
+					vm->CondFlag = *address_ptr.Int16Ptr < regs[regids >> 8].Short;
+				else if( decode.addrmode & FourBytes )
+					vm->CondFlag = *address_ptr.Int32Ptr < regs[regids >> 8].Int32;
+				else if( decode.addrmode & EightBytes )
+					vm->CondFlag = *address_ptr.Int64Ptr < regs[regids >> 8].Int64;
+			}
+		}
+		DISPATCH();
+	}
+	exec_igt:; {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
+				const uint8_t regid = *pc.UInt8Ptr++;
+				vm->CondFlag = regs[regid].Int64 > *pc.Int64Ptr++;
+			}
+			else if( decode.addrmode & Register ) {
+				const uint16_t regids = *pc.UInt16Ptr++;
+				vm->CondFlag = regs[regids & 255].Int64 > regs[regids >> 8].Int64;
+			}
+			else if( decode.addrmode & RegIndirect ) {
+				const uint16_t regids = *pc.UInt16Ptr++;
+				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
+				if( decode.addrmode & Byte )
+					vm->CondFlag = regs[regids & 255].Char > *address_ptr.Int8Ptr;
+				else if( decode.addrmode & TwoBytes )
+					vm->CondFlag = regs[regids & 255].Short > *address_ptr.Int16Ptr;
+				else if( decode.addrmode & FourBytes )
+					vm->CondFlag = regs[regids & 255].Int32 > *address_ptr.Int32Ptr;
+				else if( decode.addrmode & EightBytes )
+					vm->CondFlag = regs[regids & 255].Int64 > *address_ptr.Int64Ptr;
+			}
+		}
+		else {
+			if( decode.addrmode & Immediate ) {
+				const uint8_t regid = *pc.UInt8Ptr++;
+				const union Value imm = *pc.ValPtr++;
+				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
+				if( decode.addrmode & Byte )
+					vm->CondFlag = *address_ptr.Int8Ptr > imm.Char;
+				else if( decode.addrmode & TwoBytes )
+					vm->CondFlag = *address_ptr.Int16Ptr > imm.Short;
+				else if( decode.addrmode & FourBytes )
+					vm->CondFlag = *address_ptr.Int32Ptr > imm.Int32;
+				else if( decode.addrmode & EightBytes )
+					vm->CondFlag = *address_ptr.Int64Ptr > imm.Int64;
+			}
+			else if( decode.addrmode & Register ) {
+				const uint16_t regids = *pc.UInt16Ptr++;
+				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
+				if( decode.addrmode & Byte )
+					vm->CondFlag = *address_ptr.Int8Ptr > regs[regids >> 8].Char;
+				else if( decode.addrmode & TwoBytes )
+					vm->CondFlag = *address_ptr.Int16Ptr > regs[regids >> 8].Short;
+				else if( decode.addrmode & FourBytes )
+					vm->CondFlag = *address_ptr.Int32Ptr > regs[regids >> 8].Int32;
+				else if( decode.addrmode & EightBytes )
+					vm->CondFlag = *address_ptr.Int64Ptr > regs[regids >> 8].Int64;
+			}
+		}
+		DISPATCH();
+	}
+	exec_ult:; {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				vm->CondFlag = regs[regid].UInt64 < *pc.UInt64Ptr++;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				vm->CondFlag = regs[regids & 255].UInt64 < regs[regids >> 8].UInt64;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					vm->CondFlag = regs[regids & 255].UChar < *address_ptr.UInt8Ptr;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					vm->CondFlag = regs[regids & 255].UShort < *address_ptr.UInt16Ptr;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					vm->CondFlag = regs[regids & 255].UInt32 < *address_ptr.UInt32Ptr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = regs[regids & 255].UInt64 < *address_ptr.UInt64Ptr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					vm->CondFlag = *address_ptr.UInt8Ptr < imm.UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					vm->CondFlag = *address_ptr.UInt16Ptr < imm.UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					vm->CondFlag = *address_ptr.UInt32Ptr < imm.UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = *address_ptr.UInt64Ptr < imm.UInt64;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					vm->CondFlag = *address_ptr.UInt8Ptr < regs[regids >> 8].UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					vm->CondFlag = *address_ptr.UInt16Ptr < regs[regids >> 8].UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					vm->CondFlag = *address_ptr.UInt32Ptr < regs[regids >> 8].UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = *address_ptr.UInt64Ptr < regs[regids >> 8].UInt64;
 			}
 		}
 		DISPATCH();
 	}
-	exec_gt:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+	exec_ugt:; {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				vm->CondFlag = regs[regid].UInt64 > *pc.UInt64Ptr++;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				vm->CondFlag = regs[regids & 255].UInt64 > regs[regids >> 8].UInt64;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					vm->CondFlag = regs[regids & 255].UChar > *address_ptr.UInt8Ptr;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					vm->CondFlag = regs[regids & 255].UShort > *address_ptr.UInt16Ptr;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					vm->CondFlag = regs[regids & 255].UInt32 > *address_ptr.UInt32Ptr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = regs[regids & 255].UInt64 > *address_ptr.UInt64Ptr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					vm->CondFlag = *address_ptr.UInt8Ptr > imm.UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					vm->CondFlag = *address_ptr.UInt16Ptr > imm.UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					vm->CondFlag = *address_ptr.UInt32Ptr > imm.UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = *address_ptr.UInt64Ptr > imm.UInt64;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					vm->CondFlag = *address_ptr.UInt8Ptr > regs[regids >> 8].UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					vm->CondFlag = *address_ptr.UInt16Ptr > regs[regids >> 8].UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					vm->CondFlag = *address_ptr.UInt32Ptr > regs[regids >> 8].UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = *address_ptr.UInt64Ptr > regs[regids >> 8].UInt64;
 			}
 		}
 		DISPATCH();
 	}
 	exec_cmp:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				vm->CondFlag = regs[regid].UInt64 == *pc.UInt64Ptr++;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				vm->CondFlag = regs[regids & 255].UInt64 == regs[regids >> 8].UInt64;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					vm->CondFlag = regs[regids & 255].UChar == *address_ptr.UInt8Ptr;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					vm->CondFlag = regs[regids & 255].UShort == *address_ptr.UInt16Ptr;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					vm->CondFlag = regs[regids & 255].UInt32 == *address_ptr.UInt32Ptr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = regs[regids & 255].UInt64 == *address_ptr.UInt64Ptr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					vm->CondFlag = *address_ptr.UInt8Ptr == imm.UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					vm->CondFlag = *address_ptr.UInt16Ptr == imm.UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					vm->CondFlag = *address_ptr.UInt32Ptr == imm.UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = *address_ptr.UInt64Ptr == imm.UInt64;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					vm->CondFlag = *address_ptr.UInt8Ptr == regs[regids >> 8].UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					vm->CondFlag = *address_ptr.UInt16Ptr == regs[regids >> 8].UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					vm->CondFlag = *address_ptr.UInt32Ptr == regs[regids >> 8].UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = *address_ptr.UInt64Ptr == regs[regids >> 8].UInt64;
 			}
 		}
 		DISPATCH();
 	}
 	exec_neq:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				vm->CondFlag = regs[regid].UInt64 != *pc.UInt64Ptr++;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				vm->CondFlag = regs[regids & 255].UInt64 != regs[regids >> 8].UInt64;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					vm->CondFlag = regs[regids & 255].UChar != *address_ptr.UInt8Ptr;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					vm->CondFlag = regs[regids & 255].UShort != *address_ptr.UInt16Ptr;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					vm->CondFlag = regs[regids & 255].UInt32 != *address_ptr.UInt32Ptr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = regs[regids & 255].UInt64 != *address_ptr.UInt64Ptr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					vm->CondFlag = *address_ptr.UInt8Ptr != imm.UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					vm->CondFlag = *address_ptr.UInt16Ptr != imm.UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					vm->CondFlag = *address_ptr.UInt32Ptr != imm.UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = *address_ptr.UInt64Ptr != imm.UInt64;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & Byte )
+				if( decode.addrmode & Byte )
 					vm->CondFlag = *address_ptr.UInt8Ptr != regs[regids >> 8].UChar;
-				else if( addrmode & TwoBytes )
+				else if( decode.addrmode & TwoBytes )
 					vm->CondFlag = *address_ptr.UInt16Ptr != regs[regids >> 8].UShort;
-				else if( addrmode & FourBytes )
+				else if( decode.addrmode & FourBytes )
 					vm->CondFlag = *address_ptr.UInt32Ptr != regs[regids >> 8].UInt32;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = *address_ptr.UInt64Ptr != regs[regids >> 8].UInt64;
 			}
 		}
 		DISPATCH();
 	}
 	exec_jmp:; {
-		if( addrmode & Immediate ) {
+		if( decode.addrmode & Immediate ) {
 			const int64_t offset = *pc.Int64Ptr++;
 			pc.UInt8Ptr += offset;
 		}
-		else if( addrmode & Register ) {
+		else if( decode.addrmode & Register ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
 			pc.UInt8Ptr += regs[regid].Int64;
 		}
-		else if( addrmode & RegIndirect ) {
+		else if( decode.addrmode & RegIndirect ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
 			const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
 			
-			if( addrmode & Byte )
+			if( decode.addrmode & Byte )
 				pc.UInt8Ptr += *address_ptr.Int8Ptr;
-			else if( addrmode & TwoBytes )
+			else if( decode.addrmode & TwoBytes )
 				pc.UInt8Ptr += *address_ptr.Int16Ptr;
-			else if( addrmode & FourBytes )
+			else if( decode.addrmode & FourBytes )
 				pc.UInt8Ptr += *address_ptr.Int32Ptr;
-			else if( addrmode & EightBytes )
+			else if( decode.addrmode & EightBytes )
 				pc.UInt8Ptr += *address_ptr.Int64Ptr;
 		}
 		DISPATCH();
 	}
 	exec_jz:; {
-		if( addrmode & Immediate ) {
+		if( decode.addrmode & Immediate ) {
 			const int64_t offset = *pc.Int64Ptr++;
 			!vm->CondFlag ? (pc.UInt8Ptr += offset) : (void)vm->CondFlag;
 		}
-		else if( addrmode & Register ) {
+		else if( decode.addrmode & Register ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
 			!vm->CondFlag ? (pc.UInt8Ptr += regs[regid].Int64) : (void)vm->CondFlag;
 		}
-		else if( addrmode & RegIndirect ) {
+		else if( decode.addrmode & RegIndirect ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
 			const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-			if( addrmode & Byte )
+			if( decode.addrmode & Byte )
 				!vm->CondFlag ? (pc.UInt8Ptr += *address_ptr.Int8Ptr) : (void)vm->CondFlag;
-			else if( addrmode & TwoBytes )
+			else if( decode.addrmode & TwoBytes )
 				!vm->CondFlag ? (pc.UInt8Ptr += *address_ptr.Int16Ptr) : (void)vm->CondFlag;
-			else if( addrmode & FourBytes )
+			else if( decode.addrmode & FourBytes )
 				!vm->CondFlag ? (pc.UInt8Ptr += *address_ptr.Int32Ptr) : (void)vm->CondFlag;
-			else if( addrmode & EightBytes )
+			else if( decode.addrmode & EightBytes )
 				!vm->CondFlag ? (pc.UInt8Ptr += *address_ptr.Int64Ptr) : (void)vm->CondFlag;
 		}
 		DISPATCH();
 	}
 	exec_jnz:; {
-		if( addrmode & Immediate ) {
+		if( decode.addrmode & Immediate ) {
 			const int64_t offset = *pc.Int64Ptr++;
 			vm->CondFlag ? (pc.UInt8Ptr += offset) : (void)vm->CondFlag;
 		}
-		else if( addrmode & Register ) {
+		else if( decode.addrmode & Register ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
 			vm->CondFlag ? (pc.UInt8Ptr += regs[regid].Int64) : (void)vm->CondFlag;
 		}
-		else if( addrmode & RegIndirect ) {
+		else if( decode.addrmode & RegIndirect ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
 			const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-			if( addrmode & Byte )
+			if( decode.addrmode & Byte )
 				vm->CondFlag ? (pc.UInt8Ptr += *address_ptr.Int8Ptr) : (void)vm->CondFlag;
-			else if( addrmode & TwoBytes )
+			else if( decode.addrmode & TwoBytes )
 				vm->CondFlag ? (pc.UInt8Ptr += *address_ptr.Int16Ptr) : (void)vm->CondFlag;
-			else if( addrmode & FourBytes )
+			else if( decode.addrmode & FourBytes )
 				vm->CondFlag ? (pc.UInt8Ptr += *address_ptr.Int32Ptr) : (void)vm->CondFlag;
-			else if( addrmode & EightBytes )
+			else if( decode.addrmode & EightBytes )
 				vm->CondFlag ? (pc.UInt8Ptr += *address_ptr.Int64Ptr) : (void)vm->CondFlag;
 		}
 		DISPATCH();
 	}
 	exec_call:; {
 		uint64_t index = -1;
-		if( addrmode & Immediate ) {
+		if( decode.addrmode & Immediate ) {
 			index = ((*pc.UInt64Ptr++) - 1);
 		}
-		else if( addrmode & Register )
+		else if( decode.addrmode & Register )
 			index = (regs[*pc.UInt8Ptr++].UInt64 - 1);
-		else if( addrmode & RegIndirect ) {
+		else if( decode.addrmode & RegIndirect ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
 			const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-			if( addrmode & EightBytes )
+			if( decode.addrmode & EightBytes )
 				index = (*address_ptr.UInt64Ptr - 1);
 		}
 		uint8_t *const call_addr = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, index);
@@ -1295,13 +1391,13 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint32_t argcount = *pc.UInt32Ptr++;
 		uint64_t index = -1;
 		/* trying to directly call a specific native. Allow this by imm only! */
-		if( addrmode & Immediate ) {
+		if( decode.addrmode & Immediate ) {
 			index = (-1 - *pc.Int64Ptr++);
 		}
-		else if( addrmode & Register ) {
+		else if( decode.addrmode & Register ) {
 			index = (-1 - regs[*pc.UInt8Ptr++].Int64);
 		}
-		else if( addrmode & RegIndirect ) {
+		else if( decode.addrmode & RegIndirect ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
 			const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
 			index = (-1 - *address_ptr.Int64Ptr);
@@ -1334,7 +1430,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	}
 #if FLOATING_POINT_OPS
 	exec_flt2dbl:; {
-		if( addrmode & Register ) {
+		if( decode.addrmode & Register ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
 			const float f = regs[regid].Float;
 			regs[regid].Double = (double)f;
@@ -1342,16 +1438,16 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_dbl2flt:; {
-		if( addrmode & Register ) {
+		if( decode.addrmode & Register ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
 			const double d = regs[regid].Double;
-			regs[regid].Double = 0;
+			regs[regid].UInt64 = 0;
 			regs[regid].Float = (float)d;
 		}
 		DISPATCH();
 	}
 	exec_int2dbl:; {
-		if( addrmode & Register ) {
+		if( decode.addrmode & Register ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
 			const uint64_t i = regs[regid].UInt64;
 			regs[regid].Double = (double)i;
@@ -1359,7 +1455,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_int2flt:; {
-		if( addrmode & Register ) {
+		if( decode.addrmode & Register ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
 			const uint64_t i = regs[regid].UInt64;
 			regs[regid].UInt64 = 0;
@@ -1368,384 +1464,384 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_addf:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					regs[regid].Float += imm.Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regid].Double += imm.Double;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					regs[regids & 255].Float += regs[regids >> 8].Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].Double += regs[regids >> 8].Double;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
 				
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					regs[regids & 255].Float += *address_ptr.FloatPtr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].Double += *address_ptr.DoublePtr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					*address_ptr.FloatPtr += imm.Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.DoublePtr += imm.Double;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					*address_ptr.FloatPtr += regs[regids >> 8].Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.DoublePtr += regs[regids >> 8].Double;
 			}
 		}
 		DISPATCH();
 	}
 	exec_subf:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					regs[regid].Float -= imm.Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regid].Double -= imm.Double;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					regs[regids & 255].Float -= regs[regids >> 8].Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].Double -= regs[regids >> 8].Double;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
 				
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					regs[regids & 255].Float -= *address_ptr.FloatPtr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].Double -= *address_ptr.DoublePtr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					*address_ptr.FloatPtr -= imm.Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.DoublePtr -= imm.Double;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					*address_ptr.FloatPtr -= regs[regids >> 8].Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.DoublePtr -= regs[regids >> 8].Double;
 			}
 		}
 		DISPATCH();
 	}
 	exec_mulf:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					regs[regid].Float *= imm.Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regid].Double *= imm.Double;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					regs[regids & 255].Float *= regs[regids >> 8].Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].Double *= regs[regids >> 8].Double;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
 				
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					regs[regids & 255].Float *= *address_ptr.FloatPtr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].Double *= *address_ptr.DoublePtr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					*address_ptr.FloatPtr *= imm.Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.DoublePtr *= imm.Double;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					*address_ptr.FloatPtr *= regs[regids >> 8].Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.DoublePtr *= regs[regids >> 8].Double;
 			}
 		}
 		DISPATCH();
 	}
 	exec_divf:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					regs[regid].Float /= imm.Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regid].Double /= imm.Double;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					regs[regids & 255].Float /= regs[regids >> 8].Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].Double /= regs[regids >> 8].Double;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
 				
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					regs[regids & 255].Float /= *address_ptr.FloatPtr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					regs[regids & 255].Double /= *address_ptr.DoublePtr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					*address_ptr.FloatPtr /= imm.Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.DoublePtr /= imm.Double;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					*address_ptr.FloatPtr /= regs[regids >> 8].Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					*address_ptr.DoublePtr /= regs[regids >> 8].Double;
 			}
 		}
 		DISPATCH();
 	}
 	exec_ltf:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = regs[regid].Float < imm.Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = regs[regid].Double < imm.Double;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = regs[regids & 255].Float < regs[regids >> 8].Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = regs[regids & 255].Double < regs[regids >> 8].Double;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
 				
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = regs[regids & 255].Float < *address_ptr.FloatPtr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = regs[regids & 255].Double < *address_ptr.DoublePtr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = *address_ptr.FloatPtr < imm.Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = *address_ptr.DoublePtr < imm.Double;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = *address_ptr.FloatPtr < regs[regids >> 8].Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = *address_ptr.DoublePtr < regs[regids >> 8].Double;
 			}
 		}
 		DISPATCH();
 	}
 	exec_gtf:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = regs[regid].Float > imm.Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = regs[regid].Double > imm.Double;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = regs[regids & 255].Float > regs[regids >> 8].Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = regs[regids & 255].Double > regs[regids >> 8].Double;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
 				
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = regs[regids & 255].Float > *address_ptr.FloatPtr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = regs[regids & 255].Double > *address_ptr.DoublePtr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = *address_ptr.FloatPtr > imm.Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = *address_ptr.DoublePtr > imm.Double;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = *address_ptr.FloatPtr > regs[regids >> 8].Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = *address_ptr.DoublePtr > regs[regids >> 8].Double;
 			}
 		}
 		DISPATCH();
 	}
 	exec_cmpf:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = regs[regid].Float == imm.Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = regs[regid].Double == imm.Double;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = regs[regids & 255].Float == regs[regids >> 8].Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = regs[regids & 255].Double == regs[regids >> 8].Double;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
 				
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = regs[regids & 255].Float == *address_ptr.FloatPtr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = regs[regids & 255].Double == *address_ptr.DoublePtr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = *address_ptr.FloatPtr == imm.Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = *address_ptr.DoublePtr == imm.Double;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = *address_ptr.FloatPtr == regs[regids >> 8].Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = *address_ptr.DoublePtr == regs[regids >> 8].Double;
 			}
 		}
 		DISPATCH();
 	}
 	exec_neqf:; {
-		if( addrmode & Reserved ) {
-			if( addrmode & Immediate ) {
+		if( decode.addrmode & Reserved ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = regs[regid].Float != imm.Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = regs[regid].Double != imm.Double;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = regs[regids & 255].Float != regs[regids >> 8].Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = regs[regids & 255].Double != regs[regids >> 8].Double;
 			}
-			else if( addrmode & RegIndirect ) {
+			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids >> 8].UCharPtr + *pc.Int32Ptr++};
 				
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = regs[regids & 255].Float != *address_ptr.FloatPtr;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = regs[regids & 255].Double != *address_ptr.DoublePtr;
 			}
 		}
 		else {
-			if( addrmode & Immediate ) {
+			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union Value imm = *pc.ValPtr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = *address_ptr.FloatPtr != imm.Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = *address_ptr.DoublePtr != imm.Double;
 			}
-			else if( addrmode & Register ) {
+			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regids & 255].UCharPtr + *pc.Int32Ptr++};
-				if( addrmode & FourBytes )
+				if( decode.addrmode & FourBytes )
 					vm->CondFlag = *address_ptr.FloatPtr != regs[regids >> 8].Float;
-				else if( addrmode & EightBytes )
+				else if( decode.addrmode & EightBytes )
 					vm->CondFlag = *address_ptr.DoublePtr != regs[regids >> 8].Double;
 			}
 		}
@@ -1753,57 +1849,59 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	}
 	exec_incf:; {
 		const uint8_t regid = *pc.UInt8Ptr++;
-		if( addrmode & Register ) {
-			if( addrmode & FourBytes )
+		if( decode.addrmode & Register ) {
+			if( decode.addrmode & FourBytes )
 				++regs[regid].Float;
-			else if( addrmode & EightBytes )
+			else if( decode.addrmode & EightBytes )
 				++regs[regid].Double;
 		}
-		else if( addrmode & RegIndirect ) {
+		else if( decode.addrmode & RegIndirect ) {
 			const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-			if( addrmode & FourBytes )
+			if( decode.addrmode & FourBytes )
 				++*address_ptr.FloatPtr;
-			else if( addrmode & EightBytes )
+			else if( decode.addrmode & EightBytes )
 				++*address_ptr.DoublePtr;
 		}
 		DISPATCH();
 	}
 	exec_decf:; {
 		const uint8_t regid = *pc.UInt8Ptr++;
-		if( addrmode & Register ) {
-			if( addrmode & FourBytes )
+		if( decode.addrmode & Register ) {
+			if( decode.addrmode & FourBytes )
 				--regs[regid].Float;
-			else if( addrmode & EightBytes )
+			else if( decode.addrmode & EightBytes )
 				--regs[regid].Double;
 		}
-		else if( addrmode & RegIndirect ) {
+		else if( decode.addrmode & RegIndirect ) {
 			const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-			if( addrmode & FourBytes )
+			if( decode.addrmode & FourBytes )
 				--*address_ptr.FloatPtr;
-			else if( addrmode & EightBytes )
+			else if( decode.addrmode & EightBytes )
 				--*address_ptr.DoublePtr;
 		}
 		DISPATCH();
 	}
 	exec_negf:; {
 		const uint8_t regid = *pc.UInt8Ptr++;
-		if( addrmode & Register ) {
-			if( addrmode & FourBytes )
+		if( decode.addrmode & Register ) {
+			if( decode.addrmode & FourBytes )
 				regs[regid].Float = -regs[regid].Float;
-			else if( addrmode & EightBytes )
+			else if( decode.addrmode & EightBytes )
 				regs[regid].Double = -regs[regid].Double;
 		}
-		else if( addrmode & RegIndirect ) {
+		else if( decode.addrmode & RegIndirect ) {
 			const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-			if( addrmode & FourBytes )
+			if( decode.addrmode & FourBytes )
 				*address_ptr.FloatPtr = -*address_ptr.FloatPtr;
-			else if( addrmode & EightBytes )
+			else if( decode.addrmode & EightBytes )
 				*address_ptr.DoublePtr = -*address_ptr.DoublePtr;
 		}
 		DISPATCH();
 	}
 #endif
-	return ErrInstrBounds;
+	exec_halt:;
+	//TaghaDebug_PrintRegisters(vm);
+	return regs[regAlaf].Int32;
 }
 
 int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, char *argv[])
@@ -1829,7 +1927,7 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	vm->Regs[regSemkath].Int32 = argc;
 	
 	/* check out stack size and align it by the size of union Value. */
-	const size_t stacksize = (vm->Module->StackSize + (sizeof(union Value)-1)) & -(sizeof(union Value));
+	const size_t stacksize = vm->Module->StackSize; //(vm->Module->StackSize + (sizeof(union Value)-1)) & -(sizeof(union Value));
 	if( !stacksize )
 		return ErrStackSize;
 	
@@ -1856,7 +1954,7 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 	}
 	
 	/* check out stack size and align it by the size of union Value. */
-	const size_t stacksize = (vm->Module->StackSize + (sizeof(union Value)-1)) & -(sizeof(union Value));
+	const size_t stacksize = vm->Module->StackSize; //(vm->Module->StackSize + (sizeof(union Value)-1)) & -(sizeof(union Value));
 	if( !stacksize ) {
 		return ErrStackSize;
 	}

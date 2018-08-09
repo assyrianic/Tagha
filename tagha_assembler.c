@@ -1534,7 +1534,7 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 					case mov:
 					case add: case sub: case mul: case divi: case mod:
 					case andb: case orb: case xorb: case shl: case shr:
-					case lt: case gt: case cmp: case neq:
+					case ilt: case igt: case ult: case ugt: case cmp: case neq:
 						TaghaAsm_ParseTwoOpInstr(tasm, true);
 						break;
 					
@@ -1628,7 +1628,7 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 					case mov:
 					case add: case sub: case mul: case divi: case mod:
 					case andb: case orb: case xorb: case shl: case shr:
-					case lt: case gt: case cmp: case neq:
+					case ilt: case igt: case ult: case ugt: case cmp: case neq:
 						TaghaAsm_ParseTwoOpInstr(tasm, false);
 						break;
 					
@@ -1677,8 +1677,9 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 	ByteBuffer_InsertInt(&tbcfile, tasm->Stacksize, sizeof tasm->Stacksize);
 	ByteBuffer_InsertByte(&tbcfile, 0);
 	
-	// build our func table
+	// build our func table & global var table
 	struct ByteBuffer functable; ByteBuffer_Init(&functable);
+	struct ByteBuffer datatable; ByteBuffer_Init(&datatable);
 	
 	for( struct LinkNode *t=tasm->FuncTable->Head ; t ; t=t->After ) {
 		struct LabelInfo *label = t->Data.Ptr;
@@ -1702,8 +1703,6 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 			//printf("bytecode[%zu] == %u\n", i, label->Bytecode.Buffer[i]);
 		//puts("\n");
 	}
-	ByteBuffer_InsertInt(&tbcfile, functable.Count + 4, sizeof(uint32_t));
-	//printf("functable.Count == %u\n", functable.Count);
 	
 	size_t funcs = 0;
 	for( struct LinkNode *t=tasm->FuncTable->Head ; t ; t=t->After ) {
@@ -1712,12 +1711,6 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 			continue;
 		funcs++;
 	}
-	ByteBuffer_InsertInt(&tbcfile, funcs, sizeof(uint32_t));
-	ByteBuffer_Append(&tbcfile, &functable);
-	ByteBuffer_Del(&functable);
-	
-	// build our global var table
-	struct ByteBuffer datatable; ByteBuffer_Init(&datatable);
 	
 	for( struct LinkNode *t=tasm->VarTable->Head ; t ; t=t->After ) {
 		struct ByteBuffer *bytedata = t->Data.Ptr;
@@ -1745,6 +1738,14 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 			continue;
 		datacount++;
 	}
+	ByteBuffer_InsertInt(&tbcfile, functable.Count + 4, sizeof(uint32_t));
+	//ByteBuffer_InsertInt(&tbcfile, datatable.Count + 4, sizeof(uint32_t));
+	//printf("functable.Count == %u\n", functable.Count);
+	
+	ByteBuffer_InsertInt(&tbcfile, funcs, sizeof(uint32_t));
+	ByteBuffer_Append(&tbcfile, &functable);
+	ByteBuffer_Del(&functable);
+	
 	ByteBuffer_InsertInt(&tbcfile, datacount, sizeof(uint32_t));
 	ByteBuffer_Append(&tbcfile, &datatable);
 	ByteBuffer_Del(&datatable);
@@ -1766,6 +1767,8 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 		puts("tasm error: unable to create output file!");
 		exit(-1);
 	}
+	//for( size_t n=0 ; n<(tasm->Stacksize*8) ; n++ )
+	//	ByteBuffer_InsertByte(&tbcfile, 0);
 	ByteBuffer_DumpToFile(&tbcfile, tbcscript);
 	fclose(tbcscript); tbcscript=NULL;
 	

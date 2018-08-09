@@ -28,6 +28,7 @@ extern "C" {
  * 4 bytes: stack size, stack size needed for the code (the stack size will be aligned by 8 bytes)
  * 1 byte: flags
  * 4 bytes: func table size (useable as an offset to the global vars table.)
+ * 4 bytes: global table size
  * ------------------------------ end of header ------------------------------
  * .functions table
  * 4 bytes: amount of funcs
@@ -48,6 +49,7 @@ extern "C" {
  * 		n bytes: global var string
  * 		if bytecode var: n bytes: data. All 0 if not initialized in script code.
  *		else: 8 bytes: var address (0 at first, filled in during runtime)
+ * n bytes : stack
  */
 
 union Pointer {
@@ -76,6 +78,7 @@ struct TaghaModule {
 	uint32_t StackSize;
 	uint8_t Flags;
 	uint32_t FuncTblSize;
+	uint32_t GlobalTblSize;
 	uint32_t FuncCount;
 };
 #pragma pack(pop)
@@ -174,7 +177,7 @@ enum AddrMode {
 		X(andb) X(orb) X(xorb) X(notb) X(shl) X(shr) \
 		X(inc) X(dec) X(neg) \
 		\
-		X(lt) X(gt) X(cmp) X(neq) \
+		X(ilt) X(igt) X(ult) X(ugt) X(cmp) X(neq) \
 		\
 		X(jmp) X(jz) X(jnz) \
 		X(call) X(syscall) X(ret) \
@@ -196,7 +199,7 @@ enum AddrMode {
 		X(andb) X(orb) X(xorb) X(notb) X(shl) X(shr) \
 		X(inc) X(dec) X(neg) \
 		\
-		X(lt) X(gt) X(cmp) X(neq) \
+		X(ilt) X(igt) X(ult) X(ugt) X(cmp) X(neq) \
 		\
 		X(jmp) X(jz) X(jnz) \
 		X(call) X(syscall) X(ret) \

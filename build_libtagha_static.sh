@@ -1,6 +1,6 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-gcc		-Wextra -Wall -std=c99 -g -O3 -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations -c	tagha_api.c #-fno-guess-branch-probability -fomit-frame-pointer
+gcc		-Wextra -Wall -std=c99 -s -O2 -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations -c	tagha_api.c #-fno-guess-branch-probability -fomit-frame-pointer
 ar			cr libtagha.a	tagha_api.o
 
 #gcc		-Wextra -Wall -std=c99 -Os -S -masm=intel tagha_api.c
@@ -8,7 +8,7 @@ ar			cr libtagha.a	tagha_api.o
 rm	tagha_api.o
 
 
-g++			-Wextra -Wall -std=c++11 -O3 -c	tagha_api_cpp.cpp -L. -ltagha
+g++			-Wextra -Wall -std=c++11 -O2 -c	tagha_api_cpp.cpp -L. -ltagha
 ar			cr libtaghacpp.a	tagha_api_cpp.o
 
 rm	tagha_api_cpp.o

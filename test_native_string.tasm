@@ -1,4 +1,5 @@
 $stacksize 0xFF
+
 $global test_str, 13, "hello world\n"
 $native %strlen    ; size_t strlen(const char *);
 

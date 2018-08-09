@@ -11,7 +11,7 @@ struct Player {
 };
 
 // lldiv_t lldiv(long long int numer, long long int denom);
-void Native_lldiv(struct Tagha *sys, union Value *retval, const size_t args, union Value params[restrict static args])
+void Native_lldiv(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys; (void)retval; // makes the compiler stop bitching.
 	lldiv_t *val = params[0].Ptr;
@@ -19,27 +19,22 @@ void Native_lldiv(struct Tagha *sys, union Value *retval, const size_t args, uni
 }
 
 // int puts(const char *str);
-void Native_puts(struct Tagha *sys, union Value *retval, const size_t args, union Value params[restrict static args])
+void Native_puts(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys;
 	const char *p = params[0].Ptr;
-	if( !p ) {
+	if( !p )
 		retval->Int32 = -1;
-		return;
-	}
-	retval->Int32 = puts(p);
+	else retval->Int32 = puts(p);
 }
 
 // char *fgets(char *buffer, int num, FILE *stream);
-void Native_fgets(struct Tagha *sys, union Value *retval, const size_t args, union Value params[restrict static args])
+void Native_fgets(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys;
-	char *buf = params[0].Ptr;
-	if( !buf ) {
-		return;
-	}
-	FILE *stream = params[2].Ptr;
-	if( !stream ) {
+	char *restrict buf = params[0].Ptr;
+	FILE *restrict stream = params[2].Ptr;
+	if( !buf or !stream ) {
 		return;
 	}
 	retval->Ptr = fgets(buf, params[1].Int32, stream);
@@ -76,7 +71,7 @@ static size_t GetFileSize(FILE *const restrict file)
 	return (size_t)size;
 }
 
-int main(int argc, char *argv[restrict static argc])
+int main(int argc, char *argv[restrict static argc+1])
 {
 	if( !argv[1] ) {
 		printf("[TaghaVM Usage]: '%s' '.tbc filepath' \n", argv[0]);
@@ -88,8 +83,8 @@ int main(int argc, char *argv[restrict static argc])
 		return 1;
 	
 	const size_t filesize = GetFileSize(script);
-	uint8_t process[filesize];
-	const size_t val = fread(process, sizeof(uint8_t), filesize, script);
+	uint8_t *process = calloc(filesize, sizeof *process);
+	const size_t val = fread(process, sizeof *process, filesize, script);
 	(void)val;
 	fclose(script), script=NULL;
 	
@@ -101,24 +96,24 @@ int main(int argc, char *argv[restrict static argc])
 		{NULL, NULL}
 	};
 	
-	struct Tagha vm;
-	Tagha_InitN(&vm, process, host_natives);
-	//Tagha_Load_libTagha_Natives(&vm); // from tagha_libc/libtagha.c
+	struct Tagha *vm = &(struct Tagha){0};
+	Tagha_InitN(vm, process, host_natives);
+	//Tagha_Load_libTagha_Natives(vm); // from tagha_libc/libtagha.c
 	
 	struct Player player = (struct Player){0};
 	// GetGlobalVarByName returns a pointer to the data.
 	// if the data itself is a pointer, then you gotta use a pointer-pointer.
-	struct Player **restrict pp = Tagha_GetGlobalVarByName(&vm, "g_pPlayer");
+	struct Player **restrict pp = Tagha_GetGlobalVarByName(vm, "g_pPlayer");
 	if( pp )
 		*pp = &player;
 	
 	char i[] = "hello from main argv!";
 	char *arguments[] = {i, NULL};
 	clock_t start = clock();
-	int32_t result = Tagha_RunScript(&vm, 1, arguments);
-	//int32_t result = Tagha_CallFunc(&vm, "factorial", 1, &(union Value){.UInt64 = 5});
+	//int32_t result = Tagha_CallFunc(vm, "factorial", 1, &(union Value){.UInt64 = 5});
+	int32_t result = Tagha_RunScript(vm, 1, arguments);
 	if( pp )
 		printf("player.speed: '%f' | player.health: '%u' | player.ammo: '%u'\n", player.speed, player.health, player.ammo);
-	//Tagha_PrintVMState(&vm);
+	//Tagha_PrintVMState(vm);
 	printf("result?: '%i' | profile time: '%f'\n", result, (clock()-start)/(double)CLOCKS_PER_SEC);
 }
