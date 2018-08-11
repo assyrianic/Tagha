@@ -21,19 +21,15 @@ static uint8_t *Tagha_LoadModule(const char *restrict module_name)
 		filesize = (size_t)size;
 	}
 	
-	uint8_t buffer[filesize];
-	const size_t val = fread(buffer, sizeof(uint8_t), filesize, tbcfile);
+	uint8_t *module = calloc(filesize, sizeof *module);
+	if( !module ) {
+		fclose(tbcfile), tbcfile=NULL;
+		return NULL;
+	}
+	const size_t val = fread(module, sizeof(uint8_t), filesize, tbcfile);
 	(void)val;
 	fclose(tbcfile), tbcfile=NULL;
 	
-	if( !(buffer[0] == 0xDE and buffer[1]==0xC0) )
-		return NULL;
-	
-	uint8_t *module = calloc(filesize, sizeof *module);
-	if( !module )
-		return NULL;
-	
-	memcpy(module, buffer, filesize);
 	return module;
 }
 
@@ -96,12 +92,12 @@ static void Native_TaghaInvoke(struct Tagha *const restrict sys, union Value *co
 	 * doing so will make the old stack memory lost which is not good.
 	 * So let's save some of that data to prevent stack frame corruption.
 	 */
-	struct Tagha *const restrict vmswitch = &(struct Tagha){0};
-	Tagha_Init(vmswitch, module);
+	struct Tagha *const restrict ctxt = &(struct Tagha){0};
+	Tagha_Init(ctxt, module);
 	
 	// make the call.
-	Tagha_CallFunc(vmswitch, funcname, params[3].UInt64, array);
-	*retdata = vmswitch->Regs[regAlaf];
+	Tagha_CallFunc(ctxt, funcname, params[3].UInt64, array);
+	*retdata = ctxt ? ctxt->Regs[regAlaf] : (void)retdata;
 	retval->Bool = true;
 }
 
@@ -120,18 +116,12 @@ static void Native_TaghaFreeModule(struct Tagha *const restrict sys, union Value
 
 bool Tagha_Load_libTagha_Natives(struct Tagha *const restrict sys)
 {
-	if( !sys )
-		return false;
-	
 	const struct NativeInfo dynamic_loading[] = {
-		{"Tagha_LoadModule", Native_TaghaLoadModule}, {"Tagha_GetGlobal", Native_TaghaGetGlobal},
-		{"Tagha_InvokeFunc", Native_TaghaInvoke}, {"Tagha_FreeModule", Native_TaghaFreeModule},
-		
-		{"tagha_load_module", Native_TaghaLoadModule},
-		{"tagha_get_global", Native_TaghaGetGlobal},
-		{"tagha_invoke_func", Native_TaghaInvoke},
-		{"tagha_free_module", Native_TaghaFreeModule},
+		{"Tagha_LoadModule", Native_TaghaLoadModule},
+		{"Tagha_GetGlobal", Native_TaghaGetGlobal},
+		{"Tagha_InvokeFunc", Native_TaghaInvoke},
+		{"Tagha_FreeModule", Native_TaghaFreeModule},
 		{NULL, NULL}
 	};
-	return Tagha_RegisterNatives(sys, dynamic_loading);
+	return sys ? Tagha_RegisterNatives(sys, dynamic_loading) : false;
 }

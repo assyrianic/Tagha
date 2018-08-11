@@ -11,10 +11,10 @@ struct Player {
 };
 
 // lldiv_t lldiv(long long int numer, long long int denom);
-void Native_lldiv(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
+void Native_lldiv(struct Tagha *sys, union Value *retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys; (void)retval; // makes the compiler stop bitching.
-	lldiv_t *val = params[0].Ptr;
+	lldiv_t *restrict val = params[0].Ptr;
 	*val = lldiv(params[1].Int64, params[2].Int64);
 }
 
@@ -22,10 +22,8 @@ void Native_lldiv(struct Tagha *const restrict sys, union Value *const restrict 
 void Native_puts(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys;
-	const char *p = params[0].Ptr;
-	if( !p )
-		retval->Int32 = -1;
-	else retval->Int32 = puts(p);
+	const char *restrict p = params[0].Ptr;
+	retval->Int32 = p != NULL ? puts(p) : -1;
 }
 
 // char *fgets(char *buffer, int num, FILE *stream);

@@ -28,7 +28,6 @@ extern "C" {
  * 4 bytes: stack size, stack size needed for the code (the stack size will be aligned by 8 bytes)
  * 1 byte: flags
  * 4 bytes: func table size (useable as an offset to the global vars table.)
- * 4 bytes: global table size
  * ------------------------------ end of header ------------------------------
  * .functions table
  * 4 bytes: amount of funcs

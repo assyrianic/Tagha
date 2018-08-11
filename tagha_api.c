@@ -55,11 +55,11 @@ void Tagha_Init(struct Tagha *const restrict vm, void *script)
 		return;
 	
 	*vm = (struct Tagha){0};
-	vm->CurrScript.Ptr = script;
+	vm->Module = script;
 	PrepModule(script);
 }
 
-void Tagha_InitN(struct Tagha *const restrict vm, void *script, const struct NativeInfo natives[])
+void Tagha_InitN(struct Tagha *const restrict vm, void *restrict script, const struct NativeInfo natives[restrict])
 {
 	Tagha_Init(vm, script);
 	Tagha_RegisterNatives(vm, natives);
@@ -105,9 +105,8 @@ bool Tagha_RegisterNatives(struct Tagha *const restrict vm, const struct NativeI
 	if( !vm or !natives )
 		return false;
 	
-	union Value func_addr = (union Value){0};
 	for( const struct NativeInfo *restrict n=natives ; n->NativeCFunc and n->Name ; n++ ) {
-		func_addr.Ptr = GetFunctionOffsetByName(vm->CurrScript.Ptr, n->Name);
+		const union Value func_addr = (union Value){.Ptr = GetFunctionOffsetByName(vm->CurrScript.Ptr, n->Name)};
 		if( func_addr.Ptr )
 			func_addr.SelfPtr->VoidFunc = n->NativeCFunc;
 	}
@@ -185,7 +184,7 @@ inline static void *GetVariableOffsetByIndex(uint8_t *const script, const size_t
 	
 	union Pointer reader = (union Pointer){.Ptr = script + 7};
 	const uint32_t vartable_offset = *reader.UInt32Ptr++;
-	reader.UInt8Ptr += (vartable_offset + 4);
+	reader.UInt8Ptr += vartable_offset;
 	
 	const uint32_t globalvars = *reader.UInt32Ptr++;
 	if( index >= globalvars )
@@ -220,8 +219,6 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		uint16_t opcode;
 		struct { uint8_t instr, addrmode; };
 	} decode;
-	//uint8_t instr=0, addrmode=0;
-	//uint16_t opcode = 0;
 	
 #define X(x) #x ,
 	/* for debugging purposes. */
@@ -237,7 +234,6 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	/* #ifdef _UNISTD_H */
 	
 	#define DISPATCH() \
-	{ \
 		decode.opcode = *pc.UInt16Ptr++; \
 		\
 		if( decode.instr>nop ) { \
@@ -247,8 +243,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		/*usleep(100); */\
 		/*printf("dispatching to '%s'\n", opcode2str[decode.instr]);*/ \
 		/*Tagha_PrintVMState(vm);*/ \
-		goto *dispatch[decode.instr]; \
-	} 
+		goto *dispatch[decode.instr]
 	
 	exec_nop:; {
 		DISPATCH();
@@ -1921,7 +1916,7 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	union Value MainArgs[argc+1];
 	MainArgs[argc].Ptr = NULL;
 	if( argv )
-		for( int i=0 ; i<=argc ; i++ )
+		for( int32_t i=0 ; i<argc ; i++ )
 			MainArgs[i].Ptr = argv[i];
 	vm->Regs[reg_Eh].Ptr = MainArgs;
 	vm->Regs[regSemkath].Int32 = argc;
@@ -1930,9 +1925,22 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	const size_t stacksize = vm->Module->StackSize; //(vm->Module->StackSize + (sizeof(union Value)-1)) & -(sizeof(union Value));
 	if( !stacksize )
 		return ErrStackSize;
+	/*
+	union Value reader = (union Value){.Ptr = vm->CurrScript.UCharPtr + 7};
+	const uint32_t vartable_offset = *reader.UInt32Ptr++;
+	reader.UCharPtr += vartable_offset;
 	
+	const uint32_t globalvars = *reader.UInt32Ptr++;
+	for( uint32_t i=0 ; i<globalvars ; i++ ) {
+		reader.UCharPtr++;
+		const uint64_t sizes = *reader.UInt64Ptr++;
+		reader.UCharPtr += ((sizes & 0xffFFffFF) + (sizes >> 32));
+	}
+	reader.UCharPtr++;
+	*/
 	union Value Stack[stacksize+1]; memset(Stack, 0, sizeof Stack[0] * stacksize+1);
 	vm->Regs[regStk].SelfPtr = vm->Regs[regBase].SelfPtr = Stack + stacksize;
+	//vm->Regs[regStk].Ptr = vm->Regs[regBase].Ptr = reader.UCharPtr + stacksize;
 	
 	(--vm->Regs[regStk].SelfPtr)->Int64 = -1LL;	/* push bullshit ret address. */
 	*--vm->Regs[regStk].SelfPtr = vm->Regs[regBase]; /* push rbp */
@@ -1958,12 +1966,26 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 	if( !stacksize ) {
 		return ErrStackSize;
 	}
+	/*
+	union Value reader = (union Value){.Ptr = vm->CurrScript.UCharPtr + 7};
+	const uint32_t vartable_offset = *reader.UInt32Ptr++;
+	reader.UCharPtr += vartable_offset;
+	
+	const uint32_t globalvars = *reader.UInt32Ptr++;
+	for( uint32_t i=0 ; i<globalvars ; i++ ) {
+		reader.UCharPtr++;
+		const uint64_t sizes = *reader.UInt64Ptr++;
+		reader.UCharPtr += ((sizes & 0xffFFffFF) + (sizes >> 32));
+	}
+	reader.UCharPtr++;
+	*/
 	
 	union Value Stack[stacksize+1]; memset(Stack, 0, sizeof Stack[0] * stacksize+1);
 	vm->Regs[regStk].SelfPtr = vm->Regs[regBase].SelfPtr = Stack + stacksize;
+	//vm->Regs[regStk].Ptr = vm->Regs[regBase].Ptr = reader.UCharPtr + stacksize;
 	
-	/* remember that arguments must be passed right to left. */
-	/* we have enough args to fit in registers. */
+	/* remember that arguments must be passed right to left.
+	 we have enough args to fit in registers. */
 	const uint8_t reg_params = 8;
 	const uint8_t reg_param_initial = regSemkath;
 	const uint16_t bytecount = sizeof(union Value) * args;
@@ -1982,7 +2004,7 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 	
 	*--vm->Regs[regStk].SelfPtr = vm->Regs[regInstr];	/* push return address. */
 	*--vm->Regs[regStk].SelfPtr = vm->Regs[regBase]; /* push rbp */
-	vm->Regs[regInstr].UCharPtr = func_offset;
+	vm->Regs[regInstr].Ptr = func_offset;
 	return Tagha_Exec(vm);
 }
 
