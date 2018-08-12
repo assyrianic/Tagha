@@ -7,9 +7,9 @@ static uint8_t *Tagha_LoadModule(const char *restrict module_name)
 		return NULL;
 	
 	FILE *restrict tbcfile = fopen(module_name, "rb");
-	if( !tbcfile )
+	if( !tbcfile ) {
 		return NULL;
-	
+	}
 	size_t filesize = 0L;
 	if( !fseek(tbcfile, 0, SEEK_END) ) {
 		int64_t size = ftell(tbcfile);
@@ -29,7 +29,6 @@ static uint8_t *Tagha_LoadModule(const char *restrict module_name)
 	const size_t val = fread(module, sizeof(uint8_t), filesize, tbcfile);
 	(void)val;
 	fclose(tbcfile), tbcfile=NULL;
-	
 	return module;
 }
 
@@ -92,12 +91,12 @@ static void Native_TaghaInvoke(struct Tagha *const restrict sys, union Value *co
 	 * doing so will make the old stack memory lost which is not good.
 	 * So let's save some of that data to prevent stack frame corruption.
 	 */
-	struct Tagha *const restrict ctxt = &(struct Tagha){0};
-	Tagha_Init(ctxt, module);
+	struct Tagha *const restrict context = &(struct Tagha){0};
+	Tagha_Init(context, module); // set up 
 	
 	// make the call.
-	Tagha_CallFunc(ctxt, funcname, params[3].UInt64, array);
-	*retdata = ctxt ? ctxt->Regs[regAlaf] : (void)retdata;
+	int res = Tagha_CallFunc(context, funcname, params[3].UInt64, array);
+	*retdata = context->Regs[regAlaf];
 	retval->Bool = true;
 }
 

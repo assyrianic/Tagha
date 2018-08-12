@@ -8,4 +8,3 @@ ar	cr libDataStructColl.a		stringobj.o vector.o hashmap.o unilist.o bilist.o byt
 rm	stringobj.o vector.o hashmap.o unilist.o bilist.o bytebuffer.o tuple.o heap.o graph.o tree.o pluginarch.o linkmap.o
 
 gcc -Wall -Wextra -O2 -std=c99 -s tagha_assembler.c -L. -lDataStructColl -o tasm
-#gcc -Wall -Wextra -g -O2 -std=c99 -s tagha_llvmir2tasm.c -L. -lDataStructColl -o llvm2tagha

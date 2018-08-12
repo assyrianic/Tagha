@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include "tagha.h"
-//#include "tagha_libc/libtagha.c"
+#include "tagha_libc/libtagha.c"
 
 struct Player {
 	float		speed;
@@ -96,7 +96,7 @@ int main(int argc, char *argv[restrict static argc+1])
 	
 	struct Tagha *vm = &(struct Tagha){0};
 	Tagha_InitN(vm, process, host_natives);
-	//Tagha_Load_libTagha_Natives(vm); // from tagha_libc/libtagha.c
+	Tagha_Load_libTagha_Natives(vm); // from tagha_libc/libtagha.c
 	
 	struct Player player = (struct Player){0};
 	// GetGlobalVarByName returns a pointer to the data.

@@ -412,7 +412,7 @@ struct Tuple *Tuple_NewFromLinkMap(const struct LinkMap *);
 /************* Heap Memory Pool (heap.c) *************/
 // uncomment 'DSC_HEAP_NO_MALLOC' if you can't or don't want to use 'malloc/calloc'.
 // library will need recompiling though.
-#define DSC_HEAP_NO_MALLOC
+//#define DSC_HEAP_NO_MALLOC
 
 #ifdef DSC_HEAP_NO_MALLOC
 	#define DSC_HEAPSIZE	(65536)

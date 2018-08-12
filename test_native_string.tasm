@@ -20,7 +20,7 @@ $native %strlen    ; size_t strlen(const char *);
 	mov [long rbp-4], ralaf
 	inc [long rbp-8]
 .L2:
-	lt [long rbp-8], 10000000
+	ult [long rbp-8], 10000000
 	jnz .L3
 	mul [long rbp-4],	10000000
 	mov ralaf, [long rbp-4]

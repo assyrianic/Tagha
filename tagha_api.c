@@ -1895,7 +1895,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	}
 #endif
 	exec_halt:;
-	//TaghaDebug_PrintRegisters(vm);
+	//Tagha_PrintVMState(vm);
 	return regs[regAlaf].Int32;
 }
 
