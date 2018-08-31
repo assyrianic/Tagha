@@ -7,6 +7,7 @@
 
 inline static void			*GetFunctionOffsetByName(uint8_t *, const char *);
 inline static void			*GetFunctionOffsetByIndex(uint8_t *, size_t);
+inline static void			*GetNativeByIndex(uint8_t *, size_t);
 
 inline static void			*GetVariableOffsetByName(uint8_t *, const char *);
 inline static void			*GetVariableOffsetByIndex(uint8_t *, size_t);
@@ -29,7 +30,7 @@ static void PrepModule(uint8_t *const module)
 		*fileptr = stdout;
 }
 
-static void InvokeNative(struct Tagha *const restrict vm, union Value *const restrict regs, const size_t argcount, void (*const NativeCall)())
+static void InvokeNative(struct Tagha *const restrict vm, const size_t argcount, void (*const NativeCall)())
 {
 	const uint8_t reg_params = 8;
 	const uint8_t first_param_register = regSemkath;
@@ -39,12 +40,12 @@ static void InvokeNative(struct Tagha *const restrict vm, union Value *const res
 	 */
 	union Value params[argcount];
 	// copy native params from registers first.
-	memcpy(params, regs+first_param_register, sizeof params[0] * reg_params);
+	memcpy(params, vm->Regs+first_param_register, sizeof params[0] * reg_params);
 	// now copy the remaining params off the stack and pop them.
-	memcpy(params+reg_params, regs[regStk].SelfPtr, sizeof params[0] * (argcount-reg_params));
-	regs[regStk].SelfPtr += (argcount-reg_params);
+	memcpy(params+reg_params, vm->regStk.SelfPtr, sizeof params[0] * (argcount-reg_params));
+	vm->regStk.SelfPtr += (argcount-reg_params);
 	// invoke!
-	(*NativeCall)(vm, regs+regAlaf, argcount, params);
+	(*NativeCall)(vm, &vm->regAlaf, argcount, params);
 }
 
 
@@ -69,34 +70,33 @@ void Tagha_PrintVMState(const struct Tagha *const restrict vm)
 {
 	if( !vm )
 		return;
-	const union Value *const restrict regs = vm->Regs;
 	
 	printf("=== Tagha VM State Info ===\n\nPrinting Registers:\nregister alaf: '%" PRIu64 "'\nregister beth: '%" PRIu64 "'\nregister gamal: '%" PRIu64 "'\nregister dalath: '%" PRIu64 "'\nregister heh: '%" PRIu64 "'\nregister waw: '%" PRIu64 "'\nregister zain: '%" PRIu64 "'\nregister heth: '%" PRIu64 "'\nregister teth: '%" PRIu64 "'\nregister yodh: '%" PRIu64 "'\nregister kaf: '%" PRIu64 "'\nregister lamadh: '%" PRIu64 "'\nregister meem: '%" PRIu64 "'\nregister noon: '%" PRIu64 "'\nregister semkath: '%" PRIu64 "'\nregister eh: '%" PRIu64 "'\nregister peh: '%" PRIu64 "'\nregister sadhe: '%" PRIu64 "'\nregister qof: '%" PRIu64 "'\nregister reesh: '%" PRIu64 "'\nregister sheen: '%" PRIu64 "'\nregister taw: '%" PRIu64 "'\nregister stack pointer: '%p'\nregister base pointer: '%p'\nregister instruction pointer: '%p'\n\nPrinting Condition Flag: %u\n=== End Tagha VM State Info ===\n",
-	regs[regAlaf].UInt64,
-	regs[regBeth].UInt64,
-	regs[regGamal].UInt64,
-	regs[regDalath].UInt64,
-	regs[regHeh].UInt64,
-	regs[regWaw].UInt64,
-	regs[regZain].UInt64,
-	regs[regHeth].UInt64,
-	regs[regTeth].UInt64,
-	regs[regYodh].UInt64,
-	regs[regKaf].UInt64,
-	regs[regLamadh].UInt64,
-	regs[regMeem].UInt64,
-	regs[regNoon].UInt64,
-	regs[regSemkath].UInt64,
-	regs[reg_Eh].UInt64,
-	regs[regPeh].UInt64,
-	regs[regSadhe].UInt64,
-	regs[regQof].UInt64,
-	regs[regReesh].UInt64,
-	regs[regSheen].UInt64,
-	regs[regTaw].UInt64,
-	regs[regStk].Ptr,
-	regs[regBase].Ptr,
-	regs[regInstr].Ptr,
+	vm->regAlaf.UInt64,
+	vm->regBeth.UInt64,
+	vm->regGamal.UInt64,
+	vm->regDalath.UInt64,
+	vm->regHeh.UInt64,
+	vm->regWaw.UInt64,
+	vm->regZain.UInt64,
+	vm->regHeth.UInt64,
+	vm->regTeth.UInt64,
+	vm->regYodh.UInt64,
+	vm->regKaf.UInt64,
+	vm->regLamadh.UInt64,
+	vm->regMeem.UInt64,
+	vm->regNoon.UInt64,
+	vm->regSemkath.UInt64,
+	vm->reg_Eh.UInt64,
+	vm->regPeh.UInt64,
+	vm->regSadhe.UInt64,
+	vm->regQof.UInt64,
+	vm->regReesh.UInt64,
+	vm->regSheen.UInt64,
+	vm->regTaw.UInt64,
+	vm->regStk.Ptr,
+	vm->regBase.Ptr,
+	vm->regInstr.Ptr,
 	vm->CondFlag);
 }
 
@@ -155,6 +155,28 @@ inline static void *GetFunctionOffsetByIndex(uint8_t *const script, const size_t
 	return NULL;
 }
 
+inline static void *GetNativeByIndex(uint8_t *const script, const size_t index)
+{
+	if( !script )
+		return NULL;
+	
+	union Pointer reader = (union Pointer){.Ptr = script + 11};
+	const uint32_t funcs = *reader.UInt32Ptr++;
+	if( index >= funcs )
+		return NULL;
+	
+	for( uint32_t i=0 ; i<funcs ; i++ ) {
+		reader.UInt8Ptr++;
+		const uint64_t sizes = *reader.UInt64Ptr++;
+		const uint32_t cstrlen = sizes & 0xffFFffFF;
+		const uint32_t datalen = sizes >> 32;
+		if( i==index )
+			return *( void (**)() )(reader.UInt8Ptr + cstrlen);
+		else reader.UInt8Ptr += (cstrlen + datalen);
+	}
+	return NULL;
+}
+
 inline static void *GetVariableOffsetByName(uint8_t *const script, const char *restrict varname)
 {
 	if( !script or !varname )
@@ -206,14 +228,17 @@ inline static void *GetVariableOffsetByIndex(uint8_t *const script, const size_t
 
 int32_t Tagha_Exec(struct Tagha *const restrict vm)
 {
-	if( !vm or !vm->Module ) {
-		return ErrInstrBounds;
+	if( !vm )
+		return -1;
+	else if( !vm->Module ) {
+		vm->Error = ErrInstrBounds;
+		return -1;
 	}
 	
 	union Value *const restrict regs = vm->Regs;
-	union Pointer pc = (union Pointer){.UInt8Ptr = regs[regInstr].UCharPtr};
-	const union Value *const restrict MainBasePtr = regs[regBase].SelfPtr;
-	regs[regBase] = regs[regStk];
+	union Pointer pc = (union Pointer){.UInt8Ptr = vm->regInstr.UCharPtr};
+	const union Value *const restrict MainBasePtr = vm->regBase.SelfPtr;
+	vm->regBase = vm->regStk;
 	
 	union {
 		uint16_t opcode;
@@ -237,7 +262,8 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		decode.opcode = *pc.UInt16Ptr++; \
 		\
 		if( decode.instr>nop ) { \
-			return ErrInstrBounds; \
+			vm->Error = ErrInstrBounds; \
+			return -1; \
 		} \
 		\
 		/*usleep(100); */\
@@ -256,15 +282,15 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	exec_push:; {
 		/* push an imm constant. */
 		if( decode.addrmode & Immediate )
-			*--regs[regStk].SelfPtr = *pc.ValPtr++;
+			*--vm->regStk.SelfPtr = *pc.ValPtr++;
 		/* push a register's contents. */
 		else if( decode.addrmode & Register )
-			*--regs[regStk].SelfPtr = regs[*pc.UInt8Ptr++];
+			*--vm->regStk.SelfPtr = regs[*pc.UInt8Ptr++];
 		/* push the contents of a memory address inside a register. */
 		else if( decode.addrmode & RegIndirect ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
 			const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-			*--regs[regStk].SelfPtr = *address_ptr.ValPtr;
+			*--vm->regStk.SelfPtr = *address_ptr.ValPtr;
 		}
 		DISPATCH();
 	}
@@ -275,11 +301,11 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	 */
 	exec_pop:; {
 		if( decode.addrmode & Register )
-			regs[*pc.UInt8Ptr++] = *regs[regStk].SelfPtr++;
+			regs[*pc.UInt8Ptr++] = *vm->regStk.SelfPtr++;
 		else if( decode.addrmode & RegIndirect ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
 			const union Pointer address_ptr = (union Pointer){.UInt8Ptr = regs[regid].UCharPtr + *pc.Int32Ptr++};
-			*address_ptr.ValPtr = *regs[regStk].SelfPtr++;
+			*address_ptr.ValPtr = *vm->regStk.SelfPtr++;
 		}
 		DISPATCH();
 	}
@@ -1356,29 +1382,31 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				index = (*address_ptr.UInt64Ptr - 1);
 		}
 		uint8_t *const call_addr = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, index);
-		if( !call_addr )
-			goto *dispatch[halt];
+		if( !call_addr ) {
+			vm->Error = ErrMissingFunc;
+			return -1;
+		}
 		/* The restrict type qualifier is an indication to the compiler that,
 		 * if the memory addressed by the restrict-qualified pointer is modified,
 		 * no other pointer will access that same memory.
 		 * Since we're pushing the restrict-qualified pointer's memory that it points to,
 		 * This is NOT undefined behavior because it's not aliasing access of the instruction stream.
 		 */
-		(--regs[regStk].SelfPtr)->Ptr = pc.Ptr;	/* push rip */
-		*--regs[regStk].SelfPtr = regs[regBase];	/* push rbp */
-		regs[regBase] = regs[regStk];	/* mov rbp, rsp */
+		(--vm->regStk.SelfPtr)->Ptr = pc.Ptr;	/* push rip */
+		*--vm->regStk.SelfPtr = vm->regBase;	/* push rbp */
+		vm->regBase = vm->regStk;	/* mov rbp, rsp */
 		pc.UInt8Ptr = call_addr;
 		DISPATCH();
 	}
 	exec_ret:; {
-		regs[regStk] = regs[regBase]; /* mov rsp, rbp */
-		regs[regBase] = *regs[regStk].SelfPtr++; /* pop rbp */
+		vm->regStk = vm->regBase; /* mov rsp, rbp */
+		vm->regBase = *vm->regStk.SelfPtr++; /* pop rbp */
 		
 		/* if we're popping Main's (or whatever called func's) RBP, then halt the whole program. */
-		if( regs[regBase].SelfPtr==MainBasePtr )
+		if( vm->regBase.SelfPtr==MainBasePtr )
 			goto *dispatch[halt];
 		
-		pc.Ptr = (*regs[regStk].SelfPtr++).Ptr; /* pop rip */
+		pc.Ptr = (*vm->regStk.SelfPtr++).Ptr; /* pop rip */
 		DISPATCH();
 	}
 	exec_syscall:; {
@@ -1404,22 +1432,22 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		 * void NativeFunc(struct Tagha *sys, union Value *retval, const size_t args, union Value params[static args]);
 		 */
 		
-		void (**const restrict nativeref)() = GetFunctionOffsetByIndex(vm->CurrScript.Ptr, index);
-		if( !nativeref or !*nativeref )
+		void (*const nativeref)() = GetNativeByIndex(vm->CurrScript.Ptr, index);
+		if( !nativeref )
 			goto *dispatch[halt];
 		
 		const uint8_t reg_params = 8;
 		const uint8_t reg_param_initial = regSemkath;
-		regs[regAlaf].UInt64 = 0;
+		vm->regAlaf.UInt64 = 0;
 		
 		/* save stack space by using the registers for passing arguments. */
 		/* the other registers can then be used for other data operations. */
 		if( argcount <= reg_params ) {
-			(**nativeref)(vm, regs+regAlaf, argcount, regs+reg_param_initial);
+			(*nativeref)(vm, &vm->regAlaf, argcount, regs+reg_param_initial);
 		}
 		/* if the native has more than a certain num of params, get from both registers and stack. */
 		else if( argcount > reg_params ) {
-			InvokeNative(vm, regs, argcount, *nativeref);
+			InvokeNative(vm, argcount, nativeref);
 		}
 		DISPATCH();
 	}
@@ -1896,20 +1924,22 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 #endif
 	exec_halt:;
 	//Tagha_PrintVMState(vm);
-	return regs[regAlaf].Int32;
+	return vm->regAlaf.Int32;
 }
 
 int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, char *argv[])
 {
 	if( !vm )
-		return ErrBadPtr;
+		return -1;
 	else if( !vm->Module or vm->Module->Magic != 0xC0DE ) {
-		return ErrInvalidScript;
+		vm->Error = ErrInvalidScript;
+		return -1;
 	}
 	
 	uint8_t *const main_offset = GetFunctionOffsetByName(vm->CurrScript.Ptr, "main");
 	if( !main_offset ) {
-		return ErrMissingFunc;
+		vm->Error = ErrMissingFunc;
+		return -1;
 	}
 	
 	/* push argc, argv to registers. */
@@ -1918,13 +1948,15 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	if( argv )
 		for( int32_t i=0 ; i<argc ; i++ )
 			MainArgs[i].Ptr = argv[i];
-	vm->Regs[reg_Eh].Ptr = MainArgs;
-	vm->Regs[regSemkath].Int32 = argc;
+	vm->reg_Eh.Ptr = MainArgs;
+	vm->regSemkath.Int32 = argc;
 	
 	/* check out stack size and align it by the size of union Value. */
 	const size_t stacksize = vm->Module->StackSize; //(vm->Module->StackSize + (sizeof(union Value)-1)) & -(sizeof(union Value));
-	if( !stacksize )
-		return ErrStackSize;
+	if( !stacksize ) {
+		vm->Error = ErrStackSize;
+		return -1;
+	}
 	/*
 	union Value reader = (union Value){.Ptr = vm->CurrScript.UCharPtr + 7};
 	const uint32_t vartable_offset = *reader.UInt32Ptr++;
@@ -1939,32 +1971,35 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	reader.UCharPtr++;
 	*/
 	union Value Stack[stacksize+1]; memset(Stack, 0, sizeof Stack[0] * stacksize+1);
-	vm->Regs[regStk].SelfPtr = vm->Regs[regBase].SelfPtr = Stack + stacksize;
+	vm->regStk.SelfPtr = vm->regBase.SelfPtr = Stack + stacksize;
 	//vm->Regs[regStk].Ptr = vm->Regs[regBase].Ptr = reader.UCharPtr + stacksize;
 	
-	(--vm->Regs[regStk].SelfPtr)->Int64 = -1LL;	/* push bullshit ret address. */
-	*--vm->Regs[regStk].SelfPtr = vm->Regs[regBase]; /* push rbp */
-	vm->Regs[regInstr].UCharPtr = main_offset;
+	(--vm->regStk.SelfPtr)->Int64 = -1LL;	/* push bullshit ret address. */
+	*--vm->regStk.SelfPtr = vm->regBase; /* push rbp */
+	vm->regInstr.UCharPtr = main_offset;
 	return Tagha_Exec(vm);
 }
 
 int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict funcname, const size_t args, union Value values[static args])
 {
 	if( !vm or !funcname )
-		return ErrBadPtr;
+		return -1;
 	else if( !vm->Module or vm->Module->Magic != 0xC0DE ) {
-		return ErrInvalidScript;
+		vm->Error = ErrInvalidScript;
+		return -1;
 	}
 	
 	uint8_t *const func_offset = GetFunctionOffsetByName(vm->CurrScript.Ptr, funcname);
 	if( !func_offset ) {
-		return ErrMissingFunc;
+		vm->Error = ErrMissingFunc;
+		return -1;
 	}
 	
 	/* check out stack size and align it by the size of union Value. */
 	const size_t stacksize = vm->Module->StackSize; //(vm->Module->StackSize + (sizeof(union Value)-1)) & -(sizeof(union Value));
 	if( !stacksize ) {
-		return ErrStackSize;
+		vm->Error = ErrStackSize;
+		return -1;
 	}
 	/*
 	union Value reader = (union Value){.Ptr = vm->CurrScript.UCharPtr + 7};
@@ -1981,7 +2016,7 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 	*/
 	
 	union Value Stack[stacksize+1]; memset(Stack, 0, sizeof Stack[0] * stacksize+1);
-	vm->Regs[regStk].SelfPtr = vm->Regs[regBase].SelfPtr = Stack + stacksize;
+	vm->regStk.SelfPtr = vm->regBase.SelfPtr = Stack + stacksize;
 	//vm->Regs[regStk].Ptr = vm->Regs[regBase].Ptr = reader.UCharPtr + stacksize;
 	
 	/* remember that arguments must be passed right to left.
@@ -1997,25 +2032,42 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 	}
 	/* if the function has more than a certain num of params, push from both registers and stack. */
 	else if( args > reg_params ) {
-		memcpy(vm->Regs+reg_param_initial, values, sizeof(union Value) * reg_params);
-		memcpy(vm->Regs[regStk].SelfPtr, values+reg_params, sizeof(union Value) * (args-reg_params));
-		vm->Regs[regStk].SelfPtr -= (args-reg_params);
+		memcpy(vm->Regs+reg_param_initial, values, sizeof Stack[0] * reg_params);
+		memcpy(vm->regStk.SelfPtr, values+reg_params, sizeof Stack[0] * (args-reg_params));
+		vm->regStk.SelfPtr -= (args-reg_params);
 	}
 	
-	*--vm->Regs[regStk].SelfPtr = vm->Regs[regInstr];	/* push return address. */
-	*--vm->Regs[regStk].SelfPtr = vm->Regs[regBase]; /* push rbp */
-	vm->Regs[regInstr].Ptr = func_offset;
+	*--vm->regStk.SelfPtr = vm->regInstr;	/* push return address. */
+	*--vm->regStk.SelfPtr = vm->regBase; /* push rbp */
+	vm->regInstr.Ptr = func_offset;
 	return Tagha_Exec(vm);
 }
 
 union Value Tagha_GetReturnValue(const struct Tagha *const restrict vm)
 {
-	return vm ? vm->Regs[regAlaf] : (union Value){0};
+	return vm ? vm->regAlaf : (union Value){0};
 }
 
 void *Tagha_GetGlobalVarByName(struct Tagha *const restrict vm, const char *restrict varname)
 {
 	return !vm or !varname ? NULL : GetVariableOffsetByName(vm->CurrScript.Ptr, varname);
+}
+
+const char *Tagha_GetError(const struct Tagha *const restrict vm)
+{
+	if( !vm )
+		return "Null VM Pointer";
+	
+	switch( vm->Error ) {
+		case ErrInstrBounds: return "Out of Bound Instruction";
+		case ErrNone: return "None";
+		case ErrBadPtr: return "Null or Invalid Pointer";
+		case ErrMissingFunc: return "Missing Function";
+		case ErrInvalidScript: return "Null or Invalid Script";
+		case ErrStackSize: return "Bad Stack Size given";
+		case ErrMissingNative: return "Missing Native";
+		default: return "Unknown Error";
+	}
 }
 
 /************************************************/

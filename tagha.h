@@ -117,33 +117,42 @@ struct NativeInfo {
 	Y(regLamadh) Y(regMeem) Y(regNoon) Y(regSemkath) Y(reg_Eh) \
 	Y(regPeh) Y(regSadhe) Y(regQof) Y(regReesh) Y(regSheen) Y(regTaw) \
 	/* Syriac alphabet makes great register names! */ \
-	Y(regStk) Y(regBase) Y(regInstr) Y(regsize)
+	Y(regStk) Y(regBase) Y(regInstr)
 
 #define Y(y) y,
-enum RegID { REGISTER_FILE };
+enum RegID { REGISTER_FILE regsize };
 #undef Y
 
-enum /* Tagha Error Codes. */ {
+enum TaghaErrCode {
 	ErrInstrBounds = -1,
 	ErrNone=0,
 	ErrBadPtr,
-	ErrMissingFunc,
+	ErrMissingFunc, ErrMissingNative,
 	ErrInvalidScript,
-	ErrStackSize, 
+	ErrStackSize,
 };
 
 struct Tagha {
-	union Value Regs[regsize];
+	union {
+		struct {
+			#define Y(y) union Value y;
+			REGISTER_FILE
+			#undef Y
+		};
+		union Value Regs[regsize];
+	};
 	union {
 		union Value CurrScript;
 		struct TaghaModule *Module;
 	};
+	enum TaghaErrCode Error;
 	bool CondFlag : 1; /* conditional flag for conditional jumps! */
 };
 
 void Tagha_Init(struct Tagha *, void *);
 void Tagha_InitN(struct Tagha *, void *, const struct NativeInfo []);
 void Tagha_PrintVMState(const struct Tagha *);
+const char *Tagha_GetError(const struct Tagha *);
 
 bool Tagha_RegisterNatives(struct Tagha *, const struct NativeInfo []);
 void *Tagha_GetGlobalVarByName(struct Tagha *, const char *);

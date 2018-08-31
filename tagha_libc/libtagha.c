@@ -33,7 +33,7 @@ static uint8_t *Tagha_LoadModule(const char *restrict module_name)
 }
 
 /* void *Tagha_LoadModule(const char *tbc_module_name); */
-static void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[static args])
+static void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys; (void)args;
 	const char *restrict module_name = params[0].Ptr;
@@ -41,7 +41,7 @@ static void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value
 }
 
 /* void *Tagha_GetGlobal(void *module, const char *symname); */
-static void Native_TaghaGetGlobal(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[static args])
+static void Native_TaghaGetGlobal(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys; (void)args;
 	const char *restrict symname = params[1].Ptr;
@@ -64,7 +64,7 @@ static void Native_TaghaGetGlobal(struct Tagha *const restrict sys, union Value 
 	}
 }
 
-/* bool Tagha_InvokeFunc(void *, const char *, union Value *, size_t, union Value []); */
+/* int32_t Tagha_InvokeFunc(void *, const char *, union Value *, size_t, union Value []); */
 static void Native_TaghaInvoke(struct Tagha *const restrict sys, union Value *const retval, const size_t args, union Value params[static args])
 {
 	(void)sys; (void)args;
@@ -95,9 +95,8 @@ static void Native_TaghaInvoke(struct Tagha *const restrict sys, union Value *co
 	Tagha_Init(context, module); // set up 
 	
 	// make the call.
-	int res = Tagha_CallFunc(context, funcname, params[3].UInt64, array);
+	retval->Int32 = Tagha_CallFunc(context, funcname, params[3].UInt64, array);
 	*retdata = context->Regs[regAlaf];
-	retval->Bool = true;
 }
 
 /* bool Tagha_FreeModule(void **module); */
