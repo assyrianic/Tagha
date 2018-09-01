@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include "tagha.h"
-#include "tagha_libc/libtagha.c"
 
 struct Player {
 	float		speed;
@@ -32,7 +31,7 @@ void Native_fgets(struct Tagha *const restrict sys, union Value *const restrict 
 	(void)sys;
 	char *restrict buf = params[0].Ptr;
 	FILE *restrict stream = params[2].Ptr;
-	if( !buf or !stream ) {
+	if( !buf || !stream ) {
 		return;
 	}
 	retval->Ptr = fgets(buf, params[1].Int32, stream);
@@ -42,7 +41,7 @@ void Native_fgets(struct Tagha *const restrict sys, union Value *const restrict 
 void Native_strlen(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys; (void)args;
-	const char *s = params[0].Ptr;
+	const char *restrict s = params[0].Ptr;
 	for( ; *s ; s++ );
 	retval->UInt64 = (s - (const char *)params[0].Ptr);
 }
@@ -54,7 +53,7 @@ void Native_AddOne(struct Tagha *const restrict sys, union Value *const restrict
 }
 
 
-static size_t GetFileSize(FILE *const restrict file)
+size_t GetFileSize(FILE *const restrict file)
 {
 	int64_t size = 0L;
 	if( !file )
@@ -69,24 +68,27 @@ static size_t GetFileSize(FILE *const restrict file)
 	return (size_t)size;
 }
 
-int main(int argc, char *argv[restrict static argc+1])
+
+#include "tagha_libc/libtagha.c"
+
+int main(const int argc, char *argv[restrict static argc+1])
 {
 	if( !argv[1] ) {
 		printf("[TaghaVM Usage]: '%s' '.tbc filepath' \n", argv[0]);
 		return 1;
 	}
 	
-	FILE *script = fopen(argv[1], "rb");
+	FILE *restrict script = fopen(argv[1], "rb");
 	if( !script )
 		return 1;
 	
 	const size_t filesize = GetFileSize(script);
-	uint8_t *process = calloc(filesize, sizeof *process);
+	uint8_t *restrict process = calloc(filesize, sizeof *process);
 	const size_t val = fread(process, sizeof *process, filesize, script);
 	(void)val;
 	fclose(script), script=NULL;
 	
-	struct NativeInfo host_natives[] = {
+	const struct NativeInfo host_natives[] = {
 		{"puts", Native_puts},
 		{"fgets", Native_fgets},
 		{"strlen", Native_strlen},
@@ -94,24 +96,25 @@ int main(int argc, char *argv[restrict static argc+1])
 		{NULL, NULL}
 	};
 	
-	struct Tagha *vm = &(struct Tagha){0};
-	Tagha_InitN(vm, process, host_natives);
-	Tagha_Load_libTagha_Natives(vm); // from tagha_libc/libtagha.c
+	struct Tagha vm = (struct Tagha){0};
+	Tagha_InitNatives(&vm, process, host_natives);
+	Tagha_Load_libTagha_Natives(&vm); // from tagha_libc/libtagha.c
 	
 	struct Player player = (struct Player){0};
 	// GetGlobalVarByName returns a pointer to the data.
 	// if the data itself is a pointer, then you gotta use a pointer-pointer.
-	struct Player **restrict pp = Tagha_GetGlobalVarByName(vm, "g_pPlayer");
+	struct Player **restrict pp = Tagha_GetGlobalVarByName(&vm, "g_pPlayer");
 	if( pp )
 		*pp = &player;
 	
 	char i[] = "hello from main argv!";
 	char *arguments[] = {i, NULL};
 	clock_t start = clock();
-	//int32_t result = Tagha_CallFunc(vm, "factorial", 1, &(union Value){.UInt64 = 5});
-	int32_t result = Tagha_RunScript(vm, 1, arguments);
+	//int32_t result = Tagha_CallFunc(&vm, "factorial", 1, &(union Value){.UInt64 = 5});
+	int32_t result = Tagha_RunScript(&vm, 1, arguments);
 	if( pp )
 		printf("player.speed: '%f' | player.health: '%u' | player.ammo: '%u'\n", player.speed, player.health, player.ammo);
-	//Tagha_PrintVMState(vm);
+	//Tagha_PrintVMState(&vm);
 	printf("result?: '%i' | profile time: '%f'\n", result, (clock()-start)/(double)CLOCKS_PER_SEC);
+	free(process);
 }

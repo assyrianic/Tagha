@@ -26,16 +26,14 @@ $native %AddOne    ; int AddOne(const int n);
 
 
 %main: {
-	push rbeth
 	mov rbeth, 1000000000
 	xorb ralaf, ralaf
-
+	
 .loop:
 	mov rsemkath, ralaf
 	syscall %AddOne, 1
 	dec rbeth
 	cmp rbeth, 0
 	jz .loop
-	pop rbeth
 	ret
 }

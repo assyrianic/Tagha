@@ -8,12 +8,12 @@
 	ret
 }
 
-# void VecInvert(float v[3])
-# {
-# 	v[0] = -v[0];
-# 	v[1] = -v[1];
-# 	v[2] = -v[2];
-# }
+; void VecInvert(float v[3])
+; {
+; 	v[0] = -v[0];
+; 	v[1] = -v[1];
+; 	v[2] = -v[2];
+; }
 
 %VecInvert: {
 	mov rbeth, [long rsemkath]

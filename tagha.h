@@ -105,9 +105,11 @@ struct TaghaModule {
  * Since 'Alaf' is the return value register and Semkath to Taw are for functions, they need preservation, all other registers are volatile.
  */
 struct Tagha;
+typedef void TaghaNative(struct Tagha *, union Value *, size_t, union Value []);
+
 struct NativeInfo {
 	const char *Name;
-	void (*NativeCFunc)(struct Tagha *, union Value *, size_t, union Value []);
+	TaghaNative *NativeCFunc;
 };
 
 
@@ -129,9 +131,10 @@ enum TaghaErrCode {
 	ErrBadPtr,
 	ErrMissingFunc, ErrMissingNative,
 	ErrInvalidScript,
-	ErrStackSize,
+	ErrStackSize
 };
 
+// Script Data.
 struct Tagha {
 	union {
 		struct {
@@ -141,16 +144,19 @@ struct Tagha {
 		};
 		union Value Regs[regsize];
 	};
-	union {
-		union Value CurrScript;
-		struct TaghaModule *Module;
-	};
+	struct TaghaModule *Header;
 	enum TaghaErrCode Error;
 	bool CondFlag : 1; /* conditional flag for conditional jumps! */
 };
 
+struct Tagha *Tagha_New(void *);
+struct Tagha *Tagha_NewNatives(void *, const struct NativeInfo []);
+void Tagha_Free(struct Tagha **);
+
 void Tagha_Init(struct Tagha *, void *);
-void Tagha_InitN(struct Tagha *, void *, const struct NativeInfo []);
+void Tagha_InitNatives(struct Tagha *, void *, const struct NativeInfo []);
+void Tagha_Del(struct Tagha *);
+
 void Tagha_PrintVMState(const struct Tagha *);
 const char *Tagha_GetError(const struct Tagha *);
 
@@ -227,9 +233,11 @@ enum InstrSet { INSTR_SET };
 #ifdef __cplusplus
 
 class CTagha;
+typedef void TaghaNative_cpp(class CTagha *, union Value *, size_t, union Value []);
+
 struct CNativeInfo {
 	const char *Name;
-	void (*NativeFunc)(class CTagha *, union Value *, size_t, union Value []);
+	TaghaNative_cpp *NativeFunc;
 };
 
 class CTagha : public Tagha {

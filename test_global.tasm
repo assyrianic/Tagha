@@ -25,7 +25,7 @@ $native %Tagha_FreeModule ; void Tagha_FreeModule(void *);
 	mov [long rgamal+4], 100 ; g_pPlayer->health = 100;
 	mov [long rgamal+8], 32 ; g_pPlayer->ammo = 32;
 	
-	mov rbeth, 1000000000
+	mov rbeth, 10000000 #1000000000 / 1000000
 	lea rsemkath, module_str
 	syscall %Tagha_LoadModule, 1
 	mov [word rbp-24], ralaf ; module ptr is in ralaf, copy it to stack

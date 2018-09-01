@@ -1,6 +1,21 @@
 #include <stdlib.h>
 #include <stdio.h>
-
+/*
+static size_t GetFileSize(FILE *const restrict file)
+{
+	int64_t size = 0L;
+	if( !file )
+		return size;
+	
+	if( !fseek(file, 0, SEEK_END) ) {
+		size = ftell(file);
+		if( size == -1 )
+			return 0L;
+		rewind(file);
+	}
+	return (size_t)size;
+}
+*/
 static uint8_t *Tagha_LoadModule(const char *restrict module_name)
 {
 	if( !module_name )
@@ -10,18 +25,8 @@ static uint8_t *Tagha_LoadModule(const char *restrict module_name)
 	if( !tbcfile ) {
 		return NULL;
 	}
-	size_t filesize = 0L;
-	if( !fseek(tbcfile, 0, SEEK_END) ) {
-		int64_t size = ftell(tbcfile);
-		if( size == -1LL ) {
-			fclose(tbcfile), tbcfile=NULL;
-			return NULL;
-		}
-		rewind(tbcfile);
-		filesize = (size_t)size;
-	}
-	
-	uint8_t *module = calloc(filesize, sizeof *module);
+	const size_t filesize = GetFileSize(tbcfile);
+	uint8_t *restrict module = calloc(filesize, sizeof *module);
 	if( !module ) {
 		fclose(tbcfile), tbcfile=NULL;
 		return NULL;
@@ -33,7 +38,7 @@ static uint8_t *Tagha_LoadModule(const char *restrict module_name)
 }
 
 /* void *Tagha_LoadModule(const char *tbc_module_name); */
-static void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
+void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys; (void)args;
 	const char *restrict module_name = params[0].Ptr;
@@ -41,7 +46,7 @@ static void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value
 }
 
 /* void *Tagha_GetGlobal(void *module, const char *symname); */
-static void Native_TaghaGetGlobal(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
+void Native_TaghaGetGlobal(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys; (void)args;
 	const char *restrict symname = params[1].Ptr;
@@ -65,25 +70,19 @@ static void Native_TaghaGetGlobal(struct Tagha *const restrict sys, union Value 
 }
 
 /* int32_t Tagha_InvokeFunc(void *, const char *, union Value *, size_t, union Value []); */
-static void Native_TaghaInvoke(struct Tagha *const restrict sys, union Value *const retval, const size_t args, union Value params[static args])
+void Native_TaghaInvoke(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys; (void)args;
 	uint8_t *const restrict module = params[0].Ptr;
-	if( !module ) {
-		return;
-	}
 	const char *restrict funcname = params[1].Ptr;
-	if( !funcname ) {
-		return;
-	}
-	union Value *const restrict retdata = params[2].SelfPtr;
+	union Value
+		*const restrict retdata = params[2].SelfPtr,
+		*const restrict array = params[4].SelfPtr
+	;
 	if( !retdata ) {
 		return;
 	}
-	union Value *const restrict array = params[4].SelfPtr;
-	if( !array ) {
-		return;
-	}
+	const size_t array_size = params[3].UInt64;
 	
 	/* do a context switch to run the function.
 	 * have to do this because we don't want to overwrite
@@ -91,20 +90,20 @@ static void Native_TaghaInvoke(struct Tagha *const restrict sys, union Value *co
 	 * doing so will make the old stack memory lost which is not good.
 	 * So let's save some of that data to prevent stack frame corruption.
 	 */
-	struct Tagha *const restrict context = &(struct Tagha){0};
-	Tagha_Init(context, module); // set up 
+	struct Tagha context = (struct Tagha){0};
+	Tagha_Init(&context, module); // set up 
 	
 	// make the call.
-	retval->Int32 = Tagha_CallFunc(context, funcname, params[3].UInt64, array);
-	*retdata = context->Regs[regAlaf];
+	retval->Int32 = Tagha_CallFunc(&context, funcname, array_size, array);
+	*retdata = context.regAlaf;
 }
 
 /* bool Tagha_FreeModule(void **module); */
-static void Native_TaghaFreeModule(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
+void Native_TaghaFreeModule(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
 {
 	(void)sys; (void)args;
-	uint8_t **module = params[0].Ptr;
-	if( !module or !*module ) {
+	uint8_t **restrict module = params[0].Ptr;
+	if( !module || !*module ) {
 		return;
 	}
 	free(*module), *module = NULL;
