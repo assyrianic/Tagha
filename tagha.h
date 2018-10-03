@@ -13,13 +13,13 @@ extern "C" {
 
 union TaghaVal {
 	bool Bool, BoolArray[8], *BoolPtr, (*BoolFunc)(), *(*BoolPtrFunc)();
-	int8_t Char, CharArray[8], *CharPtr, (*CharFunc)(), *(*CharPtrFunc)();
-	int16_t Short, ShortArray[4], *ShortPtr, (*ShortFunc)(), *(*ShortPtrFunc)();
+	int8_t Int8, Int8Array[8], *Int8Ptr, (*Int8Func)(), *(*Int8PtrFunc)();
+	int16_t Int16, Int16Array[4], *Int16Ptr, (*Int16Func)(), *(*Int16PtrFunc)();
 	int32_t Int32, Int32Array[2], *Int32Ptr, (*Int32Func)(), *(*Int32PtrFunc)();
 	int64_t Int64, *Int64Ptr, (*Int64Func)(), *(*Int64PtrFunc)();
 	
-	uint8_t UChar, UCharArray[8], *UCharPtr, (*UCharFunc)(), *(*UCharPtrFunc)();
-	uint16_t UShort, UShortArray[4], *UShortPtr, (*UShortFunc)(), *(*UShortPtrFunc)();
+	uint8_t UInt8, UInt8Array[8], *UInt8Ptr, (*UInt8Func)(), *(*UInt8PtrFunc)();
+	uint16_t UInt16, UInt16Array[4], *UInt16Ptr, (*UInt16Func)(), *(*UInt16PtrFunc)();
 	uint32_t UInt32, UInt32Array[2], *UInt32Ptr, (*UInt32Func)(), *(*UInt32PtrFunc)();
 	uint64_t UInt64, *UInt64Ptr, (*UInt64Func)(), *(*UInt64PtrFunc)();
 	size_t SizeInt, *SizeIntPtr;
@@ -94,6 +94,8 @@ union Pointer {
 	void *restrict Ptr;
 };
 
+typedef union TaghaVal *const restrict EffectiveAddr;
+
 #pragma pack(push, 1)
 struct TaghaModule {
 	uint16_t Magic;
@@ -156,8 +158,7 @@ enum TaghaErrCode {
 	ErrStackSize
 };
 
-// Script structure.
-struct Tagha {
+struct TaghaCPU {
 	union {
 		struct {
 			#define Y(y) union TaghaVal y;
@@ -167,9 +168,14 @@ struct Tagha {
 		};
 		union TaghaVal Regs[regsize];
 	};
+	bool CondFlag : 1; /* conditional flag for conditional jumps! */
+};
+
+// Script structure.
+struct Tagha {
+	struct TaghaCPU CPU;
 	struct TaghaModule *Header;
 	enum TaghaErrCode Error;
-	bool CondFlag : 1; /* conditional flag for conditional jumps! */
 };
 
 

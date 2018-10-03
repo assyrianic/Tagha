@@ -227,7 +227,7 @@ static void native_mbtowc(struct Tagha *const restrict sys, union TaghaVal *cons
 /* int wctomb(char *pmb, wchar_t wc); */
 static void native_wctomb(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Int32 = wctomb(params[0].Ptr, sizeof(wchar_t)==2 ? params[1].UShort : params[1].UInt32);
+	RetVal->Int32 = wctomb(params[0].Ptr, sizeof(wchar_t)==2 ? params[1].UInt16 : params[1].UInt32);
 }
 
 /* size_t mbstowcs(wchar_t *dest, const char *src, size_t max); */

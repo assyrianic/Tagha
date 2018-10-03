@@ -53,7 +53,7 @@ void Native_TaghaGetGlobal(struct Tagha *const restrict sys, union TaghaVal *con
 	(void)sys; (void)args;
 	const char *restrict symname = params[1].Ptr;
 	
-	union Pointer reader = (union Pointer){.Ptr = params[0].UCharPtr + 7};
+	union Pointer reader = (union Pointer){.Ptr = params[0].UInt8Ptr + 7};
 	const uint32_t vartable_offset = *reader.UInt32Ptr++;
 	reader.UInt8Ptr += vartable_offset;
 	
@@ -97,7 +97,7 @@ void Native_TaghaInvoke(struct Tagha *const restrict sys, union TaghaVal *const 
 	
 	// make the call.
 	retval->Int32 = Tagha_CallFunc(&context, funcname, array_size, array);
-	*retdata = context.regAlaf;
+	*retdata = context.CPU.regAlaf;
 }
 
 /* bool Tagha_FreeModule(void **module); */

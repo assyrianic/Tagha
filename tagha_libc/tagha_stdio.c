@@ -860,7 +860,7 @@ reswitch:
 				{
 					goto done;
 				}
-				char c = params[*curparam].Char;
+				char c = params[*curparam].Int8;
 				++*curparam;
 				*buf_p++ = c;
 				llen--;

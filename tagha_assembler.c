@@ -818,7 +818,7 @@ bool TaghaAsm_ParseSysCallInstr(struct TaghaAsmbler *const restrict tasm, const 
 		offset=0, argcount=0
 	;
 	
-	tasm->ProgramCounter += 6;
+	tasm->ProgramCounter += 2;
 	SkipWhiteSpace(&tasm->Iter);
 	if( *tasm->Iter=='%' ) {
 		addrmode1 = Immediate;
@@ -933,7 +933,7 @@ bool TaghaAsm_ParseSysCallInstr(struct TaghaAsmbler *const restrict tasm, const 
 			exit(-1);
 		}
 		ByteBuffer_InsertByte(&label->Bytecode, addrmode1);
-		ByteBuffer_InsertInt(&label->Bytecode, argcount, sizeof argcount);
+		//ByteBuffer_InsertInt(&label->Bytecode, argcount, sizeof argcount);
 		if( addrmode1 & Immediate )
 			ByteBuffer_InsertInt(&label->Bytecode, imm.UInt64, sizeof imm.UInt64);
 		else ByteBuffer_InsertByte(&label->Bytecode, imm.UChar);
