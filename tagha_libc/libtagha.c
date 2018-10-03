@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+
 /*
 static size_t GetFileSize(FILE *const restrict file)
 {
@@ -38,7 +40,7 @@ static uint8_t *Tagha_LoadModule(const char *restrict module_name)
 }
 
 /* void *Tagha_LoadModule(const char *tbc_module_name); */
-void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
+void Native_TaghaLoadModule(struct Tagha *const restrict sys, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
 {
 	(void)sys; (void)args;
 	const char *restrict module_name = params[0].Ptr;
@@ -46,7 +48,7 @@ void Native_TaghaLoadModule(struct Tagha *const restrict sys, union Value *const
 }
 
 /* void *Tagha_GetGlobal(void *module, const char *symname); */
-void Native_TaghaGetGlobal(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
+void Native_TaghaGetGlobal(struct Tagha *const restrict sys, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
 {
 	(void)sys; (void)args;
 	const char *restrict symname = params[1].Ptr;
@@ -69,13 +71,13 @@ void Native_TaghaGetGlobal(struct Tagha *const restrict sys, union Value *const 
 	}
 }
 
-/* int32_t Tagha_InvokeFunc(void *, const char *, union Value *, size_t, union Value []); */
-void Native_TaghaInvoke(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
+/* int32_t Tagha_InvokeFunc(void *, const char *, union TaghaVal *, size_t, union TaghaVal []); */
+void Native_TaghaInvoke(struct Tagha *const restrict sys, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
 {
 	(void)sys; (void)args;
 	uint8_t *const restrict module = params[0].Ptr;
 	const char *restrict funcname = params[1].Ptr;
-	union Value
+	union TaghaVal
 		*const restrict retdata = params[2].SelfPtr,
 		*const restrict array = params[4].SelfPtr
 	;
@@ -99,7 +101,7 @@ void Native_TaghaInvoke(struct Tagha *const restrict sys, union Value *const res
 }
 
 /* bool Tagha_FreeModule(void **module); */
-void Native_TaghaFreeModule(struct Tagha *const restrict sys, union Value *const restrict retval, const size_t args, union Value params[restrict static args])
+void Native_TaghaFreeModule(struct Tagha *const restrict sys, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
 {
 	(void)sys; (void)args;
 	uint8_t **restrict module = params[0].Ptr;
@@ -111,7 +113,7 @@ void Native_TaghaFreeModule(struct Tagha *const restrict sys, union Value *const
 }
 
 
-bool Tagha_Load_libTagha_Natives(struct Tagha *const restrict sys)
+bool Tagha_LoadlibTaghaNatives(struct Tagha *const restrict sys)
 {
 	const struct NativeInfo dynamic_loading[] = {
 		{"Tagha_LoadModule", Native_TaghaLoadModule},

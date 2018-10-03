@@ -24,12 +24,12 @@ void *CTagha::GetGlobalVarByName(const char *varname)
 	return Tagha_GetGlobalVarByName((struct Tagha *)this, varname);
 }
 
-int32_t CTagha::CallFunc(const char *funcname, const size_t args, union Value params[])
+int32_t CTagha::CallFunc(const char *funcname, const size_t args, union TaghaVal params[])
 {
 	return Tagha_CallFunc((struct Tagha *)this, funcname, args, params);
 }
 
-union Value CTagha::GetReturnValue()
+union TaghaVal CTagha::GetReturnValue()
 {
 	return Tagha_GetReturnValue((struct Tagha *)this);
 }

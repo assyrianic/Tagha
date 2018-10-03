@@ -31,7 +31,8 @@ $native %AddOne    ; int AddOne(const int n);
 	
 .loop:
 	mov rsemkath, ralaf
-	syscall %AddOne, 1
+	mov ralaf, 1
+	syscall %AddOne
 	dec rbeth
 	cmp rbeth, 0
 	jz .loop

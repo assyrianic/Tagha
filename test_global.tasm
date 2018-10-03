@@ -27,7 +27,8 @@ $native %Tagha_FreeModule ; void Tagha_FreeModule(void *);
 	
 	mov rbeth, 10000000 #1000000000 / 1000000
 	lea rsemkath, module_str
-	syscall %Tagha_LoadModule, 1
+	mov ralaf, 1
+	syscall %Tagha_LoadModule
 	mov [word rbp-24], ralaf ; module ptr is in ralaf, copy it to stack
 	
 	; load array
@@ -44,13 +45,15 @@ $native %Tagha_FreeModule ; void Tagha_FreeModule(void *);
 	
 	; test dynamic loading function invocation overhead
 .loop:
-	syscall %Tagha_InvokeFunc, 5
+	mov ralaf, 5
+	syscall %Tagha_InvokeFunc
 	dec rbeth
 	cmp rbeth, 0
 	jz .loop
 	
 	lea rsemkath, [rbp-24]
-	syscall %Tagha_FreeModule, 1
+	mov ralaf, 1
+	syscall %Tagha_FreeModule
 	mov ralaf, [word rbp-8]
 	ret
 }

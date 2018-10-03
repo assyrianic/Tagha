@@ -16,7 +16,8 @@ $native %strlen    ; size_t strlen(const char *);
 	jmp .L2
 .L3:
 	lea rsemkath, test_str
-	syscall %strlen, 1
+	mov ralaf, 1
+	syscall %strlen
 	mov [long rbp-4], ralaf
 	inc [long rbp-8]
 .L2:

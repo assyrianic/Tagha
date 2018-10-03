@@ -2,21 +2,21 @@
 #include <stdlib.h>
 
 /* void *malloc(size_t size); */
-static void native_malloc(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_malloc(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	// size_t is 8 bytes on 64-bit systems
 	RetVal->Ptr = calloc(1, params[0].UInt64);
 }
 
 /* void free(void *ptr); */
-static void native_free(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_free(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	free(params[0].Ptr);
 }
 
 /* non-standard addition. */
 /* void safe_free(void **pptr); */
-static void native_safe_free(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_safe_free(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	void **pptr = params[0].PtrPtr;
 	if( *pptr ) {
@@ -25,55 +25,55 @@ static void native_safe_free(struct Tagha *const restrict sys, union Value *cons
 }
 
 /* void *calloc(size_t num, size_t size); */
-static void native_calloc(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_calloc(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	RetVal->Ptr = calloc(params[0].UInt64, params[1].UInt64);
 }
 
 /* void *realloc(void *ptr, size_t size); */
-static void native_realloc(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_realloc(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	RetVal->Ptr = realloc(params[0].Ptr, params[1].UInt64);
 }
 
 /* void srand(unsigned int seed); */
-static void native_srand(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_srand(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	srand(params[0].UInt32);
 }
 
 /* int rand(void); */
-static void native_rand(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_rand(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	RetVal->Int32 = rand();
 }
 
 /* double atof(const char *str); */
-static void native_atof(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_atof(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	RetVal->Double = atof(params[0].Ptr);
 }
 
 /* int atoi(const char *str); */
-static void native_atoi(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_atoi(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	RetVal->Int32 = atoi(params[0].Ptr);
 }
 
 /* long int atol(const char *str); */
-static void native_atol(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_atol(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	RetVal->Int64 = atol(params[0].Ptr);
 }
 
 /* long long int atoll(const char *str); */
-static void native_atoll(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_atoll(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	RetVal->Int64 = atoll(params[0].Ptr);
 }
 
 /* double strtod(const char *str, char **endptr); */
-static void native_strtod(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_strtod(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	const char *restrict str = params[0].Ptr;
 	if( !str )
@@ -82,7 +82,7 @@ static void native_strtod(struct Tagha *const restrict sys, union Value *const r
 }
 
 /* float strtof(const char *str, char **endptr); */
-static void native_strtof(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_strtof(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	const char *restrict str = params[0].Ptr;
 	if( !str )
@@ -91,7 +91,7 @@ static void native_strtof(struct Tagha *const restrict sys, union Value *const r
 }
 
 /* long int strtol(const char *str, char **endptr, int base); */
-static void native_strtol(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_strtol(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	const char *restrict str = params[0].Ptr;
 	if( !str )
@@ -100,7 +100,7 @@ static void native_strtol(struct Tagha *const restrict sys, union Value *const r
 }
 
 /* long long int strtoll(const char *str, char **endptr, int base); */
-static void native_strtoll(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_strtoll(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	const char *restrict str = params[0].Ptr;
 	if( !str )
@@ -109,7 +109,7 @@ static void native_strtoll(struct Tagha *const restrict sys, union Value *const 
 }
 
 /* unsigned long int strtoul(const char *str, char **endptr, int base); */
-static void native_strtoul(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_strtoul(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	const char *restrict str = params[0].Ptr;
 	if( !str )
@@ -118,7 +118,7 @@ static void native_strtoul(struct Tagha *const restrict sys, union Value *const 
 }
 
 /* unsigned long long int strtoull(const char *str, char **endptr, int base); */
-static void native_strtoull(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_strtoull(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	const char *restrict str = params[0].Ptr;
 	if( !str )
@@ -127,19 +127,19 @@ static void native_strtoull(struct Tagha *const restrict sys, union Value *const
 }
 
 /* void abort(void); */
-static void native_abort(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_abort(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	abort();
 }
 
 /* void exit(int status); */
-static void native_exit(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_exit(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	exit(params[0].Int32);
 }
 
 /* int system(const char *command); */
-static void native_system(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_system(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	const char *restrict command = params[0].Ptr;
 	if( !command ) {
@@ -150,19 +150,19 @@ static void native_system(struct Tagha *const restrict sys, union Value *const r
 }
 
 /* int abs(int n); */
-static void native_abs(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_abs(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	RetVal->Int32 = abs(params[0].Int32);
 }
 
 /* long int labs(long int n); */
-static void native_labs(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_labs(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	RetVal->Int64 = labs(params[0].Int64);
 }
 
 /* long long int llabs(long long int n); */
-static void native_llabs(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_llabs(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	RetVal->Int64 = llabs(params[0].Int64);
 }
@@ -177,7 +177,7 @@ now how the fuck do we return a damn struct?
 the registers are large enough to have an 8-byte struct but what choice will compilers take?
 One wrong move could render this native function as undefined behavior.
 */
-static void native_div(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_div(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	// Patch Aug 7, 2018: Clang-LLVM compiler compiles this as hidden struct ptr.
 	div_t *res = params[0].Ptr;
@@ -191,7 +191,7 @@ typedef struct {
 	long int rem;
 } ldiv_t;
 
-static void native_ldiv(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_ldiv(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	lldiv_t *res = params[0].Ptr;
 	*res = lldiv(params[1].Int64, params[2].Int64);
@@ -206,44 +206,44 @@ typedef struct {
 } lldiv_t;
 void lldiv(lldiv_t *res, long long int numer, long long int denom);
 */
-static void native_lldiv(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_lldiv(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	lldiv_t *res = params[0].Ptr;
 	*res = lldiv(params[1].Int64, params[2].Int64);
 }
 
 /* int mblen(const char *pmb, size_t max); */
-static void native_mblen(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_mblen(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	RetVal->Int32 = mblen(params[0].Ptr, params[1].UInt64);
 }
 
 /* int mbtowc(wchar_t *pwc, const char *pmb, size_t max); */
-static void native_mbtowc(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_mbtowc(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	RetVal->Int32 = mbtowc(params[0].Ptr, params[1].Ptr, params[2].UInt64);
 }
 
 /* int wctomb(char *pmb, wchar_t wc); */
-static void native_wctomb(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_wctomb(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	RetVal->Int32 = wctomb(params[0].Ptr, sizeof(wchar_t)==2 ? params[1].UShort : params[1].UInt32);
 }
 
 /* size_t mbstowcs(wchar_t *dest, const char *src, size_t max); */
-static void native_mbstowcs(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_mbstowcs(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	RetVal->UInt64 = mbstowcs(params[0].Ptr, params[1].Ptr, params[2].UInt64);
 }
 
 /* size_t wcstombs(char *dest, const wchar_t *src, size_t max); */
-static void native_wcstombs(struct Tagha *const restrict sys, union Value *const restrict RetVal, const size_t argc, union Value params[restrict static argc])
+static void native_wcstombs(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	RetVal->UInt64 = wcstombs(params[0].Ptr, params[1].Ptr, params[2].UInt64);
 }
 
 
-bool Tagha_Load_stdlibNatives(struct Tagha *const restrict sys)
+bool Tagha_LoadstdlibNatives(struct Tagha *const restrict sys)
 {
 	if( !sys )
 		return false;

@@ -12,7 +12,7 @@ struct Player {
 
 
 /* lldiv_t lldiv(long long int numer, long long int denom); */
-void Native_lldiv(class CTagha *sys, union Value *retval, const size_t args, union Value params[])
+void Native_lldiv(class CTagha *sys, union TaghaVal *retval, const size_t args, union TaghaVal params[])
 {
 	(void)sys; (void)args; (void)retval; // makes the compiler stop bitching.
 	lldiv_t *val = (lldiv_t *)params[0].Ptr;
@@ -20,7 +20,7 @@ void Native_lldiv(class CTagha *sys, union Value *retval, const size_t args, uni
 }
 
 /* int puts(const char *str); */
-void Native_puts(class CTagha *sys, union Value *retval, const size_t args, union Value params[])
+void Native_puts(class CTagha *sys, union TaghaVal *retval, const size_t args, union TaghaVal params[])
 {
 	(void)sys; (void)args;
 	const char *p = (const char *)params[0].Ptr;
@@ -33,7 +33,7 @@ void Native_puts(class CTagha *sys, union Value *retval, const size_t args, unio
 }
 
 /* char *fgets(char *buffer, int num, FILE *stream); */
-void Native_fgets(class CTagha *sys, union Value *retval, const size_t args, union Value params[])
+void Native_fgets(class CTagha *sys, union TaghaVal *retval, const size_t args, union TaghaVal params[])
 {
 	(void)sys; (void)args;
 	char *buf = (char *)params[0].Ptr;
@@ -50,13 +50,13 @@ void Native_fgets(class CTagha *sys, union Value *retval, const size_t args, uni
 }
 
 /* size_t strlen(const char *s); */
-void Native_strlen(class CTagha *sys, union Value *retval, const size_t args, union Value params[])
+void Native_strlen(class CTagha *sys, union TaghaVal *retval, const size_t args, union TaghaVal params[])
 {
 	(void)sys; (void)args;
 	retval->UInt64 = strlen((const char *)params[0].Ptr);
 }
 
-void Native_AddOne(class CTagha *sys, union Value *retval, const size_t args, union Value params[])
+void Native_AddOne(class CTagha *sys, union TaghaVal *retval, const size_t args, union TaghaVal params[])
 {
 	(void)sys; (void)args;
 	retval->Int32 = params[0].Int32 + 1;
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 	char i[] = "hello from main argv!";
 	char *arguments[] = {i, nullptr};
 	int32_t result = vm.RunScript(1, arguments);
-	//union Value values[1]; values[0].UInt64 = 5;
+	//union TaghaVal values[1]; values[0].UInt64 = 5;
 	//int32_t result = vm.CallFunc("factorial", 1, values);
 	if( pp )
 		printf("player.speed: '%f' | player.health: '%u' | player.ammo: '%u'\n", player.speed, player.health, player.ammo);

@@ -1,11 +1,13 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
-gcc		-Wextra -Wall -std=c99 -s -O3 -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations -c	tagha_api.c #-fno-guess-branch-probability -fomit-frame-pointer
+#-fsanitize=address -lasan
+
+gcc		-Wextra -Wall -std=c99 -s -O2 -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations -c	tagha_api.c #-fno-guess-branch-probability -fomit-frame-pointer
 
 ar			cr libtagha.a	tagha_api.o
 
-gcc -Wextra -Wall -std=c99 -s -O3 test_hostapp.c -L. -ltagha -o taghavmgcc_hosttest
+gcc -Wextra -Wall -std=c99 -s -O2 test_hostapp.c -L. -ltagha -o taghavmgcc_hosttest
 
 
 
@@ -20,13 +22,13 @@ clang-6.0 -Wextra -Wall -std=c99 -s -O3 test_hostapp.c -L. -ltagha -o taghavmcla
 
 rm	tagha_api.o
 
-#test_fib.tbc
+#test_fib
 #test_native_number
 #test_global
 ./taghavmgcc_hosttest "test_fib.tbc"
-gprof taghavmgcc_hosttest gmon.out > Tagha_profile.txt
+gprof taghavmgcc_hosttest gmon.out > Tagha_profile_GCC.txt
 rm gmon.out
 
 ./taghavmclang_hosttest "test_fib.tbc"
-gprof taghavmclang_hosttest gmon.out > Tagha_profile.txt
+gprof taghavmclang_hosttest gmon.out > Tagha_profile_Clang.txt
 rm gmon.out

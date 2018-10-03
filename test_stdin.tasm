@@ -1,10 +1,3 @@
-# manually set stack size
-# directives start with $
-# if stacksize isn't set, the default stacksize is 128 which will end up as
-# 128 * 8 == 1024 bytes of stack size.
-# also, the stack size will be aligned to a size of 8
-# so 129 will not actually make a stack size of 129 * 8 bytes,
-# 129 will be changed at runtime to 136 * 8
 $stacksize 0xff
 
 $global stdin, 8, word 0
@@ -19,13 +12,15 @@ $native %fgets  # char *fgets(char *, int, FILE *);
 	
 # puts("Please enter a long string: ");
 	lea rsemkath, string
-	syscall %puts, 1
+	mov ralaf, 1
+	syscall %puts
 	
 # fgets(string, 256, stdin);
 	lea rpeh, stdin # loading a global only loads its address, we need the actual ptr value of stdin.
 	mov rpeh, [word rpeh]
 	mov r_eh, 256
 	lea rsemkath, [rbp-256]
-	syscall %fgets, 3
+	mov ralaf, 3
+	syscall %fgets
 	ret
 }

@@ -2,11 +2,34 @@
 
 #ifdef __cplusplus
 extern "C" {
+#define restrict __restrict
 #endif
 
-#include "dsc.h"
+#include <stdbool.h>
+#include <inttypes.h>
+
 
 #define FLOATING_POINT_OPS 1
+
+union TaghaVal {
+	bool Bool, BoolArray[8], *BoolPtr, (*BoolFunc)(), *(*BoolPtrFunc)();
+	int8_t Char, CharArray[8], *CharPtr, (*CharFunc)(), *(*CharPtrFunc)();
+	int16_t Short, ShortArray[4], *ShortPtr, (*ShortFunc)(), *(*ShortPtrFunc)();
+	int32_t Int32, Int32Array[2], *Int32Ptr, (*Int32Func)(), *(*Int32PtrFunc)();
+	int64_t Int64, *Int64Ptr, (*Int64Func)(), *(*Int64PtrFunc)();
+	
+	uint8_t UChar, UCharArray[8], *UCharPtr, (*UCharFunc)(), *(*UCharPtrFunc)();
+	uint16_t UShort, UShortArray[4], *UShortPtr, (*UShortFunc)(), *(*UShortPtrFunc)();
+	uint32_t UInt32, UInt32Array[2], *UInt32Ptr, (*UInt32Func)(), *(*UInt32PtrFunc)();
+	uint64_t UInt64, *UInt64Ptr, (*UInt64Func)(), *(*UInt64PtrFunc)();
+	size_t SizeInt, *SizeIntPtr;
+ #ifdef FLOATING_POINT_OPS
+	float Float, FloatArray[2], *FloatPtr, (*FloatFunc)(), *(*FloatPtrFunc)();
+	double Double, *DoublePtr, (*DoubleFunc)(), *(*DoublePtrFunc)();
+ #endif
+	void *Ptr, **PtrPtr, (*VoidFunc)(), *(*VoidPtrFunc)();
+	union TaghaVal *SelfPtr, (*SelfFunc)(), *(*SelfPtrFunc)();
+};
 
 /* For Colored Debugging Printing! */
 #define KNRM	"\x1B[0m"	/* Normal */
@@ -61,13 +84,13 @@ union Pointer {
 	int16_t *restrict Int16Ptr;
 	int32_t *restrict Int32Ptr;
 	int64_t *restrict Int64Ptr;
-	
+ #ifdef FLOATING_POINT_OPS
 	float *restrict FloatPtr;
 	double *restrict DoublePtr;
-	
+ #endif
 	const char *restrict CStrPtr;
 	
-	union Value *restrict ValPtr;
+	union TaghaVal *restrict ValPtr;
 	void *restrict Ptr;
 };
 
@@ -77,7 +100,6 @@ struct TaghaModule {
 	uint32_t StackSize;
 	uint8_t Flags;
 	uint32_t FuncTblSize;
-	uint32_t GlobalTblSize;
 	uint32_t FuncCount;
 };
 #pragma pack(pop)
@@ -100,12 +122,12 @@ struct TaghaModule {
  * If 8 params, Taw will hold the 8th param, Semkath the first.
  * 
  * Return values must be 8 or less bytes in size in register 'Alaf'.
- * For Natives, structs must always be passed by pointer, unless they're smaller than 8 bytes.
+ * For Natives, structs must always be passed by pointer.
  *
  * Since 'Alaf' is the return value register and Semkath to Taw are for functions, they need preservation, all other registers are volatile.
  */
 struct Tagha;
-typedef void TaghaNative(struct Tagha *, union Value *, size_t, union Value []);
+typedef void TaghaNative(struct Tagha *, union TaghaVal *, size_t, union TaghaVal []);
 
 struct NativeInfo {
 	const char *Name;
@@ -134,20 +156,22 @@ enum TaghaErrCode {
 	ErrStackSize
 };
 
-// Script Data.
+// Script structure.
 struct Tagha {
 	union {
 		struct {
-			#define Y(y) union Value y;
+			#define Y(y) union TaghaVal y;
 			REGISTER_FILE
 			#undef Y
+			#undef REGISTER_FILE
 		};
-		union Value Regs[regsize];
+		union TaghaVal Regs[regsize];
 	};
 	struct TaghaModule *Header;
 	enum TaghaErrCode Error;
 	bool CondFlag : 1; /* conditional flag for conditional jumps! */
 };
+
 
 struct Tagha *Tagha_New(void *);
 struct Tagha *Tagha_NewNatives(void *, const struct NativeInfo []);
@@ -162,8 +186,15 @@ const char *Tagha_GetError(const struct Tagha *);
 
 bool Tagha_RegisterNatives(struct Tagha *, const struct NativeInfo []);
 void *Tagha_GetGlobalVarByName(struct Tagha *, const char *);
-int32_t Tagha_CallFunc(struct Tagha *, const char *, size_t, union Value []);
-union Value Tagha_GetReturnValue(const struct Tagha *);
+
+int32_t Tagha_Exec(struct Tagha *)
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+	__attribute__ ((hot)) // hot attribute for further optimizations.
+#endif
+;
+
+int32_t Tagha_CallFunc(struct Tagha *, const char *, size_t, union TaghaVal []);
+union TaghaVal Tagha_GetReturnValue(const struct Tagha *);
 int32_t Tagha_RunScript(struct Tagha *, int32_t, char *[]);
 
 
@@ -227,13 +258,10 @@ enum InstrSet { INSTR_SET };
 
 #ifdef __cplusplus
 }
-#endif
 
-
-#ifdef __cplusplus
 
 class CTagha;
-typedef void TaghaNative_cpp(class CTagha *, union Value *, size_t, union Value []);
+typedef void TaghaNative_cpp(class CTagha *, union TaghaVal *, size_t, union TaghaVal []);
 
 struct CNativeInfo {
 	const char *Name;
@@ -248,8 +276,8 @@ class CTagha : public Tagha {
 	
 	bool RegisterNatives(const struct CNativeInfo []);
 	void *GetGlobalVarByName(const char *);
-	int32_t CallFunc(const char *, size_t, union Value []);
-	union Value GetReturnValue();
+	int32_t CallFunc(const char *, size_t, union TaghaVal []);
+	union TaghaVal GetReturnValue();
 	int32_t RunScript(int32_t, char *[]);
 };
 

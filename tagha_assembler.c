@@ -97,6 +97,13 @@ static bool LexNumber(char **restrict strRef, struct String *const restrict stro
 		while( **strRef and IsDecimal(**strRef) )
 			String_AddChar(strobj, *(*strRef)++);
 	}
+	/*
+	if( **strRef=='.' ) { // add float support.
+		String_AddChar(strobj, *(*strRef)++);
+		while( **strRef and IsDecimal(**strRef) )
+			String_AddChar(strobj, *(*strRef)++);
+	}
+	*/
 	return strobj->Len > 0;
 }
 
@@ -903,7 +910,7 @@ bool TaghaAsm_ParseSysCallInstr(struct TaghaAsmbler *const restrict tasm, const 
 		printf("tasm error: invalid syntax for syscall! line: %zu\n", tasm->CurrLine);
 		exit(-1);
 	}
-	
+	/*
 	SkipWhiteSpace(&tasm->Iter);
 	if( *tasm->Iter==',' )
 		tasm->Iter++;
@@ -917,7 +924,7 @@ bool TaghaAsm_ParseSysCallInstr(struct TaghaAsmbler *const restrict tasm, const 
 	const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
 	argcount = strtoul(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
 	SkipWhiteSpace(&tasm->Iter);
-	
+	*/
 	
 	if( !firstpass ) {
 		struct LabelInfo *label = LinkMap_Get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
@@ -1828,3 +1835,4 @@ int main(int argc, char *argv[])
 		TaghaAsm_Assemble(tasm);
 	}
 }
+
