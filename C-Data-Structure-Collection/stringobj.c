@@ -17,34 +17,33 @@ struct String *String_New(void)
 
 struct String *String_NewStr(const char *restrict cstr)
 {
-	struct String *str = calloc(1, sizeof *str);
+	struct String *restrict str = calloc(1, sizeof *str);
 	if( str )
 		String_CopyStr(str, cstr);
 	return str;
 }
 
-void String_Del(struct String *const restrict strobj)
+void String_Del(struct String *const strobj)
 {
 	if( !strobj )
 		return;
 	
 	if( strobj->CStr )
-		free(strobj->CStr);
-	strobj->CStr=NULL;
+		free(strobj->CStr), strobj->CStr=NULL;
 	strobj->Len = 0;
 }
 
-void String_Free(struct String **restrict strobjref)
+bool String_Free(struct String **strobjref)
 {
-	if( !*strobjref )
-		return;
+	if( !strobjref || !*strobjref )
+		return false;
 	
 	String_Del(*strobjref);
-	free(*strobjref);
-	*strobjref=NULL;
+	free(*strobjref); *strobjref=NULL;
+	return *strobjref==NULL;
 }
 
-void String_Init(struct String *const restrict strobj)
+void String_Init(struct String *const strobj)
 {
 	if( !strobj )
 		return;
@@ -67,13 +66,12 @@ void String_AddChar(struct String *const restrict strobj, const char c)
 		return;
 	
 	size_t oldsize = strobj->Len;
-	// adjust old size for new char and null-term.
+	// adjust old size for new char && null-term.
 	char *newstr = calloc(oldsize+2, sizeof *newstr);
 	if( !newstr )
 		return;
 	
-	// alot more efficient to use a vector of chars
-	// for adding chars as opposed to an immutable string...
+	// alot more efficient to use a vector of chars for adding chars as opposed to an immutable string...
 	strobj->Len++;
 	if( strobj->CStr ) {
 		memcpy(newstr, strobj->CStr, oldsize);
@@ -87,7 +85,7 @@ void String_AddChar(struct String *const restrict strobj, const char c)
 
 void String_Add(struct String *const restrict strobjA, const struct String *const restrict strobjB)
 {
-	if( !strobjA or !strobjB or !strobjB->CStr )
+	if( !strobjA || !strobjB || !strobjB->CStr )
 		return;
 	
 	char *newstr = calloc(strobjA->Len + strobjB->Len + 1, sizeof *newstr);
@@ -97,8 +95,7 @@ void String_Add(struct String *const restrict strobjA, const struct String *cons
 	strobjA->Len += strobjB->Len;
 	if( strobjA->CStr ) {
 		strcat(newstr, strobjA->CStr);
-		free(strobjA->CStr);
-		strobjA->CStr=NULL;
+		free(strobjA->CStr), strobjA->CStr=NULL;
 	}
 	strcat(newstr, strobjB->CStr);
 	strobjA->CStr = newstr;
@@ -107,7 +104,7 @@ void String_Add(struct String *const restrict strobjA, const struct String *cons
 
 void String_AddStr(struct String *const restrict strobj, const char *restrict cstr)
 {
-	if( !strobj or !cstr )
+	if( !strobj || !cstr )
 		return;
 	
 	char *newstr = calloc(strobj->Len + strlen(cstr) + 1, sizeof *newstr);
@@ -125,19 +122,19 @@ void String_AddStr(struct String *const restrict strobj, const char *restrict cs
 	strobj->CStr[strobj->Len] = 0;
 }
 
-char *String_GetStr(const struct String *const restrict strobj)
+char *String_GetStr(const struct String *const strobj)
 {
 	return (strobj) ? strobj->CStr : NULL;
 }
 
-size_t String_Len(const struct String *const restrict strobj)
+size_t String_Len(const struct String *const strobj)
 {
 	return (strobj) ? strobj->Len : 0;
 }
 
 void String_Copy(struct String *const restrict strobjA, const struct String *const restrict strobjB)
 {
-	if( !strobjA or !strobjB or !strobjB->CStr )
+	if( !strobjA || !strobjB || !strobjB->CStr )
 		return;
 	
 	strobjA->Len = strobjB->Len;
@@ -154,7 +151,7 @@ void String_Copy(struct String *const restrict strobjA, const struct String *con
 
 void String_CopyStr(struct String *const restrict strobj, const char *restrict cstr)
 {
-	if( !strobj or !cstr )
+	if( !strobj || !cstr )
 		return;
 	
 	strobj->Len = strlen(cstr);
@@ -171,7 +168,7 @@ void String_CopyStr(struct String *const restrict strobj, const char *restrict c
 
 int32_t String_CmpCStr(const struct String *const restrict strobj, const char *restrict cstr)
 {
-	if( !strobj or !cstr or !strobj->CStr )
+	if( !strobj || !cstr || !strobj->CStr )
 		return -1;
 	
 	return strcmp(strobj->CStr, cstr);
@@ -179,7 +176,7 @@ int32_t String_CmpCStr(const struct String *const restrict strobj, const char *r
 
 int32_t String_CmpStr(const struct String *const restrict strobjA, const struct String *const restrict strobjB)
 {
-	if( !strobjA or !strobjB or !strobjA->CStr or !strobjB->CStr )
+	if( !strobjA || !strobjB || !strobjA->CStr || !strobjB->CStr )
 		return -1;
 	
 	return strcmp(strobjA->CStr, strobjB->CStr);
@@ -187,7 +184,7 @@ int32_t String_CmpStr(const struct String *const restrict strobjA, const struct 
 
 int32_t String_NCmpCStr(const struct String *const restrict strobj, const char *restrict cstr, const size_t len)
 {
-	if( !strobj or !cstr or !strobj->CStr )
+	if( !strobj || !cstr || !strobj->CStr )
 		return -1;
 	
 	return strncmp(strobj->CStr, cstr, len);
@@ -195,20 +192,20 @@ int32_t String_NCmpCStr(const struct String *const restrict strobj, const char *
 
 int32_t String_NCmpStr(const struct String *const restrict strobjA, const struct String *const restrict strobjB, const size_t len)
 {
-	if( !strobjA or !strobjB or !strobjA->CStr or !strobjB->CStr )
+	if( !strobjA || !strobjB || !strobjA->CStr || !strobjB->CStr )
 		return -1;
 	
 	return strncmp(strobjA->CStr, strobjB->CStr, len);
 }
 
-bool String_IsEmpty(const struct String *const restrict strobj)
+bool String_IsEmpty(const struct String *const strobj)
 {
-	return( !strobj or strobj->Len==0 or strobj->CStr==NULL or strobj->CStr[0]==0 );
+	return( !strobj || strobj->Len==0 || strobj->CStr==NULL || strobj->CStr[0]==0 );
 }
 
-bool String_Reserve(struct String *const restrict strobj, const size_t size)
+bool String_Reserve(struct String *const strobj, const size_t size)
 {
-	if( !strobj or !size )
+	if( !strobj || !size )
 		return false;
 	
 	strobj->CStr = calloc(size+1, sizeof *strobj->CStr);
@@ -218,13 +215,12 @@ bool String_Reserve(struct String *const restrict strobj, const size_t size)
 	return true;
 }
 
-char *String_fgets(struct String *const restrict strobj, const size_t count, void *ptr)
+char *String_fgets(struct String *const strobj, const size_t count, FILE *const file)
 {
-	if( !strobj or !ptr )
+	if( !strobj || !file )
 		return NULL;
 	
 	String_Del(strobj);
-	FILE *restrict file = ptr;
 	String_Reserve(strobj, count);
 	return fgets(strobj->CStr, count, file);
 }

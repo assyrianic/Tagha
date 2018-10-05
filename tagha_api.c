@@ -40,12 +40,12 @@ static void InvokeNative(struct Tagha *const vm, const size_t argcount, void (*c
 	 */
 	union TaghaVal params[argcount];
 	// copy native params from registers first.
-	memcpy(params, vm->CPU.Regs+first_param_register, sizeof params[0] * reg_params);
+	memcpy(params, vm->Regs+first_param_register, sizeof params[0] * reg_params);
 	// now copy the remaining params off the stack && pop them.
-	memcpy(params+reg_params, vm->CPU.regStk.SelfPtr, sizeof params[0] * (argcount-reg_params));
-	vm->CPU.regStk.SelfPtr += (argcount-reg_params);
+	memcpy(params+reg_params, vm->regStk.SelfPtr, sizeof params[0] * (argcount-reg_params));
+	vm->regStk.SelfPtr += (argcount-reg_params);
 	// invoke!
-	(*NativeCall)(vm, &vm->CPU.regAlaf, argcount, params);
+	(*NativeCall)(vm, &vm->regAlaf, argcount, params);
 }
 
 
@@ -94,32 +94,32 @@ void Tagha_PrintVMState(const struct Tagha *const vm)
 		return;
 	
 	printf("=== Tagha VM State Info ===\n\nPrinting Registers:\nregister alaf: '%" PRIu64 "'\nregister beth: '%" PRIu64 "'\nregister gamal: '%" PRIu64 "'\nregister dalath: '%" PRIu64 "'\nregister heh: '%" PRIu64 "'\nregister waw: '%" PRIu64 "'\nregister zain: '%" PRIu64 "'\nregister heth: '%" PRIu64 "'\nregister teth: '%" PRIu64 "'\nregister yodh: '%" PRIu64 "'\nregister kaf: '%" PRIu64 "'\nregister lamadh: '%" PRIu64 "'\nregister meem: '%" PRIu64 "'\nregister noon: '%" PRIu64 "'\nregister semkath: '%" PRIu64 "'\nregister eh: '%" PRIu64 "'\nregister peh: '%" PRIu64 "'\nregister sadhe: '%" PRIu64 "'\nregister qof: '%" PRIu64 "'\nregister reesh: '%" PRIu64 "'\nregister sheen: '%" PRIu64 "'\nregister taw: '%" PRIu64 "'\nregister stack pointer: '%p'\nregister base pointer: '%p'\nregister instruction pointer: '%p'\n\nPrinting Condition Flag: %u\n=== End Tagha VM State Info ===\n",
-	vm->CPU.regAlaf.UInt64,
-	vm->CPU.regBeth.UInt64,
-	vm->CPU.regGamal.UInt64,
-	vm->CPU.regDalath.UInt64,
-	vm->CPU.regHeh.UInt64,
-	vm->CPU.regWaw.UInt64,
-	vm->CPU.regZain.UInt64,
-	vm->CPU.regHeth.UInt64,
-	vm->CPU.regTeth.UInt64,
-	vm->CPU.regYodh.UInt64,
-	vm->CPU.regKaf.UInt64,
-	vm->CPU.regLamadh.UInt64,
-	vm->CPU.regMeem.UInt64,
-	vm->CPU.regNoon.UInt64,
-	vm->CPU.regSemkath.UInt64,
-	vm->CPU.reg_Eh.UInt64,
-	vm->CPU.regPeh.UInt64,
-	vm->CPU.regSadhe.UInt64,
-	vm->CPU.regQof.UInt64,
-	vm->CPU.regReesh.UInt64,
-	vm->CPU.regSheen.UInt64,
-	vm->CPU.regTaw.UInt64,
-	vm->CPU.regStk.Ptr,
-	vm->CPU.regBase.Ptr,
-	vm->CPU.regInstr.Ptr,
-	vm->CPU.CondFlag);
+	vm->regAlaf.UInt64,
+	vm->regBeth.UInt64,
+	vm->regGamal.UInt64,
+	vm->regDalath.UInt64,
+	vm->regHeh.UInt64,
+	vm->regWaw.UInt64,
+	vm->regZain.UInt64,
+	vm->regHeth.UInt64,
+	vm->regTeth.UInt64,
+	vm->regYodh.UInt64,
+	vm->regKaf.UInt64,
+	vm->regLamadh.UInt64,
+	vm->regMeem.UInt64,
+	vm->regNoon.UInt64,
+	vm->regSemkath.UInt64,
+	vm->reg_Eh.UInt64,
+	vm->regPeh.UInt64,
+	vm->regSadhe.UInt64,
+	vm->regQof.UInt64,
+	vm->regReesh.UInt64,
+	vm->regSheen.UInt64,
+	vm->regTaw.UInt64,
+	vm->regStk.Ptr,
+	vm->regBase.Ptr,
+	vm->regInstr.Ptr,
+	vm->CondFlag);
 }
 
 bool Tagha_RegisterNatives(struct Tagha *const vm, const struct NativeInfo natives[])
@@ -140,7 +140,7 @@ inline static void *GetFunctionOffsetByName(uint8_t *const script, const char *r
 	if( !funcname || !script )
 		return NULL;
 	
-	union Pointer reader = (union Pointer){.Ptr = script + 11};
+	union Pointer reader = (union Pointer){.Ptr = script + 15};
 	const uint32_t funcs = *reader.UInt32Ptr++;
 	
 	for( uint32_t i=0 ; i<funcs ; i++ ) {
@@ -160,7 +160,7 @@ inline static void *GetFunctionOffsetByIndex(uint8_t *const script, const size_t
 	if( !script )
 		return NULL;
 	
-	union Pointer reader = (union Pointer){.Ptr = script + 11};
+	union Pointer reader = (union Pointer){.Ptr = script + 15};
 	const uint32_t funcs = *reader.UInt32Ptr++;
 	if( index >= funcs )
 		return NULL;
@@ -182,7 +182,7 @@ inline static void *GetNativeByIndex(uint8_t *const script, const size_t index)
 	if( !script )
 		return NULL;
 	
-	union Pointer reader = (union Pointer){.Ptr = script + 11};
+	union Pointer reader = (union Pointer){.Ptr = script + 15};
 	const uint32_t funcs = *reader.UInt32Ptr++;
 	if( index >= funcs )
 		return NULL;
@@ -204,7 +204,7 @@ inline static void *GetVariableOffsetByName(uint8_t *const script, const char *r
 	if( !script || !varname )
 		return NULL;
 	
-	union Pointer reader = (union Pointer){.Ptr = script + 7};
+	union Pointer reader = (union Pointer){.Ptr = script + 10};
 	const uint32_t vartable_offset = *reader.UInt32Ptr++;
 	reader.UInt8Ptr += vartable_offset;
 	
@@ -226,7 +226,7 @@ inline static void *GetVariableOffsetByIndex(uint8_t *const script, const size_t
 	if( !script )
 		return NULL;
 	
-	union Pointer reader = (union Pointer){.Ptr = script + 7};
+	union Pointer reader = (union Pointer){.Ptr = script + 10};
 	const uint32_t vartable_offset = *reader.UInt32Ptr++;
 	reader.UInt8Ptr += vartable_offset;
 	
@@ -253,10 +253,8 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	if( !vm )
 		return -1;
 	
-	register union TaghaVal *const restrict regs = vm->CPU.Regs;
-	union Pointer pc = (union Pointer){.UInt8Ptr = vm->CPU.regInstr.UInt8Ptr};
-	const union TaghaVal *const restrict MainBasePtr = vm->CPU.regBase.SelfPtr;
-	vm->CPU.regBase = vm->CPU.regStk;
+	register union TaghaVal *const restrict regs = vm->Regs;
+	union Pointer pc = (union Pointer){.UInt8Ptr = vm->regInstr.UInt8Ptr};
 	
 	register union {
 		uint16_t opcode;
@@ -300,19 +298,19 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	exec_push:; {
 		/* push an imm constant. */
 		if( decode.addrmode & Immediate ) {
-			*--vm->CPU.regStk.SelfPtr = *pc.ValPtr++;
+			*--vm->regStk.SelfPtr = *pc.ValPtr++;
 			DISPATCH();
 		}
 		/* push a register's contents. */
 		else if( decode.addrmode & Register ) {
-			*--vm->CPU.regStk.SelfPtr = regs[*pc.UInt8Ptr++];
+			*--vm->regStk.SelfPtr = regs[*pc.UInt8Ptr++];
 			DISPATCH();
 		}
 		/* push the contents of a memory address inside a register. */
 		else if( decode.addrmode & RegIndirect ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
-			EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
-			*--vm->CPU.regStk.SelfPtr = *address_ptr;
+			union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+			*--vm->regStk.SelfPtr = *mem;
 			DISPATCH();
 		}
 	}
@@ -323,13 +321,13 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	 */
 	exec_pop:; {
 		if( decode.addrmode & Register ) {
-			regs[*pc.UInt8Ptr++] = *vm->CPU.regStk.SelfPtr++;
+			regs[*pc.UInt8Ptr++] = *vm->regStk.SelfPtr++;
 			DISPATCH();
 		}
 		else if( decode.addrmode & RegIndirect ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
-			EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
-			*address_ptr = *vm->CPU.regStk.SelfPtr++;
+			union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+			*mem = *vm->regStk.SelfPtr++;
 			DISPATCH();
 		}
 	}
@@ -378,15 +376,15 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					regs[regids & 255].UInt8 = address_ptr->UInt8;
+					regs[regids & 255].UInt8 = mem->UInt8;
 				else if( decode.addrmode & TwoBytes )
-					regs[regids & 255].UInt16 = address_ptr->UInt16;
+					regs[regids & 255].UInt16 = mem->UInt16;
 				else if( decode.addrmode & FourBytes )
-					regs[regids & 255].UInt32 = address_ptr->UInt32;
+					regs[regids & 255].UInt32 = mem->UInt32;
 				else if( decode.addrmode & EightBytes )
-					regs[regids & 255].UInt64 = address_ptr->UInt64;
+					regs[regids & 255].UInt64 = mem->UInt64;
 				DISPATCH();
 			}
 		}
@@ -394,28 +392,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 = imm.UInt8;
+					mem->UInt8 = imm.UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 = imm.UInt16;
+					mem->UInt16 = imm.UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 = imm.UInt32;
+					mem->UInt32 = imm.UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 = imm.UInt64;
+					mem->UInt64 = imm.UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 = regs[regids >> 8].UInt8;
+					mem->UInt8 = regs[regids >> 8].UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 = regs[regids >> 8].UInt16;
+					mem->UInt16 = regs[regids >> 8].UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 = regs[regids >> 8].UInt32;
+					mem->UInt32 = regs[regids >> 8].UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 = regs[regids >> 8].UInt64;
+					mem->UInt64 = regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 		}
@@ -442,15 +440,15 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					regs[regids & 255].UInt8 += address_ptr->UInt8;
+					regs[regids & 255].UInt8 += mem->UInt8;
 				else if( decode.addrmode & TwoBytes )
-					regs[regids & 255].UInt16 += address_ptr->UInt16;
+					regs[regids & 255].UInt16 += mem->UInt16;
 				else if( decode.addrmode & FourBytes )
-					regs[regids & 255].UInt32 += address_ptr->UInt32;
+					regs[regids & 255].UInt32 += mem->UInt32;
 				else if( decode.addrmode & EightBytes )
-					regs[regids & 255].UInt64 += address_ptr->UInt64;
+					regs[regids & 255].UInt64 += mem->UInt64;
 				DISPATCH();
 			}
 		}
@@ -458,28 +456,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 += imm.UInt8;
+					mem->UInt8 += imm.UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 += imm.UInt16;
+					mem->UInt16 += imm.UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 += imm.UInt32;
+					mem->UInt32 += imm.UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 += imm.UInt64;
+					mem->UInt64 += imm.UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 += regs[regids >> 8].UInt8;
+					mem->UInt8 += regs[regids >> 8].UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 += regs[regids >> 8].UInt16;
+					mem->UInt16 += regs[regids >> 8].UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 += regs[regids >> 8].UInt32;
+					mem->UInt32 += regs[regids >> 8].UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 += regs[regids >> 8].UInt64;
+					mem->UInt64 += regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 		}
@@ -498,15 +496,15 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					regs[regids & 255].UInt8 -= address_ptr->UInt8;
+					regs[regids & 255].UInt8 -= mem->UInt8;
 				else if( decode.addrmode & TwoBytes )
-					regs[regids & 255].UInt16 -= address_ptr->UInt16;
+					regs[regids & 255].UInt16 -= mem->UInt16;
 				else if( decode.addrmode & FourBytes )
-					regs[regids & 255].UInt32 -= address_ptr->UInt32;
+					regs[regids & 255].UInt32 -= mem->UInt32;
 				else if( decode.addrmode & EightBytes )
-					regs[regids & 255].UInt64 -= address_ptr->UInt64;
+					regs[regids & 255].UInt64 -= mem->UInt64;
 				DISPATCH();
 			}
 		}
@@ -514,28 +512,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 -= imm.UInt8;
+					mem->UInt8 -= imm.UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 -= imm.UInt16;
+					mem->UInt16 -= imm.UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 -= imm.UInt32;
+					mem->UInt32 -= imm.UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 -= imm.UInt64;
+					mem->UInt64 -= imm.UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 -= regs[regids >> 8].UInt8;
+					mem->UInt8 -= regs[regids >> 8].UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 -= regs[regids >> 8].UInt16;
+					mem->UInt16 -= regs[regids >> 8].UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 -= regs[regids >> 8].UInt32;
+					mem->UInt32 -= regs[regids >> 8].UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 -= regs[regids >> 8].UInt64;
+					mem->UInt64 -= regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 		}
@@ -553,15 +551,15 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					regs[regids & 255].UInt8 *= address_ptr->UInt8;
+					regs[regids & 255].UInt8 *= mem->UInt8;
 				else if( decode.addrmode & TwoBytes )
-					regs[regids & 255].UInt16 *= address_ptr->UInt16;
+					regs[regids & 255].UInt16 *= mem->UInt16;
 				else if( decode.addrmode & FourBytes )
-					regs[regids & 255].UInt32 *= address_ptr->UInt32;
+					regs[regids & 255].UInt32 *= mem->UInt32;
 				else if( decode.addrmode & EightBytes )
-					regs[regids & 255].UInt64 *= address_ptr->UInt64;
+					regs[regids & 255].UInt64 *= mem->UInt64;
 				DISPATCH();
 			}
 		}
@@ -569,28 +567,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 *= imm.UInt8;
+					mem->UInt8 *= imm.UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 *= imm.UInt16;
+					mem->UInt16 *= imm.UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 *= imm.UInt32;
+					mem->UInt32 *= imm.UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 *= imm.UInt64;
+					mem->UInt64 *= imm.UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 *= regs[regids >> 8].UInt8;
+					mem->UInt8 *= regs[regids >> 8].UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 *= regs[regids >> 8].UInt16;
+					mem->UInt16 *= regs[regids >> 8].UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 *= regs[regids >> 8].UInt32;
+					mem->UInt32 *= regs[regids >> 8].UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 *= regs[regids >> 8].UInt64;
+					mem->UInt64 *= regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 		}
@@ -610,15 +608,15 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					regs[regids & 255].UInt8 /= address_ptr->UInt8;
+					regs[regids & 255].UInt8 /= mem->UInt8;
 				else if( decode.addrmode & TwoBytes )
-					regs[regids & 255].UInt16 /= address_ptr->UInt16;
+					regs[regids & 255].UInt16 /= mem->UInt16;
 				else if( decode.addrmode & FourBytes )
-					regs[regids & 255].UInt32 /= address_ptr->UInt32;
+					regs[regids & 255].UInt32 /= mem->UInt32;
 				else if( decode.addrmode & EightBytes )
-					regs[regids & 255].UInt64 /= address_ptr->UInt64;
+					regs[regids & 255].UInt64 /= mem->UInt64;
 				DISPATCH();
 			}
 		}
@@ -626,28 +624,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 /= imm.UInt8;
+					mem->UInt8 /= imm.UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 /= imm.UInt16;
+					mem->UInt16 /= imm.UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 /= imm.UInt32;
+					mem->UInt32 /= imm.UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 /= imm.UInt64;
+					mem->UInt64 /= imm.UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 /= regs[regids >> 8].UInt8;
+					mem->UInt8 /= regs[regids >> 8].UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 /= regs[regids >> 8].UInt16;
+					mem->UInt16 /= regs[regids >> 8].UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 /= regs[regids >> 8].UInt32;
+					mem->UInt32 /= regs[regids >> 8].UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 /= regs[regids >> 8].UInt64;
+					mem->UInt64 /= regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 		}
@@ -666,15 +664,15 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					regs[regids & 255].UInt8 %= address_ptr->UInt8;
+					regs[regids & 255].UInt8 %= mem->UInt8;
 				else if( decode.addrmode & TwoBytes )
-					regs[regids & 255].UInt16 %= address_ptr->UInt16;
+					regs[regids & 255].UInt16 %= mem->UInt16;
 				else if( decode.addrmode & FourBytes )
-					regs[regids & 255].UInt32 %= address_ptr->UInt32;
+					regs[regids & 255].UInt32 %= mem->UInt32;
 				else if( decode.addrmode & EightBytes )
-					regs[regids & 255].UInt64 %= address_ptr->UInt64;
+					regs[regids & 255].UInt64 %= mem->UInt64;
 				DISPATCH();
 			}
 		}
@@ -682,28 +680,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 %= imm.UInt8;
+					mem->UInt8 %= imm.UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 %= imm.UInt16;
+					mem->UInt16 %= imm.UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 %= imm.UInt32;
+					mem->UInt32 %= imm.UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 %= imm.UInt64;
+					mem->UInt64 %= imm.UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 %= regs[regids >> 8].UInt8;
+					mem->UInt8 %= regs[regids >> 8].UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 %= regs[regids >> 8].UInt16;
+					mem->UInt16 %= regs[regids >> 8].UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 %= regs[regids >> 8].UInt32;
+					mem->UInt32 %= regs[regids >> 8].UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 %= regs[regids >> 8].UInt64;
+					mem->UInt64 %= regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 		}
@@ -722,15 +720,15 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					regs[regids & 255].UInt8 &= address_ptr->UInt8;
+					regs[regids & 255].UInt8 &= mem->UInt8;
 				else if( decode.addrmode & TwoBytes )
-					regs[regids & 255].UInt16 &= address_ptr->UInt16;
+					regs[regids & 255].UInt16 &= mem->UInt16;
 				else if( decode.addrmode & FourBytes )
-					regs[regids & 255].UInt32 &= address_ptr->UInt32;
+					regs[regids & 255].UInt32 &= mem->UInt32;
 				else if( decode.addrmode & EightBytes )
-					regs[regids & 255].UInt64 &= address_ptr->UInt64;
+					regs[regids & 255].UInt64 &= mem->UInt64;
 				DISPATCH();
 			}
 		}
@@ -738,28 +736,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 &= imm.UInt8;
+					mem->UInt8 &= imm.UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 &= imm.UInt16;
+					mem->UInt16 &= imm.UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 &= imm.UInt32;
+					mem->UInt32 &= imm.UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 &= imm.UInt64;
+					mem->UInt64 &= imm.UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 &= regs[regids >> 8].UInt8;
+					mem->UInt8 &= regs[regids >> 8].UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 &= regs[regids >> 8].UInt16;
+					mem->UInt16 &= regs[regids >> 8].UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 &= regs[regids >> 8].UInt32;
+					mem->UInt32 &= regs[regids >> 8].UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 &= regs[regids >> 8].UInt64;
+					mem->UInt64 &= regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 		}
@@ -778,15 +776,15 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					regs[regids & 255].UInt8 |= address_ptr->UInt8;
+					regs[regids & 255].UInt8 |= mem->UInt8;
 				else if( decode.addrmode & TwoBytes )
-					regs[regids & 255].UInt16 |= address_ptr->UInt16;
+					regs[regids & 255].UInt16 |= mem->UInt16;
 				else if( decode.addrmode & FourBytes )
-					regs[regids & 255].UInt32 |= address_ptr->UInt32;
+					regs[regids & 255].UInt32 |= mem->UInt32;
 				else if( decode.addrmode & EightBytes )
-					regs[regids & 255].UInt64 |= address_ptr->UInt64;
+					regs[regids & 255].UInt64 |= mem->UInt64;
 				DISPATCH();
 			}
 		}
@@ -794,28 +792,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 |= imm.UInt8;
+					mem->UInt8 |= imm.UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 |= imm.UInt16;
+					mem->UInt16 |= imm.UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 |= imm.UInt32;
+					mem->UInt32 |= imm.UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 |= imm.UInt64;
+					mem->UInt64 |= imm.UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 |= regs[regids >> 8].UInt8;
+					mem->UInt8 |= regs[regids >> 8].UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 |= regs[regids >> 8].UInt16;
+					mem->UInt16 |= regs[regids >> 8].UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 |= regs[regids >> 8].UInt32;
+					mem->UInt32 |= regs[regids >> 8].UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 |= regs[regids >> 8].UInt64;
+					mem->UInt64 |= regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 		}
@@ -834,15 +832,15 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					regs[regids & 255].UInt8 ^= address_ptr->UInt8;
+					regs[regids & 255].UInt8 ^= mem->UInt8;
 				else if( decode.addrmode & TwoBytes )
-					regs[regids & 255].UInt16 ^= address_ptr->UInt16;
+					regs[regids & 255].UInt16 ^= mem->UInt16;
 				else if( decode.addrmode & FourBytes )
-					regs[regids & 255].UInt32 ^= address_ptr->UInt32;
+					regs[regids & 255].UInt32 ^= mem->UInt32;
 				else if( decode.addrmode & EightBytes )
-					regs[regids & 255].UInt64 ^= address_ptr->UInt64;
+					regs[regids & 255].UInt64 ^= mem->UInt64;
 				DISPATCH();
 			}
 		}
@@ -850,28 +848,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 ^= imm.UInt8;
+					mem->UInt8 ^= imm.UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 ^= imm.UInt16;
+					mem->UInt16 ^= imm.UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 ^= imm.UInt32;
+					mem->UInt32 ^= imm.UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 ^= imm.UInt64;
+					mem->UInt64 ^= imm.UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 ^= regs[regids >> 8].UInt8;
+					mem->UInt8 ^= regs[regids >> 8].UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 ^= regs[regids >> 8].UInt16;
+					mem->UInt16 ^= regs[regids >> 8].UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 ^= regs[regids >> 8].UInt32;
+					mem->UInt32 ^= regs[regids >> 8].UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 ^= regs[regids >> 8].UInt64;
+					mem->UInt64 ^= regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 		}
@@ -883,15 +881,15 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			DISPATCH();
 		}
 		else if( decode.addrmode & RegIndirect ) {
-			EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+			union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 			if( decode.addrmode & Byte )
-				address_ptr->UInt8 = ~address_ptr->UInt8;
+				mem->UInt8 = ~mem->UInt8;
 			else if( decode.addrmode & TwoBytes )
-				address_ptr->UInt16 = ~address_ptr->UInt16;
+				mem->UInt16 = ~mem->UInt16;
 			else if( decode.addrmode & FourBytes )
-				address_ptr->UInt32 = ~address_ptr->UInt32;
+				mem->UInt32 = ~mem->UInt32;
 			else if( decode.addrmode & EightBytes )
-				address_ptr->UInt64 = ~address_ptr->UInt64;
+				mem->UInt64 = ~mem->UInt64;
 			DISPATCH();
 		}
 	}
@@ -909,15 +907,15 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					regs[regids & 255].UInt8 <<= address_ptr->UInt8;
+					regs[regids & 255].UInt8 <<= mem->UInt8;
 				else if( decode.addrmode & TwoBytes )
-					regs[regids & 255].UInt16 <<= address_ptr->UInt16;
+					regs[regids & 255].UInt16 <<= mem->UInt16;
 				else if( decode.addrmode & FourBytes )
-					regs[regids & 255].UInt32 <<= address_ptr->UInt32;
+					regs[regids & 255].UInt32 <<= mem->UInt32;
 				else if( decode.addrmode & EightBytes )
-					regs[regids & 255].UInt64 <<= address_ptr->UInt64;
+					regs[regids & 255].UInt64 <<= mem->UInt64;
 				DISPATCH();
 			}
 		}
@@ -925,28 +923,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 <<= imm.UInt8;
+					mem->UInt8 <<= imm.UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 <<= imm.UInt16;
+					mem->UInt16 <<= imm.UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 <<= imm.UInt32;
+					mem->UInt32 <<= imm.UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 <<= imm.UInt64;
+					mem->UInt64 <<= imm.UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 <<= regs[regids >> 8].UInt8;
+					mem->UInt8 <<= regs[regids >> 8].UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 <<= regs[regids >> 8].UInt16;
+					mem->UInt16 <<= regs[regids >> 8].UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 <<= regs[regids >> 8].UInt32;
+					mem->UInt32 <<= regs[regids >> 8].UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 <<= regs[regids >> 8].UInt64;
+					mem->UInt64 <<= regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 		}
@@ -966,15 +964,15 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					regs[regids & 255].UInt8 >>= address_ptr->UInt8;
+					regs[regids & 255].UInt8 >>= mem->UInt8;
 				else if( decode.addrmode & TwoBytes )
-					regs[regids & 255].UInt16 >>= address_ptr->UInt16;
+					regs[regids & 255].UInt16 >>= mem->UInt16;
 				else if( decode.addrmode & FourBytes )
-					regs[regids & 255].UInt32 >>= address_ptr->UInt32;
+					regs[regids & 255].UInt32 >>= mem->UInt32;
 				else if( decode.addrmode & EightBytes )
-					regs[regids & 255].UInt64 >>= address_ptr->UInt64;
+					regs[regids & 255].UInt64 >>= mem->UInt64;
 				DISPATCH();
 			}
 		}
@@ -982,28 +980,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 >>= imm.UInt8;
+					mem->UInt8 >>= imm.UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 >>= imm.UInt16;
+					mem->UInt16 >>= imm.UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 >>= imm.UInt32;
+					mem->UInt32 >>= imm.UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 >>= imm.UInt64;
+					mem->UInt64 >>= imm.UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					address_ptr->UInt8 >>= regs[regids >> 8].UInt8;
+					mem->UInt8 >>= regs[regids >> 8].UInt8;
 				else if( decode.addrmode & TwoBytes )
-					address_ptr->UInt16 >>= regs[regids >> 8].UInt16;
+					mem->UInt16 >>= regs[regids >> 8].UInt16;
 				else if( decode.addrmode & FourBytes )
-					address_ptr->UInt32 >>= regs[regids >> 8].UInt32;
+					mem->UInt32 >>= regs[regids >> 8].UInt32;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->UInt64 >>= regs[regids >> 8].UInt64;
+					mem->UInt64 >>= regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 		}
@@ -1015,15 +1013,15 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			DISPATCH();
 		}
 		else if( decode.addrmode & RegIndirect ) {
-			EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+			union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 			if( decode.addrmode & Byte )
-				++address_ptr->UInt8;
+				++mem->UInt8;
 			else if( decode.addrmode & TwoBytes )
-				++address_ptr->UInt16;
+				++mem->UInt16;
 			else if( decode.addrmode & FourBytes )
-				++address_ptr->UInt32;
+				++mem->UInt32;
 			else if( decode.addrmode & EightBytes )
-				++address_ptr->UInt64;
+				++mem->UInt64;
 			DISPATCH();
 		}
 	}
@@ -1034,15 +1032,15 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			DISPATCH();
 		}
 		else if( decode.addrmode & RegIndirect ) {
-			EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+			union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 			if( decode.addrmode & Byte )
-				--address_ptr->UInt8;
+				--mem->UInt8;
 			else if( decode.addrmode & TwoBytes )
-				--address_ptr->UInt16;
+				--mem->UInt16;
 			else if( decode.addrmode & FourBytes )
-				--address_ptr->UInt32;
+				--mem->UInt32;
 			else if( decode.addrmode & EightBytes )
-				--address_ptr->UInt64;
+				--mem->UInt64;
 			DISPATCH();
 		}
 	}
@@ -1053,15 +1051,15 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			DISPATCH();
 		}
 		else if( decode.addrmode & RegIndirect ) {
-			EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+			union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 			if( decode.addrmode & Byte )
-				address_ptr->UInt8 = -address_ptr->UInt8;
+				mem->UInt8 = -mem->UInt8;
 			else if( decode.addrmode & TwoBytes )
-				address_ptr->UInt16 = -address_ptr->UInt16;
+				mem->UInt16 = -mem->UInt16;
 			else if( decode.addrmode & FourBytes )
-				address_ptr->UInt32 = -address_ptr->UInt32;
+				mem->UInt32 = -mem->UInt32;
 			else if( decode.addrmode & EightBytes )
-				address_ptr->UInt64 = -address_ptr->UInt64;
+				mem->UInt64 = -mem->UInt64;
 			DISPATCH();
 		}
 	}
@@ -1069,25 +1067,25 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		if( decode.addrmode & Reserved ) {
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
-				vm->CPU.CondFlag = regs[regid].Int64 < *pc.Int64Ptr++;
+				vm->CondFlag = regs[regid].Int64 < *pc.Int64Ptr++;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				vm->CPU.CondFlag = regs[regids & 255].Int64 < regs[regids >> 8].Int64;
+				vm->CondFlag = regs[regids & 255].Int64 < regs[regids >> 8].Int64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = regs[regids & 255].Int8 < address_ptr->Int8;
+					vm->CondFlag = regs[regids & 255].Int8 < mem->Int8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Int16 < address_ptr->Int16;
+					vm->CondFlag = regs[regids & 255].Int16 < mem->Int16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Int32 < address_ptr->Int32;
+					vm->CondFlag = regs[regids & 255].Int32 < mem->Int32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Int64 < address_ptr->Int64;
+					vm->CondFlag = regs[regids & 255].Int64 < mem->Int64;
 				DISPATCH();
 			}
 		}
@@ -1095,28 +1093,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = address_ptr->Int8 < imm.Int8;
+					vm->CondFlag = mem->Int8 < imm.Int8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = address_ptr->Int16 < imm.Int16;
+					vm->CondFlag = mem->Int16 < imm.Int16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->Int32 < imm.Int32;
+					vm->CondFlag = mem->Int32 < imm.Int32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->Int64 < imm.Int64;
+					vm->CondFlag = mem->Int64 < imm.Int64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = address_ptr->Int8 < regs[regids >> 8].Int8;
+					vm->CondFlag = mem->Int8 < regs[regids >> 8].Int8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = address_ptr->Int16 < regs[regids >> 8].Int16;
+					vm->CondFlag = mem->Int16 < regs[regids >> 8].Int16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->Int32 < regs[regids >> 8].Int32;
+					vm->CondFlag = mem->Int32 < regs[regids >> 8].Int32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->Int64 < regs[regids >> 8].Int64;
+					vm->CondFlag = mem->Int64 < regs[regids >> 8].Int64;
 				DISPATCH();
 			}
 		}
@@ -1125,25 +1123,25 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		if( decode.addrmode & Reserved ) {
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
-				vm->CPU.CondFlag = regs[regid].Int64 > *pc.Int64Ptr++;
+				vm->CondFlag = regs[regid].Int64 > *pc.Int64Ptr++;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				vm->CPU.CondFlag = regs[regids & 255].Int64 > regs[regids >> 8].Int64;
+				vm->CondFlag = regs[regids & 255].Int64 > regs[regids >> 8].Int64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = regs[regids & 255].Int8 > address_ptr->Int8;
+					vm->CondFlag = regs[regids & 255].Int8 > mem->Int8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Int16 > address_ptr->Int16;
+					vm->CondFlag = regs[regids & 255].Int16 > mem->Int16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Int32 > address_ptr->Int32;
+					vm->CondFlag = regs[regids & 255].Int32 > mem->Int32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Int64 > address_ptr->Int64;
+					vm->CondFlag = regs[regids & 255].Int64 > mem->Int64;
 				DISPATCH();
 			}
 		}
@@ -1151,28 +1149,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = address_ptr->Int8 > imm.Int8;
+					vm->CondFlag = mem->Int8 > imm.Int8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = address_ptr->Int16 > imm.Int16;
+					vm->CondFlag = mem->Int16 > imm.Int16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->Int32 > imm.Int32;
+					vm->CondFlag = mem->Int32 > imm.Int32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->Int64 > imm.Int64;
+					vm->CondFlag = mem->Int64 > imm.Int64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = address_ptr->Int8 > regs[regids >> 8].Int8;
+					vm->CondFlag = mem->Int8 > regs[regids >> 8].Int8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = address_ptr->Int16 > regs[regids >> 8].Int16;
+					vm->CondFlag = mem->Int16 > regs[regids >> 8].Int16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->Int32 > regs[regids >> 8].Int32;
+					vm->CondFlag = mem->Int32 > regs[regids >> 8].Int32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->Int64 > regs[regids >> 8].Int64;
+					vm->CondFlag = mem->Int64 > regs[regids >> 8].Int64;
 				DISPATCH();
 			}
 		}
@@ -1181,25 +1179,25 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		if( decode.addrmode & Reserved ) {
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
-				vm->CPU.CondFlag = regs[regid].UInt64 < *pc.UInt64Ptr++;
+				vm->CondFlag = regs[regid].UInt64 < *pc.UInt64Ptr++;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				vm->CPU.CondFlag = regs[regids & 255].UInt64 < regs[regids >> 8].UInt64;
+				vm->CondFlag = regs[regids & 255].UInt64 < regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = regs[regids & 255].UInt8 < address_ptr->UInt8;
+					vm->CondFlag = regs[regids & 255].UInt8 < mem->UInt8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = regs[regids & 255].UInt16 < address_ptr->UInt16;
+					vm->CondFlag = regs[regids & 255].UInt16 < mem->UInt16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regids & 255].UInt32 < address_ptr->UInt32;
+					vm->CondFlag = regs[regids & 255].UInt32 < mem->UInt32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regids & 255].UInt64 < address_ptr->UInt64;
+					vm->CondFlag = regs[regids & 255].UInt64 < mem->UInt64;
 				DISPATCH();
 			}
 		}
@@ -1207,28 +1205,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = address_ptr->UInt8 < imm.UInt8;
+					vm->CondFlag = mem->UInt8 < imm.UInt8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = address_ptr->UInt16 < imm.UInt16;
+					vm->CondFlag = mem->UInt16 < imm.UInt16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->UInt32 < imm.UInt32;
+					vm->CondFlag = mem->UInt32 < imm.UInt32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->UInt64 < imm.UInt64;
+					vm->CondFlag = mem->UInt64 < imm.UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = address_ptr->UInt8 < regs[regids >> 8].UInt8;
+					vm->CondFlag = mem->UInt8 < regs[regids >> 8].UInt8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = address_ptr->UInt16 < regs[regids >> 8].UInt16;
+					vm->CondFlag = mem->UInt16 < regs[regids >> 8].UInt16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->UInt32 < regs[regids >> 8].UInt32;
+					vm->CondFlag = mem->UInt32 < regs[regids >> 8].UInt32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->UInt64 < regs[regids >> 8].UInt64;
+					vm->CondFlag = mem->UInt64 < regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 		}
@@ -1237,25 +1235,25 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		if( decode.addrmode & Reserved ) {
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
-				vm->CPU.CondFlag = regs[regid].UInt64 > *pc.UInt64Ptr++;
+				vm->CondFlag = regs[regid].UInt64 > *pc.UInt64Ptr++;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				vm->CPU.CondFlag = regs[regids & 255].UInt64 > regs[regids >> 8].UInt64;
+				vm->CondFlag = regs[regids & 255].UInt64 > regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = regs[regids & 255].UInt8 > address_ptr->UInt8;
+					vm->CondFlag = regs[regids & 255].UInt8 > mem->UInt8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = regs[regids & 255].UInt16 > address_ptr->UInt16;
+					vm->CondFlag = regs[regids & 255].UInt16 > mem->UInt16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regids & 255].UInt32 > address_ptr->UInt32;
+					vm->CondFlag = regs[regids & 255].UInt32 > mem->UInt32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regids & 255].UInt64 > address_ptr->UInt64;
+					vm->CondFlag = regs[regids & 255].UInt64 > mem->UInt64;
 				DISPATCH();
 			}
 		}
@@ -1263,28 +1261,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = address_ptr->UInt8 > imm.UInt8;
+					vm->CondFlag = mem->UInt8 > imm.UInt8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = address_ptr->UInt16 > imm.UInt16;
+					vm->CondFlag = mem->UInt16 > imm.UInt16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->UInt32 > imm.UInt32;
+					vm->CondFlag = mem->UInt32 > imm.UInt32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->UInt64 > imm.UInt64;
+					vm->CondFlag = mem->UInt64 > imm.UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = address_ptr->UInt8 > regs[regids >> 8].UInt8;
+					vm->CondFlag = mem->UInt8 > regs[regids >> 8].UInt8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = address_ptr->UInt16 > regs[regids >> 8].UInt16;
+					vm->CondFlag = mem->UInt16 > regs[regids >> 8].UInt16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->UInt32 > regs[regids >> 8].UInt32;
+					vm->CondFlag = mem->UInt32 > regs[regids >> 8].UInt32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->UInt64 > regs[regids >> 8].UInt64;
+					vm->CondFlag = mem->UInt64 > regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 		}
@@ -1293,25 +1291,25 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		if( decode.addrmode & Reserved ) {
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
-				vm->CPU.CondFlag = regs[regid].UInt64 == *pc.UInt64Ptr++;
+				vm->CondFlag = regs[regid].UInt64 == *pc.UInt64Ptr++;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				vm->CPU.CondFlag = regs[regids & 255].UInt64 == regs[regids >> 8].UInt64;
+				vm->CondFlag = regs[regids & 255].UInt64 == regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = regs[regids & 255].UInt8 == address_ptr->UInt8;
+					vm->CondFlag = regs[regids & 255].UInt8 == mem->UInt8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = regs[regids & 255].UInt16 == address_ptr->UInt16;
+					vm->CondFlag = regs[regids & 255].UInt16 == mem->UInt16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regids & 255].UInt32 == address_ptr->UInt32;
+					vm->CondFlag = regs[regids & 255].UInt32 == mem->UInt32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regids & 255].UInt64 == address_ptr->UInt64;
+					vm->CondFlag = regs[regids & 255].UInt64 == mem->UInt64;
 				DISPATCH();
 			}
 		}
@@ -1319,28 +1317,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = address_ptr->UInt8 == imm.UInt8;
+					vm->CondFlag = mem->UInt8 == imm.UInt8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = address_ptr->UInt16 == imm.UInt16;
+					vm->CondFlag = mem->UInt16 == imm.UInt16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->UInt32 == imm.UInt32;
+					vm->CondFlag = mem->UInt32 == imm.UInt32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->UInt64 == imm.UInt64;
+					vm->CondFlag = mem->UInt64 == imm.UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = address_ptr->UInt8 == regs[regids >> 8].UInt8;
+					vm->CondFlag = mem->UInt8 == regs[regids >> 8].UInt8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = address_ptr->UInt16 == regs[regids >> 8].UInt16;
+					vm->CondFlag = mem->UInt16 == regs[regids >> 8].UInt16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->UInt32 == regs[regids >> 8].UInt32;
+					vm->CondFlag = mem->UInt32 == regs[regids >> 8].UInt32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->UInt64 == regs[regids >> 8].UInt64;
+					vm->CondFlag = mem->UInt64 == regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 		}
@@ -1349,25 +1347,25 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		if( decode.addrmode & Reserved ) {
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
-				vm->CPU.CondFlag = regs[regid].UInt64 != *pc.UInt64Ptr++;
+				vm->CondFlag = regs[regid].UInt64 != *pc.UInt64Ptr++;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				vm->CPU.CondFlag = regs[regids & 255].UInt64 != regs[regids >> 8].UInt64;
+				vm->CondFlag = regs[regids & 255].UInt64 != regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = regs[regids & 255].UInt8 != address_ptr->UInt8;
+					vm->CondFlag = regs[regids & 255].UInt8 != mem->UInt8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = regs[regids & 255].UInt16 != address_ptr->UInt16;
+					vm->CondFlag = regs[regids & 255].UInt16 != mem->UInt16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regids & 255].UInt32 != address_ptr->UInt32;
+					vm->CondFlag = regs[regids & 255].UInt32 != mem->UInt32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regids & 255].UInt64 != address_ptr->UInt64;
+					vm->CondFlag = regs[regids & 255].UInt64 != mem->UInt64;
 				DISPATCH();
 			}
 		}
@@ -1375,28 +1373,28 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = address_ptr->UInt8 != imm.UInt8;
+					vm->CondFlag = mem->UInt8 != imm.UInt8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = address_ptr->UInt16 != imm.UInt16;
+					vm->CondFlag = mem->UInt16 != imm.UInt16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->UInt32 != imm.UInt32;
+					vm->CondFlag = mem->UInt32 != imm.UInt32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->UInt64 != imm.UInt64;
+					vm->CondFlag = mem->UInt64 != imm.UInt64;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & Byte )
-					vm->CPU.CondFlag = address_ptr->UInt8 != regs[regids >> 8].UInt8;
+					vm->CondFlag = mem->UInt8 != regs[regids >> 8].UInt8;
 				else if( decode.addrmode & TwoBytes )
-					vm->CPU.CondFlag = address_ptr->UInt16 != regs[regids >> 8].UInt16;
+					vm->CondFlag = mem->UInt16 != regs[regids >> 8].UInt16;
 				else if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->UInt32 != regs[regids >> 8].UInt32;
+					vm->CondFlag = mem->UInt32 != regs[regids >> 8].UInt32;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->UInt64 != regs[regids >> 8].UInt64;
+					vm->CondFlag = mem->UInt64 != regs[regids >> 8].UInt64;
 				DISPATCH();
 			}
 		}
@@ -1414,66 +1412,66 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		}
 		else if( decode.addrmode & RegIndirect ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
-			EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+			union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 			
 			if( decode.addrmode & Byte )
-				pc.UInt8Ptr += address_ptr->Int8;
+				pc.UInt8Ptr += mem->Int8;
 			else if( decode.addrmode & TwoBytes )
-				pc.UInt8Ptr += address_ptr->Int16;
+				pc.UInt8Ptr += mem->Int16;
 			else if( decode.addrmode & FourBytes )
-				pc.UInt8Ptr += address_ptr->Int32;
+				pc.UInt8Ptr += mem->Int32;
 			else if( decode.addrmode & EightBytes )
-				pc.UInt8Ptr += address_ptr->Int64;
+				pc.UInt8Ptr += mem->Int64;
 			DISPATCH();
 		}
 	}
 	exec_jz:; {
 		if( decode.addrmode & Immediate ) {
 			const int64_t offset = *pc.Int64Ptr++;
-			!vm->CPU.CondFlag ? (pc.UInt8Ptr += offset) : (void)vm->CPU.CondFlag;
+			!vm->CondFlag ? (pc.UInt8Ptr += offset) : (void)vm->CondFlag;
 			DISPATCH();
 		}
 		else if( decode.addrmode & Register ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
-			!vm->CPU.CondFlag ? (pc.UInt8Ptr += regs[regid].Int64) : (void)vm->CPU.CondFlag;
+			!vm->CondFlag ? (pc.UInt8Ptr += regs[regid].Int64) : (void)vm->CondFlag;
 			DISPATCH();
 		}
 		else if( decode.addrmode & RegIndirect ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
-			EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+			union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 			if( decode.addrmode & Byte )
-				!vm->CPU.CondFlag ? (pc.UInt8Ptr += address_ptr->Int8) : (void)vm->CPU.CondFlag;
+				!vm->CondFlag ? (pc.UInt8Ptr += mem->Int8) : (void)vm->CondFlag;
 			else if( decode.addrmode & TwoBytes )
-				!vm->CPU.CondFlag ? (pc.UInt8Ptr += address_ptr->Int16) : (void)vm->CPU.CondFlag;
+				!vm->CondFlag ? (pc.UInt8Ptr += mem->Int16) : (void)vm->CondFlag;
 			else if( decode.addrmode & FourBytes )
-				!vm->CPU.CondFlag ? (pc.UInt8Ptr += address_ptr->Int32) : (void)vm->CPU.CondFlag;
+				!vm->CondFlag ? (pc.UInt8Ptr += mem->Int32) : (void)vm->CondFlag;
 			else if( decode.addrmode & EightBytes )
-				!vm->CPU.CondFlag ? (pc.UInt8Ptr += address_ptr->Int64) : (void)vm->CPU.CondFlag;
+				!vm->CondFlag ? (pc.UInt8Ptr += mem->Int64) : (void)vm->CondFlag;
 			DISPATCH();
 		}
 	}
 	exec_jnz:; {
 		if( decode.addrmode & Immediate ) {
 			const int64_t offset = *pc.Int64Ptr++;
-			vm->CPU.CondFlag ? (pc.UInt8Ptr += offset) : (void)vm->CPU.CondFlag;
+			vm->CondFlag ? (pc.UInt8Ptr += offset) : (void)vm->CondFlag;
 			DISPATCH();
 		}
 		else if( decode.addrmode & Register ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
-			vm->CPU.CondFlag ? (pc.UInt8Ptr += regs[regid].Int64) : (void)vm->CPU.CondFlag;
+			vm->CondFlag ? (pc.UInt8Ptr += regs[regid].Int64) : (void)vm->CondFlag;
 			DISPATCH();
 		}
 		else if( decode.addrmode & RegIndirect ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
-			EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+			union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 			if( decode.addrmode & Byte )
-				vm->CPU.CondFlag ? (pc.UInt8Ptr += address_ptr->Int8) : (void)vm->CPU.CondFlag;
+				vm->CondFlag ? (pc.UInt8Ptr += mem->Int8) : (void)vm->CondFlag;
 			else if( decode.addrmode & TwoBytes )
-				vm->CPU.CondFlag ? (pc.UInt8Ptr += address_ptr->Int16) : (void)vm->CPU.CondFlag;
+				vm->CondFlag ? (pc.UInt8Ptr += mem->Int16) : (void)vm->CondFlag;
 			else if( decode.addrmode & FourBytes )
-				vm->CPU.CondFlag ? (pc.UInt8Ptr += address_ptr->Int32) : (void)vm->CPU.CondFlag;
+				vm->CondFlag ? (pc.UInt8Ptr += mem->Int32) : (void)vm->CondFlag;
 			else if( decode.addrmode & EightBytes )
-				vm->CPU.CondFlag ? (pc.UInt8Ptr += address_ptr->Int64) : (void)vm->CPU.CondFlag;
+				vm->CondFlag ? (pc.UInt8Ptr += mem->Int64) : (void)vm->CondFlag;
 			DISPATCH();
 		}
 		DISPATCH();
@@ -1488,8 +1486,8 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		}
 		else if( decode.addrmode & RegIndirect ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
-			EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
-			index = (address_ptr->UInt64 - 1);
+			union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+			index = (mem->UInt64 - 1);
 		}
 		
 		uint8_t *const call_addr = GetFunctionOffsetByIndex((uint8_t *)vm->Header, index);
@@ -1503,22 +1501,20 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		 * Since we're pushing the restrict-qualified pointer's memory that it points to,
 		 * This is NOT undefined behavior because it's not aliasing access of the instruction stream.
 		 */
-		(--vm->CPU.regStk.SelfPtr)->Ptr = pc.Ptr;	/* push rip */
-		*--vm->CPU.regStk.SelfPtr = vm->CPU.regBase;	/* push rbp */
-		vm->CPU.regBase = vm->CPU.regStk;	/* mov rbp, rsp */
+		(--vm->regStk.SelfPtr)->Ptr = pc.Ptr;	/* push rip */
+		*--vm->regStk.SelfPtr = vm->regBase;	/* push rbp */
+		vm->regBase = vm->regStk;	/* mov rbp, rsp */
 		pc.UInt8Ptr = call_addr;
 		DISPATCH();
 	}
 	exec_ret:; {
-		vm->CPU.regStk = vm->CPU.regBase; /* mov rsp, rbp */
-		vm->CPU.regBase = *vm->CPU.regStk.SelfPtr++; /* pop rbp */
-		
-		/* if we're popping Main's (or whatever called func's) RBP, then halt the whole program. */
-		if( vm->CPU.regBase.SelfPtr==MainBasePtr )
+		vm->regStk = vm->regBase; /* mov rsp, rbp */
+		vm->regBase = *vm->regStk.SelfPtr++; /* pop rbp */
+		pc.Ptr = (*vm->regStk.SelfPtr++).Ptr; /* pop rip */
+		if( !pc.Ptr ) {
 			goto *dispatch[halt];
-		
-		pc.Ptr = (*vm->CPU.regStk.SelfPtr++).Ptr; /* pop rip */
-		DISPATCH();
+		}
+		else { DISPATCH(); }
 	}
 	
 	exec_syscall:; {
@@ -1535,8 +1531,8 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		}
 		else if( decode.addrmode & RegIndirect ) {
 			const uint8_t regid = *pc.UInt8Ptr++;
-			EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
-			index = (-1 - address_ptr->Int64);
+			union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+			index = (-1 - mem->Int64);
 		}
 		/* native call interface
 		 * Limitations:
@@ -1553,13 +1549,13 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		else {
 			const uint8_t reg_params = 8;
 			const uint8_t reg_param_initial = regSemkath;
-			const size_t argcount = vm->CPU.regAlaf.SizeInt;
-			vm->CPU.regAlaf.UInt64 = 0;
+			const size_t argcount = vm->regAlaf.SizeInt;
+			vm->regAlaf.UInt64 = 0;
 		
 			/* save stack space by using the registers for passing arguments. */
 			/* the other registers can then be used for other data operations. */
 			if( argcount <= reg_params ) {
-				(*nativeref)(vm, &vm->CPU.regAlaf, argcount, regs+reg_param_initial);
+				(*nativeref)(vm, &vm->regAlaf, argcount, regs+reg_param_initial);
 			}
 			/* if the native has more than a certain num of params, get from both registers && stack. */
 			else InvokeNative(vm, argcount, nativeref);
@@ -1622,12 +1618,12 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				
 				if( decode.addrmode & FourBytes )
-					regs[regids & 255].Float += address_ptr->Float;
+					regs[regids & 255].Float += mem->Float;
 				else if( decode.addrmode & EightBytes )
-					regs[regids & 255].Double += address_ptr->Double;
+					regs[regids & 255].Double += mem->Double;
 				DISPATCH();
 			}
 		}
@@ -1635,20 +1631,20 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & FourBytes )
-					address_ptr->Float += imm.Float;
+					mem->Float += imm.Float;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->Double += imm.Double;
+					mem->Double += imm.Double;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & FourBytes )
-					address_ptr->Float += regs[regids >> 8].Float;
+					mem->Float += regs[regids >> 8].Float;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->Double += regs[regids >> 8].Double;
+					mem->Double += regs[regids >> 8].Double;
 				DISPATCH();
 			}
 		}
@@ -1674,12 +1670,12 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				
 				if( decode.addrmode & FourBytes )
-					regs[regids & 255].Float -= address_ptr->Float;
+					regs[regids & 255].Float -= mem->Float;
 				else if( decode.addrmode & EightBytes )
-					regs[regids & 255].Double -= address_ptr->Double;
+					regs[regids & 255].Double -= mem->Double;
 				DISPATCH();
 			}
 		}
@@ -1687,20 +1683,20 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & FourBytes )
-					address_ptr->Float -= imm.Float;
+					mem->Float -= imm.Float;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->Double -= imm.Double;
+					mem->Double -= imm.Double;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & FourBytes )
-					address_ptr->Float -= regs[regids >> 8].Float;
+					mem->Float -= regs[regids >> 8].Float;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->Double -= regs[regids >> 8].Double;
+					mem->Double -= regs[regids >> 8].Double;
 				DISPATCH();
 			}
 		}
@@ -1726,12 +1722,12 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				
 				if( decode.addrmode & FourBytes )
-					regs[regids & 255].Float *= address_ptr->Float;
+					regs[regids & 255].Float *= mem->Float;
 				else if( decode.addrmode & EightBytes )
-					regs[regids & 255].Double *= address_ptr->Double;
+					regs[regids & 255].Double *= mem->Double;
 				DISPATCH();
 			}
 		}
@@ -1739,20 +1735,20 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & FourBytes )
-					address_ptr->Float *= imm.Float;
+					mem->Float *= imm.Float;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->Double *= imm.Double;
+					mem->Double *= imm.Double;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & FourBytes )
-					address_ptr->Float *= regs[regids >> 8].Float;
+					mem->Float *= regs[regids >> 8].Float;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->Double *= regs[regids >> 8].Double;
+					mem->Double *= regs[regids >> 8].Double;
 				DISPATCH();
 			}
 		}
@@ -1778,12 +1774,12 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				
 				if( decode.addrmode & FourBytes )
-					regs[regids & 255].Float /= address_ptr->Float;
+					regs[regids & 255].Float /= mem->Float;
 				else if( decode.addrmode & EightBytes )
-					regs[regids & 255].Double /= address_ptr->Double;
+					regs[regids & 255].Double /= mem->Double;
 				DISPATCH();
 			}
 		}
@@ -1791,20 +1787,20 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & FourBytes )
-					address_ptr->Float /= imm.Float;
+					mem->Float /= imm.Float;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->Double /= imm.Double;
+					mem->Double /= imm.Double;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & FourBytes )
-					address_ptr->Float /= regs[regids >> 8].Float;
+					mem->Float /= regs[regids >> 8].Float;
 				else if( decode.addrmode & EightBytes )
-					address_ptr->Double /= regs[regids >> 8].Double;
+					mem->Double /= regs[regids >> 8].Double;
 				DISPATCH();
 			}
 		}
@@ -1815,27 +1811,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regid].Float < imm.Float;
+					vm->CondFlag = regs[regid].Float < imm.Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regid].Double < imm.Double;
+					vm->CondFlag = regs[regid].Double < imm.Double;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Float < regs[regids >> 8].Float;
+					vm->CondFlag = regs[regids & 255].Float < regs[regids >> 8].Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Double < regs[regids >> 8].Double;
+					vm->CondFlag = regs[regids & 255].Double < regs[regids >> 8].Double;
 				DISPATCH();
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Float < address_ptr->Float;
+					vm->CondFlag = regs[regids & 255].Float < mem->Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Double < address_ptr->Double;
+					vm->CondFlag = regs[regids & 255].Double < mem->Double;
 				DISPATCH();
 			}
 		}
@@ -1843,20 +1839,20 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->Float < imm.Float;
+					vm->CondFlag = mem->Float < imm.Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->Double < imm.Double;
+					vm->CondFlag = mem->Double < imm.Double;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->Float < regs[regids >> 8].Float;
+					vm->CondFlag = mem->Float < regs[regids >> 8].Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->Double < regs[regids >> 8].Double;
+					vm->CondFlag = mem->Double < regs[regids >> 8].Double;
 				DISPATCH();
 			}
 		}
@@ -1867,27 +1863,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regid].Float > imm.Float;
+					vm->CondFlag = regs[regid].Float > imm.Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regid].Double > imm.Double;
+					vm->CondFlag = regs[regid].Double > imm.Double;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Float > regs[regids >> 8].Float;
+					vm->CondFlag = regs[regids & 255].Float > regs[regids >> 8].Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Double > regs[regids >> 8].Double;
+					vm->CondFlag = regs[regids & 255].Double > regs[regids >> 8].Double;
 				DISPATCH();
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Float > address_ptr->Float;
+					vm->CondFlag = regs[regids & 255].Float > mem->Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Double > address_ptr->Double;
+					vm->CondFlag = regs[regids & 255].Double > mem->Double;
 				DISPATCH();
 			}
 		}
@@ -1895,20 +1891,20 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->Float > imm.Float;
+					vm->CondFlag = mem->Float > imm.Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->Double > imm.Double;
+					vm->CondFlag = mem->Double > imm.Double;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->Float > regs[regids >> 8].Float;
+					vm->CondFlag = mem->Float > regs[regids >> 8].Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->Double > regs[regids >> 8].Double;
+					vm->CondFlag = mem->Double > regs[regids >> 8].Double;
 				DISPATCH();
 			}
 		}
@@ -1919,27 +1915,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regid].Float == imm.Float;
+					vm->CondFlag = regs[regid].Float == imm.Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regid].Double == imm.Double;
+					vm->CondFlag = regs[regid].Double == imm.Double;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Float == regs[regids >> 8].Float;
+					vm->CondFlag = regs[regids & 255].Float == regs[regids >> 8].Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Double == regs[regids >> 8].Double;
+					vm->CondFlag = regs[regids & 255].Double == regs[regids >> 8].Double;
 				DISPATCH();
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Float == address_ptr->Float;
+					vm->CondFlag = regs[regids & 255].Float == mem->Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Double == address_ptr->Double;
+					vm->CondFlag = regs[regids & 255].Double == mem->Double;
 				DISPATCH();
 			}
 		}
@@ -1947,20 +1943,20 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->Float == imm.Float;
+					vm->CondFlag = mem->Float == imm.Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->Double == imm.Double;
+					vm->CondFlag = mem->Double == imm.Double;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->Float == regs[regids >> 8].Float;
+					vm->CondFlag = mem->Float == regs[regids >> 8].Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->Double == regs[regids >> 8].Double;
+					vm->CondFlag = mem->Double == regs[regids >> 8].Double;
 				DISPATCH();
 			}
 		}
@@ -1971,27 +1967,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regid].Float != imm.Float;
+					vm->CondFlag = regs[regid].Float != imm.Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regid].Double != imm.Double;
+					vm->CondFlag = regs[regid].Double != imm.Double;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Float != regs[regids >> 8].Float;
+					vm->CondFlag = regs[regids & 255].Float != regs[regids >> 8].Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Double != regs[regids >> 8].Double;
+					vm->CondFlag = regs[regids & 255].Double != regs[regids >> 8].Double;
 				DISPATCH();
 			}
 			else if( decode.addrmode & RegIndirect ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids >> 8].UInt8Ptr + *pc.Int32Ptr++);
 				
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Float != address_ptr->Float;
+					vm->CondFlag = regs[regids & 255].Float != mem->Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = regs[regids & 255].Double != address_ptr->Double;
+					vm->CondFlag = regs[regids & 255].Double != mem->Double;
 				DISPATCH();
 			}
 		}
@@ -1999,20 +1995,20 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( decode.addrmode & Immediate ) {
 				const uint8_t regid = *pc.UInt8Ptr++;
 				const union TaghaVal imm = *pc.ValPtr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->Float != imm.Float;
+					vm->CondFlag = mem->Float != imm.Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->Double != imm.Double;
+					vm->CondFlag = mem->Double != imm.Double;
 				DISPATCH();
 			}
 			else if( decode.addrmode & Register ) {
 				const uint16_t regids = *pc.UInt16Ptr++;
-				EffectiveAddr address_ptr = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
+				union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regids & 255].UInt8Ptr + *pc.Int32Ptr++);
 				if( decode.addrmode & FourBytes )
-					vm->CPU.CondFlag = address_ptr->Float != regs[regids >> 8].Float;
+					vm->CondFlag = mem->Float != regs[regids >> 8].Float;
 				else if( decode.addrmode & EightBytes )
-					vm->CPU.CondFlag = address_ptr->Double != regs[regids >> 8].Double;
+					vm->CondFlag = mem->Double != regs[regids >> 8].Double;
 				DISPATCH();
 			}
 		}
@@ -2027,11 +2023,11 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			DISPATCH();
 		}
 		else if( decode.addrmode & RegIndirect ) {
-			EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+			union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 			if( decode.addrmode & FourBytes )
-				++address_ptr->Float;
+				++mem->Float;
 			else if( decode.addrmode & EightBytes )
-				++address_ptr->Double;
+				++mem->Double;
 			DISPATCH();
 		}
 	}
@@ -2045,11 +2041,11 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			DISPATCH();
 		}
 		else if( decode.addrmode & RegIndirect ) {
-			EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+			union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 			if( decode.addrmode & FourBytes )
-				--address_ptr->Float;
+				--mem->Float;
 			else if( decode.addrmode & EightBytes )
-				--address_ptr->Double;
+				--mem->Double;
 			DISPATCH();
 		}
 	}
@@ -2063,18 +2059,18 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			DISPATCH();
 		}
 		else if( decode.addrmode & RegIndirect ) {
-			EffectiveAddr address_ptr = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
+			union TaghaVal *const restrict mem = (union TaghaVal *)(regs[regid].UInt8Ptr + *pc.Int32Ptr++);
 			if( decode.addrmode & FourBytes )
-				address_ptr->Float = -address_ptr->Float;
+				mem->Float = -mem->Float;
 			else if( decode.addrmode & EightBytes )
-				address_ptr->Double = -address_ptr->Double;
+				mem->Double = -mem->Double;
 			DISPATCH();
 		}
 	}
 #endif
 	exec_halt:;
 	//Tagha_PrintVMState(vm);
-	return vm->CPU.regAlaf.Int32;
+	return vm->regAlaf.Int32;
 }
 
 int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, char *argv[restrict static argc+1])
@@ -2082,7 +2078,7 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	if( !vm )
 		return -1;
 	
-	struct TaghaModule *const restrict hdr = vm->Header;
+	struct TaghaHeader *const restrict hdr = vm->Header;
 	if( !hdr || hdr->Magic != 0xC0DE ) {
 		vm->Error = ErrInvalidScript;
 		return -1;
@@ -2100,8 +2096,8 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	if( argv )
 		for( int32_t i=0 ; i<argc ; i++ )
 			MainArgs[i].Ptr = argv[i];
-	vm->CPU.reg_Eh.Ptr = MainArgs;
-	vm->CPU.regSemkath.Int32 = argc;
+	vm->reg_Eh.Ptr = MainArgs;
+	vm->regSemkath.Int32 = argc;
 	
 	/* check out stack size && align it by the size of union TaghaVal. */
 	const size_t stacksize = hdr->StackSize; //(hdr->StackSize + (sizeof(union TaghaVal)-1)) & -(sizeof(union TaghaVal));
@@ -2122,14 +2118,16 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	}
 	reader.UInt8Ptr++;
 	*/
-	//vm->CPU.regs[regStk].Ptr = vm->CPU.regs[regBase].Ptr = reader.UInt8Ptr + stacksize;
+	//vm->regs[regStk].Ptr = vm->regs[regBase].Ptr = reader.UInt8Ptr + stacksize;
 	
 	union TaghaVal Stack[stacksize+1]; memset(Stack, 0, sizeof Stack[0] * stacksize+1);
-	vm->CPU.regStk.SelfPtr = vm->CPU.regBase.SelfPtr = Stack + stacksize;
+	vm->regStk.SelfPtr = vm->regBase.SelfPtr = Stack + stacksize;
 	
-	(--vm->CPU.regStk.SelfPtr)->Int64 = -1LL;	/* push bullshit ret address. */
-	*--vm->CPU.regStk.SelfPtr = vm->CPU.regBase; /* push rbp */
-	vm->CPU.regInstr.UInt8Ptr = main_offset;
+	(--vm->regStk.SelfPtr)->Int64 = 0LL;	/* push NULL ret address. */
+	*--vm->regStk.SelfPtr = vm->regBase; /* push rbp */
+	vm->regBase = vm->regStk; /* mov rbp, rsp */
+	vm->regInstr.UInt8Ptr = main_offset;
+	
 	return Tagha_Exec(vm);
 }
 
@@ -2138,7 +2136,7 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 	if( !vm || !funcname || !values )
 		return -1;
 	
-	struct TaghaModule *const restrict hdr = vm->Header;
+	struct TaghaHeader *const restrict hdr = vm->Header;
 	if( !hdr || hdr->Magic != 0xC0DE ) {
 		vm->Error = ErrInvalidScript;
 		return -1;
@@ -2158,7 +2156,7 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 	}
 	
 	union TaghaVal Stack[stacksize+1]; memset(Stack, 0, sizeof Stack[0] * stacksize+1);
-	vm->CPU.regStk.SelfPtr = vm->CPU.regBase.SelfPtr = Stack + stacksize;
+	vm->regStk.SelfPtr = vm->regBase.SelfPtr = Stack + stacksize;
 	
 	/* remember that arguments must be passed right to left.
 	 we have enough args to fit in registers. */
@@ -2169,24 +2167,25 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 	/* save stack space by using the registers for passing arguments. */
 	/* the other registers can be used for other data ops. */
 	if( args <= reg_params ) {
-		memcpy(vm->CPU.Regs+reg_param_initial, values, bytecount);
+		memcpy(vm->Regs+reg_param_initial, values, bytecount);
 	}
 	/* if the function has more than a certain num of params, push from both registers && stack. */
 	else if( args > reg_params ) {
-		memcpy(vm->CPU.Regs+reg_param_initial, values, sizeof Stack[0] * reg_params);
-		memcpy(vm->CPU.regStk.SelfPtr, values+reg_params, sizeof Stack[0] * (args-reg_params));
-		vm->CPU.regStk.SelfPtr -= (args-reg_params);
+		memcpy(vm->Regs+reg_param_initial, values, sizeof Stack[0] * reg_params);
+		memcpy(vm->regStk.SelfPtr, values+reg_params, sizeof Stack[0] * (args-reg_params));
+		vm->regStk.SelfPtr -= (args-reg_params);
 	}
 	
-	*--vm->CPU.regStk.SelfPtr = vm->CPU.regInstr;	/* push return address. */
-	*--vm->CPU.regStk.SelfPtr = vm->CPU.regBase; /* push rbp */
-	vm->CPU.regInstr.Ptr = func_offset;
+	*--vm->regStk.SelfPtr = vm->regInstr;	/* push return address. */
+	*--vm->regStk.SelfPtr = vm->regBase; /* push rbp */
+	vm->regBase = vm->regStk; /* mov rbp, rsp */
+	vm->regInstr.Ptr = func_offset;
 	return Tagha_Exec(vm);
 }
 
 union TaghaVal Tagha_GetReturnValue(const struct Tagha *const vm)
 {
-	return vm ? vm->CPU.regAlaf : (union TaghaVal){0};
+	return vm ? vm->regAlaf : (union TaghaVal){0};
 }
 
 void *Tagha_GetGlobalVarByName(struct Tagha *const restrict vm, const char *restrict varname)
@@ -2212,5 +2211,6 @@ const char *Tagha_GetError(const struct Tagha *const vm)
 }
 
 /************************************************/
+
 
 

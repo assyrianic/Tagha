@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include "dsc.h"
 
-struct Tuple *Tuple_New(const size_t arrlen, union Value items[restrict static arrlen])
+struct Tuple *Tuple_New(const size_t arrlen, union Value items[static arrlen])
 {
 	struct Tuple *tup = calloc(1, sizeof *tup);
 	if( tup )
@@ -11,16 +11,15 @@ struct Tuple *Tuple_New(const size_t arrlen, union Value items[restrict static a
 	return tup;
 }
 
-void Tuple_Free(struct Tuple **restrict tupref)
+void Tuple_Free(struct Tuple **tupref)
 {
 	if( !*tupref )
 		return;
 	Tuple_Del(*tupref);
-	free(*tupref);
-	*tupref=NULL;
+	free(*tupref); *tupref=NULL;
 }
 
-void Tuple_Init(struct Tuple *const restrict tup, const size_t arrlen, union Value items[restrict static arrlen])
+void Tuple_Init(struct Tuple *const tup, const size_t arrlen, union Value items[static arrlen])
 {
 	if( !tup )
 		return;
@@ -32,26 +31,25 @@ void Tuple_Init(struct Tuple *const restrict tup, const size_t arrlen, union Val
 	tup->Len = arrlen;
 }
 
-void Tuple_Del(struct Tuple *const restrict tup)
+void Tuple_Del(struct Tuple *const tup)
 {
 	if( !tup or !tup->Items )
 		return;
-	free(tup->Items);
-	tup->Items=NULL;
+	free(tup->Items); tup->Items=NULL;
 	*tup = (struct Tuple){0};
 }
 
-size_t Tuple_Len(const struct Tuple *const restrict tup)
+size_t Tuple_Len(const struct Tuple *const tup)
 {
 	return tup ? tup->Len : 0 ;
 }
 
-union Value *Tuple_GetItems(const struct Tuple *const restrict tup)
+union Value *Tuple_GetItems(const struct Tuple *const tup)
 {
 	return tup ? tup->Items : NULL ;
 }
 
-union Value Tuple_GetItem(const struct Tuple *const restrict tup, const size_t index)
+union Value Tuple_GetItem(const struct Tuple *const tup, const size_t index)
 {
 	if( !tup or !tup->Items or index >= tup->Len )
 		return (union Value){0};
@@ -59,7 +57,7 @@ union Value Tuple_GetItem(const struct Tuple *const restrict tup, const size_t i
 	return tup->Items[index];
 }
 
-void Tuple_FromUniLinkedList(struct Tuple *const restrict tup, const struct UniLinkedList *const restrict list)
+void Tuple_FromUniLinkedList(struct Tuple *const tup, const struct UniLinkedList *const list)
 {
 	if( !tup or !list )
 		return;
@@ -75,7 +73,7 @@ void Tuple_FromUniLinkedList(struct Tuple *const restrict tup, const struct UniL
 	Tuple_Init(tup, i, list_items);
 }
 
-void Tuple_FromMap(struct Tuple *const restrict tup, const struct Hashmap *const restrict map)
+void Tuple_FromMap(struct Tuple *const tup, const struct Hashmap *const map)
 {
 	if( !tup or !map )
 		return;
@@ -85,14 +83,17 @@ void Tuple_FromMap(struct Tuple *const restrict tup, const struct Hashmap *const
 	
 	union Value list_items[map->Count];
 	size_t x=0;
-	for( size_t i=0 ; i<map->Len ; i++ )
-		for( struct KeyNode *n = map->Table[i] ; n ; n=n->Next )
-			list_items[x++] = n->Data;
-	
+	for( size_t i=0 ; i<map->Len ; i++ ) {
+		struct Vector *vec = map->Table + i;
+		for( size_t n=0 ; n<Vector_Count(vec) ; n++ ) {
+			struct KeyNode *node = vec->Table[n].Ptr;
+			list_items[x++] = node->Data;
+		}
+	}
 	Tuple_Init(tup, x, list_items);
 }
 
-void Tuple_FromVector(struct Tuple *const restrict tup, const struct Vector *const restrict vec)
+void Tuple_FromVector(struct Tuple *const tup, const struct Vector *const vec)
 {
 	if( !tup or !vec )
 		return;
@@ -100,11 +101,10 @@ void Tuple_FromVector(struct Tuple *const restrict tup, const struct Vector *con
 	if( tup->Items )
 		Tuple_Del(tup);
 	
-	
 	Tuple_Init(tup, vec->Count, vec->Table);
 }
 
-void Tuple_FromBiLinkedList(struct Tuple *const restrict tup, const struct BiLinkedList *const restrict list)
+void Tuple_FromBiLinkedList(struct Tuple *const tup, const struct BiLinkedList *const list)
 {
 	if( !tup or !list )
 		return;
@@ -120,7 +120,7 @@ void Tuple_FromBiLinkedList(struct Tuple *const restrict tup, const struct BiLin
 	Tuple_Init(tup, i, list_items);
 }
 
-void Tuple_FromGraph(struct Tuple *const restrict tup, const struct Graph *const restrict graph)
+void Tuple_FromGraph(struct Tuple *const tup, const struct Graph *const graph)
 {
 	if( !tup or !graph )
 		return;
@@ -128,72 +128,74 @@ void Tuple_FromGraph(struct Tuple *const restrict tup, const struct Graph *const
 	if( tup->Items )
 		Tuple_Del(tup);
 	
-	union Value list_items[graph->VertexCount];
-	for( size_t i=0 ; i<graph->VertexCount ; i++ )
-		list_items[i] = graph->Vertices[i].Data;
-	
-	Tuple_Init(tup, graph->VertexCount, list_items);
+	union Value list_items[graph->Vertices.Count];
+	for( size_t i=0 ; i<graph->Vertices.Count ; i++ ) {
+		struct GraphVertex *vert = graph->Vertices.Table[i].Ptr;
+		list_items[i] = vert->Data;
+	}
+	Tuple_Init(tup, graph->Vertices.Count, list_items);
 }
 
-void Tuple_FromLinkMap(struct Tuple *const restrict tup, const struct LinkMap *const restrict map)
+void Tuple_FromLinkMap(struct Tuple *const tup, const struct LinkMap *const map)
 {
 	if( tup->Items )
 		Tuple_Del(tup);
 	
-	union Value list_items[map->Len];
+	union Value list_items[map->Count];
 	size_t i=0;
-	for( struct LinkNode *n=map->Head ; n ; n=n->After )
-		list_items[i++] = n->Data;
-	
+	for( ; i<map->Order.Count ; i++ ) {
+		struct KeyNode *n = map->Order.Table[i].Ptr;
+		list_items[i] = n->Data;
+	}
 	Tuple_Init(tup, i, list_items);
 }
 
 
-struct Tuple *Tuple_NewFromUniLinkedList(const struct UniLinkedList *const restrict list)
+struct Tuple *Tuple_NewFromUniLinkedList(const struct UniLinkedList *const list)
 {
 	if( !list )
 		return NULL;
-	struct Tuple *tup = calloc(1, sizeof *tup);
+	struct Tuple *const tup = calloc(1, sizeof *tup);
 	Tuple_FromUniLinkedList(tup, list);
 	return tup;
 }
-struct Tuple *Tuple_NewFromMap(const struct Hashmap *const restrict map)
+struct Tuple *Tuple_NewFromMap(const struct Hashmap *const map)
 {
 	if( !map )
 		return NULL;
-	struct Tuple *tup = calloc(1, sizeof *tup);
+	struct Tuple *const tup = calloc(1, sizeof *tup);
 	Tuple_FromMap(tup, map);
 	return tup;
 }
-struct Tuple *Tuple_NewFromVector(const struct Vector *const restrict vec)
+struct Tuple *Tuple_NewFromVector(const struct Vector *const vec)
 {
 	if( !vec )
 		return NULL;
-	struct Tuple *tup = calloc(1, sizeof *tup);
+	struct Tuple *const tup = calloc(1, sizeof *tup);
 	Tuple_FromVector(tup, vec);
 	return tup;
 }
-struct Tuple *Tuple_NewFromBiLinkedList(const struct BiLinkedList *const restrict list)
+struct Tuple *Tuple_NewFromBiLinkedList(const struct BiLinkedList *const list)
 {
 	if( !list )
 		return NULL;
-	struct Tuple *tup = calloc(1, sizeof *tup);
+	struct Tuple *const tup = calloc(1, sizeof *tup);
 	Tuple_FromBiLinkedList(tup, list);
 	return tup;
 }
-struct Tuple *Tuple_NewFromGraph(const struct Graph *const restrict graph)
+struct Tuple *Tuple_NewFromGraph(const struct Graph *const graph)
 {
 	if( !graph )
 		return NULL;
-	struct Tuple *tup = calloc(1, sizeof *tup);
+	struct Tuple *const tup = calloc(1, sizeof *tup);
 	Tuple_FromGraph(tup, graph);
 	return tup;
 }
-struct Tuple *Tuple_NewFromLinkMap(const struct LinkMap *const restrict map)
+struct Tuple *Tuple_NewFromLinkMap(const struct LinkMap *const map)
 {
 	if( !map )
 		return NULL;
-	struct Tuple *tup = calloc(1, sizeof *tup);
+	struct Tuple *const tup = calloc(1, sizeof *tup);
 	Tuple_FromLinkMap(tup, map);
 	return tup;
 }

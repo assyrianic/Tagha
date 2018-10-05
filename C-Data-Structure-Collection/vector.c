@@ -10,67 +10,64 @@ struct Vector {
 };
 */
 
-struct Vector *Vector_New(bool (*dtor)())
+struct Vector *Vector_New(void)
 {
-	struct Vector *v = calloc(1, sizeof(struct Vector));
-	Vector_SetItemDestructor(v, dtor);
+	struct Vector *v = calloc(1, sizeof *v);
 	return v;
 }
 
-void Vector_Init(struct Vector *const restrict v, bool (*dtor)())
+void Vector_Init(struct Vector *const v)
 {
 	if( !v )
 		return;
 	
 	*v = (struct Vector){0};
-	Vector_SetItemDestructor(v, dtor);
 }
 
-void Vector_Del(struct Vector *const restrict v)
+void Vector_Del(struct Vector *const v, fnDestructor *const dtor)
 {
-	if( !v or !v->Table )
+	if( !v || !v->Table )
 		return;
 	
-	for( size_t i=0 ; i<v->Len ; i++ ) {
-		if( v->Destructor )
-			(*v->Destructor)(&v->Table[i].Ptr);
-	}
+	if( dtor )
+		for( size_t i=0 ; i<v->Len ; i++ )
+			(*dtor)(&v->Table[i].Ptr);
+	
 	free(v->Table);
-	Vector_Init(v, v->Destructor);
+	Vector_Init(v);
 }
 
-void Vector_Free(struct Vector **restrict vecref)
+void Vector_Free(struct Vector **vecref, fnDestructor *const dtor)
 {
 	if( !*vecref )
 		return;
 	
-	Vector_Del(*vecref);
-	free(*vecref);
-	*vecref=NULL;
+	Vector_Del(*vecref, dtor);
+	free(*vecref), *vecref=NULL;
 }
 
-inline size_t Vector_Len(const struct Vector *const restrict v)
+inline size_t Vector_Len(const struct Vector *const v)
 {
-	return v and v->Table ? v->Len : 0;
+	return v ? v->Len : 0;
 }
 
-inline size_t Vector_Count(const struct Vector *const restrict v)
+inline size_t Vector_Count(const struct Vector *const v)
 {
-	return v and v->Table ? v->Count : 0;
+	return v && v->Table ? v->Count : 0;
 }
-union Value *Vector_GetTable(const struct Vector *const restrict v)
+inline union Value *Vector_GetTable(const struct Vector *const v)
 {
 	return v ? v->Table : NULL;
 }
 
-void Vector_Resize(struct Vector *const restrict v)
+void Vector_Resize(struct Vector *const v)
 {
 	if( !v )
 		return;
 	
 	// first we get our old size.
 	// then resize the actual size.
-	size_t oldsize = v->Len;
+	const size_t oldsize = v->Len;
 	v->Len <<= 1;
 	if( !v->Len )
 		v->Len = 4;
@@ -87,13 +84,12 @@ void Vector_Resize(struct Vector *const restrict v)
 	// copy the old table to new then free old table.
 	if( v->Table ) {
 		memcpy(newdata, v->Table, sizeof *newdata * oldsize);
-		free(v->Table);
-		v->Table = NULL;
+		free(v->Table), v->Table = NULL;
 	}
 	v->Table = newdata;
 }
 
-void Vector_Truncate(struct Vector *const restrict v)
+void Vector_Truncate(struct Vector *const v)
 {
 	if( !v )
 		return;
@@ -104,66 +100,61 @@ void Vector_Truncate(struct Vector *const restrict v)
 		union Value *newdata = calloc(v->Len, sizeof *newdata);
 		if( !newdata )
 			return;
-	
+		
 		// copy the old table to new then free old table.
 		if( v->Table ) {
 			memcpy(newdata, v->Table, sizeof *newdata * v->Len);
-			free(v->Table);
-			v->Table = NULL;
+			free(v->Table), v->Table = NULL;
 		}
 		v->Table = newdata;
 	}
 }
 
 
-bool Vector_Insert(struct Vector *const restrict v, const union Value val)
+bool Vector_Insert(struct Vector *const v, const union Value val)
 {
 	if( !v )
 		return false;
-	else if( !v->Table or v->Count >= v->Len )
+	else if( !v->Table || v->Count >= v->Len )
 		Vector_Resize(v);
 	
 	v->Table[v->Count++] = val;
 	return true;
 }
 
-union Value Vector_Get(const struct Vector *const restrict v, const size_t index)
+union Value Vector_Pop(struct Vector *const v)
 {
-	if( !v or !v->Table or index >= v->Count )
-		return (union Value){0};
-	
-	return v->Table[index];
+	return ( !v || !v->Table || !v->Count ) ? (union Value){0} : v->Table[--v->Count];
 }
 
-void Vector_Set(struct Vector *const restrict v, const size_t index, const union Value val)
+union Value Vector_Get(const struct Vector *const v, const size_t index)
 {
-	if( !v or !v->Table or index >= v->Count )
+	return (!v || !v->Table || index >= v->Count) ? (union Value){0} : v->Table[index];
+}
+
+void Vector_Set(struct Vector *const v, const size_t index, const union Value val)
+{
+	if( !v || !v->Table || index >= v->Count )
 		return;
 	
 	v->Table[index] = val;
 }
 
-void Vector_SetItemDestructor(struct Vector *const restrict v, bool (*dtor)())
+void Vector_Delete(struct Vector *const v, const size_t index, fnDestructor *const dtor)
 {
-	if( !v )
-		return;
-	v->Destructor = dtor;
-}
-
-void Vector_Delete(struct Vector *const restrict v, const size_t index)
-{
-	if( !v or !v->Table or index >= v->Count )
+	if( !v || !v->Table || index >= v->Count )
 		return;
 	
-	if( v->Destructor )
-		(*v->Destructor)(&v->Table[index].Ptr);
+	if( dtor )
+		(*dtor)(&v->Table[index].Ptr);
 	
 	size_t
 		i=index+1,
 		j=index
 	;
-	while( i<v->Count )
-		v->Table[j++] = v->Table[i++];
+	//while( i<v->Count )
+	//	v->Table[j++] = v->Table[i++];
+	memmove(v->Table+j, v->Table+i, (v->Len-j) * sizeof *v->Table);
 	v->Count--;
 	// can't keep auto-truncating, allocating memory every time can be expensive.
 	// I'll let the programmers truncate whenever they need to.
@@ -172,12 +163,12 @@ void Vector_Delete(struct Vector *const restrict v, const size_t index)
 
 void Vector_Add(struct Vector *const restrict vA, const struct Vector *const restrict vB)
 {
-	if( !vA or !vB or !vB->Table )
+	if( !vA || !vB || !vB->Table )
 		return;
 	
 	size_t i=0;
 	while( i<vB->Count ) {
-		if( !vA->Table or vA->Count >= vA->Len )
+		if( !vA->Table || vA->Count >= vA->Len )
 			Vector_Resize(vA);
 		vA->Table[vA->Count++] = vB->Table[i++];
 	}
@@ -185,23 +176,23 @@ void Vector_Add(struct Vector *const restrict vA, const struct Vector *const res
 
 void Vector_Copy(struct Vector *const restrict vA, const struct Vector *const restrict vB)
 {
-	if( !vA or !vB or !vB->Table )
+	if( !vA || !vB || !vB->Table )
 		return;
 	
-	Vector_Del(vA);
+	Vector_Del(vA, NULL);
 	size_t i=0;
 	while( i<vB->Count ) {
-		if( !vA->Table or vA->Count >= vA->Len )
+		if( !vA->Table || vA->Count >= vA->Len )
 			Vector_Resize(vA);
 		vA->Table[vA->Count++] = vB->Table[i++];
 	}
 }
 
-void Vector_FromUniLinkedList(struct Vector *const restrict v, const struct UniLinkedList *const restrict list)
+void Vector_FromUniLinkedList(struct Vector *const v, const struct UniLinkedList *const list)
 {
-	if( !v or !list )
+	if( !v || !list )
 		return;
-	else if( !v->Table or v->Count+list->Len >= v->Len )
+	else if( !v->Table || v->Count+list->Len >= v->Len )
 		while( v->Count+list->Len >= v->Len )
 			Vector_Resize(v);
 	
@@ -209,11 +200,11 @@ void Vector_FromUniLinkedList(struct Vector *const restrict v, const struct UniL
 		v->Table[v->Count++] = n->Data;
 }
 
-void Vector_FromBiLinkedList(struct Vector *const restrict v, const struct BiLinkedList *const restrict list)
+void Vector_FromBiLinkedList(struct Vector *const v, const struct BiLinkedList *const list)
 {
-	if( !v or !list )
+	if( !v || !list )
 		return;
-	else if( !v->Table or v->Count+list->Len >= v->Len )
+	else if( !v->Table || v->Count+list->Len >= v->Len )
 		while( v->Count+list->Len >= v->Len )
 			Vector_Resize(v);
 	
@@ -221,24 +212,28 @@ void Vector_FromBiLinkedList(struct Vector *const restrict v, const struct BiLin
 		v->Table[v->Count++] = n->Data;
 }
 
-void Vector_FromMap(struct Vector *const restrict v, const struct Hashmap *const restrict map)
+void Vector_FromMap(struct Vector *const restrict v, const struct Hashmap *const map)
 {
-	if( !v or !map )
+	if( !v || !map )
 		return;
-	else if( !v->Table or v->Count+map->Count >= v->Len )
+	else if( !v->Table || v->Count+map->Count >= v->Len )
 		while( v->Count+map->Count >= v->Len )
 			Vector_Resize(v);
 	
-	for( size_t i=0 ; i<map->Len ; i++ )
-		for( struct KeyNode *n = map->Table[i] ; n ; n=n->Next )
-			v->Table[v->Count++] = n->Data;
+	for( size_t i=0 ; i<map->Len ; i++ ) {
+		struct Vector *restrict vec = map->Table + i;
+		for( size_t n=0 ; n<Vector_Count(vec) ; n++ ) {
+			struct KeyNode *node = vec->Table[n].Ptr;
+			v->Table[v->Count++] = node->Data;
+		}
+	}
 }
 
-void Vector_FromTuple(struct Vector *const restrict v, const struct Tuple *const restrict tup)
+void Vector_FromTuple(struct Vector *const v, const struct Tuple *const tup)
 {
-	if( !v or !tup or !tup->Items or !tup->Len )
+	if( !v || !tup || !tup->Items || !tup->Len )
 		return;
-	else if( !v->Table or v->Count+tup->Len >= v->Len )
+	else if( !v->Table || v->Count+tup->Len >= v->Len )
 		while( v->Count+tup->Len >= v->Len )
 			Vector_Resize(v);
 	
@@ -247,81 +242,84 @@ void Vector_FromTuple(struct Vector *const restrict v, const struct Tuple *const
 		v->Table[v->Count++] = tup->Items[i++];
 }
 
-void Vector_FromGraph(struct Vector *const restrict v, const struct Graph *const restrict graph)
+void Vector_FromGraph(struct Vector *const v, const struct Graph *const graph)
 {
-	if( !v or !graph )
+	if( !v || !graph )
 		return;
-	else if( !v->Table or v->Count+graph->VertexCount >= v->Len )
-		while( v->Count+graph->VertexCount >= v->Len )
+	else if( !v->Table || v->Count+graph->Vertices.Count >= v->Len )
+		while( v->Count+graph->Vertices.Count >= v->Len )
 			Vector_Resize(v);
 	
-	size_t i=0;
-	while( i<graph->VertexCount )
-		v->Table[v->Count++] = graph->Vertices[i++].Data;
+	for( size_t i=0 ; i<graph->Vertices.Count ; i++ ) {
+		struct GraphVertex *vert = graph->Vertices.Table[i].Ptr;
+		v->Table[v->Count++] = vert->Data;
+	}
 }
 
-void Vector_FromLinkMap(struct Vector *const restrict v, const struct LinkMap *const restrict map)
+void Vector_FromLinkMap(struct Vector *const v, const struct LinkMap *const map)
 {
-	if( !v or !map )
+	if( !v || !map )
 		return;
-	else if( !v->Table or v->Count+map->Count >= v->Len )
+	else if( !v->Table || v->Count+map->Count >= v->Len )
 		while( v->Count+map->Count >= v->Len )
 			Vector_Resize(v);
 	
-	for( struct LinkNode *n = map->Head ; n ; n=n->After )
+	for( size_t i=0 ; i<map->Order.Count ; i++ ) {
+		struct KeyNode *n = map->Order.Table[i].Ptr;
 		v->Table[v->Count++] = n->Data;
+	}
 }
 
-struct Vector *Vector_NewFromUniLinkedList(const struct UniLinkedList *const restrict list)
+struct Vector *Vector_NewFromUniLinkedList(const struct UniLinkedList *const list)
 {
 	if( !list )
 		return NULL;
-	struct Vector *v = Vector_New(list->Destructor);
+	struct Vector *v = Vector_New();
 	Vector_FromUniLinkedList(v, list);
 	return v;
 }
 
-struct Vector *Vector_NewFromBiLinkedList(const struct BiLinkedList *const restrict list)
+struct Vector *Vector_NewFromBiLinkedList(const struct BiLinkedList *const list)
 {
 	if( !list )
 		return NULL;
-	struct Vector *v = Vector_New(list->Destructor);
+	struct Vector *v = Vector_New();
 	Vector_FromBiLinkedList(v, list);
 	return v;
 }
 
-struct Vector *Vector_NewFromMap(const struct Hashmap *const restrict map)
+struct Vector *Vector_NewFromMap(const struct Hashmap *const map)
 {
 	if( !map )
 		return NULL;
-	struct Vector *v = Vector_New(map->Destructor);
+	struct Vector *v = Vector_New();
 	Vector_FromMap(v, map);
 	return v;
 }
 
-struct Vector *Vector_NewFromTuple(const struct Tuple *const restrict tup)
+struct Vector *Vector_NewFromTuple(const struct Tuple *const tup)
 {
 	if( !tup )
 		return NULL;
-	struct Vector *v = Vector_New(NULL);
+	struct Vector *v = Vector_New();
 	Vector_FromTuple(v, tup);
 	return v;
 }
 
-struct Vector *Vector_NewFromGraph(const struct Graph *const restrict graph)
+struct Vector *Vector_NewFromGraph(const struct Graph *const graph)
 {
 	if( !graph )
 		return NULL;
-	struct Vector *v = Vector_New(graph->VertexDestructor);
+	struct Vector *v = Vector_New();
 	Vector_FromGraph(v, graph);
 	return v;
 }
 
-struct Vector *Vector_NewFromLinkMap(const struct LinkMap *const restrict map)
+struct Vector *Vector_NewFromLinkMap(const struct LinkMap *const map)
 {
 	if( !map )
 		return NULL;
-	struct Vector *v = Vector_New(map->Destructor);
+	struct Vector *v = Vector_New();
 	Vector_FromLinkMap(v, map);
 	return v;
 }

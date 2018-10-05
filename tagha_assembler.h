@@ -17,7 +17,7 @@ struct LabelInfo {
 	bool IsNativeFunc : 1;
 };
 
-bool Label_Free(struct LabelInfo **);
+bool Label_Free(void *);
 
 struct TaghaAsmbler {
 	struct String OutputName, *ActiveFuncLabel, *Lexeme;

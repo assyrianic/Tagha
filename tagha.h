@@ -31,49 +31,6 @@ union TaghaVal {
 	union TaghaVal *SelfPtr, (*SelfFunc)(), *(*SelfPtrFunc)();
 };
 
-/* For Colored Debugging Printing! */
-#define KNRM	"\x1B[0m"	/* Normal */
-#define KRED	"\x1B[31m"
-#define KGRN	"\x1B[32m"
-#define KYEL	"\x1B[33m"
-#define KBLU	"\x1B[34m"
-#define KMAG	"\x1B[35m"
-#define KCYN	"\x1B[36m"
-#define KWHT	"\x1B[37m"
-#define RESET	"\033[0m"	/* Reset obviously */
-
-#define TAGHA_VERSION_STR		"0.0.1a"
-
-
-/* Script File/Binary Format Structure (Jun 23, 2018)
- * ------------------------------ start of header ------------------------------
- * 2 bytes: magic verifier ==> 0xC0DE
- * 4 bytes: stack size, stack size needed for the code (the stack size will be aligned by 8 bytes)
- * 1 byte: flags
- * 4 bytes: func table size (useable as an offset to the global vars table.)
- * ------------------------------ end of header ------------------------------
- * .functions table
- * 4 bytes: amount of funcs
- * n bytes: func table
- *		1 byte: 0 if bytecode func, 1 if it's a native, other flags.
- * 		4 bytes: string size + '\0' of func string
- *		4 bytes: instr len, 8 if native.
- * 		n bytes: func string
- * 		if bytecode func: n bytes - instructions
- *		else: 8 bytes: native address (0 at first, will be filled in during runtime)
- * 	
- * .globalvars table
- * 4 bytes: amount of global vars
- * n bytes: global vars table
- * 		1 byte: flags
- * 		4 bytes: string size + '\0' of global var string
- *		4 bytes: byte size, 8 if ptr.
- * 		n bytes: global var string
- * 		if bytecode var: n bytes: data. All 0 if not initialized in script code.
- *		else: 8 bytes: var address (0 at first, filled in during runtime)
- * n bytes : stack
- */
-
 union Pointer {
 	uint8_t *restrict UInt8Ptr;
 	uint16_t *restrict UInt16Ptr;
@@ -94,14 +51,57 @@ union Pointer {
 	void *restrict Ptr;
 };
 
-typedef union TaghaVal *const restrict EffectiveAddr;
+
+/* For Colored Debugging Printing! */
+#define KNRM	"\x1B[0m"	/* Normal */
+#define KRED	"\x1B[31m"
+#define KGRN	"\x1B[32m"
+#define KYEL	"\x1B[33m"
+#define KBLU	"\x1B[34m"
+#define KMAG	"\x1B[35m"
+#define KCYN	"\x1B[36m"
+#define KWHT	"\x1B[37m"
+#define RESET	"\033[0m"	/* Reset obviously */
+
+#define TAGHA_VERSION_STR		"0.0.1a"
+
+
+/* Script File/Binary Format Structure (Jun 23, 2018)
+ * ------------------------------ start of header ------------------------------
+ * 2 bytes: magic verifier ==> 0xC0DE
+ * 4 bytes: stack size, stack size needed for the code
+ * 4 bytes: func table offset (from this offset)
+ * 4 bytes: global var table offset (from this offset)
+ * 1 byte: flags
+ * ------------------------------ end of header ------------------------------
+ * .functions table
+ * 4 bytes: amount of funcs
+ * n bytes: func table
+ *		1 byte: 0 if bytecode func, 1 if it's a native, other flags.
+ * 		4 bytes: string size + '\0' of func string
+ *		4 bytes: instr len, 8 if native.
+ * 		n bytes: func string
+ * 		if bytecode func: n bytes - instructions
+ *		else: 8 bytes: native address (0 at first, will be filled in during runtime)
+ * 
+ * .globalvars table
+ * 4 bytes: amount of global vars
+ * n bytes: global vars table
+ * 		1 byte: flags
+ * 		4 bytes: string size + '\0' of global var string
+ *		4 bytes: byte size, 8 if ptr.
+ * 		n bytes: global var string
+ * 		if bytecode var: n bytes: data. All 0 if not initialized in script code.
+ *		else: 8 bytes: var address (0 at first, filled in during runtime)
+ */
 
 #pragma pack(push, 1)
-struct TaghaModule {
+struct TaghaHeader {
 	uint16_t Magic;
 	uint32_t StackSize;
+	uint32_t FuncTblOffs;
+	uint32_t VarTblOffs;
 	uint8_t Flags;
-	uint32_t FuncTblSize;
 	uint32_t FuncCount;
 };
 #pragma pack(pop)
@@ -129,7 +129,8 @@ struct TaghaModule {
  * Since 'Alaf' is the return value register and Semkath to Taw are for functions, they need preservation, all other registers are volatile.
  */
 struct Tagha;
-typedef void TaghaNative(struct Tagha *, union TaghaVal *, size_t, union TaghaVal []);
+typedef void TaghaNative(struct Tagha *vm, union TaghaVal *ret, size_t args, union TaghaVal params[]);
+typedef union TaghaVal TaghaUserFunc(struct Tagha *vm, uint8_t opcode, size_t args, union TaghaVal params[]);
 
 struct NativeInfo {
 	const char *Name;
@@ -158,7 +159,8 @@ enum TaghaErrCode {
 	ErrStackSize
 };
 
-struct TaghaCPU {
+// Script structure.
+struct Tagha {
 	union {
 		struct {
 			#define Y(y) union TaghaVal y;
@@ -168,14 +170,9 @@ struct TaghaCPU {
 		};
 		union TaghaVal Regs[regsize];
 	};
-	bool CondFlag : 1; /* conditional flag for conditional jumps! */
-};
-
-// Script structure.
-struct Tagha {
-	struct TaghaCPU CPU;
-	struct TaghaModule *Header;
+	struct TaghaHeader *Header;
 	enum TaghaErrCode Error;
+	bool CondFlag : 1; /* conditional flag for conditional jumps! */
 };
 
 
@@ -288,3 +285,4 @@ class CTagha : public Tagha {
 };
 
 #endif
+

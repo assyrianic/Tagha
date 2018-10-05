@@ -12,13 +12,13 @@ struct BiListNode *BiListNode_New(void)
 
 struct BiListNode *BiListNode_NewVal(const union Value val)
 {
-	struct BiListNode *node = BiListNode_New();
+	struct BiListNode *node = calloc(1, sizeof *node);
 	if( node )
 		node->Data = val;
 	return node;
 }
 
-void BiListNode_Del(struct BiListNode *const restrict node, bool (*dtor)())
+void BiListNode_Del(struct BiListNode *const node, fnDestructor *const dtor)
 {
 	if( !node )
 		return;
@@ -31,27 +31,26 @@ void BiListNode_Del(struct BiListNode *const restrict node, bool (*dtor)())
 	BiListNode_Free(&node->Next, dtor);
 }
 
-void BiListNode_Free(struct BiListNode **restrict noderef, bool (*dtor)())
+void BiListNode_Free(struct BiListNode ** noderef, fnDestructor *const dtor)
 {
 	if( !*noderef )
 		return;
 	
 	BiListNode_Del(*noderef, dtor);
-	free(*noderef);
-	*noderef=NULL;
+	free(*noderef), *noderef=NULL;
 }
 
-struct BiListNode *BiListNode_GetNextNode(const struct BiListNode *const restrict node)
+struct BiListNode *BiListNode_GetNextNode(const struct BiListNode *const node)
 {
 	return node ? node->Next : NULL;
 }
 
-struct BiListNode *BiListNode_GetPrevNode(const struct BiListNode *const restrict node)
+struct BiListNode *BiListNode_GetPrevNode(const struct BiListNode *const node)
 {
 	return node ? node->Prev : NULL;
 }
 
-union Value BiListNode_GetValue(const struct BiListNode *const restrict node)
+union Value BiListNode_GetValue(const struct BiListNode *const node)
 {
 	return node ? node->Data : (union Value){0};
 }
@@ -61,49 +60,46 @@ union Value BiListNode_GetValue(const struct BiListNode *const restrict node)
 
 /* Doubly Linked List code */
 /////////////////////////////////////////
-struct BiLinkedList *BiLinkedList_New(bool (*dtor)())
+struct BiLinkedList *BiLinkedList_New(void)
 {
 	struct BiLinkedList *list = calloc(1, sizeof *list);
-	BiLinkedList_SetDestructor(list, dtor);
 	return list;
 }
 
-void BiLinkedList_Del(struct BiLinkedList *const restrict list)
+void BiLinkedList_Del(struct BiLinkedList *const list, fnDestructor *const dtor)
 {
 	if( !list )
 		return;
 	
-	BiListNode_Free(&list->Head, list->Destructor);
+	BiListNode_Free(&list->Head, dtor);
 	*list = (struct BiLinkedList){0};
 }
 
-void BiLinkedList_Free(struct BiLinkedList **restrict listref)
+void BiLinkedList_Free(struct BiLinkedList **listref, fnDestructor *const dtor)
 {
 	if( !*listref )
 		return;
 	
-	BiLinkedList_Del(*listref);
-	free(*listref);
-	*listref=NULL;
+	BiLinkedList_Del(*listref, dtor);
+	free(*listref), *listref=NULL;
 }
 
-void BiLinkedList_Init(struct BiLinkedList *const restrict list, bool (*dtor)())
+void BiLinkedList_Init(struct BiLinkedList *const list)
 {
 	if( !list )
 		return;
 	
 	*list = (struct BiLinkedList){0};
-	BiLinkedList_SetDestructor(list, dtor);
 }
 
-size_t BiLinkedList_Len(const struct BiLinkedList *const restrict list)
+size_t BiLinkedList_Len(const struct BiLinkedList *const list)
 {
 	return list ? list->Len : 0;
 }
 
-bool BiLinkedList_InsertNodeAtHead(struct BiLinkedList *const restrict list, struct BiListNode *const restrict node)
+bool BiLinkedList_InsertNodeAtHead(struct BiLinkedList *const list, struct BiListNode *const node)
 {
-	if( !list or !node )
+	if( !list || !node )
 		return false;
 	
 	if( !list->Head ) {
@@ -124,9 +120,9 @@ bool BiLinkedList_InsertNodeAtHead(struct BiLinkedList *const restrict list, str
 	return true;
 }
 
-bool BiLinkedList_InsertNodeAtTail(struct BiLinkedList *const restrict list, struct BiListNode *const restrict node)
+bool BiLinkedList_InsertNodeAtTail(struct BiLinkedList *const list, struct BiListNode *const node)
 {
-	if( !list or !node )
+	if( !list || !node )
 		return false;
 	
 	if( list->Len ) {
@@ -147,20 +143,20 @@ bool BiLinkedList_InsertNodeAtTail(struct BiLinkedList *const restrict list, str
 	return true;
 }
 
-bool BiLinkedList_InsertNodeAtIndex(struct BiLinkedList *const restrict list, struct BiListNode *const restrict node, const size_t index)
+bool BiLinkedList_InsertNodeAtIndex(struct BiLinkedList *const list, struct BiListNode *const node, const size_t index)
 {
-	if( !list or !node )
+	if( !list || !node )
 		return false;
-	else if( !list->Head or index==0 )
+	else if( !list->Head || index==0 )
 		return BiLinkedList_InsertNodeAtHead(list, node);
 	// if index is out of bounds, append at tail end.
 	else if( index >= list->Len )
 		return BiLinkedList_InsertNodeAtTail(list, node);
 	
-	bool prev_dir = ( index >= list->Len/2 );
+	const bool prev_dir = ( index >= list->Len/2 );
 	struct BiListNode *curr = prev_dir ? list->Tail : list->Head;
 	size_t i=prev_dir ? list->Len-1 : 0;
-	while( (prev_dir ? curr->Prev != NULL : curr->Next != NULL) and i != index ) {
+	while( (prev_dir ? curr->Prev != NULL : curr->Next != NULL) && i != index ) {
 		curr = prev_dir ? curr->Prev : curr->Next;
 		prev_dir ? i-- : i++;
 	}
@@ -180,7 +176,7 @@ bool BiLinkedList_InsertNodeAtIndex(struct BiLinkedList *const restrict list, st
 	return false;
 }
 
-bool BiLinkedList_InsertValueAtHead(struct BiLinkedList *const restrict list, const union Value val)
+bool BiLinkedList_InsertValueAtHead(struct BiLinkedList *const list, const union Value val)
 {
 	if( !list )
 		return false;
@@ -188,7 +184,7 @@ bool BiLinkedList_InsertValueAtHead(struct BiLinkedList *const restrict list, co
 	return BiLinkedList_InsertNodeAtHead(list, BiListNode_NewVal(val));
 }
 
-bool BiLinkedList_InsertValueAtTail(struct BiLinkedList *const restrict list, const union Value val)
+bool BiLinkedList_InsertValueAtTail(struct BiLinkedList *const list, const union Value val)
 {
 	if( !list )
 		return false;
@@ -196,7 +192,7 @@ bool BiLinkedList_InsertValueAtTail(struct BiLinkedList *const restrict list, co
 	return BiLinkedList_InsertNodeAtTail(list, BiListNode_NewVal(val));
 }
 
-bool BiLinkedList_InsertValueAtIndex(struct BiLinkedList *const restrict list, const union Value val, const size_t index)
+bool BiLinkedList_InsertValueAtIndex(struct BiLinkedList *const list, const union Value val, const size_t index)
 {
 	if( !list )
 		return false;
@@ -205,7 +201,7 @@ bool BiLinkedList_InsertValueAtIndex(struct BiLinkedList *const restrict list, c
 }
 
 
-struct BiListNode *BiLinkedList_GetNode(const struct BiLinkedList *const restrict list, const size_t index)
+struct BiListNode *BiLinkedList_GetNode(const struct BiLinkedList *const list, const size_t index)
 {
 	if( !list )
 		return NULL;
@@ -214,17 +210,17 @@ struct BiListNode *BiLinkedList_GetNode(const struct BiLinkedList *const restric
 	else if( index >= list->Len )
 		return list->Tail;
 	
-	bool prev_dir = ( index >= list->Len/2 );
+	const bool prev_dir = ( index >= list->Len/2 );
 	struct BiListNode *node = prev_dir ? list->Tail : list->Head;
 	for( size_t i=prev_dir ? list->Len-1 : 0 ; i<list->Len ; prev_dir ? i-- : i++ ) {
-		if( node and i==index )
+		if( node && i==index )
 			return node;
 		node = prev_dir ? node->Prev : node->Next;
 	}
 	return NULL;
 }
 
-struct BiListNode *BiLinkedList_GetNodeByValue(const struct BiLinkedList *const restrict list, const union Value val)
+struct BiListNode *BiLinkedList_GetNodeByValue(const struct BiLinkedList *const list, const union Value val)
 {
 	if( !list )
 		return NULL;
@@ -234,211 +230,211 @@ struct BiListNode *BiLinkedList_GetNodeByValue(const struct BiLinkedList *const 
 	return NULL;
 }
 
-union Value BiLinkedList_GetValue(const struct BiLinkedList *const restrict list, const size_t index)
+union Value BiLinkedList_GetValue(const struct BiLinkedList *const list, const size_t index)
 {
 	if( !list )
 		return (union Value){0};
-	else if( index==0 and list->Head )
+	else if( index==0 && list->Head )
 		return list->Head->Data;
-	else if( index >= list->Len and list->Tail )
+	else if( index >= list->Len && list->Tail )
 		return list->Tail->Data;
 	
-	bool prev_dir = ( index >= list->Len/2 );
+	const bool prev_dir = ( index >= list->Len/2 );
 	struct BiListNode *node = prev_dir ? list->Tail : list->Head;
 	for( size_t i=prev_dir ? list->Len-1 : 0 ; i<list->Len ; prev_dir ? i-- : i++ ) {
-		if( node and i==index )
+		if( node && i==index )
 			return node->Data;
-		if( (prev_dir and !node->Prev) or (!prev_dir and !node->Next) )
+		if( (prev_dir && !node->Prev) || (!prev_dir && !node->Next) )
 			break;
 		node = prev_dir ? node->Prev : node->Next;
 	}
 	return (union Value){0};
 }
 
-void BiLinkedList_SetValue(struct BiLinkedList *const restrict list, const size_t index, const union Value val)
+void BiLinkedList_SetValue(struct BiLinkedList *const list, const size_t index, const union Value val)
 {
 	if( !list )
 		return;
-	else if( index==0 and list->Head ) {
+	else if( index==0 && list->Head ) {
 		list->Head->Data = val;
 		return;
 	}
-	else if( index >= list->Len and list->Tail ) {
+	else if( index >= list->Len && list->Tail ) {
 		list->Tail->Data = val;
 		return;
 	}
 	
-	bool prev_dir = ( index >= list->Len/2 );
+	const bool prev_dir = ( index >= list->Len/2 );
 	struct BiListNode *node = prev_dir ? list->Tail : list->Head;
 	for( size_t i=prev_dir ? list->Len-1 : 0 ; i<list->Len ; prev_dir ? i-- : i++ ) {
-		if( node and i==index ) {
+		if( node && i==index ) {
 			node->Data = val;
 			break;
 		}
-		if( (prev_dir and !node->Prev) or (!prev_dir and !node->Next) )
+		if( (prev_dir && !node->Prev) || (!prev_dir && !node->Next) )
 			break;
 		node = prev_dir ? node->Prev : node->Next;
 	}
 }
-bool BiLinkedList_DelNodeByIndex(struct BiLinkedList *const restrict list, const size_t index)
+bool BiLinkedList_DelNodeByIndex(struct BiLinkedList *const list, const size_t index, fnDestructor *const dtor)
 {
-	if( !list or !list->Len )
+	if( !list || !list->Len )
 		return false;
 	
 	struct BiListNode *node = BiLinkedList_GetNode(list, index);
 	node->Prev ? (node->Prev->Next = node->Next) : (list->Head = node->Next);
 	node->Next ? (node->Next->Prev = node->Prev) : (list->Tail = node->Prev);
 	
-	if( list->Destructor )
-		(*list->Destructor)(&node->Data.Ptr);
+	if( dtor )
+		(*dtor)(&node->Data.Ptr);
 	
-	free(node);
-	node=NULL;
+	free(node), node=NULL;
 	list->Len--;
 	return true;
 }
 
-bool BiLinkedList_DelNodeByRef(struct BiLinkedList *const restrict list, struct BiListNode **restrict noderef)
+bool BiLinkedList_DelNodeByRef(struct BiLinkedList *const list, struct BiListNode **noderef, fnDestructor *const dtor)
 {
-	if( !list or !*noderef )
+	if( !list || !*noderef )
 		return false;
 	
 	struct BiListNode *node = *noderef;
 	node->Prev ? (node->Prev->Next = node->Next) : (list->Head = node->Next);
 	node->Next ? (node->Next->Prev = node->Prev) : (list->Tail = node->Prev);
 	
-	if( list->Destructor )
-		(*list->Destructor)(&node->Data.Ptr);
+	if( dtor )
+		(*dtor)(&node->Data.Ptr);
 	
-	free(*noderef);
-	*noderef=NULL;
+	free(*noderef), *noderef=NULL;
 	node = NULL;
 	list->Len--;
 	return true;
 }
 
-void BiLinkedList_SetDestructor(struct BiLinkedList *const restrict list, bool (*dtor)())
-{
-	if( !list )
-		return;
-	
-	list->Destructor = dtor;
-}
 
-struct BiListNode *BiLinkedList_GetHead(const struct BiLinkedList *const restrict list)
+struct BiListNode *BiLinkedList_GetHead(const struct BiLinkedList *const list)
 {
 	return list ? list->Head : NULL;
 }
-struct BiListNode *BiLinkedList_GetTail(const struct BiLinkedList *const restrict list)
+struct BiListNode *BiLinkedList_GetTail(const struct BiLinkedList *const list)
 {
 	return list ? list->Tail : NULL;
 }
 
-void BiLinkedList_FromUniLinkedList(struct BiLinkedList *const restrict bilist, const struct UniLinkedList *const restrict unilist)
+void BiLinkedList_FromUniLinkedList(struct BiLinkedList *const bilist, const struct UniLinkedList *const unilist)
 {
-	if( !bilist or !unilist )
+	if( !bilist || !unilist )
 		return;
 	
 	for( struct UniListNode *n=unilist->Head ; n ; n = n->Next )
 		BiLinkedList_InsertValueAtTail(bilist, n->Data);
 }
 
-void BiLinkedList_FromMap(struct BiLinkedList *const restrict bilist, const struct Hashmap *const restrict map)
+void BiLinkedList_FromMap(struct BiLinkedList *const bilist, const struct Hashmap *const map)
 {
-	if( !bilist or !map )
+	if( !bilist || !map )
 		return;
 	
-	for( size_t i=0 ; i<map->Len ; i++ )
-		for( struct KeyNode *n = map->Table[i] ; n ; n=n->Next )
-			BiLinkedList_InsertValueAtTail(bilist, n->Data);
+	for( size_t i=0 ; i<map->Len ; i++ ) {
+		struct Vector *vec = map->Table + i;
+		for( size_t n=0 ; n<Vector_Count(vec) ; n++ ) {
+			struct KeyNode *node = vec->Table[n].Ptr;
+			BiLinkedList_InsertValueAtTail(bilist, node->Data);
+		}
+	}
 }
 
-void BiLinkedList_FromVector(struct BiLinkedList *const restrict bilist, const struct Vector *const restrict v)
+void BiLinkedList_FromVector(struct BiLinkedList *const bilist, const struct Vector *const v)
 {
-	if( !bilist or !v )
+	if( !bilist || !v )
 		return;
 	
 	for( size_t i=0 ; i<v->Count ; i++ )
 		BiLinkedList_InsertValueAtTail(bilist, v->Table[i]);
 }
 
-void BiLinkedList_FromTuple(struct BiLinkedList *const restrict bilist, const struct Tuple *const restrict tup)
+void BiLinkedList_FromTuple(struct BiLinkedList *const bilist, const struct Tuple *const tup)
 {
-	if( !bilist or !tup or !tup->Items or !tup->Len )
+	if( !bilist || !tup || !tup->Items || !tup->Len )
 		return;
 	
 	for( size_t i=0 ; i<tup->Len ; i++ )
 		BiLinkedList_InsertValueAtTail(bilist, tup->Items[i]);
 }
 
-void BiLinkedList_FromGraph(struct BiLinkedList *const restrict bilist, const struct Graph *const restrict graph)
+void BiLinkedList_FromGraph(struct BiLinkedList *const bilist, const struct Graph *const graph)
 {
-	if( !bilist or !graph )
-		return;
-	for( size_t i=0 ; i<graph->VertexCount ; i++ )
-		BiLinkedList_InsertValueAtTail(bilist, graph->Vertices[i].Data);
-}
-
-void BiLinkedList_FromLinkMap(struct BiLinkedList *const restrict bilist, const struct LinkMap *const restrict map)
-{
-	if( !bilist or !map )
+	if( !bilist || !graph || !graph->Vertices.Table )
 		return;
 	
-	for( struct LinkNode *n=map->Head ; n ; n = n->After )
+	for( size_t i=0 ; i<graph->Vertices.Count ; i++ ) {
+		struct GraphVertex *vert = graph->Vertices.Table[i].Ptr;
+		BiLinkedList_InsertValueAtTail(bilist, vert->Data);
+	}
+}
+
+void BiLinkedList_FromLinkMap(struct BiLinkedList *const bilist, const struct LinkMap *const map)
+{
+	if( !bilist || !map )
+		return;
+	
+	for( size_t i=0 ; i<map->Order.Count ; i++ ) {
+		struct KeyNode *n = map->Order.Table[i].Ptr;
 		BiLinkedList_InsertValueAtTail(bilist, n->Data);
+	}
 }
 
 
-struct BiLinkedList *BiLinkedList_NewFromUniLinkedList(const struct UniLinkedList *const restrict unilist)
+struct BiLinkedList *BiLinkedList_NewFromUniLinkedList(const struct UniLinkedList *const unilist)
 {
 	if( !unilist )
 		return NULL;
-	struct BiLinkedList *bilist = BiLinkedList_New(unilist->Destructor);
+	struct BiLinkedList *bilist = BiLinkedList_New();
 	BiLinkedList_FromUniLinkedList(bilist, unilist);
 	return bilist;
 }
 
-struct BiLinkedList *BiLinkedList_NewFromMap(const struct Hashmap *const restrict map)
+struct BiLinkedList *BiLinkedList_NewFromMap(const struct Hashmap *const map)
 {
 	if( !map )
 		return NULL;
-	struct BiLinkedList *bilist = BiLinkedList_New(map->Destructor);
+	struct BiLinkedList *bilist = BiLinkedList_New();
 	BiLinkedList_FromMap(bilist, map);
 	return bilist;
 }
 
-struct BiLinkedList *BiLinkedList_NewFromVector(const struct Vector *const restrict v)
+struct BiLinkedList *BiLinkedList_NewFromVector(const struct Vector *const v)
 {
 	if( !v )
 		return NULL;
-	struct BiLinkedList *bilist = BiLinkedList_New(v->Destructor);
+	struct BiLinkedList *bilist = BiLinkedList_New();
 	BiLinkedList_FromVector(bilist, v);
 	return bilist;
 }
 
-struct BiLinkedList *BiLinkedList_NewFromTuple(const struct Tuple *const restrict tup)
+struct BiLinkedList *BiLinkedList_NewFromTuple(const struct Tuple *const tup)
 {
-	if( !tup or !tup->Items or !tup->Len )
+	if( !tup || !tup->Items || !tup->Len )
 		return NULL;
-	struct BiLinkedList *bilist = BiLinkedList_New(NULL);
+	struct BiLinkedList *bilist = BiLinkedList_New();
 	BiLinkedList_FromTuple(bilist, tup);
 	return bilist;
 }
 
-struct BiLinkedList *BiLinkedList_NewFromGraph(const struct Graph *const restrict graph)
+struct BiLinkedList *BiLinkedList_NewFromGraph(const struct Graph *const graph)
 {
 	if( !graph )
 		return NULL;
-	struct BiLinkedList *bilist = BiLinkedList_New(NULL);
+	struct BiLinkedList *bilist = BiLinkedList_New();
 	BiLinkedList_FromGraph(bilist, graph);
 	return bilist;
 }
 
-struct BiLinkedList *BiLinkedList_NewFromLinkMap(const struct LinkMap *const restrict map)
+struct BiLinkedList *BiLinkedList_NewFromLinkMap(const struct LinkMap *const map)
 {
 	if( !map )
 		return NULL;
-	struct BiLinkedList *bilist = BiLinkedList_New(map->Destructor);
+	struct BiLinkedList *bilist = BiLinkedList_New();
 	BiLinkedList_FromLinkMap(bilist, map);
 	return bilist;
 }

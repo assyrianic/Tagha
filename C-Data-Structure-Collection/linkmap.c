@@ -4,489 +4,370 @@
 #include "dsc.h"
 
 
-struct LinkNode *LinkNode_New(void)
+struct LinkMap *LinkMap_New(void)
 {
-	return calloc(1, sizeof(struct LinkNode));
+	struct LinkMap *map = calloc(1, sizeof *map);
+	return map;
 }
 
-struct LinkNode *LinkNode_NewSP(const char *restrict cstr, const union Value val)
+void LinkMap_Init(struct LinkMap *const map)
 {
-	struct LinkNode *n = LinkNode_New();
-	if( n ) {
-		String_InitStr(&n->KeyName, cstr);
-		n->Data = val;
+	if( !map )
+		return;
+	
+	*map = (struct LinkMap){0};
+}
+void LinkMap_Del(struct LinkMap *const map, fnDestructor *const dtor)
+{
+	if( !map || !map->Table )
+		return;
+	
+	for( size_t i=0 ; i<map->Len ; i++ ) {
+		struct Vector *vec = map->Table+i;
+		for( size_t i=0 ; i<vec->Len ; i++ ) {
+			struct KeyNode *kv = vec->Table[i].Ptr;
+			KeyNode_Free(&kv, dtor);
+		}
+		Vector_Del(vec, NULL);
 	}
-	return n;
+	free(map->Table), map->Table=NULL;
+	Vector_Del(&map->Order, NULL);
+	*map = (struct LinkMap){0};
 }
 
-void LinkNode_Del(struct LinkNode *const restrict n, bool (*dtor)())
-{
-	if( !n )
-		return;
-	
-	String_Del(&n->KeyName);
-	if( dtor )
-		(*dtor)(&n->Data.Ptr);
-	if( n->After )
-		LinkNode_Free(&n->After, dtor);
-}
-
-bool LinkNode_Free(struct LinkNode **restrict noderef, bool (*dtor)())
-{
-	if( !*noderef )
-		return false;
-	
-	LinkNode_Del(*noderef, dtor);
-	free(*noderef);
-	*noderef=NULL;
-	return true;
-}
-
-
-// size_t general hash function.
-static size_t GenHash(const char *cstr)
-{
-	size_t h = 0;
-	if( !cstr )
-		return h;
-	
-	for( const char *restrict us = cstr ; *us ; us++ )
-		h = 37 * h + *us;
-	return h;
-}
-
-
-struct LinkMap *LinkMap_New(bool (*dtor)())
-{
-	struct LinkMap *linkmap = calloc(1, sizeof *linkmap);
-	if( linkmap )
-		linkmap->Destructor = dtor;
-	return linkmap;
-}
-
-void LinkMap_Init(struct LinkMap *const restrict linkmap, bool (*dtor)())
-{
-	if( !linkmap )
-		return;
-	
-	*linkmap = (struct LinkMap){0};
-	linkmap->Destructor = dtor;
-}
-void LinkMap_Del(struct LinkMap *const restrict linkmap)
-{
-	if( !linkmap )
-		return;
-	
-	LinkNode_Free(&linkmap->Head, linkmap->Destructor);
-	
-	if( linkmap->Table )
-		free(linkmap->Table);
-	LinkMap_Init(linkmap, linkmap->Destructor);
-}
-
-void LinkMap_Free(struct LinkMap **restrict linkmapref)
+void LinkMap_Free(struct LinkMap **linkmapref, fnDestructor *const dtor)
 {
 	if( !*linkmapref )
 		return;
 	
-	LinkMap_Del(*linkmapref);
-	free(*linkmapref);
-	*linkmapref=NULL;
+	LinkMap_Del(*linkmapref, dtor);
+	free(*linkmapref); *linkmapref=NULL;
 }
 
-size_t LinkMap_Count(const struct LinkMap *const restrict linkmap)
+size_t LinkMap_Count(const struct LinkMap *const map)
 {
-	return linkmap ? linkmap->Count : 0;
+	return map ? map->Count : 0;
 }
-size_t LinkMap_Len(const struct LinkMap *const restrict linkmap)
+size_t LinkMap_Len(const struct LinkMap *const map)
 {
-	return linkmap ? linkmap->Len : 0;
+	return map ? map->Len : 0;
 }
-bool LinkMap_Rehash(struct LinkMap *const restrict linkmap)
+bool LinkMap_Rehash(struct LinkMap *const map)
 {
-	if( !linkmap )
+	if( !map || !map->Table )
 		return false;
 	
-	linkmap->Len <<= 1;
-	linkmap->Count = 0;
+	const size_t old_size = map->Len;
+	map->Len <<= 1;
+	map->Count = 0;
 	
-	struct LinkMap newlinkmap = (struct LinkMap){0};
-	
-	newlinkmap.Table = calloc(linkmap->Len, sizeof *newlinkmap.Table);
-	if( !newlinkmap.Table ) {
-		linkmap->Len >>= 1;
+	struct Vector
+		*curr = NULL,
+		*temp = calloc(map->Len, sizeof *temp)
+	;
+	if( !temp ) {
+		puts("**** Memory Allocation Error **** Map_Rehash::temp is NULL\n");
+		map->Len = 0;
 		return false;
 	}
 	
-	newlinkmap.Len = linkmap->Len;
-	newlinkmap.Destructor = linkmap->Destructor;
+	curr = map->Table;
+	map->Table = temp;
 	
-	for( struct LinkNode *kv=linkmap->Head, *after=NULL ; kv ; kv=after ) {
-		after = kv->After;
-		LinkMap_InsertNode(&newlinkmap, kv);
+	Vector_Del(&map->Order, NULL);
+	for( size_t i=0 ; i<old_size ; i++ ) {
+		struct Vector *vec = curr + i;
+		for( size_t n=0 ; n<Vector_Count(vec) ; n++ ) {
+			struct KeyNode *node = vec->Table[n].Ptr;
+			LinkMap_InsertNode(map, node);
+		}
+		Vector_Del(vec, NULL);
 	}
-	free(linkmap->Table);
-	linkmap->Table=NULL;
-	*linkmap = newlinkmap;
+	free(curr), curr=NULL;
 	return true;
 }
 
-bool LinkMap_InsertNode(struct LinkMap *const restrict linkmap, struct LinkNode *node)
+bool LinkMap_InsertNode(struct LinkMap *const map, struct KeyNode *node)
 {
-	if( !linkmap or !node )
+	if( !map || !node || !node->KeyName.CStr )
 		return false;
-	else if( !linkmap->Table ) {
-		linkmap->Len = 4;
-		linkmap->Table = calloc(linkmap->Len, sizeof *linkmap->Table);
-		if( !linkmap->Table ) {
-			linkmap->Len = 0;
+	
+	else if( !map->Len ) {
+		map->Len = 8;
+		map->Table = calloc(map->Len, sizeof *map->Table);
+		if( !map->Table ) {
+			puts("**** Memory Allocation Error **** Map_InsertNode::map->Table is NULL\n");
+			map->Len = 0;
 			return false;
 		}
 	}
-	else if( linkmap->Count >= linkmap->Len )
-		LinkMap_Rehash(linkmap);
-	else if( LinkMap_HasKey(linkmap, node->KeyName.CStr) )
+	else if( map->Count >= map->Len )
+		LinkMap_Rehash(map);
+	else if( LinkMap_HasKey(map, node->KeyName.CStr) )
 		return false;
 	
-	const size_t hash = GenHash(node->KeyName.CStr) % linkmap->Len;
-	node->Next = linkmap->Table[hash];
-	linkmap->Table[hash] = node;
-	if( !linkmap->Head or !linkmap->Tail ) {
-		linkmap->Head = linkmap->Tail = node;
-		node->After = node->Before = NULL;
-	}
-	else {
-		// (Head|Tail)x <-(node)x
-		node->Before = linkmap->Tail;
-		// (Head|Tail)x <-(node)-> NULL
-		node->After = NULL;
-		// (Head|Tail)-> <-(node)-> NULL
-		linkmap->Tail->After = node;
-		// (Head)-> <-(Tail)-> NULL
-		linkmap->Tail = node;
-	}
-	++linkmap->Count;
+	const size_t hash = GenHash(node->KeyName.CStr) % map->Len;
+	Vector_Insert(map->Table + hash, (union Value){.Ptr=node});
+	Vector_Insert(&map->Order, (union Value){.Ptr=node});
+	++map->Count;
 	return true;
 }
-bool LinkMap_Insert(struct LinkMap *const restrict linkmap, const char *restrict strkey, const union Value val)
+bool LinkMap_Insert(struct LinkMap *const restrict map, const char *restrict strkey, const union Value val)
 {
-	if( !linkmap or !strkey )
+	if( !map || !strkey )
 		return false;
 	
-	struct LinkNode *node = LinkNode_NewSP(strkey, val);
-	bool b = LinkMap_InsertNode(linkmap, node);
+	struct KeyNode *node = KeyNode_NewSP(strkey, val);
+	bool b = LinkMap_InsertNode(map, node);
 	if( !b )
-		LinkNode_Free(&node, linkmap->Destructor);
+		KeyNode_Free(&node, NULL);
 	return b;
 }
 
-struct LinkNode *LinkMap_GetNodeByIndex(const struct LinkMap *const restrict linkmap, const size_t index)
+struct KeyNode *LinkMap_GetNodeByIndex(const struct LinkMap *const map, const size_t index)
 {
-	if( !linkmap or !linkmap->Table )
+	if( !map || !map->Table || !map->Order.Table )
 		return NULL;
-	else if( index==0 and linkmap->Head )
-		return linkmap->Head;
-	else if( index>=linkmap->Count and linkmap->Tail )
-		return linkmap->Tail;
 	
-	const bool prev_dir = ( index >= linkmap->Count/2 );
-	struct LinkNode *node = prev_dir ? linkmap->Tail : linkmap->Head;
-	for( size_t i=prev_dir ? linkmap->Count-1 : 0 ; i<linkmap->Count ; prev_dir ? i-- : i++ ) {
-		if( node and i==index )
-			return node;
-		if( (prev_dir and !node->Before) or (!prev_dir and !node->After) )
-			break;
-		node = prev_dir ? node->Before : node->After;
-	}
-	return NULL;
+	return map->Order.Table[index].Ptr;
 }
 
-union Value LinkMap_Get(const struct LinkMap *const restrict linkmap, const char *restrict strkey)
+union Value LinkMap_Get(const struct LinkMap *const restrict map, const char *restrict strkey)
 {
-	if( !linkmap or !linkmap->Table or !LinkMap_HasKey(linkmap, strkey) )
+	if( !map || !Map_HasKey(&map->Map, strkey) )
 		return (union Value){0};
 	
-	const size_t hash = GenHash(strkey) % linkmap->Len;
-	for( struct LinkNode *restrict kv=linkmap->Table[hash] ; kv ; kv=kv->Next )
-		if( !String_CmpCStr(&kv->KeyName, strkey) )
-			return kv->Data;
-	
-	return (union Value){0};
+	return Map_Get(&map->Map, strkey);
 }
-void LinkMap_Set(struct LinkMap *const restrict linkmap, const char *restrict strkey, const union Value val)
+void LinkMap_Set(struct LinkMap *const restrict map, const char *restrict strkey, const union Value val)
 {
-	if( !linkmap or !LinkMap_HasKey(linkmap, strkey) )
+	if( !map || !LinkMap_HasKey(map, strkey) )
 		return;
 	
-	const size_t hash = GenHash(strkey) % linkmap->Len;
-	for( struct LinkNode *restrict kv=linkmap->Table[hash] ; kv ; kv=kv->Next )
-		if( !String_CmpCStr(&kv->KeyName, strkey) )
-			kv->Data = val;
+	Map_Set(&map->Map, strkey, val);
 }
 
-union Value LinkMap_GetByIndex(const struct LinkMap *const restrict linkmap, const size_t index)
+union Value LinkMap_GetByIndex(const struct LinkMap *const map, const size_t index)
 {
-	if( !linkmap or !linkmap->Table )
+	if( !map || !map->Table )
 		return (union Value){0};
 	
-	struct LinkNode *node = LinkMap_GetNodeByIndex(linkmap, index);
-	if( node )
-		return node->Data;
-	return (union Value){0};
+	struct KeyNode *node = LinkMap_GetNodeByIndex(map, index);
+	return ( node ) ? node->Data : (union Value){0};
 }
 
-void LinkMap_SetByIndex(struct LinkMap *const restrict linkmap, const size_t index, const union Value val)
+void LinkMap_SetByIndex(struct LinkMap *const map, const size_t index, const union Value val)
 {
-	if( !linkmap or !linkmap->Table )
+	if( !map || !map->Table )
 		return;
 	
-	struct LinkNode *node = LinkMap_GetNodeByIndex(linkmap, index);
+	struct KeyNode *node = LinkMap_GetNodeByIndex(map, index);
 	if( node )
 		node->Data = val;
 }
 
-void LinkMap_SetItemDestructor(struct LinkMap *const restrict linkmap, bool (*dtor)())
+void LinkMap_Delete(struct LinkMap *const restrict map, const char *restrict strkey, fnDestructor *const dtor)
 {
-	if( !linkmap )
+	if( !map || !map->Table || !LinkMap_HasKey(map, strkey) )
 		return;
 	
-	linkmap->Destructor = dtor;
+	Map_Delete(&map->Map, strkey, dtor);
 }
 
-void LinkMap_Delete(struct LinkMap *const restrict linkmap, const char *restrict strkey)
+void LinkMap_DeleteByIndex(struct LinkMap *const map, const size_t index, fnDestructor *const dtor)
 {
-	if( !linkmap or !linkmap->Table or !LinkMap_HasKey(linkmap, strkey) )
+	if( !map || !map->Table )
 		return;
 	
-	const size_t hash = GenHash(strkey) % linkmap->Len;
-	for( struct LinkNode *kv=linkmap->Table[hash], *next=NULL ; kv ; kv=next ) {
-		next = kv->Next;
-		
-		if( !String_CmpCStr(&kv->KeyName, strkey) ) {
-			linkmap->Table[hash] = kv->Next;
-			kv->Next = NULL;
-			kv->Before ? (kv->Before->After = kv->After) : (linkmap->Head = kv->After);
-			kv->After ? (kv->After->Before = kv->Before) : (linkmap->Tail = kv->Before);
-			
-			if( linkmap->Destructor )
-				(*linkmap->Destructor)(&kv->Data.Ptr);
-			String_Del(&kv->KeyName);
-			free(kv);
-			kv=NULL;
-			linkmap->Count--;
+	struct KeyNode *kv = LinkMap_GetNodeByIndex(map, index);
+	if( !kv )
+		return;
+	
+	Map_Delete(&map->Map, kv->KeyName.CStr, dtor);
+	Vector_Delete(&map->Order, index, NULL);
+}
+
+bool LinkMap_HasKey(const struct LinkMap *const restrict map, const char *restrict strkey)
+{
+	return !map || !map->Table ? false : Map_HasKey(&map->Map, strkey);
+}
+struct KeyNode *LinkMap_GetNodeByKey(const struct LinkMap *const restrict map, const char *restrict strkey)
+{
+	if( !map || !map->Table )
+		return NULL;
+	
+	return Map_GetKeyNode(&map->Map, strkey);
+}
+struct Vector *LinkMap_GetKeyTable(const struct LinkMap *const map)
+{
+	return map ? map->Table : NULL;
+}
+
+size_t LinkMap_GetIndexByName(const struct LinkMap *const restrict map, const char *restrict strkey)
+{
+	if( !map || !strkey )
+		return SIZE_MAX;
+	
+	for( size_t i=0 ; i<map->Order.Count ; i++ ) {
+		struct KeyNode *kv = map->Order.Table[i].Ptr;
+		if( !String_CmpCStr(&kv->KeyName, strkey) )
+			return i;
+	}
+	return SIZE_MAX;
+}
+
+size_t LinkMap_GetIndexByNode(const struct LinkMap *const map, struct KeyNode *const node)
+{
+	if( !map || !node )
+		return SIZE_MAX;
+	
+	for( size_t i=0 ; i<map->Order.Count ; i++ ) {
+		if( (uintptr_t)map->Order.Table[i].Ptr == (uintptr_t)node )
+			return i;
+	}
+	return SIZE_MAX;
+}
+
+size_t LinkMap_GetIndexByValue(const struct LinkMap *const map, const union Value val)
+{
+	if( !map )
+		return SIZE_MAX;
+	
+	for( size_t i=0 ; i<map->Order.Count ; i++ ) {
+		struct KeyNode *n = map->Order.Table[i].Ptr;
+		if( n->Data.UInt64 == val.UInt64 )
+			return i;
+	}
+	return SIZE_MAX;
+}
+
+
+void LinkMap_FromMap(struct LinkMap *const linkmap, const struct Hashmap *const map)
+{
+	if( !linkmap || !map )
+		return;
+	
+	for( size_t i=0 ; i<map->Len ; i++ ) {
+		struct Vector *vec = map->Table + i;
+		for( size_t n=0 ; n<Vector_Count(vec) ; n++ ) {
+			struct KeyNode *kv = vec->Table[n].Ptr;
+			LinkMap_InsertNode(linkmap, KeyNode_NewSP(kv->KeyName.CStr, kv->Data));
 		}
 	}
 }
 
-void LinkMap_DeleteByIndex(struct LinkMap *const restrict linkmap, const size_t index)
+void LinkMap_FromUniLinkedList(struct LinkMap *const map, const struct UniLinkedList *const list)
 {
-	if( !linkmap or !linkmap->Table )
-		return;
-	
-	struct LinkNode *kv = LinkMap_GetNodeByIndex(linkmap, index);
-	if( !kv )
-		return;
-	
-	const size_t hash = GenHash(kv->KeyName.CStr) % linkmap->Len;
-	linkmap->Table[hash] = kv->Next;
-	kv->Next = NULL;
-	kv->Before ? (kv->Before->After = kv->After) : (linkmap->Head = kv->After);
-	kv->After ? (kv->After->Before = kv->Before) : (linkmap->Tail = kv->Before);
-	
-	if( linkmap->Destructor )
-		(*linkmap->Destructor)(&kv->Data.Ptr);
-	String_Del(&kv->KeyName);
-	free(kv);
-	kv=NULL;
-	linkmap->Count--;
-}
-
-bool LinkMap_HasKey(const struct LinkMap *const restrict linkmap, const char *restrict strkey)
-{
-	if( !linkmap or !linkmap->Table )
-		return false;
-	
-	const size_t hash = GenHash(strkey) % linkmap->Len;
-	for( struct LinkNode *restrict n = linkmap->Table[hash] ; n ; n=n->Next )
-		if( !String_CmpCStr(&n->KeyName, strkey) )
-			return true;
-	
-	return false;
-}
-struct LinkNode *LinkMap_GetNodeByKey(const struct LinkMap *const restrict linkmap, const char *restrict strkey)
-{
-	if( !linkmap or !linkmap->Table )
-		return NULL;
-	
-	const size_t hash = GenHash(strkey) % linkmap->Len;
-	for( struct LinkNode *restrict n = linkmap->Table[hash] ; n ; n=n->Next )
-		if( !String_CmpCStr(&n->KeyName, strkey) )
-			return n;
-	
-	return NULL;
-}
-struct LinkNode **LinkMap_GetKeyTable(const struct LinkMap *const restrict linkmap)
-{
-	return linkmap ? linkmap->Table : NULL;
-}
-
-size_t LinkMap_GetIndexByName(const struct LinkMap *const restrict linkmap, const char *restrict strkey)
-{
-	if( !linkmap or !strkey )
-		return SIZE_MAX;
-	
-	size_t index = 0;
-	for( struct LinkNode *restrict n = linkmap->Head ; n ; n=n->After, index++ )
-		if( !String_CmpCStr(&n->KeyName, strkey) )
-			return index;
-	return SIZE_MAX;
-}
-
-size_t LinkMap_GetIndexByNode(const struct LinkMap *const restrict linkmap, struct LinkNode *const restrict node)
-{
-	if( !linkmap or !node )
-		return SIZE_MAX;
-	
-	size_t index = 0;
-	for( struct LinkNode *restrict n = linkmap->Head ; n ; n=n->After, index++ )
-		if( n==node )
-			return index;
-	return SIZE_MAX;
-}
-
-size_t LinkMap_GetIndexByValue(const struct LinkMap *const restrict linkmap, const union Value val)
-{
-	if( !linkmap )
-		return SIZE_MAX;
-	
-	size_t index = 0;
-	for( struct LinkNode *restrict n = linkmap->Head ; n ; n=n->After, index++ )
-		if( n->Data.UInt64 == val.UInt64 )
-			return index;
-	return SIZE_MAX;
-}
-
-
-void LinkMap_FromMap(struct LinkMap *const restrict linkmap, const struct Hashmap *const restrict map)
-{
-	if( !linkmap or !map )
-		return;
-	
-	for( size_t i=0 ; i<map->Len ; i++ )
-		for( struct KeyNode *n = map->Table[i] ; n ; n=n->Next )
-			LinkMap_InsertNode(linkmap, LinkNode_NewSP(n->KeyName.CStr, n->Data));
-}
-void LinkMap_FromUniLinkedList(struct LinkMap *const restrict linkmap, const struct UniLinkedList *const restrict list)
-{
-	if( !linkmap or !list )
+	if( !map || !list )
 		return;
 	
 	size_t i=0;
 	for( struct UniListNode *n=list->Head ; n ; n = n->Next ) {
 		char cstrkey[10] = {0};
 		sprintf(cstrkey, "%zu", i);
-		LinkMap_Insert(linkmap, cstrkey, n->Data);
+		LinkMap_Insert(map, cstrkey, n->Data);
 		i++;
 	}
 }
-void LinkMap_FromBiLinkedList(struct LinkMap *const restrict linkmap, const struct BiLinkedList *const restrict list)
+void LinkMap_FromBiLinkedList(struct LinkMap *const map, const struct BiLinkedList *const list)
 {
-	if( !linkmap or !list )
+	if( !map || !list )
 		return;
 	
 	size_t i=0;
 	for( struct BiListNode *n=list->Head ; n ; n = n->Next ) {
 		char cstrkey[10] = {0};
 		sprintf(cstrkey, "%zu", i);
-		LinkMap_Insert(linkmap, cstrkey, n->Data);
+		LinkMap_Insert(map, cstrkey, n->Data);
 		i++;
 	}
 }
-void LinkMap_FromVector(struct LinkMap *const restrict linkmap, const struct Vector *const restrict v)
+void LinkMap_FromVector(struct LinkMap *const map, const struct Vector *const v)
 {
-	if( !linkmap or !v )
+	if( !map || !v )
 		return;
 	
 	for( size_t i=0 ; i<v->Count ; i++ ) {
 		char cstrkey[10] = {0};
 		sprintf(cstrkey, "%zu", i);
-		LinkMap_Insert(linkmap, cstrkey, v->Table[i]);
+		LinkMap_Insert(map, cstrkey, v->Table[i]);
 	}
 }
-void LinkMap_FromTuple(struct LinkMap *const restrict linkmap, const struct Tuple *const restrict tup)
+void LinkMap_FromTuple(struct LinkMap *const map, const struct Tuple *const tup)
 {
-	if( !linkmap or !tup or !tup->Items or !tup->Len )
+	if( !map || !tup || !tup->Items || !tup->Len )
 		return;
 	
 	for( size_t i=0 ; i<tup->Len ; i++ ) {
 		char cstrkey[10] = {0};
 		sprintf(cstrkey, "%zu", i);
-		LinkMap_Insert(linkmap, cstrkey, tup->Items[i]);
+		LinkMap_Insert(map, cstrkey, tup->Items[i]);
 	}
 }
-void LinkMap_FromGraph(struct LinkMap *const restrict linkmap, const struct Graph *const restrict graph)
+void LinkMap_FromGraph(struct LinkMap *const map, const struct Graph *const graph)
 {
-	if( !linkmap or !graph )
+	if( !map || !graph )
 		return;
 	
-	for( size_t i=0 ; i<graph->VertexCount ; i++ ) {
+	for( size_t i=0 ; i<graph->Vertices.Count ; i++ ) {
 		char cstrkey[10] = {0};
 		sprintf(cstrkey, "%zu", i);
-		LinkMap_Insert(linkmap, cstrkey, graph->Vertices[i].Data);
+		struct GraphVertex *vert = graph->Vertices.Table[i].Ptr;
+		LinkMap_Insert(map, cstrkey, vert->Data);
 	}
 }
 
-struct LinkMap *LinkMap_NewFromMap(const struct Hashmap *const restrict map)
+struct LinkMap *LinkMap_NewFromMap(const struct Hashmap *const map)
 {
 	if( !map )
 		return NULL;
 	
-	struct LinkMap *linkmap = LinkMap_New(map->Destructor);
+	struct LinkMap *linkmap = LinkMap_New();
 	LinkMap_FromMap(linkmap, map);
 	return linkmap;
 }
-struct LinkMap *LinkMap_NewFromUniLinkedList(const struct UniLinkedList *const restrict list)
+struct LinkMap *LinkMap_NewFromUniLinkedList(const struct UniLinkedList *const list)
 {
 	if( !list )
 		return NULL;
 	
-	struct LinkMap *linkmap = LinkMap_New(list->Destructor);
-	LinkMap_FromUniLinkedList(linkmap, list);
-	return linkmap;
+	struct LinkMap *map = LinkMap_New();
+	LinkMap_FromUniLinkedList(map, list);
+	return map;
 }
-struct LinkMap *LinkMap_NewFromBiLinkedList(const struct BiLinkedList *const restrict list)
+struct LinkMap *LinkMap_NewFromBiLinkedList(const struct BiLinkedList *const list)
 {
 	if( !list )
 		return NULL;
 	
-	struct LinkMap *linkmap = LinkMap_New(list->Destructor);
-	LinkMap_FromBiLinkedList(linkmap, list);
-	return linkmap;
+	struct LinkMap *map = LinkMap_New();
+	LinkMap_FromBiLinkedList(map, list);
+	return map;
 }
-struct LinkMap *LinkMap_NewFromVector(const struct Vector *const restrict vec)
+struct LinkMap *LinkMap_NewFromVector(const struct Vector *const vec)
 {
 	if( !vec )
 		return NULL;
 	
-	struct LinkMap *linkmap = LinkMap_New(vec->Destructor);
-	LinkMap_FromVector(linkmap, vec);
-	return linkmap;
+	struct LinkMap *map = LinkMap_New();
+	LinkMap_FromVector(map, vec);
+	return map;
 }
-struct LinkMap *LinkMap_NewFromTuple(const struct Tuple *const restrict tup)
+struct LinkMap *LinkMap_NewFromTuple(const struct Tuple *const tup)
 {
 	if( !tup )
 		return NULL;
 	
-	struct LinkMap *linkmap = LinkMap_New(NULL);
-	LinkMap_FromTuple(linkmap, tup);
-	return linkmap;
+	struct LinkMap *map = LinkMap_New();
+	LinkMap_FromTuple(map, tup);
+	return map;
 }
-struct LinkMap *LinkMap_NewFromGraph(const struct Graph *const restrict graph)
+struct LinkMap *LinkMap_NewFromGraph(const struct Graph *const graph)
 {
 	if( !graph )
 		return NULL;
 	
-	struct LinkMap *linkmap = LinkMap_New(graph->VertexDestructor);
-	LinkMap_FromGraph(linkmap, graph);
-	return linkmap;
+	struct LinkMap *map = LinkMap_New();
+	LinkMap_FromGraph(map, graph);
+	return map;
 }

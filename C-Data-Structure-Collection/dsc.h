@@ -2,23 +2,83 @@
 
 #ifdef __cplusplus
 extern "C" {
+	#ifndef restrict
+		#define restrict __restrict
+	#endif
 #endif
-#define restrict __restrict
 
-#if _WIN32 || _WIN64
-	#define OS_WINDOWS 1
-#elif unix || __unix || __unix__ || __linux__ || linux || __linux || __FreeBSD__
-	#define OS_LINUX_UNIX 1
-#elif __ANDROID__
-	#define OS_ANDROID 1
+#if defined(_WIN32) || defined(_WIN64)
+	#ifndef OS_WINDOWS
+		#define OS_WINDOWS 1
+	#endif
+#elif defined(unix) || defined(__unix) || defined(__unix__) || defined(__linux__) || defined(linux) || defined(__linux) || defined(__FreeBSD__)
+	#ifndef OS_LINUX_UNIX
+		#define OS_LINUX_UNIX 1
+	#endif
+#elif defined(__ANDROID__)
+	#ifndef OS_ANDROID
+		#define OS_ANDROID 1
+	#endif
 #else
-	#define OS_MAC 1
+	#ifndef OS_MAC
+		#define OS_MAC 1
+	#endif
+#endif
+
+#if defined(__clang__)
+	#ifndef COMPILER_CLANG
+		#define COMPILER_CLANG
+	#endif
+#elif defined(__GNUC__) || defined(__GNUG__)
+	#ifndef COMPILER_GCC
+		#define COMPILER_GCC
+	#endif
+#elif defined(_MSC_VER)
+	#ifndef COMPILER_MSVC
+		#define COMPILER_MSVC
+	#endif
 #endif
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
 #include <iso646.h>
+
+
+#ifndef RAII_DTOR
+	#if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
+		#define RAII_DTOR(func) __attribute__ ((cleanup((func))))
+	#else
+		#define RAII_DTOR(func)
+	#endif
+#endif
+	
+#ifndef NEVER_NULL
+	#if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
+		#define NEVER_NULL(...) __attribute__( (nonnull(__VA_ARGS__)) )
+	#else
+		#define NEVER_NULL(...)
+	#endif
+#endif
+	
+#ifndef NO_NULL
+	#if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
+		#define NO_NULL __attribute__((nonnull))
+	#else
+		#define NO_NULL
+	#endif
+#endif
+	
+#ifndef NONNULL_RET
+	#if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
+		#define NONNULL_RET __attribute__((returns_nonnull))
+	#else
+		#define NONNULL_RET
+	#endif
+#endif
+
+typedef bool fnDestructor(void *); // use pointer to a pointer.
 
 struct Variant;
 struct String;
@@ -31,24 +91,25 @@ struct Tuple;
 struct Graph;
 struct TreeNode;
 struct LinkMap;
-struct Heap;
+struct MemPool;
 
 union Value {
 	bool Bool, BoolArray[8], *BoolPtr, (*BoolFunc)(), *(*BoolPtrFunc)();
-	int8_t Char, CharArray[8], *CharPtr, (*CharFunc)(), *(*CharPtrFunc)();
-	int16_t Short, ShortArray[4], *ShortPtr, (*ShortFunc)(), *(*ShortPtrFunc)();
+	int8_t Int8, Int8Array[8], *Int8Ptr, (*Int8Func)(), *(*Int8PtrFunc)();
+	int16_t Int16, Int16Array[4], *Int16Ptr, (*Int16Func)(), *(*Int16PtrFunc)();
 	int32_t Int32, Int32Array[2], *Int32Ptr, (*Int32Func)(), *(*Int32PtrFunc)();
 	int64_t Int64, *Int64Ptr, (*Int64Func)(), *(*Int64PtrFunc)();
 	
-	uint8_t UChar, UCharArray[8], *UCharPtr, (*UCharFunc)(), *(*UCharPtrFunc)();
-	uint16_t UShort, UShortArray[4], *UShortPtr, (*UShortFunc)(), *(*UShortPtrFunc)();
+	uint8_t UInt8, UInt8Array[8], *UInt8Ptr, (*UInt8Func)(), *(*UInt8PtrFunc)();
+	uint16_t UInt16, UInt16Array[4], *UInt16Ptr, (*UInt16Func)(), *(*UInt16PtrFunc)();
 	uint32_t UInt32, UInt32Array[2], *UInt32Ptr, (*UInt32Func)(), *(*UInt32PtrFunc)();
 	uint64_t UInt64, *UInt64Ptr, (*UInt64Func)(), *(*UInt64PtrFunc)();
+	size_t IntSize, *IntSizePtr, (*IntSizeFunc)(), *(*IntSizePtrFunc)();
 	
 	float Float, FloatArray[2], *FloatPtr, (*FloatFunc)(), *(*FloatPtrFunc)();
 	double Double, *DoublePtr, (*DoubleFunc)(), *(*DoublePtrFunc)();
 	
-	void *Ptr, **PtrPtr, (*VoidFunc)(), *(*VoidPtrFunc)();
+	void *Ptr, (*VoidFunc)(), *(*VoidPtrFunc)();
 	union Value *SelfPtr, (*SelfFunc)(), *(*SelfPtrFunc)();
 	struct Variant *VariantPtr, (*VariantFunc)(), *(*VariantPtrFunc)();
 	struct String *StrObjPtr, (*StrObjFunc)(), *(*StrObjPtrFunc)();
@@ -67,14 +128,15 @@ enum ValType {
 	TypeInvalid=0,
 	// integer types
 	TypeBool, TypeBoolPtr, TypeBoolFunc, TypeBoolPtrFunc,
-	TypeChar, TypeCharPtr, TypeCharFunc, TypeCharPtrFunc, 
-	TypeShort, TypeShortPtr, TypeShortFunc, TypeShortPtrFunc, 
+	TypeInt8, TypeInt8Ptr, TypeInt8Func, TypeInt8PtrFunc, 
+	TypeInt16, TypeInt16Ptr, TypeInt16Func, TypeInt16PtrFunc, 
 	TypeInt32, TypeInt32Ptr, TypeInt32Func, TypeInt32PtrFunc, 
 	TypeInt64, TypeInt64Ptr, TypeInt64Func, TypeInt64PtrFunc, 
-	TypeUChar, TypeUCharPtr, TypeUCharFunc, TypeUCharPtrFunc, 
-	TypeUShort, TypeUShortPtr, TypeUShortFunc, TypeUShortPtrFunc, 
+	TypeUInt8, TypeUInt8Ptr, TypeUInt8Func, TypeUInt8PtrFunc, 
+	TypeUInt16, TypeUInt16Ptr, TypeUInt16Func, TypeUInt16PtrFunc, 
 	TypeUInt32, TypeUInt32Ptr, TypeUInt32Func, TypeUInt32PtrFunc, 
 	TypeUInt64, TypeUInt64Ptr, TypeUInt64Func, TypeUInt64PtrFunc, 
+	TypeIntSize, TypeIntSizePtr, TypeIntSizeFunc, TypeIntSizePtrFunc, 
 	
 	// floating point types
 	TypeFloat, TypeFloatPtr, TypeFloatFunc, TypeFloatPtrFunc,
@@ -94,7 +156,6 @@ enum ValType {
 	TypeGraphPtr, TypeGraphFunc, TypeGraphPtrFunc,
 	TypeTreePtr, TypeTreeFunc, TypeTreePtrFunc,
 	TypeLinkMapPtr, TypeLinkMapFunc, TypeLinkMapPtrFunc,
-	TypeEnd,
 };
 
 // discriminated union type
@@ -102,6 +163,12 @@ struct Variant {
 	union Value Val;
 	enum ValType TypeTag;
 };
+
+inline void free_safe(void *p)
+{
+	void **restrict pp = p;
+	free(*pp), *pp=NULL;
+}
 
 
 /************* C++ Style Automated String (stringobj.c) *************/
@@ -113,7 +180,7 @@ struct String {
 struct String *String_New(void);
 struct String *String_NewStr(const char *);
 void String_Del(struct String *);
-void String_Free(struct String **);
+bool String_Free(struct String **);
 void String_Init(struct String *);
 void String_InitStr(struct String *, const char *);
 void String_AddChar(struct String *, char);
@@ -129,7 +196,7 @@ int32_t String_NCmpCStr(const struct String *, const char *, size_t);
 int32_t String_NCmpStr(const struct String *, const struct String *, size_t);
 bool String_IsEmpty(const struct String *);
 bool String_Reserve(struct String *, size_t);
-char *String_fgets(struct String *, size_t, void *);
+char *String_fgets(struct String *, size_t, FILE *);
 /***************/
 
 
@@ -137,13 +204,12 @@ char *String_fgets(struct String *, size_t, void *);
 struct Vector {
 	union Value *Table;
 	size_t Len, Count;
-	bool (*Destructor)(/* Type **Obj */);
 };
 
-struct Vector *Vector_New(bool (*)());
-void Vector_Init(struct Vector *, bool (*)());
-void Vector_Del(struct Vector *);
-void Vector_Free(struct Vector **);
+struct Vector *Vector_New(void);
+void Vector_Init(struct Vector *);
+void Vector_Del(struct Vector *, fnDestructor *);
+void Vector_Free(struct Vector **, fnDestructor *);
 
 size_t Vector_Len(const struct Vector *);
 size_t Vector_Count(const struct Vector *);
@@ -152,11 +218,11 @@ void Vector_Resize(struct Vector *);
 void Vector_Truncate(struct Vector *);
 
 bool Vector_Insert(struct Vector *, union Value);
+union Value Vector_Pop(struct Vector *);
 union Value Vector_Get(const struct Vector *, size_t);
 void Vector_Set(struct Vector *, size_t, union Value);
-void Vector_SetItemDestructor(struct Vector *, bool (*)());
 
-void Vector_Delete(struct Vector *, size_t);
+void Vector_Delete(struct Vector *, size_t, fnDestructor *);
 void Vector_Add(struct Vector *, const struct Vector *);
 void Vector_Copy(struct Vector *, const struct Vector *);
 
@@ -179,26 +245,25 @@ struct Vector *Vector_NewFromLinkMap(const struct LinkMap *);
 struct KeyNode {
 	struct String KeyName;
 	union Value Data;
-	struct KeyNode *Next;
 };
 
 struct KeyNode *KeyNode_New(void);
 struct KeyNode *KeyNode_NewSP(const char *, union Value);
 
-void KeyNode_Del(struct KeyNode *, bool(*)());
-bool KeyNode_Free(struct KeyNode **, bool(*)());
+void KeyNode_Del(struct KeyNode *, fnDestructor *);
+void KeyNode_Free(struct KeyNode **, fnDestructor *);
 
 
 struct Hashmap {
-	struct KeyNode **Table;
+	struct Vector *Table; // a vector of vectors!
 	size_t Len, Count;
-	bool (*Destructor)(/* Type **Obj */);
 };
 
-struct Hashmap *Map_New(bool (*)());
-void Map_Init(struct Hashmap *, bool (*)());
-void Map_Del(struct Hashmap *);
-void Map_Free(struct Hashmap **);
+size_t GenHash(const char *);
+struct Hashmap *Map_New(void);
+void Map_Init(struct Hashmap *);
+void Map_Del(struct Hashmap *, fnDestructor *);
+void Map_Free(struct Hashmap **, fnDestructor *);
 size_t Map_Count(const struct Hashmap *);
 size_t Map_Len(const struct Hashmap *);
 bool Map_Rehash(struct Hashmap *);
@@ -208,12 +273,11 @@ bool Map_Insert(struct Hashmap *, const char *, union Value);
 
 union Value Map_Get(const struct Hashmap *, const char *);
 void Map_Set(struct Hashmap *, const char *, union Value);
-void Map_SetItemDestructor(struct Hashmap *, bool (*)());
 
-void Map_Delete(struct Hashmap *, const char *);
+void Map_Delete(struct Hashmap *, const char *, fnDestructor *);
 bool Map_HasKey(const struct Hashmap *, const char *);
 struct KeyNode *Map_GetKeyNode(const struct Hashmap *, const char *);
-struct KeyNode **Map_GetKeyTable(const struct Hashmap *);
+struct Vector *Map_GetKeyTable(const struct Hashmap *);
 
 void Map_FromUniLinkedList(struct Hashmap *, const struct UniLinkedList *);
 void Map_FromBiLinkedList(struct Hashmap *, const struct BiLinkedList *);
@@ -239,8 +303,8 @@ struct UniListNode {
 
 struct UniListNode *UniListNode_New(void);
 struct UniListNode *UniListNode_NewVal(union Value);
-void UniListNode_Del(struct UniListNode *, bool(*)());
-void UniListNode_Free(struct UniListNode **, bool(*)());
+void UniListNode_Del(struct UniListNode *, fnDestructor *);
+void UniListNode_Free(struct UniListNode **, fnDestructor *);
 struct UniListNode *UniListNode_GetNextNode(const struct UniListNode *);
 union Value UniListNode_GetValue(const struct UniListNode *);
 
@@ -248,13 +312,12 @@ union Value UniListNode_GetValue(const struct UniListNode *);
 struct UniLinkedList {
 	struct UniListNode *Head, *Tail;
 	size_t Len;
-	bool (*Destructor)(/* Type **Obj */);
 };
 
-struct UniLinkedList *UniLinkedList_New(bool (*)());
-void UniLinkedList_Del(struct UniLinkedList *);
-void UniLinkedList_Free(struct UniLinkedList **);
-void UniLinkedList_Init(struct UniLinkedList *, bool (*)());
+struct UniLinkedList *UniLinkedList_New(void);
+void UniLinkedList_Del(struct UniLinkedList *, fnDestructor *);
+void UniLinkedList_Free(struct UniLinkedList **, fnDestructor *);
+void UniLinkedList_Init(struct UniLinkedList *);
 
 size_t UniLinkedList_Len(const struct UniLinkedList *);
 bool UniLinkedList_InsertNodeAtHead(struct UniLinkedList *, struct UniListNode *);
@@ -268,9 +331,8 @@ struct UniListNode *UniLinkedList_GetNode(const struct UniLinkedList *, size_t);
 struct UniListNode *UniLinkedList_GetNodeByValue(const struct UniLinkedList *, union Value);
 union Value UniLinkedList_GetValue(const struct UniLinkedList *, size_t);
 void UniLinkedList_SetValue(struct UniLinkedList *, size_t, union Value);
-bool UniLinkedList_DelNodeByIndex(struct UniLinkedList *, size_t);
-bool UniLinkedList_DelNodeByRef(struct UniLinkedList *, struct UniListNode **);
-void UniLinkedList_SetDestructor(struct UniLinkedList *, bool (*)());
+bool UniLinkedList_DelNodeByIndex(struct UniLinkedList *, size_t, fnDestructor *);
+bool UniLinkedList_DelNodeByRef(struct UniLinkedList *, struct UniListNode **, fnDestructor *);
 
 struct UniListNode *UniLinkedList_GetHead(const struct UniLinkedList *);
 struct UniListNode *UniLinkedList_GetTail(const struct UniLinkedList *);
@@ -299,8 +361,8 @@ struct BiListNode {
 
 struct BiListNode *BiListNode_New(void);
 struct BiListNode *BiListNode_NewVal(union Value);
-void BiListNode_Del(struct BiListNode *, bool(*)());
-void BiListNode_Free(struct BiListNode **, bool(*)());
+void BiListNode_Del(struct BiListNode *, fnDestructor *);
+void BiListNode_Free(struct BiListNode **, fnDestructor *);
 struct BiListNode *BiListNode_GetNextNode(const struct BiListNode *);
 struct BiListNode *BiListNode_GetPrevNode(const struct BiListNode *);
 union Value BiListNode_GetValue(const struct BiListNode *);
@@ -309,13 +371,12 @@ union Value BiListNode_GetValue(const struct BiListNode *);
 struct BiLinkedList {
 	struct BiListNode *Head, *Tail;
 	size_t Len;
-	bool (*Destructor)(/* Type **Obj */);
 };
 
-struct BiLinkedList *BiLinkedList_New(bool (*)());
-void BiLinkedList_Del(struct BiLinkedList *);
-void BiLinkedList_Free(struct BiLinkedList **);
-void BiLinkedList_Init(struct BiLinkedList *, bool (*)());
+struct BiLinkedList *BiLinkedList_New(void);
+void BiLinkedList_Del(struct BiLinkedList *, fnDestructor *);
+void BiLinkedList_Free(struct BiLinkedList **,fnDestructor *);
+void BiLinkedList_Init(struct BiLinkedList *);
 
 size_t BiLinkedList_Len(const struct BiLinkedList *);
 bool BiLinkedList_InsertNodeAtHead(struct BiLinkedList *, struct BiListNode *);
@@ -329,9 +390,8 @@ struct BiListNode *BiLinkedList_GetNode(const struct BiLinkedList *, size_t);
 struct BiListNode *BiLinkedList_GetNodeByValue(const struct BiLinkedList *, union Value);
 union Value BiLinkedList_GetValue(const struct BiLinkedList *, size_t);
 void BiLinkedList_SetValue(struct BiLinkedList *, size_t, union Value);
-bool BiLinkedList_DelNodeByIndex(struct BiLinkedList *, size_t);
-bool BiLinkedList_DelNodeByRef(struct BiLinkedList *, struct BiListNode **);
-void BiLinkedList_SetDestructor(struct BiLinkedList *, bool (*)());
+bool BiLinkedList_DelNodeByIndex(struct BiLinkedList *, size_t, fnDestructor *);
+bool BiLinkedList_DelNodeByRef(struct BiLinkedList *, struct BiListNode **, fnDestructor *);
 
 struct BiListNode *BiLinkedList_GetHead(const struct BiLinkedList *);
 struct BiListNode *BiLinkedList_GetTail(const struct BiLinkedList *);
@@ -409,13 +469,15 @@ struct Tuple *Tuple_NewFromGraph(const struct Graph *);
 struct Tuple *Tuple_NewFromLinkMap(const struct LinkMap *);
 /***************/
 
-/************* Heap Memory Pool (heap.c) *************/
-// uncomment 'DSC_HEAP_NO_MALLOC' if you can't or don't want to use 'malloc/calloc'.
+/************* Memory Pool (mempool.c) *************/
+// uncomment 'POOL_NO_MALLOC' if you can't or don't want to use 'malloc/calloc'.
 // library will need recompiling though.
-//#define DSC_HEAP_NO_MALLOC
+//#define POOL_NO_MALLOC
 
-#ifdef DSC_HEAP_NO_MALLOC
-	#define DSC_HEAPSIZE	(65536)
+#ifdef POOL_NO_MALLOC
+	#ifndef POOL_HEAPSIZE
+		#define POOL_HEAPSIZE	(65536)
+	#endif
 #endif
 
 struct AllocNode {
@@ -423,47 +485,54 @@ struct AllocNode {
 	struct AllocNode *NextFree;
 };
 
-struct Heap {
+struct MemPool {
 	uint8_t
-#ifdef DSC_HEAP_NO_MALLOC
-		HeapMem[DSC_HEAPSIZE],
+#ifdef POOL_NO_MALLOC
+	#ifndef POOL_HEAPSIZE
+		#error please define 'POOL_HEAPSIZE' with a valid size.
+	#else
+		HeapMem[POOL_HEAPSIZE],
+	#endif
 #else
 		*HeapMem,
 #endif
 		*HeapBottom
 	;
+	size_t HeapSize, FreeNodes;
 	struct AllocNode *FreeList;
-	size_t HeapSize;
 };
 
-#ifdef DSC_HEAP_NO_MALLOC
-void Heap_Init(struct Heap *);
+#ifdef POOL_NO_MALLOC
+void MemPool_Init(struct MemPool *);
 #else
-void Heap_Init(struct Heap *, size_t);
+void MemPool_Init(struct MemPool *, size_t);
 #endif
 
-void Heap_Del(struct Heap *);
-void *Heap_Alloc(struct Heap *, size_t);
-void Heap_Release(struct Heap *, void *);
-size_t Heap_Remaining(const struct Heap *);
-size_t Heap_Size(const struct Heap *);
-struct AllocNode *Heap_GetFreeList(const struct Heap *);
+void MemPool_Del(struct MemPool *);
+void *MemPool_Alloc(struct MemPool *, size_t);
+void *MemPool_Realloc(struct MemPool *, void *, size_t);
+void MemPool_Dealloc(struct MemPool *, void *);
+void MemPool_Destroy(struct MemPool *, void *);
+size_t MemPool_Remaining(const struct MemPool *);
+size_t MemPool_Size(const struct MemPool *);
+struct AllocNode *MemPool_GetFreeList(const struct MemPool *);
+bool MemPool_Defrag(struct MemPool *);
 
 /***************/
 
 
 /************* Graph (Adjacency List) (graph.c) *************/
+
 struct GraphVertex;
 struct GraphEdge {
 	union Value Weight;
-	struct GraphEdge *NextEdge;
 	struct GraphVertex *VertexSocket;
 };
 
 struct GraphEdge *GraphEdge_New(void);
 struct GraphEdge *GraphEdge_NewVP(union Value, struct GraphVertex *);
-void GraphEdge_Del(struct GraphEdge *, bool (*)());
-void GraphEdge_Free(struct GraphEdge **, bool (*)());
+void GraphEdge_Del(struct GraphEdge *, fnDestructor *);
+void GraphEdge_Free(struct GraphEdge **, fnDestructor *);
 
 union Value GraphEdge_GetWeight(const struct GraphEdge *);
 void GraphEdge_SetWeight(struct GraphEdge *, union Value);
@@ -472,37 +541,47 @@ void GraphEdge_SetVertex(struct GraphEdge *, struct GraphVertex *);
 
 
 struct GraphVertex {
-	struct GraphEdge *EdgeHead, *EdgeTail;
-	size_t EdgeLen;
+	union {
+		struct {
+			union Value *Table;
+			size_t Len, Count;
+		};
+		struct Vector Edges;
+	};
 	union Value Data;
 };
 
-void GraphVertex_Del(struct GraphVertex *, bool (*)(), bool (*)());
-struct GraphEdge *GraphVertex_GetEdges(struct GraphVertex *);
+struct GraphVertex *GraphVertex_New(union Value);
+void GraphVertex_Init(struct GraphVertex *, union Value);
+void GraphVertex_Del(struct GraphVertex *, fnDestructor *, fnDestructor *);
+void GraphVertex_Free(struct GraphVertex **, fnDestructor *, fnDestructor *);
+bool GraphVertex_AddEdge(struct GraphVertex *, struct GraphEdge *);
+struct Vector GraphVertex_GetEdges(struct GraphVertex *);
 union Value GraphVertex_GetData(const struct GraphVertex *);
 void GraphVertex_SetData(struct GraphVertex *, union Value);
 
 
 struct Graph {
-	struct GraphVertex *Vertices;
-	size_t VertexLen, VertexCount;
-	bool
-		(*VertexDestructor)(/* Type **Obj */),
-		(*EdgeDestructor)(/* Type **Obj */)
-	;
+	union {
+		struct {
+			union Value *Table;
+			size_t Len, Count;
+		};
+		struct Vector Vertices;
+	};
 };
 
-struct Graph *Graph_New(bool (*)(), bool (*)());
-void Graph_Init(struct Graph *, bool (*)(), bool (*)());
-void Graph_Del(struct Graph *);
-void Graph_Free(struct Graph **);
+struct Graph *Graph_New(void);
+void Graph_Init(struct Graph *);
+void Graph_Del(struct Graph *, fnDestructor *, fnDestructor *);
+void Graph_Free(struct Graph **, fnDestructor *, fnDestructor *);
 
 bool Graph_InsertVertexByValue(struct Graph *, union Value);
-bool Graph_RemoveVertexByValue(struct Graph *, union Value);
-bool Graph_RemoveVertexByIndex(struct Graph *, size_t);
+bool Graph_RemoveVertexByValue(struct Graph *, union Value, fnDestructor *, fnDestructor *);
+bool Graph_RemoveVertexByIndex(struct Graph *, size_t, fnDestructor *, fnDestructor *);
 
 bool Graph_InsertEdgeBtwnVerts(struct Graph *, size_t, size_t, union Value);
-bool Graph_RemoveEdgeBtwnVerts(struct Graph *, size_t, size_t);
+bool Graph_RemoveEdgeBtwnVerts(struct Graph *, size_t, size_t, fnDestructor *);
 
 struct GraphVertex *Graph_GetVertexByIndex(struct Graph *, size_t);
 union Value Graph_GetVertexDataByIndex(struct Graph *, size_t);
@@ -510,12 +589,11 @@ void Graph_SetVertexDataByIndex(struct Graph *, size_t, union Value);
 struct GraphEdge *Graph_GetEdgeBtwnVertices(struct Graph *, size_t, size_t);
 
 bool Graph_IsVertexAdjacent(struct Graph *, size_t, size_t);
-struct GraphEdge *Graph_GetVertexNeighbors(struct Graph *, size_t);
+struct Vector Graph_GetVertexNeighbors(struct Graph *, size_t);
 
-struct GraphVertex *Graph_GetVertexArray(struct Graph *);
+struct Vector Graph_GetVertices(struct Graph *);
 size_t Graph_GetVerticeCount(const struct Graph *);
 size_t Graph_GetEdgeCount(const struct Graph *);
-void Graph_SetItemDestructors(struct Graph *, bool (*)(), bool (*)());
 void Graph_Resize(struct Graph *);
 void Graph_Truncate(struct Graph *);
 
@@ -537,29 +615,28 @@ struct Graph *Graph_NewFromLinkMap(const struct LinkMap *);
 
 /************* General Tree (tree.c) *************/
 struct TreeNode {
-	struct TreeNode **Children;
-	size_t ChildLen, ChildCount;
+	struct Vector Children;
 	union Value Data;
 };
 
 struct TreeNode *TreeNode_New(union Value);
 void TreeNode_Init(struct TreeNode *);
 void TreeNode_InitVal(struct TreeNode *, union Value);
-void TreeNode_Del(struct TreeNode *, bool(*)());
-void TreeNode_Free(struct TreeNode **, bool(*)());
+void TreeNode_Del(struct TreeNode *, fnDestructor *);
+void TreeNode_Free(struct TreeNode **, fnDestructor *);
 
 bool TreeNode_InsertChildByNode(struct TreeNode *, struct TreeNode *);
 bool TreeNode_InsertChildByValue(struct TreeNode *, union Value);
 
-bool TreeNode_RemoveChildByRef(struct TreeNode *, struct TreeNode **, bool(*)());
-bool TreeNode_RemoveChildByIndex(struct TreeNode *, size_t, bool(*)());
-bool TreeNode_RemoveChildByValue(struct TreeNode *, union Value, bool(*)());
+bool TreeNode_RemoveChildByRef(struct TreeNode *, struct TreeNode **, fnDestructor *);
+bool TreeNode_RemoveChildByIndex(struct TreeNode *, size_t, fnDestructor *);
+bool TreeNode_RemoveChildByValue(struct TreeNode *, union Value, fnDestructor *);
 
 struct TreeNode *TreeNode_GetChildByIndex(const struct TreeNode *, size_t);
 struct TreeNode *TreeNode_GetChildByValue(const struct TreeNode *, union Value);
 union Value TreeNode_GetData(const struct TreeNode *);
 void TreeNode_SetData(struct TreeNode *, union Value);
-struct TreeNode **TreeNode_GetChildren(const struct TreeNode *);
+struct Vector TreeNode_GetChildren(const struct TreeNode *);
 size_t TreeNode_GetChildLen(const struct TreeNode *);
 size_t TreeNode_GetChildCount(const struct TreeNode *);
 /***************/
@@ -567,50 +644,41 @@ size_t TreeNode_GetChildCount(const struct TreeNode *);
 
 /************* Ordered Hashmap (linkmap.c) *************/
 
-struct LinkNode {
-	struct String KeyName;
-	union Value Data;
-	struct LinkNode *Next, *After, *Before;
-};
-
-struct LinkNode *LinkNode_New(void);
-struct LinkNode *LinkNode_NewSP(const char *, union Value);
-
-void LinkNode_Del(struct LinkNode *, bool(*)());
-bool LinkNode_Free(struct LinkNode **, bool(*)());
-
-
 struct LinkMap {
-	struct LinkNode **Table, *Head, *Tail;
-	size_t Len, Count;
-	bool (*Destructor)(/* Type **Obj */);
+	union {
+		struct {
+			struct Vector *Table; // a vector of vectors!
+			size_t Len, Count;
+		};
+		struct Hashmap Map;
+	};
+	struct Vector Order;
 };
 
-struct LinkMap *LinkMap_New(bool (*)());
-void LinkMap_Init(struct LinkMap *, bool (*)());
-void LinkMap_Del(struct LinkMap *);
-void LinkMap_Free(struct LinkMap **);
+struct LinkMap *LinkMap_New(void);
+void LinkMap_Init(struct LinkMap *);
+void LinkMap_Del(struct LinkMap *, fnDestructor *);
+void LinkMap_Free(struct LinkMap **, fnDestructor *);
 size_t LinkMap_Count(const struct LinkMap *);
 size_t LinkMap_Len(const struct LinkMap *);
 bool LinkMap_Rehash(struct LinkMap *);
 
-bool LinkMap_InsertNode(struct LinkMap *, struct LinkNode *);
 bool LinkMap_Insert(struct LinkMap *, const char *, union Value);
+bool LinkMap_InsertNode(struct LinkMap *, struct KeyNode *);
 
-struct LinkNode *LinkMap_GetNodeByIndex(const struct LinkMap *, size_t);
+struct KeyNode *LinkMap_GetNodeByIndex(const struct LinkMap *, size_t);
 union Value LinkMap_Get(const struct LinkMap *, const char *);
 void LinkMap_Set(struct LinkMap *, const char *, union Value);
 union Value LinkMap_GetByIndex(const struct LinkMap *, size_t);
 void LinkMap_SetByIndex(struct LinkMap *, size_t, union Value);
-void LinkMap_SetItemDestructor(struct LinkMap *, bool (*)());
 
-void LinkMap_Delete(struct LinkMap *, const char *);
-void LinkMap_DeleteByIndex(struct LinkMap *, size_t);
+void LinkMap_Delete(struct LinkMap *, const char *, fnDestructor *);
+void LinkMap_DeleteByIndex(struct LinkMap *, size_t, fnDestructor *);
 bool LinkMap_HasKey(const struct LinkMap *, const char *);
-struct LinkNode *LinkMap_GetNodeByKey(const struct LinkMap *, const char *);
-struct LinkNode **LinkMap_GetKeyTable(const struct LinkMap *);
+struct KeyNode *LinkMap_GetNodeByKey(const struct LinkMap *, const char *);
+struct Vector *LinkMap_GetKeyTable(const struct LinkMap *);
 size_t LinkMap_GetIndexByName(const struct LinkMap *, const char *);
-size_t LinkMap_GetIndexByNode(const struct LinkMap *, struct LinkNode *);
+size_t LinkMap_GetIndexByNode(const struct LinkMap *, struct KeyNode *);
 size_t LinkMap_GetIndexByValue(const struct LinkMap *, union Value);
 
 void LinkMap_FromMap(struct LinkMap *, const struct Hashmap *);
@@ -626,61 +694,6 @@ struct LinkMap *LinkMap_NewFromBiLinkedList(const struct BiLinkedList *);
 struct LinkMap *LinkMap_NewFromVector(const struct Vector *);
 struct LinkMap *LinkMap_NewFromTuple(const struct Tuple *);
 struct LinkMap *LinkMap_NewFromGraph(const struct Graph *);
-
-/***************/
-
-
-/************* C Plugin Architecture (pluginarch.c) *************/
-struct PluginData {
-	// hashmap for functions or global vars.
-	struct Hashmap Symbols;
-	struct String
-		Name,	// plugin name
-		Version,	// plugin version
-		Author,	// plugin author's name (and possible contact info)
-		RunTimeName, // plugin runtime/file name.
-		Descr	// plugin description of operations.
-	;
-#if _WIN32 || _WIN64
-	HMODULE ModulePtr;
-#else
-	void *ModulePtr;
-#endif
-};
-
-struct PluginData *Plugin_New(void);
-void Plugin_Del(struct PluginData *);
-void Plugin_Free(struct PluginData **);
-const char *Plugin_GetName(const struct PluginData *);
-const char *Plugin_GetVersion(const struct PluginData *);
-const char *Plugin_GetAuthor(const struct PluginData *);
-const char *Plugin_GetRuntimeName(const struct PluginData *);
-const char *Plugin_GetDescription(const struct PluginData *);
-
-void Plugin_SetName(struct PluginData *, const char *);
-void Plugin_SetVersion(struct PluginData *, const char *);
-void Plugin_SetAuthor(struct PluginData *, const char *);
-void Plugin_SetDescription(struct PluginData *, const char *);
-
-void *Plugin_GetModulePtr(const struct PluginData *);
-void *Plugin_GetExportedSymbol(const struct PluginData *, const char *);
-
-
-struct PluginManager {
-	struct LinkMap ModuleMap;
-	struct String PluginDir;
-};
-
-struct PluginManager *PluginManager_New(const char *);
-void PluginManager_Init(struct PluginManager *, const char *);
-void PluginManager_Del(struct PluginManager *);
-void PluginManager_Free(struct PluginManager **);
-
-bool PluginManager_LoadModule(struct PluginManager *, const char *, size_t, void *[]);
-bool PluginManager_ReloadModule(struct PluginManager *, const char *, size_t, void *[]);
-bool PluginManager_ReloadAllModules(struct PluginManager *, size_t, void *[]);
-bool PluginManager_UnloadModule(struct PluginManager *, const char *, size_t, void *[]);
-bool PluginManager_UnloadAllModules(struct PluginManager *, size_t, void *[]);
 
 /***************/
 

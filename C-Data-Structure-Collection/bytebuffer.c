@@ -10,7 +10,7 @@ struct ByteBuffer *ByteBuffer_New(void)
 	return calloc(1, sizeof(struct ByteBuffer));
 }
 
-void ByteBuffer_Init(struct ByteBuffer *const __restrict p)
+void ByteBuffer_Init(struct ByteBuffer *const p)
 {
 	if( !p )
 		return;
@@ -18,20 +18,20 @@ void ByteBuffer_Init(struct ByteBuffer *const __restrict p)
 	*p = (struct ByteBuffer){0};
 }
 
-size_t ByteBuffer_Len(const struct ByteBuffer *const __restrict p)
+size_t ByteBuffer_Len(const struct ByteBuffer *const p)
 {
 	return p ? p->Len : 0;
 }
-size_t ByteBuffer_Count(const struct ByteBuffer *const __restrict p)
+size_t ByteBuffer_Count(const struct ByteBuffer *const p)
 {
 	return p ? p->Count : 0;
 }
-uint8_t	*ByteBuffer_GetBuffer(const struct ByteBuffer *const __restrict p)
+uint8_t *ByteBuffer_GetBuffer(const struct ByteBuffer *const p)
 {
 	return p ? p->Buffer : NULL;
 }
 
-void ByteBuffer_InsertByte(struct ByteBuffer *const __restrict p, const uint8_t byte)
+void ByteBuffer_InsertByte(struct ByteBuffer *const p, const uint8_t byte)
 {
 	if( !p )
 		return;
@@ -41,7 +41,7 @@ void ByteBuffer_InsertByte(struct ByteBuffer *const __restrict p, const uint8_t 
 	p->Buffer[p->Count++] = byte;
 }
 
-void ByteBuffer_InsertInt(struct ByteBuffer *const __restrict p, const uint64_t value, const size_t bytes)
+void ByteBuffer_InsertInt(struct ByteBuffer *const p, const uint64_t value, const size_t bytes)
 {
 	if( !p )
 		return;
@@ -53,7 +53,7 @@ void ByteBuffer_InsertInt(struct ByteBuffer *const __restrict p, const uint64_t 
 	p->Count += bytes;
 }
 
-void ByteBuffer_InsertFloat(struct ByteBuffer *const __restrict p, const float fval)
+void ByteBuffer_InsertFloat(struct ByteBuffer *const p, const float fval)
 {
 	if( !p )
 		return;
@@ -65,7 +65,7 @@ void ByteBuffer_InsertFloat(struct ByteBuffer *const __restrict p, const float f
 	p->Count += sizeof fval;
 }
 
-void ByteBuffer_InsertDouble(struct ByteBuffer *const __restrict p, const double fval)
+void ByteBuffer_InsertDouble(struct ByteBuffer *const p, const double fval)
 {
 	if( !p )
 		return;
@@ -77,7 +77,7 @@ void ByteBuffer_InsertDouble(struct ByteBuffer *const __restrict p, const double
 	p->Count += sizeof fval;
 }
 
-void ByteBuffer_InsertString(struct ByteBuffer *const __restrict p, const char *__restrict str, const size_t strsize)
+void ByteBuffer_InsertString(struct ByteBuffer *const restrict p, const char *restrict str, const size_t strsize)
 {
 	if( !p )
 		return;
@@ -87,10 +87,10 @@ void ByteBuffer_InsertString(struct ByteBuffer *const __restrict p, const char *
 	
 	memcpy(p->Buffer+p->Count, str, strsize);
 	p->Count += strsize;
-	p->Buffer[p->Count++] = 0;	// add null terminator.
+	p->Buffer[p->Count++] = 0;	// add null terminat||.
 }
 
-void ByteBuffer_InsertObject(struct ByteBuffer *const __restrict p, const void *__restrict o, const size_t size)
+void ByteBuffer_InsertObject(struct ByteBuffer *const restrict p, const void *restrict o, const size_t size)
 {
 	if( !p )
 		return;
@@ -102,9 +102,9 @@ void ByteBuffer_InsertObject(struct ByteBuffer *const __restrict p, const void *
 	p->Count += size;
 }
 
-void ByteBuffer_Delete(struct ByteBuffer *const __restrict p, const size_t index)
+void ByteBuffer_Delete(struct ByteBuffer *const p, const size_t index)
 {
-	if( !p or index >= p->Count )
+	if( !p || index >= p->Count )
 		return;
 	
 	const size_t
@@ -115,7 +115,7 @@ void ByteBuffer_Delete(struct ByteBuffer *const __restrict p, const size_t index
 	p->Count--;
 }
 
-void ByteBuffer_Del(struct ByteBuffer *const __restrict p)
+void ByteBuffer_Del(struct ByteBuffer *const p)
 {
 	if( !p )
 		return;
@@ -126,7 +126,7 @@ void ByteBuffer_Del(struct ByteBuffer *const __restrict p)
 	*p = (struct ByteBuffer){0};
 }
 
-void ByteBuffer_Free(struct ByteBuffer **__restrict pref)
+void ByteBuffer_Free(struct ByteBuffer **pref)
 {
 	if( !*pref )
 		return;
@@ -136,7 +136,7 @@ void ByteBuffer_Free(struct ByteBuffer **__restrict pref)
 	*pref=NULL;
 }
 
-void ByteBuffer_Resize(struct ByteBuffer *const __restrict p)
+void ByteBuffer_Resize(struct ByteBuffer *const restrict p)
 {
 	if( !p )
 		return;
@@ -155,27 +155,26 @@ void ByteBuffer_Resize(struct ByteBuffer *const __restrict p)
 	// copy the old table to new then free old table.
 	if( p->Buffer ) {
 		memcpy(newdata, p->Buffer, oldsize);
-		free(p->Buffer);
-		p->Buffer = NULL;
+		free(p->Buffer), p->Buffer = NULL;
 	}
 	p->Buffer = newdata;
 }
 
-void ByteBuffer_DumpToFile(const struct ByteBuffer *const __restrict p, void *vfile)
+void ByteBuffer_DumpToFile(const struct ByteBuffer *const restrict p, void *vfile)
 {
-	if( !p or !p->Buffer or !vfile )
+	if( !p || !p->Buffer || !vfile )
 		return;
 	
-	FILE *const __restrict file = vfile;
+	FILE *const file = vfile;
 	fwrite(p->Buffer, sizeof *p->Buffer, p->Count, file);
 }
 
-size_t ByteBuffer_ReadFromFile(struct ByteBuffer *const __restrict p, void *vfile)
+size_t ByteBuffer_ReadFromFile(struct ByteBuffer *const restrict p, void *vfile)
 {
-	if( !p or !vfile )
+	if( !p || !vfile )
 		return 0;
 	
-	FILE *const __restrict file = vfile;
+	FILE *const file = vfile;
 	
 	// get the total file size.
 	size_t filesize = 0;
@@ -197,9 +196,9 @@ size_t ByteBuffer_ReadFromFile(struct ByteBuffer *const __restrict p, void *vfil
 	return val;
 }
 
-void ByteBuffer_Append(struct ByteBuffer *__restrict p, struct ByteBuffer *o)
+void ByteBuffer_Append(struct ByteBuffer *restrict p, struct ByteBuffer *restrict o)
 {
-	if( !p or !o or !o->Buffer )
+	if( !p || !o || !o->Buffer || p==o )
 		return;
 	
 	if( p->Count+o->Count >= p->Len )

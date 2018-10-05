@@ -499,7 +499,7 @@ bool TaghaAsm_ParseTwoOpInstr(struct TaghaAsmbler *const restrict tasm, const bo
 		//if( addrmode2 & Immediate )
 		if( addrmode1 & Immediate )
 			ByteBuffer_InsertInt(&label->Bytecode, imm.UInt64, sizeof imm.UInt64);
-		else ByteBuffer_InsertByte(&label->Bytecode, imm.UChar);
+		else ByteBuffer_InsertByte(&label->Bytecode, imm.UInt8);
 		if( IsMemoryDeref )
 			ByteBuffer_InsertInt(&label->Bytecode, offset, sizeof(int32_t));
 	}
@@ -633,7 +633,7 @@ bool TaghaAsm_ParseOneOpInstr(struct TaghaAsmbler *const restrict tasm, const bo
 		ByteBuffer_InsertByte(&label->Bytecode, addrmode1);
 		if( addrmode1 & Immediate )
 			ByteBuffer_InsertInt(&label->Bytecode, imm.UInt64, sizeof imm.UInt64);
-		else ByteBuffer_InsertByte(&label->Bytecode, imm.UChar);
+		else ByteBuffer_InsertByte(&label->Bytecode, imm.UInt8);
 		if( IsMemoryDeref )
 			ByteBuffer_InsertInt(&label->Bytecode, offset, sizeof offset);
 	}
@@ -798,7 +798,7 @@ bool TaghaAsm_ParseLEAInstr(struct TaghaAsmbler *const restrict tasm, const bool
 		ByteBuffer_InsertByte(&label->Bytecode, reg);
 		if( addrmode1 & (Immediate|Register) )
 			ByteBuffer_InsertInt(&label->Bytecode, imm.UInt64, sizeof imm.UInt64);
-		else ByteBuffer_InsertByte(&label->Bytecode, imm.UChar);
+		else ByteBuffer_InsertByte(&label->Bytecode, imm.UInt8);
 		if( IsMemoryDeref )
 			ByteBuffer_InsertInt(&label->Bytecode, offset, sizeof offset);
 	}
@@ -936,7 +936,7 @@ bool TaghaAsm_ParseSysCallInstr(struct TaghaAsmbler *const restrict tasm, const 
 		//ByteBuffer_InsertInt(&label->Bytecode, argcount, sizeof argcount);
 		if( addrmode1 & Immediate )
 			ByteBuffer_InsertInt(&label->Bytecode, imm.UInt64, sizeof imm.UInt64);
-		else ByteBuffer_InsertByte(&label->Bytecode, imm.UChar);
+		else ByteBuffer_InsertByte(&label->Bytecode, imm.UInt8);
 		if( IsMemoryDeref )
 			ByteBuffer_InsertInt(&label->Bytecode, offset, sizeof offset);
 	}
@@ -1184,7 +1184,7 @@ bool TaghaAsm_ParseTwoOpFloatInstr(struct TaghaAsmbler *const restrict tasm, con
 		ByteBuffer_InsertByte(&label->Bytecode, reg1);
 		if( addrmode1 & Immediate )
 			ByteBuffer_InsertInt(&label->Bytecode, imm.UInt64, sizeof imm.UInt64);
-		else ByteBuffer_InsertByte(&label->Bytecode, imm.UChar);
+		else ByteBuffer_InsertByte(&label->Bytecode, imm.UInt8);
 		if( IsMemoryDeref )
 			ByteBuffer_InsertInt(&label->Bytecode, offset, sizeof(int32_t));
 	}
@@ -1332,7 +1332,7 @@ bool TaghaAsm_ParseOneOpFloatInstr(struct TaghaAsmbler *const restrict tasm, con
 		ByteBuffer_InsertByte(&label->Bytecode, addrmode1);
 		if( addrmode1 & Immediate )
 			ByteBuffer_InsertInt(&label->Bytecode, imm.UInt64, sizeof imm.UInt64);
-		else ByteBuffer_InsertByte(&label->Bytecode, imm.UChar);
+		else ByteBuffer_InsertByte(&label->Bytecode, imm.UInt8);
 		if( IsMemoryDeref )
 			ByteBuffer_InsertInt(&label->Bytecode, offset, sizeof offset);
 	}
@@ -1354,9 +1354,9 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 	tasm->Opcodes = &(struct LinkMap){0},
 	tasm->Registers = &(struct LinkMap){0};
 	
-	LinkMap_SetItemDestructor(tasm->LabelTable, Label_Free);
-	LinkMap_SetItemDestructor(tasm->FuncTable, Label_Free);
-	LinkMap_SetItemDestructor(tasm->VarTable, (bool(*)())ByteBuffer_Free);
+	//LinkMap_SetItemDestructor(tasm->LabelTable, Label_Free);
+	//LinkMap_SetItemDestructor(tasm->FuncTable, Label_Free);
+	//LinkMap_SetItemDestructor(tasm->VarTable, (bool(*)())ByteBuffer_Free);
 	
 	// set up registers and map their IDs
 	LinkMap_Insert(tasm->Registers, "RALAF", (union Value){.UInt64 = regAlaf});
@@ -1678,92 +1678,92 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 	if( !tasm->Stacksize )
 		tasm->Stacksize = 128;
 	
-	// build the header table.
-	struct ByteBuffer tbcfile; ByteBuffer_Init(&tbcfile);
-	ByteBuffer_InsertInt(&tbcfile, 0xC0DE, sizeof(uint16_t));
-	ByteBuffer_InsertInt(&tbcfile, tasm->Stacksize, sizeof tasm->Stacksize);
-	ByteBuffer_InsertByte(&tbcfile, 0);
-	
 	// build our func table & global var table
 	struct ByteBuffer functable; ByteBuffer_Init(&functable);
 	struct ByteBuffer datatable; ByteBuffer_Init(&datatable);
 	
-	for( struct LinkNode *t=tasm->FuncTable->Head ; t ; t=t->After ) {
-		struct LabelInfo *label = t->Data.Ptr;
+	for( size_t i=0 ; i<tasm->FuncTable->Count ; i++ ) {
+		struct KeyNode *node = LinkMap_GetNodeByIndex(tasm->FuncTable, i);
+		struct LabelInfo *label = node->Data.Ptr;
 		if( !label )
 			continue;
 		
+		// write flag
 		ByteBuffer_InsertByte(&functable, label->IsNativeFunc);
-		ByteBuffer_InsertInt(&functable, t->KeyName.Len, sizeof(uint32_t));
+		// write strlen
+		ByteBuffer_InsertInt(&functable, node->KeyName.Len, sizeof(uint32_t));
+		
+		// write string
 		label->IsNativeFunc ? 
 			ByteBuffer_InsertInt(&functable, 8, sizeof(uint32_t))
 				: ByteBuffer_InsertInt(&functable, label->Bytecode.Count, sizeof(uint32_t));
-		//printf("label->Bytecode.Count == %u\n", label->Bytecode.Count);
 		
-		ByteBuffer_InsertString(&functable, t->KeyName.CStr+1, t->KeyName.Len-1);
+		// write instrlen.
+		ByteBuffer_InsertString(&functable, node->KeyName.CStr+1, node->KeyName.Len-1);
 		label->IsNativeFunc ?
 			ByteBuffer_InsertInt(&functable, 0, sizeof(uint64_t))
 				: ByteBuffer_Append(&functable, &label->Bytecode) ;
-		
-		//printf("func label: %s\nData:\n", t->KeyName.CStr);
-		//for( size_t i=0 ; i<label->Bytecode.Count ; i++ )
-			//printf("bytecode[%zu] == %u\n", i, label->Bytecode.Buffer[i]);
-		//puts("\n");
+	#ifdef TASM_DEBUG
+		printf("func label: %s\nData:\n", node->KeyName.CStr);
+		for( size_t i=0 ; i<label->Bytecode.Count ; i++ )
+			printf("bytecode[%zu] == %u\n", i, label->Bytecode.Buffer[i]);
+		puts("\n");
+	#endif
 	}
 	
-	size_t funcs = 0;
-	for( struct LinkNode *t=tasm->FuncTable->Head ; t ; t=t->After ) {
-		struct LabelInfo *label = t->Data.Ptr;
-		if( !label or !label->IsFunc )
-			continue;
-		funcs++;
-	}
-	
-	for( struct LinkNode *t=tasm->VarTable->Head ; t ; t=t->After ) {
-		struct ByteBuffer *bytedata = t->Data.Ptr;
+	for( size_t i=0 ; i<tasm->VarTable->Count ; i++ ) {
+		struct KeyNode *node = LinkMap_GetNodeByIndex(tasm->VarTable, i);
+		struct ByteBuffer *bytedata = node->Data.Ptr;
 		if( !bytedata )
 			continue;
 		
+		// write flag.
 		ByteBuffer_InsertByte(&datatable, 0);
-		ByteBuffer_InsertInt(&datatable, t->KeyName.Len+1, sizeof(uint32_t));
-		
+		// write strlen.
+		ByteBuffer_InsertInt(&datatable, node->KeyName.Len+1, sizeof(uint32_t));
+		// write byte count.
 		ByteBuffer_InsertInt(&datatable, bytedata->Count, sizeof(uint32_t));
-		ByteBuffer_InsertString(&datatable, t->KeyName.CStr, t->KeyName.Len);
+		// write string.
+		ByteBuffer_InsertString(&datatable, node->KeyName.CStr, node->KeyName.Len);
+		// write byte data.
 		ByteBuffer_Append(&datatable, bytedata);
 	#ifdef TASM_DEBUG
-		printf("global var: %s\nData:\n", t->KeyName.CStr);
+		printf("global var: %s\nData:\n", node->KeyName.CStr);
 		for( size_t i=0 ; i<bytedata->Count ; i++ )
 			printf("bytecode[%zu] == %u\n", i, bytedata->Buffer[i]);
 		puts("\n");
 	#endif
 	}
 	
-	size_t datacount = 0;
-	for( struct LinkNode *t=tasm->VarTable->Head ; t ; t=t->After ) {
-		struct ByteBuffer *bytedata = t->Data.Ptr;
-		if( !bytedata )
-			continue;
-		datacount++;
-	}
-	ByteBuffer_InsertInt(&tbcfile, functable.Count + 4, sizeof(uint32_t));
-	//ByteBuffer_InsertInt(&tbcfile, datatable.Count + 4, sizeof(uint32_t));
-	//printf("functable.Count == %u\n", functable.Count);
+	// build the header table.
+	struct ByteBuffer tbcfile; ByteBuffer_Init(&tbcfile);
+	ByteBuffer_InsertInt(&tbcfile, 0xC0DE, sizeof(uint16_t));
+	ByteBuffer_InsertInt(&tbcfile, tasm->Stacksize, sizeof tasm->Stacksize);
+	// 5 because skip past 4 byte global var offset and byte flags.
+	ByteBuffer_InsertInt(&tbcfile, 5, sizeof(uint32_t));
 	
-	ByteBuffer_InsertInt(&tbcfile, funcs, sizeof(uint32_t));
+	// 5 because skip past byte flags and 4 byte function count.
+	ByteBuffer_InsertInt(&tbcfile, functable.Count + 5, sizeof(uint32_t));
+	ByteBuffer_InsertByte(&tbcfile, 0); // flags, currently none.
+	
+	// now build function table.
+	ByteBuffer_InsertInt(&tbcfile, tasm->FuncTable->Count, sizeof(uint32_t));
 	ByteBuffer_Append(&tbcfile, &functable);
 	ByteBuffer_Del(&functable);
 	
-	ByteBuffer_InsertInt(&tbcfile, datacount, sizeof(uint32_t));
+	// now build global variable table.
+	ByteBuffer_InsertInt(&tbcfile, tasm->VarTable->Count, sizeof(uint32_t));
 	ByteBuffer_Append(&tbcfile, &datatable);
 	ByteBuffer_Del(&datatable);
+	{ // scoping this section off so we can use restricted pointer.
+		char *restrict iter = tasm->OutputName.CStr;
+		size_t len = 0;
+		while( *++iter );
+		while( *--iter != '.' )
+			++len;
 	
-	char *iter = tasm->OutputName.CStr;
-	size_t len = 0;
-	while( *++iter );
-	while( *--iter != '.' )
-		++len;
-	
-	memset(iter, 0, len);
+		memset(iter, 0, len);
+	}
 	
 	// use line_buffer instead of wasting more stack space.
 	memset(line_buffer, 0, sizeof line_buffer);
@@ -1784,22 +1784,23 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 	String_Del(tasm->Lexeme);
 	String_Del(tasm->ActiveFuncLabel);
 	
-	LinkMap_Del(tasm->LabelTable);
-	LinkMap_Del(tasm->FuncTable);
-	LinkMap_Del(tasm->VarTable);
-	LinkMap_Del(tasm->Opcodes);
-	LinkMap_Del(tasm->Registers);
+	LinkMap_Del(tasm->LabelTable, Label_Free);
+	LinkMap_Del(tasm->FuncTable, Label_Free);
+	LinkMap_Del(tasm->VarTable, (bool(*)(void*))ByteBuffer_Free);
+	LinkMap_Del(tasm->Opcodes, NULL);
+	LinkMap_Del(tasm->Registers, NULL);
 	fclose(tasm->Src); tasm->Src=NULL;
 	return true;
 }
 
-bool Label_Free(struct LabelInfo **restrict labelref)
+bool Label_Free(void *p)
 {
-	if( !*labelref )
+	struct LabelInfo **restrict labelref = p;
+	if( !labelref || !*labelref )
 		return false;
 	
 	ByteBuffer_Del(&(*labelref)->Bytecode);
-	free(*labelref); *labelref=NULL;
+	free(*labelref), *labelref=NULL;
 	return true;
 }
 
