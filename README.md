@@ -2,7 +2,7 @@
 TaghaVM is a minimal, fast, self-contained register-based virtual machine && runtime environment designed as an alternative to a C dynamic loading plugin system as well as giving binary portability to C code!
 
 ## Rationale:
-You might be thinking, why not just pick a scripting language? You're correct. One could simply choose a scripting language but not all developers want to use a scripting language and they could have various reasons like performance, syntax, maybe the runtime is too bloated.
+You might be thinking, *why not just pick a scripting language*? You're correct. One could simply choose a scripting language and I even advise using a scripting language **but** not all developers want to use a scripting language nor require one and they could have various reasons such as performance, syntax, maybe bloated runtimes.
 
 Another idea you might think is that one could use a C interpreter and embed that but so far, the only C interpreters (that I currently know of) are **CINT**, **PicoC**, **TCC [1]**, **Cling** and **Ch**:
 - The problems with CINT is that it's old, clunky to use, outdated, and deprecated.
@@ -36,7 +36,7 @@ The Rationale for Tagha is...
 * integer & float arithmetic, (un)conditional jumps, comparison operations, and stack and memory manipulations.
 * function call and return opcodes automatically execute function prologues and epilogues.
 * little-endian format (only).
-* small. The runtime environment static library is only ~30kb.
+* small. The runtime environment static library is only <50kb.
 * Tagha is not natively threaded, this is by design, this is so any developer can thread Tagha in anyway they wish whether by having a single VM instance run multiple scripts in a multi-threaded way OR use an array of Tagha VM instances each running their own scripts in a threaded manner.
 * Speed, tagha is very fast for a virtual machine that does not use a JIT.
 
