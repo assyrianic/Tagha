@@ -326,7 +326,7 @@ bool TaghaAsm_ParseTwoOpInstr(struct TaghaAsmbler *const restrict tasm, const bo
 			printf("tasm error: invalid register name '%s' on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
 			exit(-1);
 		}
-		addrmode1 |= Reserved;
+		addrmode1 |= UseReg;
 		reg1 = LinkMap_Get(tasm->Registers, tasm->Lexeme->CStr).UInt64;
 	}
 	else if( *tasm->Iter=='[' ) {
@@ -815,7 +815,7 @@ bool TaghaAsm_ParseSysCallInstr(struct TaghaAsmbler *const restrict tasm, const 
 	uint8_t addrmode1=0;
 	union Value imm = (union Value){0};
 	int32_t
-		offset=0, argcount=0
+		offset=0//, argcount=0
 	;
 	
 	tasm->ProgramCounter += 2;
@@ -1012,7 +1012,7 @@ bool TaghaAsm_ParseTwoOpFloatInstr(struct TaghaAsmbler *const restrict tasm, con
 			printf("tasm error: invalid register name '%s' on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
 			exit(-1);
 		}
-		addrmode1 |= Reserved;
+		addrmode1 |= UseReg;
 		reg1 = LinkMap_Get(tasm->Registers, tasm->Lexeme->CStr).UInt64;
 	}
 	else if( *tasm->Iter=='[' ) {
@@ -1739,12 +1739,14 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 	struct ByteBuffer tbcfile; ByteBuffer_Init(&tbcfile);
 	ByteBuffer_InsertInt(&tbcfile, 0xC0DE, sizeof(uint16_t));
 	ByteBuffer_InsertInt(&tbcfile, tasm->Stacksize, sizeof tasm->Stacksize);
-	// 5 because skip past 4 byte global var offset and byte flags.
-	ByteBuffer_InsertInt(&tbcfile, 5, sizeof(uint32_t));
+	// write function table offset.
+	ByteBuffer_InsertInt(&tbcfile, sizeof(struct TaghaHeader), sizeof(uint32_t));
 	
-	// 5 because skip past byte flags and 4 byte function count.
-	ByteBuffer_InsertInt(&tbcfile, functable.Count + 5, sizeof(uint32_t));
-	ByteBuffer_InsertByte(&tbcfile, 0); // flags, currently none.
+	// write global variable table offset.
+	ByteBuffer_InsertInt(&tbcfile, functable.Count + sizeof(struct TaghaHeader) + 4, sizeof(uint32_t));
+	
+	// write flags, currently none.
+	ByteBuffer_InsertByte(&tbcfile, 0);
 	
 	// now build function table.
 	ByteBuffer_InsertInt(&tbcfile, tasm->FuncTable->Count, sizeof(uint32_t));

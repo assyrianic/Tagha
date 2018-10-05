@@ -31,7 +31,7 @@ union TaghaVal {
 	union TaghaVal *SelfPtr, (*SelfFunc)(), *(*SelfPtrFunc)();
 };
 
-union Pointer {
+union TaghaPtr {
 	uint8_t *restrict UInt8Ptr;
 	uint16_t *restrict UInt16Ptr;
 	uint32_t *restrict UInt32Ptr;
@@ -48,6 +48,7 @@ union Pointer {
 	const char *restrict CStrPtr;
 	
 	union TaghaVal *restrict ValPtr;
+	union TaghaPtr *restrict SelfPtr;
 	void *restrict Ptr;
 };
 
@@ -102,7 +103,6 @@ struct TaghaHeader {
 	uint32_t FuncTblOffs;
 	uint32_t VarTblOffs;
 	uint8_t Flags;
-	uint32_t FuncCount;
 };
 #pragma pack(pop)
 
@@ -205,7 +205,7 @@ enum AddrMode {
 	Immediate	= 1, /* interpret as immediate/constant value */
 	Register	= 2, /* interpret as register id */
 	RegIndirect	= 4, /* interpret register id's contents as a memory address. */
-	Reserved	= 8, /* Reserved. */
+	UseReg	= 8, /* UseReg. */
 	Byte		= 16, /* use data as (u)int8_t& */
 	TwoBytes	= 32, /* use data as (u)int16_t& */
 	FourBytes	= 64, /* use data as (u)int32_t& */

@@ -13,7 +13,7 @@ struct Player {
 void Native_lldiv(struct Tagha *sys, union TaghaVal *restrict retval, const size_t args, union TaghaVal params[restrict static args])
 {
 	(void)sys; (void)retval; // makes the compiler stop bitching.
-	lldiv_t *restrict val = params[0].Ptr;
+	lldiv_t *val = params[0].Ptr;
 	*val = lldiv(params[1].Int64, params[2].Int64);
 }
 
@@ -114,8 +114,8 @@ int main(const int argc, char *argv[restrict static argc+1])
 	const int32_t result = Tagha_RunScript(&vm, 1, arguments);
 	if( pp )
 		printf("player.speed: '%f' | player.health: '%u' | player.ammo: '%u'\n", player.speed, player.health, player.ammo);
-	Tagha_PrintVMState(&vm);
-	printf("error: '%s'\n", Tagha_GetError(&vm));
+	//Tagha_PrintVMState(&vm);
+	//printf("Tagha Error ?: '%s'\n", Tagha_GetError(&vm));
 	//printf("VM size: %zu\n", sizeof vm);
 	printf("result?: '%i' | profile time: '%f'\n", result, (clock()-start)/(double)CLOCKS_PER_SEC);
 	free(process);
