@@ -1,4 +1,4 @@
-$stacksize 0x1fff
+$stacksize 1024
 
 %main: {
 	mov rsemkath, 34

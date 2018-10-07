@@ -1,4 +1,4 @@
-$stacksize 0xff
+$stacksize 64
 
 $global stdin, 8, word 0
 $global string, 29, "Please enter a long string: "

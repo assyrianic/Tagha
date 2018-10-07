@@ -103,6 +103,7 @@ struct TaghaHeader {
 	uint32_t StackSize;
 	uint32_t FuncTblOffs;
 	uint32_t VarTblOffs;
+	uint32_t StackOffs;
 	uint8_t Flags;
 };
 #pragma pack(pop)

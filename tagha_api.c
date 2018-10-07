@@ -12,32 +12,34 @@ static TaghaNative		*GetNativeByIndex(struct TaghaHeader *, size_t);
 static void			*GetVariableOffsetByName(struct TaghaHeader *, const char *);
 static void			*GetVariableOffsetByIndex(struct TaghaHeader *, size_t);
 
-static void PrepModule(struct TaghaHeader *const module)
+static void PrepModule(struct TaghaHeader *const restrict module)
 {
 	if( !module )
 		return;
 	
 	const size_t vartable_offset = module->VarTblOffs;
-	union TaghaPtr reader = (union TaghaPtr){.Ptr = (uint8_t *)module + vartable_offset};
-	const uint32_t globalvars = *reader.UInt32Ptr++;
-	for( uint32_t i=0 ; i<globalvars ; i++ ) {
-		reader.UInt8Ptr++;
-		const uint64_t sizes = *reader.UInt64Ptr++;
-		const uint32_t cstrlen = sizes & 0xffFFffFF;
-		const uint32_t datalen = sizes >> 32;
-		if( !strcmp("stdin", reader.CStrPtr) ) {
-			FILE **fileptr = (FILE **)(reader.UInt8Ptr + cstrlen);
-			*fileptr = stdin;
+	{
+		union TaghaPtr reader = (union TaghaPtr){.Ptr = (uint8_t *)module + vartable_offset};
+		const uint32_t globalvars = *reader.UInt32Ptr++;
+		for( uint32_t i=0 ; i<globalvars ; i++ ) {
+			reader.UInt8Ptr++;
+			const uint64_t sizes = *reader.UInt64Ptr++;
+			const uint32_t cstrlen = sizes & 0xffFFffFF;
+			const uint32_t datalen = sizes >> 32;
+			if( !strcmp("stdin", reader.CStrPtr) ) {
+				FILE **fileptr = (FILE **)(reader.UInt8Ptr + cstrlen);
+				*fileptr = stdin;
+			}
+			else if( !strcmp("stdout", reader.CStrPtr) ) {
+				FILE **fileptr = (FILE **)(reader.UInt8Ptr + cstrlen);
+				*fileptr = stdout;
+			}
+			else if( !strcmp("stderr", reader.CStrPtr) ) {
+				FILE **fileptr = (FILE **)(reader.UInt8Ptr + cstrlen);
+				*fileptr = stderr;
+			}
+			reader.UInt8Ptr += (cstrlen + datalen);
 		}
-		else if( !strcmp("stdout", reader.CStrPtr) ) {
-			FILE **fileptr = (FILE **)(reader.UInt8Ptr + cstrlen);
-			*fileptr = stdout;
-		}
-		else if( !strcmp("stderr", reader.CStrPtr) ) {
-			FILE **fileptr = (FILE **)(reader.UInt8Ptr + cstrlen);
-			*fileptr = stderr;
-		}
-		reader.UInt8Ptr += (cstrlen + datalen);
 	}
 }
 
@@ -62,14 +64,14 @@ static void InvokeNative(struct Tagha *const vm, const size_t argcount, TaghaNat
 
 struct Tagha *Tagha_New(void *restrict script)
 {
-	struct Tagha *vm = calloc(1, sizeof *vm);
+	struct Tagha *restrict vm = calloc(1, sizeof *vm);
 	Tagha_Init(vm, script);
 	return vm;
 }
 
 struct Tagha *Tagha_NewNatives(void *restrict script, const struct NativeInfo natives[restrict])
 {
-	struct Tagha *vm = Tagha_New(script);
+	struct Tagha *restrict vm = Tagha_New(script);
 	Tagha_RegisterNatives(vm, natives);
 	return vm;
 }
@@ -133,9 +135,9 @@ void Tagha_PrintVMState(const struct Tagha *const vm)
 	vm->CondFlag);
 }
 
-bool Tagha_RegisterNatives(struct Tagha *const vm, const struct NativeInfo natives[])
+bool Tagha_RegisterNatives(struct Tagha *const restrict vm, const struct NativeInfo natives[])
 {
-	if( !vm || !natives )
+	if( !vm || !vm->Header || !natives )
 		return false;
 	
 	for( const struct NativeInfo *restrict n=natives ; n->NativeCFunc && n->Name ; n++ ) {
@@ -146,109 +148,103 @@ bool Tagha_RegisterNatives(struct Tagha *const vm, const struct NativeInfo nativ
 	return true;
 }
 
-static void *GetFunctionOffsetByName(struct TaghaHeader *const hdr, const char *restrict funcname)
+static void *GetFunctionOffsetByName(struct TaghaHeader *const restrict hdr, const char *restrict funcname)
 {
-	if( !funcname || !hdr )
-		return NULL;
-	
-	union TaghaPtr reader = (union TaghaPtr){.Ptr = (uint8_t *)hdr + sizeof *hdr};
-	const uint32_t funcs = *reader.UInt32Ptr++;
-	
-	for( uint32_t i=0 ; i<funcs ; i++ ) {
-		reader.UInt8Ptr++;
-		const uint64_t sizes = *reader.UInt64Ptr++;
-		const uint32_t cstrlen = sizes & 0xffFFffFF;
-		const uint32_t datalen = sizes >> 32;
-		if( !strcmp(funcname, reader.CStrPtr) )
-			return reader.UInt8Ptr + cstrlen;
-		else reader.UInt8Ptr += (cstrlen + datalen);
+	{
+		union TaghaPtr reader = (union TaghaPtr){.Ptr = (uint8_t *)hdr + sizeof *hdr};
+		const uint32_t funcs = *reader.UInt32Ptr++;
+		for( uint32_t i=0 ; i<funcs ; i++ ) {
+			reader.UInt8Ptr++;
+			const uint64_t sizes = *reader.UInt64Ptr++;
+			const uint32_t cstrlen = sizes & 0xffFFffFF;
+			const uint32_t datalen = sizes >> 32;
+			if( !strcmp(funcname, reader.CStrPtr) )
+				return reader.UInt8Ptr + cstrlen;
+			else reader.UInt8Ptr += (cstrlen + datalen);
+		}
 	}
 	return NULL;
 }
 
-static void *GetFunctionOffsetByIndex(struct TaghaHeader *const hdr, const size_t index)
+static void *GetFunctionOffsetByIndex(struct TaghaHeader *const restrict hdr, const size_t index)
 {
-	if( !hdr )
-		return NULL;
-	
-	union TaghaPtr reader = (union TaghaPtr){.Ptr = (uint8_t *)hdr + sizeof *hdr};
-	const uint32_t funcs = *reader.UInt32Ptr++;
-	if( index >= funcs )
-		return NULL;
-	
-	for( uint32_t i=0 ; i<funcs ; i++ ) {
-		reader.UInt8Ptr++;
-		const uint64_t sizes = *reader.UInt64Ptr++;
-		const uint32_t cstrlen = sizes & 0xffFFffFF;
-		const uint32_t datalen = sizes >> 32;
-		if( i==index )
-			return reader.UInt8Ptr + cstrlen;
-		else reader.UInt8Ptr += (cstrlen + datalen);
+	{
+		union TaghaPtr reader = (union TaghaPtr){.Ptr = (uint8_t *)hdr + sizeof *hdr};
+		const uint32_t funcs = *reader.UInt32Ptr++;
+		if( index >= funcs )
+			return NULL;
+		
+		for( uint32_t i=0 ; i<funcs ; i++ ) {
+			reader.UInt8Ptr++;
+			const uint64_t sizes = *reader.UInt64Ptr++;
+			const uint32_t cstrlen = sizes & 0xffFFffFF;
+			const uint32_t datalen = sizes >> 32;
+			if( i==index )
+				return reader.UInt8Ptr + cstrlen;
+			else reader.UInt8Ptr += (cstrlen + datalen);
+		}
 	}
 	return NULL;
 }
 
-static TaghaNative *GetNativeByIndex(struct TaghaHeader *const hdr, const size_t index)
+static TaghaNative *GetNativeByIndex(struct TaghaHeader *const restrict hdr, const size_t index)
 {
-	if( !hdr )
-		return NULL;
+	{
+		union TaghaPtr reader = (union TaghaPtr){.Ptr = (uint8_t *)hdr + sizeof *hdr};
+		const uint32_t funcs = *reader.UInt32Ptr++;
+		if( index >= funcs )
+			return NULL;
 	
-	union TaghaPtr reader = (union TaghaPtr){.Ptr = (uint8_t *)hdr + sizeof *hdr};
-	const uint32_t funcs = *reader.UInt32Ptr++;
-	if( index >= funcs )
-		return NULL;
-	
-	for( uint32_t i=0 ; i<funcs ; i++ ) {
-		reader.UInt8Ptr++;
-		const uint64_t sizes = *reader.UInt64Ptr++;
-		const uint32_t cstrlen = sizes & 0xffFFffFF;
-		const uint32_t datalen = sizes >> 32;
-		if( i==index )
-			return *(TaghaNative **)(reader.UInt8Ptr + cstrlen);
-		else reader.UInt8Ptr += (cstrlen + datalen);
+		for( uint32_t i=0 ; i<funcs ; i++ ) {
+			reader.UInt8Ptr++;
+			const uint64_t sizes = *reader.UInt64Ptr++;
+			const uint32_t cstrlen = sizes & 0xffFFffFF;
+			const uint32_t datalen = sizes >> 32;
+			if( i==index )
+				return *(TaghaNative **)(reader.UInt8Ptr + cstrlen);
+			else reader.UInt8Ptr += (cstrlen + datalen);
+		}
 	}
 	return NULL;
 }
 
-static void *GetVariableOffsetByName(struct TaghaHeader *const hdr, const char *restrict varname)
+static void *GetVariableOffsetByName(struct TaghaHeader *const restrict hdr, const char *restrict varname)
 {
-	if( !hdr || !varname )
-		return NULL;
-	
 	const size_t vartable_offset = hdr->VarTblOffs;
-	union TaghaPtr reader = (union TaghaPtr){.Ptr = (uint8_t *)hdr + vartable_offset};
-	const uint32_t globalvars = *reader.UInt32Ptr++;
-	for( uint32_t i=0 ; i<globalvars ; i++ ) {
-		reader.UInt8Ptr++;
-		const uint64_t sizes = *reader.UInt64Ptr++;
-		const uint32_t cstrlen = sizes & 0xffFFffFF;
-		const uint32_t datalen = sizes >> 32;
-		if( !strcmp(varname, reader.CStrPtr) )
-			return reader.UInt8Ptr + cstrlen;
-		else reader.UInt8Ptr += (cstrlen + datalen);
+	{
+		union TaghaPtr reader = (union TaghaPtr){.Ptr = (uint8_t *)hdr + vartable_offset};
+		const uint32_t globalvars = *reader.UInt32Ptr++;
+		for( uint32_t i=0 ; i<globalvars ; i++ ) {
+			reader.UInt8Ptr++;
+			const uint64_t sizes = *reader.UInt64Ptr++;
+			const uint32_t cstrlen = sizes & 0xffFFffFF;
+			const uint32_t datalen = sizes >> 32;
+			if( !strcmp(varname, reader.CStrPtr) )
+				return reader.UInt8Ptr + cstrlen;
+			else reader.UInt8Ptr += (cstrlen + datalen);
+		}
 	}
 	return NULL;
 }
 
-static void *GetVariableOffsetByIndex(struct TaghaHeader *const hdr, const size_t index)
+static void *GetVariableOffsetByIndex(struct TaghaHeader *const restrict hdr, const size_t index)
 {
-	if( !hdr )
-		return NULL;
-	
 	const size_t vartable_offset = hdr->VarTblOffs;
-	union TaghaPtr reader = (union TaghaPtr){.Ptr = (uint8_t *)hdr + vartable_offset};
-	const uint32_t globalvars = *reader.UInt32Ptr++;
-	if( index >= globalvars )
-		return NULL;
+	{
+		union TaghaPtr reader = (union TaghaPtr){.Ptr = (uint8_t *)hdr + vartable_offset};
+		const uint32_t globalvars = *reader.UInt32Ptr++;
+		if( index >= globalvars )
+			return NULL;
 	
-	for( uint32_t i=0 ; i<globalvars ; i++ ) {
-		reader.UInt8Ptr++;
-		const uint64_t sizes = *reader.UInt64Ptr++;
-		const uint32_t cstrlen = sizes & 0xffFFffFF;
-		const uint32_t datalen = sizes >> 32;
-		if( i==index )
-			return reader.UInt8Ptr + cstrlen;
-		else reader.UInt8Ptr += (cstrlen + datalen);
+		for( uint32_t i=0 ; i<globalvars ; i++ ) {
+			reader.UInt8Ptr++;
+			const uint64_t sizes = *reader.UInt64Ptr++;
+			const uint32_t cstrlen = sizes & 0xffFFffFF;
+			const uint32_t datalen = sizes >> 32;
+			if( i==index )
+				return reader.UInt8Ptr + cstrlen;
+			else reader.UInt8Ptr += (cstrlen + datalen);
+		}
 	}
 	return NULL;
 }
@@ -261,7 +257,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		return -1;
 	
 	register union TaghaVal *const restrict regs = vm->Regs;
-	union TaghaPtr pc = (union TaghaPtr){.UInt8Ptr = vm->regInstr.UInt8Ptr};
+	register union TaghaPtr pc = (union TaghaPtr){.UInt8Ptr = vm->regInstr.UInt8Ptr};
 	
 	register union {
 		uint16_t opcode;
@@ -272,7 +268,6 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	/* for debugging purposes. */
 	//const char *const restrict opcode2str[] = { INSTR_SET };
 #undef X
-	
 	
 #define X(x) &&exec_##x ,
 	/* our instruction dispatch table. */
@@ -1838,7 +1833,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		 *  - any return value larger than 8 bytes must be passed as a hidden pointer argument && render the function as void.
 		 * void NativeFunc(struct Tagha *sys, union TaghaVal *retval, const size_t args, union TaghaVal params[static args]);
 		 */
-		TaghaNative *nativeref = GetNativeByIndex(vm->Header, index);
+		TaghaNative *const nativeref = GetNativeByIndex(vm->Header, index);
 		if( !nativeref ) {
 			// commenting this out because it slows down the code for some reason...
 			vm->Error = ErrMissingNative;
@@ -1849,7 +1844,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			const uint8_t reg_param_initial = regSemkath;
 			const size_t argcount = vm->regAlaf.SizeInt;
 			vm->regAlaf.UInt64 = 0;
-		
+			
 			/* save stack space by using the registers for passing arguments. */
 			/* the other registers can then be used for other data operations. */
 			if( argcount <= reg_params ) {
@@ -2446,18 +2441,11 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 
 int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, char *argv[restrict static argc+1])
 {
-	if( !vm )
+	if( !vm || !vm->Header )
 		return -1;
 	
-	struct TaghaHeader *const hdr = vm->Header;
-	if( !hdr || hdr->Magic != 0xC0DE ) {
+	else if( vm->Header->Magic != 0xC0DE ) {
 		vm->Error = ErrInvalidScript;
-		return -1;
-	}
-	
-	uint8_t *const restrict main_offset = GetFunctionOffsetByName(hdr, "main");
-	if( !main_offset ) {
-		vm->Error = ErrMissingFunc;
 		return -1;
 	}
 	
@@ -2471,55 +2459,52 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	vm->regSemkath.Int32 = argc;
 	
 	/* check out stack size and align it by the size of union TaghaVal. */
-	const size_t stacksize = hdr->StackSize; //(hdr->StackSize + (sizeof(union TaghaVal)-1)) & -(sizeof(union TaghaVal));
+	const size_t stacksize = vm->Header->StackSize; //(vm->Header->StackSize + (sizeof(union TaghaVal)-1)) & -(sizeof(union TaghaVal));
 	if( !stacksize ) {
 		vm->Error = ErrStackSize;
 		return -1;
 	}
 	
-	union TaghaVal Stack[stacksize+1]; memset(Stack, 0, sizeof Stack[0] * stacksize+1);
-	vm->regStk.SelfPtr = vm->regBase.SelfPtr = Stack + stacksize;
+	//union TaghaVal Stack[stacksize+1]; memset(Stack, 0, sizeof Stack[0] * stacksize+1);
+	//vm->regStk.SelfPtr = vm->regBase.SelfPtr = Stack + stacksize;
+	vm->regStk.SelfPtr = vm->regBase.SelfPtr = &((union TaghaVal *)vm->Header)[vm->Header->StackOffs + stacksize - 1];
 	
 	(--vm->regStk.SelfPtr)->Int64 = 0LL;	/* push NULL return address. */
 	*--vm->regStk.SelfPtr = vm->regBase; /* push rbp */
 	vm->regBase = vm->regStk; /* mov rbp, rsp */
-	vm->regInstr.UInt8Ptr = main_offset;
-	
-	return Tagha_Exec(vm);
+	vm->regInstr.Ptr = GetFunctionOffsetByName(vm->Header, "main");
+	if( !vm->regInstr.Ptr ) {
+		vm->Error = ErrMissingFunc;
+		return -1;
+	}
+	else return Tagha_Exec(vm);
 }
 
 int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict funcname, const size_t args, union TaghaVal values[static args])
 {
-	if( !vm || !funcname || !values )
+	if( !vm || !vm->Header || !funcname || !values )
 		return -1;
-	
-	struct TaghaHeader *const hdr = vm->Header;
-	if( !hdr || hdr->Magic != 0xC0DE ) {
+	else if( vm->Header->Magic != 0xC0DE ) {
 		vm->Error = ErrInvalidScript;
 		return -1;
 	}
 	
-	uint8_t *const restrict func_offset = GetFunctionOffsetByName(hdr, funcname);
-	if( !func_offset ) {
-		vm->Error = ErrMissingFunc;
-		return -1;
-	}
-	
 	/* check out stack size && align it by the size of union TaghaVal. */
-	const size_t stacksize = hdr->StackSize; //(hdr->StackSize + (sizeof(union TaghaVal)-1)) & -(sizeof(union TaghaVal));
+	const size_t stacksize = vm->Header->StackSize; //(vm->Header->StackSize + (sizeof(union TaghaVal)-1)) & -(sizeof(union TaghaVal));
 	if( !stacksize ) {
 		vm->Error = ErrStackSize;
 		return -1;
 	}
 	
-	union TaghaVal Stack[stacksize+1]; memset(Stack, 0, sizeof Stack[0] * stacksize+1);
-	vm->regStk.SelfPtr = vm->regBase.SelfPtr = Stack + stacksize;
+	//union TaghaVal Stack[stacksize+1]; memset(Stack, 0, sizeof Stack[0] * stacksize+1);
+	//vm->regStk.SelfPtr = vm->regBase.SelfPtr = Stack + stacksize;
+	vm->regStk.SelfPtr = vm->regBase.SelfPtr = &((union TaghaVal *)vm->Header)[vm->Header->StackOffs + stacksize - 1];
 	
 	/* remember that arguments must be passed right to left.
 	 we have enough args to fit in registers. */
 	const uint8_t reg_params = 8;
 	const uint8_t reg_param_initial = regSemkath;
-	const uint16_t bytecount = sizeof(union TaghaVal) * args;
+	const size_t bytecount = sizeof(union TaghaVal) * args;
 	
 	/* save stack space by using the registers for passing arguments. */
 	/* the other registers can be used for other data ops. */
@@ -2527,17 +2512,21 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 		memcpy(vm->Regs+reg_param_initial, values, bytecount);
 	}
 	/* if the function has more than a certain num of params, push from both registers && stack. */
-	else if( args > reg_params ) {
-		memcpy(vm->Regs+reg_param_initial, values, sizeof Stack[0] * reg_params);
-		memcpy(vm->regStk.SelfPtr, values+reg_params, sizeof Stack[0] * (args-reg_params));
+	else {
+		memcpy(vm->Regs+reg_param_initial, values, sizeof(union TaghaVal) * reg_params);
+		memcpy(vm->regStk.SelfPtr, values+reg_params, sizeof(union TaghaVal) * (args-reg_params));
 		vm->regStk.SelfPtr -= (args-reg_params);
 	}
 	
 	(--vm->regStk.SelfPtr)->Int64 = 0LL;	/* push NULL return address. */
 	*--vm->regStk.SelfPtr = vm->regBase; /* push rbp */
 	vm->regBase = vm->regStk; /* mov rbp, rsp */
-	vm->regInstr.Ptr = func_offset;
-	return Tagha_Exec(vm);
+	vm->regInstr.Ptr = GetFunctionOffsetByName(vm->Header, funcname);
+	if( !vm->regInstr.Ptr ) {
+		vm->Error = ErrMissingFunc;
+		return -1;
+	}
+	else return Tagha_Exec(vm);
 }
 
 union TaghaVal Tagha_GetReturnValue(const struct Tagha *const vm)
@@ -2547,10 +2536,10 @@ union TaghaVal Tagha_GetReturnValue(const struct Tagha *const vm)
 
 void *Tagha_GetGlobalVarByName(struct Tagha *const restrict vm, const char *restrict varname)
 {
-	return !vm || !varname ? NULL : GetVariableOffsetByName(vm->Header, varname);
+	return !vm || !vm->Header || !varname ? NULL : GetVariableOffsetByName(vm->Header, varname);
 }
 
-const char *Tagha_GetError(const struct Tagha *const vm)
+const char *Tagha_GetError(const struct Tagha *const restrict vm)
 {
 	if( !vm )
 		return "Null VM Pointer";

@@ -1745,6 +1745,9 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 	// write global variable table offset.
 	ByteBuffer_InsertInt(&tbcfile, functable.Count + sizeof(struct TaghaHeader) + 4, sizeof(uint32_t));
 	
+	// write stack offset.
+	ByteBuffer_InsertInt(&tbcfile, functable.Count + datatable.Count + sizeof(struct TaghaHeader) + 8, sizeof(uint32_t));
+	
 	// write flags, currently none.
 	ByteBuffer_InsertByte(&tbcfile, 0);
 	
@@ -1757,6 +1760,12 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 	ByteBuffer_InsertInt(&tbcfile, tasm->VarTable->Count, sizeof(uint32_t));
 	ByteBuffer_Append(&tbcfile, &datatable);
 	ByteBuffer_Del(&datatable);
+	
+	// now build stack
+	for( size_t i=0 ; i<tasm->Stacksize ; i++ ) {
+		ByteBuffer_InsertInt(&tbcfile, 0, sizeof(union TaghaVal));
+	}
+	
 	{ // scoping this section off so we can use restricted pointer.
 		char *restrict iter = tasm->OutputName.CStr;
 		size_t len = 0;

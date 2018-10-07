@@ -1,3 +1,5 @@
+$stacksize 16
+
 %main: {
 	sub rsp, 32
 	lea rsemkath, [rbp-24]
@@ -27,5 +29,8 @@
 	mov rdalath, [long rsemkath+8]
 	negf long rdalath
 	mov [long rsemkath+8], rdalath
+	addf ralaf, [long rsemkath]
+	addf ralaf, [long rsemkath+4]
+	addf ralaf, [long rsemkath+8]
 	ret
 }

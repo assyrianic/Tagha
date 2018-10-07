@@ -1,5 +1,6 @@
 test_3d_vecs.tbc - purpose: test float and pointer/array arithmetics.
 	accurate result:
+		register[alaf] or result == -1055916032 <-- -9.f as an int.
 		register[beth] == 3221225472 <-- -2.f
 		register[gamal] == 3225419776 <-- -3.f
 		register[dalath] == 3229614080 <-- -4.f
