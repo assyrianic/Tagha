@@ -124,7 +124,7 @@ bool Map_Rehash(struct Hashmap *const map)
 	map->Table = temp;
 	
 	for( size_t i=0 ; i<old_size ; i++ ) {
-		struct Vector *vec = curr + i;
+		struct Vector *restrict vec = curr + i;
 		for( size_t n=0 ; n<Vector_Count(vec) ; n++ ) {
 			struct KeyNode *node = vec->Table[n].Ptr;
 			Map_InsertNode(map, node);

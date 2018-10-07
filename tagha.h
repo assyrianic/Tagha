@@ -41,6 +41,7 @@ union TaghaPtr {
 	int16_t *restrict Int16Ptr;
 	int32_t *restrict Int32Ptr;
 	int64_t *restrict Int64Ptr;
+	size_t *restrict SizeIntPtr;
  #ifdef FLOATING_POINT_OPS
 	float *restrict FloatPtr;
 	double *restrict DoublePtr;
@@ -285,4 +286,5 @@ class CTagha : public Tagha {
 };
 
 #endif
+
 

@@ -1,21 +1,21 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
-#-fsanitize=address -lasan
+#-fsanitize=address -lasan -fsanitize=undefined
 
-gcc		-Wextra -Wall -std=c99 -s -O2 -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations -c	tagha_api.c #-fno-guess-branch-probability -fomit-frame-pointer
-
-ar			cr libtagha.a	tagha_api.o
-
-gcc -Wextra -Wall -std=c99 -s -O2 test_hostapp.c -L. -ltagha -o taghavmgcc_hosttest
-
-
-
-clang-6.0		-Wextra -Wall -std=c99 -s -O3 -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations -c	tagha_api.c #-fno-guess-branch-probability -fomit-frame-pointer
+gcc		-Wextra -Wall -std=c99 -g -O2 -c	tagha_api.c #-fno-guess-branch-probability -fomit-frame-pointer -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations
 
 ar			cr libtagha.a	tagha_api.o
 
-clang-6.0 -Wextra -Wall -std=c99 -s -O3 test_hostapp.c -L. -ltagha -o taghavmclang_hosttest
+gcc -Wextra -Wall -std=c99 -g -O2 test_hostapp.c -L. -ltagha -o taghavmgcc_hosttest
+
+
+
+clang-6.0		-Wextra -Wall -std=c99 -g -O3 -c	tagha_api.c #-fno-guess-branch-probability -fomit-frame-pointer -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations
+
+ar			cr libtagha.a	tagha_api.o
+
+clang-6.0 -Wextra -Wall -std=c99 -g -O3 test_hostapp.c -L. -ltagha -o taghavmclang_hosttest
 
 #gcc		-Wextra -Wall -std=c99 -s -O2 -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations -S -masm=intel tagha_api.c
 

@@ -152,10 +152,10 @@ void Vector_Delete(struct Vector *const v, const size_t index, fnDestructor *con
 		i=index+1,
 		j=index
 	;
+	v->Count--;
 	//while( i<v->Count )
 	//	v->Table[j++] = v->Table[i++];
-	memmove(v->Table+j, v->Table+i, (v->Len-j) * sizeof *v->Table);
-	v->Count--;
+	memmove(v->Table+j, v->Table+i, (v->Count-j) * sizeof *v->Table);
 	// can't keep auto-truncating, allocating memory every time can be expensive.
 	// I'll let the programmers truncate whenever they need to.
 	//Vector_Truncate(v);

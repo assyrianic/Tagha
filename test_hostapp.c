@@ -68,6 +68,23 @@ size_t GetFileSize(FILE *const restrict file)
 	return (size_t)size;
 }
 
+struct Tagha *MakeScriptByName(const char *restrict filename, const struct NativeInfo natives[restrict])
+{
+	FILE *script = fopen(filename, "rb");
+	if( !script )
+		return NULL;
+	
+	const size_t filesize = GetFileSize(script);
+	uint8_t *restrict process = calloc(filesize, sizeof *process);
+	const size_t val = fread(process, sizeof *process, filesize, script);
+	if( val != filesize ) {
+		free(process), process=NULL;
+		return NULL;
+	}
+	fclose(script), script=NULL;
+	return Tagha_NewNatives(process, natives);
+}
+
 
 #include "tagha_libc/libtagha.c"
 
@@ -78,16 +95,6 @@ int main(const int argc, char *argv[restrict static argc+1])
 		return 1;
 	}
 	
-	FILE *script = fopen(argv[1], "rb");
-	if( !script )
-		return 1;
-	
-	const size_t filesize = GetFileSize(script);
-	uint8_t *restrict process = calloc(filesize, sizeof *process);
-	const size_t val = fread(process, sizeof *process, filesize, script);
-	(void)val;
-	fclose(script), script=NULL;
-	
 	const struct NativeInfo host_natives[] = {
 		{"puts", Native_puts},
 		{"fgets", Native_fgets},
@@ -96,27 +103,26 @@ int main(const int argc, char *argv[restrict static argc+1])
 		{NULL, NULL}
 	};
 	
-	struct Tagha vm = (struct Tagha){0};
-	Tagha_InitNatives(&vm, process, host_natives);
-	Tagha_LoadlibTaghaNatives(&vm); // from tagha_libc/libtagha.c
+	struct Tagha *vm = MakeScriptByName(argv[1], host_natives);
+	Tagha_LoadlibTaghaNatives(vm); // from tagha_libc/libtagha.c
 	
 	struct Player player = (struct Player){0};
 	// GetGlobalVarByName returns a pointer to the data.
 	// if the data itself is a pointer, then you gotta use a pointer-pointer.
-	struct Player **pp = Tagha_GetGlobalVarByName(&vm, "g_pPlayer");
+	struct Player **pp = Tagha_GetGlobalVarByName(vm, "g_pPlayer");
 	if( pp )
 		*pp = &player;
 	
 	char argv1[] = "hello from main argv!";
 	char *arguments[] = {argv1, NULL};
 	clock_t start = clock();
-	//int32_t result = Tagha_CallFunc(&vm, "factorial", 1, &(union TaghaVal){.UInt64 = 5});
-	const int32_t result = Tagha_RunScript(&vm, 1, arguments);
+	//int32_t result = Tagha_CallFunc(vm, "factorial", 1, &(union TaghaVal){.UInt64 = 5});
+	const int32_t result = Tagha_RunScript(vm, 1, arguments);
 	if( pp )
 		printf("player.speed: '%f' | player.health: '%u' | player.ammo: '%u'\n", player.speed, player.health, player.ammo);
-	//Tagha_PrintVMState(&vm);
-	//printf("Tagha Error ?: '%s'\n", Tagha_GetError(&vm));
-	//printf("VM size: %zu\n", sizeof vm);
+	//Tagha_PrintVMState(vm);
+	//printf("Tagha Error ?: '%s'\n", Tagha_GetError(vm));
 	printf("result?: '%i' | profile time: '%f'\n", result, (clock()-start)/(double)CLOCKS_PER_SEC);
-	free(process);
+	free(vm->Header), vm->Header=NULL;
+	Tagha_Free(&vm);
 }

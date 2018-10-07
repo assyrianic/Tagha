@@ -70,10 +70,9 @@ void Native_TaghaInvoke(struct Tagha *const restrict sys, union TaghaVal *const 
 		return;
 	}
 	const size_t array_size = params[3].UInt64;
-	
 	// make the call.
 	retval->Int32 = Tagha_CallFunc(module, funcname, array_size, array);
-	memcpy(retdata, &module->regAlaf, sizeof *retdata);
+	*retdata = module->regAlaf;
 }
 
 /* bool Tagha_FreeModule(void **module); */

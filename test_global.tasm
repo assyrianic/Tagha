@@ -8,14 +8,14 @@
 # but its pointer value will be supplied from the host!
 # that makes g_pPlayer a pointer to a host variable.
 ##########################
-$stacksize 64
+$stacksize 500
 $global g_pPlayer, 8,	0
 $global module_str, 19, "test_factorial.tbc"
 $global factorial_str, 10, "factorial"
 
 $native %Tagha_LoadModule ; void *Tagha_LoadModule(const char *);
 $native %Tagha_InvokeFunc ; bool Tagha_InvokeFunc(void *, const char *, union Value *, size_t, union Value []);
-$native %Tagha_FreeModule ; void Tagha_FreeModule(void *);
+$native %Tagha_FreeModule ; void Tagha_FreeModule(void **);
 
 %main: {
 	sub rsp, 32
@@ -25,7 +25,7 @@ $native %Tagha_FreeModule ; void Tagha_FreeModule(void *);
 	mov [long rgamal+4], 100 ; g_pPlayer->health = 100;
 	mov [long rgamal+8], 32 ; g_pPlayer->ammo = 32;
 	
-	mov rbeth, 10000000 #1000000000 / 1000000
+	mov rbeth, 10000000 #1000000000 / 1000000 / 10000000
 	lea rsemkath, module_str
 	mov ralaf, 1
 	syscall %Tagha_LoadModule

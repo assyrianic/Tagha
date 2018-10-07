@@ -5,12 +5,12 @@
 #include <string.h>
 #include "tagha.h"
 
-inline static void			*GetFunctionOffsetByName(struct TaghaHeader *, const char *);
-inline static void			*GetFunctionOffsetByIndex(struct TaghaHeader *, size_t);
-inline static TaghaNative	*GetNativeByIndex(struct TaghaHeader *, size_t);
+static void			*GetFunctionOffsetByName(struct TaghaHeader *, const char *);
+static void			*GetFunctionOffsetByIndex(struct TaghaHeader *, size_t);
+static TaghaNative		*GetNativeByIndex(struct TaghaHeader *, size_t);
 
-inline static void			*GetVariableOffsetByName(struct TaghaHeader *, const char *);
-inline static void			*GetVariableOffsetByIndex(struct TaghaHeader *, size_t);
+static void			*GetVariableOffsetByName(struct TaghaHeader *, const char *);
+static void			*GetVariableOffsetByIndex(struct TaghaHeader *, size_t);
 
 static void PrepModule(struct TaghaHeader *const module)
 {
@@ -146,7 +146,7 @@ bool Tagha_RegisterNatives(struct Tagha *const vm, const struct NativeInfo nativ
 	return true;
 }
 
-inline static void *GetFunctionOffsetByName(struct TaghaHeader *const hdr, const char *restrict funcname)
+static void *GetFunctionOffsetByName(struct TaghaHeader *const hdr, const char *restrict funcname)
 {
 	if( !funcname || !hdr )
 		return NULL;
@@ -166,7 +166,7 @@ inline static void *GetFunctionOffsetByName(struct TaghaHeader *const hdr, const
 	return NULL;
 }
 
-inline static void *GetFunctionOffsetByIndex(struct TaghaHeader *const hdr, const size_t index)
+static void *GetFunctionOffsetByIndex(struct TaghaHeader *const hdr, const size_t index)
 {
 	if( !hdr )
 		return NULL;
@@ -188,7 +188,7 @@ inline static void *GetFunctionOffsetByIndex(struct TaghaHeader *const hdr, cons
 	return NULL;
 }
 
-inline static TaghaNative *GetNativeByIndex(struct TaghaHeader *const hdr, const size_t index)
+static TaghaNative *GetNativeByIndex(struct TaghaHeader *const hdr, const size_t index)
 {
 	if( !hdr )
 		return NULL;
@@ -210,7 +210,7 @@ inline static TaghaNative *GetNativeByIndex(struct TaghaHeader *const hdr, const
 	return NULL;
 }
 
-inline static void *GetVariableOffsetByName(struct TaghaHeader *const hdr, const char *restrict varname)
+static void *GetVariableOffsetByName(struct TaghaHeader *const hdr, const char *restrict varname)
 {
 	if( !hdr || !varname )
 		return NULL;
@@ -230,7 +230,7 @@ inline static void *GetVariableOffsetByName(struct TaghaHeader *const hdr, const
 	return NULL;
 }
 
-inline static void *GetVariableOffsetByIndex(struct TaghaHeader *const hdr, const size_t index)
+static void *GetVariableOffsetByIndex(struct TaghaHeader *const hdr, const size_t index)
 {
 	if( !hdr )
 		return NULL;
@@ -281,7 +281,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 #undef INSTR_SET
 	/* #ifdef _UNISTD_H */
 	
-	#define OLDDISPATCH() \
+	#define DEBUGDISPATCH() \
 		decode.opcode = *pc.UInt16Ptr++; \
 		\
 		if( decode.instr>nop ) { \
@@ -2470,7 +2470,7 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	vm->reg_Eh.Ptr = MainArgs;
 	vm->regSemkath.Int32 = argc;
 	
-	/* check out stack size && align it by the size of union TaghaVal. */
+	/* check out stack size and align it by the size of union TaghaVal. */
 	const size_t stacksize = hdr->StackSize; //(hdr->StackSize + (sizeof(union TaghaVal)-1)) & -(sizeof(union TaghaVal));
 	if( !stacksize ) {
 		vm->Error = ErrStackSize;
@@ -2480,7 +2480,7 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	union TaghaVal Stack[stacksize+1]; memset(Stack, 0, sizeof Stack[0] * stacksize+1);
 	vm->regStk.SelfPtr = vm->regBase.SelfPtr = Stack + stacksize;
 	
-	(--vm->regStk.SelfPtr)->Int64 = 0LL;	/* push NULL ret address. */
+	(--vm->regStk.SelfPtr)->Int64 = 0LL;	/* push NULL return address. */
 	*--vm->regStk.SelfPtr = vm->regBase; /* push rbp */
 	vm->regBase = vm->regStk; /* mov rbp, rsp */
 	vm->regInstr.UInt8Ptr = main_offset;
@@ -2533,7 +2533,7 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 		vm->regStk.SelfPtr -= (args-reg_params);
 	}
 	
-	*--vm->regStk.SelfPtr = vm->regInstr;	/* push return address. */
+	(--vm->regStk.SelfPtr)->Int64 = 0LL;	/* push NULL return address. */
 	*--vm->regStk.SelfPtr = vm->regBase; /* push rbp */
 	vm->regBase = vm->regStk; /* mov rbp, rsp */
 	vm->regInstr.Ptr = func_offset;
@@ -2568,6 +2568,7 @@ const char *Tagha_GetError(const struct Tagha *const vm)
 }
 
 /************************************************/
+
 
 
 
