@@ -39,4 +39,14 @@ int32_t CTagha::RunScript(int32_t argc, char *argv[])
 	return Tagha_RunScript((struct Tagha *)this, argc, argv);
 }
 
+const char *CTagha::GetError()
+{
+	return Tagha_GetError((struct Tagha *)this);
+}
+
+void CTagha::PrintVMState()
+{
+	Tagha_PrintVMState((struct Tagha *)this);
+}
+
 /////////////////////////////////////////////////////////////////////////////////
