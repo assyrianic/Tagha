@@ -13,23 +13,23 @@ extern "C" {
 #define FLOATING_POINT_OPS 1
 
 union TaghaVal {
-	bool Bool, BoolArray[8], *BoolPtr, (*BoolFunc)(), *(*BoolPtrFunc)();
-	int8_t Int8, Int8Array[8], *Int8Ptr, (*Int8Func)(), *(*Int8PtrFunc)();
-	int16_t Int16, Int16Array[4], *Int16Ptr, (*Int16Func)(), *(*Int16PtrFunc)();
-	int32_t Int32, Int32Array[2], *Int32Ptr, (*Int32Func)(), *(*Int32PtrFunc)();
-	int64_t Int64, *Int64Ptr, (*Int64Func)(), *(*Int64PtrFunc)();
+	bool Bool, BoolArray[8], *BoolPtr;
+	int8_t Int8, Int8Array[8], *Int8Ptr;
+	int16_t Int16, Int16Array[4], *Int16Ptr;
+	int32_t Int32, Int32Array[2], *Int32Ptr;
+	int64_t Int64, *Int64Ptr;
 	
-	uint8_t UInt8, UInt8Array[8], *UInt8Ptr, (*UInt8Func)(), *(*UInt8PtrFunc)();
-	uint16_t UInt16, UInt16Array[4], *UInt16Ptr, (*UInt16Func)(), *(*UInt16PtrFunc)();
-	uint32_t UInt32, UInt32Array[2], *UInt32Ptr, (*UInt32Func)(), *(*UInt32PtrFunc)();
-	uint64_t UInt64, *UInt64Ptr, (*UInt64Func)(), *(*UInt64PtrFunc)();
+	uint8_t UInt8, UInt8Array[8], *UInt8Ptr;
+	uint16_t UInt16, UInt16Array[4], *UInt16Ptr;
+	uint32_t UInt32, UInt32Array[2], *UInt32Ptr;
+	uint64_t UInt64, *UInt64Ptr;
 	size_t SizeInt, *SizeIntPtr;
  #ifdef FLOATING_POINT_OPS
-	float Float, FloatArray[2], *FloatPtr, (*FloatFunc)(), *(*FloatPtrFunc)();
-	double Double, *DoublePtr, (*DoubleFunc)(), *(*DoublePtrFunc)();
+	float Float, FloatArray[2], *FloatPtr;
+	double Double, *DoublePtr;
  #endif
-	void *Ptr, **PtrPtr, (*VoidFunc)(), *(*VoidPtrFunc)();
-	union TaghaVal *SelfPtr, (*SelfFunc)(), *(*SelfPtrFunc)();
+	void *Ptr, (*VoidFunc)();
+	union TaghaVal *SelfPtr;
 };
 
 union TaghaPtr {
