@@ -285,6 +285,8 @@ class CTagha : public Tagha {
 	int32_t CallFunc(const char *, size_t, union TaghaVal []);
 	union TaghaVal GetReturnValue();
 	int32_t RunScript(int32_t, char *[]);
+	const char *GetError();
+	void PrintVMState();
 };
 
 #endif
