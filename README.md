@@ -4,26 +4,21 @@ TaghaVM is a minimal, fast, self-contained register-based virtual machine && run
 ## Rationale:
 You might be thinking, *why not just pick a scripting language*? You're correct. One could simply choose a scripting language and I even advise using a scripting language **but** not all developers want to use a scripting language nor require one and they could have various reasons such as performance, syntax, maybe bloated runtimes.
 
-Another idea you might think is that one could use a C interpreter and embed that but so far, the only C interpreters (that I currently know of) are **CINT**, **PicoC**, **TCC [1]**, **Cling** and **Ch**:
-- The problems with CINT is that it's old, clunky to use, outdated, and deprecated.
-- PicoC is ok but its problem is that it uses old-school interpreting (just runs literal code) instead of compiling to bytecode which would allow it to execute faster.
-- Cling (developed by ROOT CERN) is very good in what it does but it creates a massive dependency called LLVM and Clang. So if you're not worried about memory usage, Cling is good since it can switch between C and C++ but it wasn't designed to be small.
-- The problem with Ch is that, though it's embeddable and updated, it's proprietary and it's unknown how it interprets code; as the usual problem with proprietary code, you don't know what code it could contain and there's no telling what security issues Ch could possibly have; not to mention that proprietary code shuts out enthusiastic individuals or groups from contributing to the software. **UPDATE**: I read on the Ch's developers website that Ch also interprets source code directly, doesn't use a bytecode machine! Specifically, Ch uses an AST-walking interpreter that's combined with a JIT Compiler **[2]**, that'll speed up things alot but reduces portability significantly. **[3]**
-- **[1]** - Tiny C Compiler, it can compile and run scripts for testing but it can't be embedded the same way a scripting system can be.
-- **[2]** - [citation from Ch dev website](https://www.softintegration.com/support/faq/embed.html#bytecode)
-- **[3]** - Embeddable Ch is **NOT** free, you must get a price quote for it and purchase it.
+Besides a scripting system, the other option would be to use a native shared library plugin system. What's the problem with shared libraries? They're not binary portable unless you make a build system for every platform you plan to ship your software for and hand out new binaries for every patch and update.
+
+
 
 The Rationale for Tagha is...
 + 1. give C (and by extension C++) binary portability.
-+ 2. have the clear execution speed advantage bytecode interpreters have over more traditional interpreters.
++ 2. be fast.
 + 3. be open-source.
-+ 4. have a runtime environment without having dependencies (beyond libc of course)
++ 4. have a runtime environment without dependencies (beyond libc of course)
 + 5. be portable and embeddable for any program and platform.
 + 6. be small and minimal.
 
 # Features
 * self-contained.
-* has its own implementation of libc specially for TaghaVM.
+* has its own, open source implementation of libc.
 * register-based virtual machine with 3 different addressing modes to tackle any kind of operation.
 * 22 **general purpose registers** + 3 reserved-use (stack pointers and instruction pointer) registers.
 * floats and doubles are supported (can be compiled without).
