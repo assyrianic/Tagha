@@ -2,41 +2,33 @@
 #include <stdio.h>
 #include <string.h>
 
-/*
-static size_t GetFileSize(FILE *const restrict file)
-{
-	int64_t size = 0L;
-	if( !file )
-		return size;
-	
-	if( !fseek(file, 0, SEEK_END) ) {
-		size = ftell(file);
-		if( size == -1 )
-			return 0L;
-		rewind(file);
-	}
-	return (size_t)size;
-}
-*/
+
 static uint8_t *Tagha_LoadModule(const char *restrict module_name)
 {
 	if( !module_name )
 		return NULL;
 	
-	FILE *restrict tbcfile = fopen(module_name, "rb");
-	if( !tbcfile ) {
+	FILE *script = fopen(module_name, "rb");
+	if( !script )
+		return NULL;
+	
+	fseek(script, 0, SEEK_END);
+	const int64_t filesize = ftell(script);
+	if( filesize <= -1 ) {
+		fclose(script);
 		return NULL;
 	}
-	const size_t filesize = GetFileSize(tbcfile);
-	uint8_t *restrict module = calloc(filesize, sizeof *module);
-	if( !module ) {
-		fclose(tbcfile), tbcfile=NULL;
+	rewind(script);
+	
+	uint8_t *restrict process = calloc(filesize, sizeof *process);
+	if( fread(process, sizeof *process, filesize, script) != (size_t)filesize ) {
+		free(process), process=NULL;
+		fclose(script), script=NULL;
 		return NULL;
+	} else {
+		fclose(script), script=NULL;
+		return process;
 	}
-	const size_t val = fread(module, sizeof(uint8_t), filesize, tbcfile);
-	(void)val;
-	fclose(tbcfile), tbcfile=NULL;
-	return module;
 }
 
 /* void *Tagha_LoadModule(const char *tbc_module_name); */

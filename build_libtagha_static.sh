@@ -8,7 +8,7 @@ ar			cr libtagha.a	tagha_api.o
 rm	tagha_api.o
 
 
-g++			-Wextra -Wall -std=c++11 -O2 -c	tagha_api_cpp.cpp -L. -ltagha
+g++			-Wextra -Wall -std=c++17 -O2 -c	tagha_api_cpp.cpp -L. -ltagha
 ar			cr libtaghacpp.a	tagha_api_cpp.o
 
 rm	tagha_api_cpp.o

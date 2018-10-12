@@ -1,7 +1,7 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
-#-fsanitize=address -lasan -fsanitize=undefined
+#-fsanitize=address -lasan -fsanitize=undefined -fstrict-aliasing
 
 gcc		-Wextra -Wall -std=c99 -s -O2 -c	tagha_api.c  #-fno-guess-branch-probability -fomit-frame-pointer
 

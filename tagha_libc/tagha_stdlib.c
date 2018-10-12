@@ -18,7 +18,7 @@ static void native_free(struct Tagha *const restrict sys, union TaghaVal *const 
 /* void safe_free(void **pptr); */
 static void native_safe_free(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	void **pptr = params[0].PtrPtr;
+	void **restrict pptr = params[0].Ptr;
 	if( *pptr ) {
 		free(*pptr), *pptr=NULL;
 	}
@@ -179,9 +179,8 @@ One wrong move could render this native function as undefined behavior.
 */
 static void native_div(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	// Patch Aug 7, 2018: Clang-LLVM compiler compiles this as hidden struct ptr.
-	div_t *res = params[0].Ptr;
-	*res = div(params[1].Int32, params[2].Int32);
+	const div_t divres = div(params[1].Int32, params[2].Int32);
+	memcpy(RetVal, &divres, sizeof divres);
 }
 
 /*

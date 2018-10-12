@@ -1762,9 +1762,8 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 	ByteBuffer_Del(&datatable);
 	
 	// now build stack
-	for( size_t i=0 ; i<tasm->Stacksize ; i++ ) {
+	for( size_t i=0 ; i<tasm->Stacksize ; i++ )
 		ByteBuffer_InsertInt(&tbcfile, 0, sizeof(union TaghaVal));
-	}
 	
 	{ // scoping this section off so we can use restricted pointer.
 		char *restrict iter = tasm->OutputName.CStr;

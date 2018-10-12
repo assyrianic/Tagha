@@ -192,6 +192,7 @@ const char *Tagha_GetError(const struct Tagha *);
 
 bool Tagha_RegisterNatives(struct Tagha *, const struct NativeInfo []);
 void *Tagha_GetGlobalVarByName(struct Tagha *, const char *);
+void *Tagha_GetRawScriptPtr(const struct Tagha *);
 
 int32_t Tagha_Exec(struct Tagha *)
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
@@ -287,8 +288,7 @@ class CTagha : public Tagha {
 	int32_t RunScript(int32_t, char *[]);
 	const char *GetError();
 	void PrintVMState();
+	void *GetRawScriptPtr();
 };
 
 #endif
-
-

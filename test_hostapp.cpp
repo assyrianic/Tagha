@@ -2,7 +2,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstddef>
+#include <cstring>
 #include <ctime>
+#include <memory>
 #include "tagha.h"
 
 struct Player {
@@ -63,7 +65,7 @@ void Native_AddOne(class CTagha *sys, union TaghaVal *retval, const size_t args,
 }
 
 
-static size_t GetFileSize(FILE *const __restrict file)
+static size_t GetFileSize(FILE *const restrict file)
 {
 	int64_t size = 0L;
 	if( !file )
@@ -92,32 +94,34 @@ int main(int argc, char *argv[])
 	
 	
 	const size_t filesize = GetFileSize(script);
-	uint8_t process[filesize];
-	const size_t val = fread(process, sizeof(uint8_t), filesize, script);
+	std::unique_ptr<uint8_t> process(new uint8_t[filesize]);
+	const size_t val = fread(process.get(), sizeof(uint8_t), filesize, script);
 	(void)val;
 	fclose(script), script=nullptr;
 	
-	struct CNativeInfo host_natives[] = {
+	const CNativeInfo host_natives[] = {
 		{"puts", Native_puts},
 		{"fgets", Native_fgets},
 		{"strlen", Native_strlen},
 		{"AddOne", Native_AddOne},
 		{nullptr, nullptr}
 	};
-	CTagha vm = CTagha(process, host_natives);
 	
-	struct Player player;
-	player.speed = 0.f, player.health = 0, player.ammo = 0;
-	struct Player **pp = (struct Player **)vm.GetGlobalVarByName("g_pPlayer");
+	std::unique_ptr<CTagha> vm = std::make_unique<CTagha>(process.get(), host_natives);
+	//CTagha *vm = new CTagha(process, host_natives);
+	Player player; player.speed = 0.f, player.health = 0, player.ammo = 0;
+	Player **pp = (struct Player **)vm->GetGlobalVarByName("g_pPlayer");
 	if( pp )
 		*pp = &player;
 	
 	char i[] = "hello from main argv!";
 	char *arguments[] = {i, nullptr};
-	int32_t result = vm.RunScript(1, arguments);
+	int32_t result = vm->RunScript(1, arguments);
 	//union TaghaVal values[1]; values[0].UInt64 = 5;
-	//int32_t result = vm.CallFunc("factorial", 1, values);
+	//int32_t result = vm->CallFunc("factorial", 1, values);
 	if( pp )
 		printf("player.speed: '%f' | player.health: '%u' | player.ammo: '%u'\n", player.speed, player.health, player.ammo);
 	printf("result?: '%i'\n", result);
+	//delete vm;
+	//delete[] process;
 }

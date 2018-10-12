@@ -1,3 +1,3 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes -v --main-stacksize=16000000 ./taghavmgcc_hosttest test_global.tbc
+valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes -v --main-stacksize=16000000 ./taghavmgcc_hosttest test_dynamicloading.tbc
