@@ -173,7 +173,7 @@ struct Tagha {
 		};
 		union TaghaVal Regs[regsize];
 	};
-	struct TaghaHeader *Header;
+	uint8_t *Header;
 	enum TaghaErrCode Error;
 	bool CondFlag : 1; /* conditional flag for conditional jumps! */
 };
@@ -292,3 +292,4 @@ class CTagha : public Tagha {
 };
 
 #endif
+
