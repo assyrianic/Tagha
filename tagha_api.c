@@ -141,9 +141,9 @@ bool Tagha_RegisterNatives(struct Tagha *const restrict vm, const struct NativeI
 		return false;
 	
 	for( const struct NativeInfo *restrict n=natives ; n->NativeCFunc && n->Name ; n++ ) {
-		const union TaghaVal func_addr = (union TaghaVal){.Ptr = GetFunctionOffsetByName(vm->Header, n->Name)};
-		if( func_addr.Ptr )
-			func_addr.SelfPtr->VoidFunc = n->NativeCFunc;
+		TaghaNative **natref = (union TaghaVal){.Ptr = GetFunctionOffsetByName(vm->Header, n->Name)};
+		if( natref )
+			*natref = n->NativeCFunc;
 	}
 	return true;
 }
