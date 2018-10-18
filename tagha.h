@@ -9,72 +9,71 @@ extern "C" {
 #include <stddef.h>
 #include <inttypes.h>
 
+#define __TAGHA_FLOAT32_DEFINED // allow tagha to use 32-bit floats
+#define __TAGHA_FLOAT64_DEFINED // allow tagha to use 64-bit floats
 
-#define FLOATING_POINT_OPS 1
+#if defined(__TAGHA_FLOAT32_DEFINED) || defined(__TAGHA_FLOAT64_DEFINED)
+#	ifndef FLOATING_POINT_OPS
+#		define FLOATING_POINT_OPS
+#	endif
+#endif
 
 union TaghaVal {
-	bool Bool, BoolArray[8], *BoolPtr;
-	int8_t Int8, Int8Array[8], *Int8Ptr;
-	int16_t Int16, Int16Array[4], *Int16Ptr;
-	int32_t Int32, Int32Array[2], *Int32Ptr;
-	int64_t Int64, *Int64Ptr;
+	bool Bool, *PtrBool;
+	int8_t Int8, *PtrInt8;
+	int16_t Int16, *PtrInt16;
+	int32_t Int32, *PtrInt32;
+	int64_t Int64, *PtrInt64;
 	
-	uint8_t UInt8, UInt8Array[8], *UInt8Ptr;
-	uint16_t UInt16, UInt16Array[4], *UInt16Ptr;
-	uint32_t UInt32, UInt32Array[2], *UInt32Ptr;
-	uint64_t UInt64, *UInt64Ptr;
-	size_t SizeInt, *SizeIntPtr;
- #ifdef FLOATING_POINT_OPS
-	float Float, FloatArray[2], *FloatPtr;
-	double Double, *DoublePtr;
+	uint8_t UInt8, *PtrUInt8;
+	uint16_t UInt16, *PtrUInt16;
+	uint32_t UInt32, *PtrUInt32;
+	uint64_t UInt64, *PtrUInt64;
+	size_t SizeInt, *PtrSizeInt;
+	uintptr_t UIntPtr;
+	intptr_t IntPtr;
+ #ifdef __TAGHA_FLOAT32_DEFINED
+	float Float, *PtrFloat;
  #endif
-	void *Ptr, (*VoidFunc)();
-	union TaghaVal *SelfPtr;
+ #ifdef __TAGHA_FLOAT64_DEFINED
+	double Double, *PtrDouble;
+ #endif
+	void *Ptr;
+	union TaghaVal *PtrSelf;
 };
 
 union TaghaPtr {
-	uint8_t *restrict UInt8Ptr;
-	uint16_t *restrict UInt16Ptr;
-	uint32_t *restrict UInt32Ptr;
-	uint64_t *restrict UInt64Ptr;
+	uint8_t *restrict PtrUInt8;
+	uint16_t *restrict PtrUInt16;
+	uint32_t *restrict PtrUInt32;
+	uint64_t *restrict PtrUInt64;
 	
-	int8_t *restrict Int8Ptr;
-	int16_t *restrict Int16Ptr;
-	int32_t *restrict Int32Ptr;
-	int64_t *restrict Int64Ptr;
-	size_t *restrict SizeIntPtr;
- #ifdef FLOATING_POINT_OPS
-	float *restrict FloatPtr;
-	double *restrict DoublePtr;
+	int8_t *restrict PtrInt8;
+	int16_t *restrict PtrInt16;
+	int32_t *restrict PtrInt32;
+	int64_t *restrict PtrInt64;
+	size_t *restrict PtrSizeInt;
+ #ifdef __TAGHA_FLOAT32_DEFINED
+	float *restrict PtrFloat;
  #endif
-	const char *restrict CStrPtr;
+ #ifdef __TAGHA_FLOAT64_DEFINED
+	double *restrict PtrDouble;
+ #endif
+	const char *restrict PtrCStr;
 	
-	union TaghaVal *restrict ValPtr;
-	union TaghaPtr *restrict SelfPtr;
+	union TaghaVal *restrict PtrVal;
+	union TaghaPtr *restrict PtrSelf;
 	void *restrict Ptr;
 };
-
-
-/* For Colored Debugging Printing! */
-#define KNRM	"\x1B[0m"	/* Normal */
-#define KRED	"\x1B[31m"
-#define KGRN	"\x1B[32m"
-#define KYEL	"\x1B[33m"
-#define KBLU	"\x1B[34m"
-#define KMAG	"\x1B[35m"
-#define KCYN	"\x1B[36m"
-#define KWHT	"\x1B[37m"
-#define RESET	"\033[0m"	/* Reset obviously */
-
-#define TAGHA_VERSION_STR		"0.0.1a"
 
 
 /* Script File/Binary Format Structure (Jun 23, 2018)
  * ------------------------------ start of header ------------------------------
  * 2 bytes: magic verifier ==> 0xC0DE
  * 4 bytes: stack size, stack size needed for the code
- * 4 bytes: func table offset (from this offset)
- * 4 bytes: global var table offset (from this offset)
+ * 4 bytes: func table offset (from header)
+ * 4 bytes: global var table offset (from header)
+ * 4 bytes: stack base offset (from header)
  * 1 byte: flags
  * ------------------------------ end of header ------------------------------
  * .functions table
@@ -96,6 +95,8 @@ union TaghaPtr {
  * 		n bytes: global var string
  * 		if bytecode var: n bytes: data. All 0 if not initialized in script code.
  *		else: 8 bytes: var address (0 at first, filled in during runtime)
+ * 
+ * n bytes : stack base
  */
 
 #pragma pack(push, 1)
@@ -133,7 +134,7 @@ struct TaghaHeader {
  */
 struct Tagha;
 typedef void TaghaNative(struct Tagha *vm, union TaghaVal *ret, size_t args, union TaghaVal params[]);
-typedef union TaghaVal TaghaUserFunc(struct Tagha *vm, uint8_t opcode, size_t args, union TaghaVal params[]);
+typedef union TaghaVal TaghaSysCall(struct Tagha *vm, int8_t callid, size_t args, union TaghaVal params[]);
 
 struct NativeInfo {
 	const char *Name;
@@ -159,7 +160,11 @@ enum TaghaErrCode {
 	ErrBadPtr,
 	ErrMissingFunc, ErrMissingNative,
 	ErrInvalidScript,
-	ErrStackSize
+	ErrStackSize, ErrStackOver,
+};
+
+enum TaghaFlags {
+	FlagSafeMode = 1,
 };
 
 // Script structure.
@@ -173,8 +178,9 @@ struct Tagha {
 		};
 		union TaghaVal Regs[regsize];
 	};
-	uint8_t *Header;
+	uint8_t *Header, *Footer;
 	enum TaghaErrCode Error;
+	uint8_t ScriptFlags;
 	bool CondFlag : 1; /* conditional flag for conditional jumps! */
 };
 
@@ -205,56 +211,54 @@ union TaghaVal Tagha_GetReturnValue(const struct Tagha *);
 int32_t Tagha_RunScript(struct Tagha *, int32_t, char *[]);
 
 
-enum AddrMode {
-	Immediate	= 1, /* interpret as immediate/constant value */
-	Register	= 2, /* interpret as register id */
-	RegIndirect	= 4, /* interpret register id's contents as a memory address. */
-	UseReg	= 8, /* UseReg. */
-	Byte		= 16, /* use data as (u)int8_t& */
-	TwoBytes	= 32, /* use data as (u)int16_t& */
-	FourBytes	= 64, /* use data as (u)int32_t& */
-	EightBytes	= 128, /* use data as (u)int64_t& */
-};
-
-
 #ifdef FLOATING_POINT_OPS
 	#define INSTR_SET	\
 		X(halt) \
-		X(push) X(pop) \
+		X(pushi) X(push) X(pop) \
 		\
-		X(lea) X(mov) \
+		X(loadglobal) X(loadaddr) X(loadfunc) \
+		X(movi) X(mov) \
+		X(ld1) X(ld2) X(ld4) X(ld8) \
+		X(st1) X(st2) X(st4) X(st8) \
 		\
 		X(add) X(sub) X(mul) X(divi) X(mod) \
 		\
-		X(andb) X(orb) X(xorb) X(notb) X(shl) X(shr) \
+		X(bit_and) X(bit_or) X(bit_xor) X(bit_not) X(shl) X(shr) \
 		X(inc) X(dec) X(neg) \
 		\
-		X(ilt) X(igt) X(ult) X(ugt) X(cmp) X(neq) \
+		X(ilt) X(ile) X(igt) X(ige) \
+		X(ult) X(ule) X(ugt) X(uge) \
+		X(cmp) X(neq) \
 		\
 		X(jmp) X(jz) X(jnz) \
-		X(call) X(syscall) X(ret) \
+		X(call) X(callr) X(syscall) X(syscallr) X(ret) \
 		\
 		X(flt2dbl) X(dbl2flt) X(int2dbl) X(int2flt) \
 		X(addf) X(subf) X(mulf) X(divf) \
 		X(incf) X(decf) X(negf) \
-		X(ltf) X(gtf) X(cmpf) X(neqf) \
+		X(ltf) X(lef) X(gtf) X(gef) X(cmpf) X(neqf) \
 		X(nop)
 #else
 	#define INSTR_SET	\
 		X(halt) \
-		X(push) X(pop) \
+		X(pushi) X(push) X(pop) \
 		\
-		X(lea) X(mov) \
+		X(loadglobal) X(loadaddr) X(loadfunc) \
+		X(movi) X(mov) \
+		X(ld1) X(ld2) X(ld4) X(ld8) \
+		X(st1) X(st2) X(st4) X(st8) \
 		\
 		X(add) X(sub) X(mul) X(divi) X(mod) \
 		\
-		X(andb) X(orb) X(xorb) X(notb) X(shl) X(shr) \
+		X(bit_and) X(bit_or) X(bit_xor) X(bit_not) X(shl) X(shr) \
 		X(inc) X(dec) X(neg) \
 		\
-		X(ilt) X(igt) X(ult) X(ugt) X(cmp) X(neq) \
+		X(ilt) X(ile) X(igt) X(ige) \
+		X(ult) X(ule) X(ugt) X(uge) \
+		X(cmp) X(neq) \
 		\
 		X(jmp) X(jz) X(jnz) \
-		X(call) X(syscall) X(ret) \
+		X(call) X(callr) X(syscall) X(syscallr) X(ret) \
 		\
 		X(nop)
 #endif
@@ -265,7 +269,6 @@ enum InstrSet { INSTR_SET };
 
 #ifdef __cplusplus
 }
-
 
 class CTagha;
 typedef void TaghaNative_cpp(class CTagha *, union TaghaVal *, size_t, union TaghaVal []);
@@ -290,6 +293,4 @@ class CTagha : public Tagha {
 	void PrintVMState();
 	void *GetRawScriptPtr();
 };
-
 #endif
-

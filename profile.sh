@@ -1,13 +1,15 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
-#-fsanitize=address -lasan -fsanitize=undefined -fstrict-aliasing
+# -fsanitize=address -fsanitize=undefined -fstrict-aliasing
+# -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations
 
-gcc		-Wextra -Wall -std=c99 -s -O3 -c	tagha_api.c  #-fno-guess-branch-probability -fomit-frame-pointer
+gcc		-Wextra -Wall -std=c99 -s -O2 -c	tagha_api.c  #-fno-guess-branch-probability -fomit-frame-pointer
+#gcc		-Wextra -Wall -std=c99 -s -O2 -S -masm=intel tagha_api.c
 
 ar			cr libtagha.a	tagha_api.o
 
-gcc -Wextra -Wall -std=c99 -s -O3 test_hostapp.c -L. -ltagha -o taghavmgcc_hosttest
+gcc -Wextra -Wall -std=c99 -s -O2 test_hostapp.c -L. -ltagha -o taghavmgcc_hosttest
 
 
 

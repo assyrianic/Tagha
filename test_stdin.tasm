@@ -8,19 +8,20 @@ $native %fgets  # char *fgets(char *, int, FILE *);
 
 %main: {
 # char string[256];
-	sub rsp, 256
+	movi rgamal, 256
+	sub rsp, rgamal
 	
 # puts("Please enter a long string: ");
-	lea rsemkath, string
-	mov ralaf, 1
+	loadglobal rsemkath, string
+	movi ralaf, 1
 	syscall %puts
 	
 # fgets(string, 256, stdin);
-	lea rpeh, stdin # loading a global only loads its address, we need the actual ptr value of stdin.
-	mov rpeh, [word rpeh]
-	mov r_eh, 256
-	lea rsemkath, [rbp-256]
-	mov ralaf, 3
+	loadglobal rpeh, stdin # loading a global only loads its address, we need the actual ptr value of stdin.
+	ld8 rpeh, [rpeh]
+	movi r_eh, 256
+	loadaddr rsemkath, [rbp-256]
+	movi ralaf, 3
 	syscall %fgets
 	ret
 }

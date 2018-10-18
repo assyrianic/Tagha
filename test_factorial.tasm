@@ -12,6 +12,11 @@ $global n, 4, byte 0, byte 0, byte 0, byte 0x40 # alternative: long 0x40000000 o
 $global str, 30,	"bytecode says you suck hahaah"
 $native %puts
 
+; $safe and $safemode (same thing) added memory bounds checking
+; every time a load or store instruction is executed.
+$safe
+$safemode
+
 # uint32_t factorial(const uint32_t i) {
 #     if( i<=1 )
 #         return 1;
@@ -19,52 +24,30 @@ $native %puts
 # }
 
 %main: {
-	mov rsemkath, 5
+	movi rsemkath, 5
 	call %factorial
-	#mov rsemkath, 0x40a00000 ; 5.f
-	#call %factorial_float
 	ret
 }
 
 %factorial: {
-	mov	[long rbp-4], rsemkath
+	movi	rbeth, 1 ; 10 bytes
+	st4 [rbp-4], rsemkath ; 7 bytes
 	
 # if( i<=1 )
-	cmp	[long rbp-4], 1
-	jz	.cont
+	cmp	rsemkath, rbeth ; 3 bytes
+	jz	.cont ; 9 bytes
 	
 # return 1;
-	mov ralaf, 1
-	ret
+	mov ralaf, rbeth ; 3 bytes
+	ret ; 1 bytes
 	
 .cont:
 # return i * factorial(i-1);
-	mov ralaf, [long rbp-4]
-	sub ralaf, 1
+	ld4 ralaf, [rbp-4]
+	sub ralaf, rbeth
 	mov rsemkath, ralaf
 	call %factorial
-	mul ralaf, [long rbp-4]
-	ret
-}
-
-%factorial_float: {
-	sub	rsp, 16
-	mov	[long rbp-4], rsemkath
-	
-# if( i<=1.f )
-	cmpf	[long rbp-4], 0x3f800000 ; 1.f in int hex
-	jz	.contflt
-	
-# return 1.f;
-	mov ralaf, 0x3f800000
-	ret
-	
-.contflt:
-# return i * factorial_float(i-1.f);
-	mov ralaf, [long rbp-4]
-	subf long ralaf, 0x3f800000
-	mov rsemkath, ralaf
-	call %factorial_float
-	mulf ralaf, [long rbp-4]
+	ld4 rgamal, [rbp-4]
+	mul ralaf, rgamal
 	ret
 }

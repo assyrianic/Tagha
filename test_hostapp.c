@@ -98,17 +98,17 @@ int main(const int argc, char *argv[restrict static argc+1])
 	struct Tagha *vm = MakeScriptByName(argv[1], host_natives);
 	if( vm ) {
 		Tagha_LoadlibTaghaNatives(vm); // from tagha_libc/libtagha.c
-	
+		
 		struct Player player = (struct Player){0};
 		// GetGlobalVarByName returns a pointer to the data.
 		// if the data itself is a pointer, then you gotta use a pointer-pointer.
 		struct Player **pp = Tagha_GetGlobalVarByName(vm, "g_pPlayer");
 		if( pp )
 			*pp = &player;
-	
+		
 		char argv1[] = "hello from main argv!";
 		char *arguments[] = {argv1, NULL};
-		clock_t start = clock();
+		const clock_t start = clock();
 		//int32_t result = Tagha_CallFunc(vm, "factorial", 1, &(union TaghaVal){.UInt64 = 5});
 		const int32_t result = Tagha_RunScript(vm, 1, arguments);
 		if( pp )

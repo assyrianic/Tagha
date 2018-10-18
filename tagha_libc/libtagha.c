@@ -55,8 +55,8 @@ void Native_TaghaInvoke(struct Tagha *const restrict sys, union TaghaVal *const 
 	struct Tagha *const restrict module = params[0].Ptr;
 	const char *restrict funcname = params[1].Ptr;
 	union TaghaVal
-		*const restrict retdata = params[2].SelfPtr,
-		*const restrict array = params[4].SelfPtr
+		*const restrict retdata = params[2].PtrSelf,
+		*const restrict array = params[4].PtrSelf
 	;
 	if( !module || !retdata ) {
 		return;

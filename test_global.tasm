@@ -11,13 +11,22 @@
 
 $stacksize 8 # 64 byte stack is more than enough really.
 $global g_pPlayer, 8,	0
+;$safe
 
 %main: {
-	sub rsp, 32
-	lea rgamal, g_pPlayer
-	mov rgamal, [word rgamal]
-	mov [long rgamal], 0x43960000 ; 300.f as a 32-bit int hex
-	mov [long rgamal+4], 100 ; g_pPlayer->health = 100;
-	mov [long rgamal+8], 32 ; g_pPlayer->ammo = 32;
+	movi rgamal, 32
+	sub rsp, rgamal
+	loadglobal rgamal, g_pPlayer
+	ld8 rgamal, [rgamal]
+	
+	movi rdalath, 0x43960000 ; 300.f as a 32-bit int hex
+	st4 [rgamal], rdalath ; g_pPlayer->speed = 300.f;
+	
+	movi rdalath, 100
+	st4 [rgamal+4], rdalath ; g_pPlayer->health = 100;
+	
+	movi rdalath, 32
+	st4 [rgamal+8], rdalath ; g_pPlayer->ammo = 32;
+	
 	ret
 }

@@ -6,38 +6,43 @@ $native %Tagha_LoadModule ; void *Tagha_LoadModule(const char *);
 $native %Tagha_InvokeFunc ; bool Tagha_InvokeFunc(void *, const char *, union TaghaVal *, size_t, union TaghaVal []);
 $native %Tagha_FreeModule ; void Tagha_FreeModule(void **);
 
+$safe
+
 %main: {
-	sub rsp, 32
-	mov rbeth, 10000000 #1000000000 / 1000000 / 10000000
-	lea rsemkath, module_str
-	mov ralaf, 1
+	movi rgamal, 32
+	sub rsp, rgamal
+	movi rbeth, 10000000 #1000000000 / 1000000 / 10000000
+	loadglobal rsemkath, module_str
+	movi ralaf, 1
 	syscall %Tagha_LoadModule ; void *temp = Tagha_LoadModule("test_factorial.tbc");
-	mov [word rbp-24], ralaf ; module ptr is in ralaf, copy it to stack
+	st8 [rbp-24], ralaf ; module ptr is in ralaf, copy it to stack
 	
 	; load array
-	mov [word rbp-16], 5
-	lea rqof, [rbp-16]
-	; load constant
-	mov rsadhe, 1
+	movi rdalath, 5
+	st8 [rbp-16], rdalath
+	loadaddr rqof, [rbp-16]
+	
+	; load constant array size
+	movi rsadhe, 1
 	; load return TaghaVal ptr.
-	lea rpeh, [rbp-8]
+	loadaddr rpeh, [rbp-8]
 	; load string of function we want to execute.
-	lea r_eh, factorial_str
+	loadglobal r_eh, factorial_str
 	; copy the module ptr to register semkath.
-	mov rsemkath, [word rbp-24]
+	ld8 rsemkath, [rbp-24]
 	
 	; test dynamic loading function invocation overhead
 .loop:
-	mov ralaf, 5
+	movi ralaf, 5
 	syscall %Tagha_InvokeFunc ; Tagha_InvokeFunc(module, "factorial", &val, 1, &(union TaghaVal){5});
 	dec rbeth
-	cmp rbeth, 0
+	movi rheh, 0
+	cmp rbeth, rheh
 	jz .loop
 	
-	lea rsemkath, [rbp-24]
-	mov ralaf, 1
+	loadaddr rsemkath, [rbp-24]
+	movi ralaf, 1
 	syscall %Tagha_FreeModule ; Tagha_FreeModule(&module);
-	mov ralaf, [word rbp-8]
+	ld8 ralaf, [rbp-8]
 	ret
 }
-

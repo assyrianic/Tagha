@@ -1,11 +1,15 @@
 $stacksize 16
 
 %main: {
-	sub rsp, 32
-	lea rsemkath, [rbp-24]
-	mov [long rbp-24], 0x40000000 ; 2.f
-	mov [long rbp-20], 0x40400000 ; 3.f
-	mov [long rbp-16], 0x40800000 ; 4.f
+	movi rgamal, 32
+	sub rsp, rgamal
+	loadaddr rsemkath, [rbp-24]
+	movi rgamal, 0x40000000 ; 2.f
+	st4 [rbp-24], rgamal
+	movi rgamal, 0x40400000 ; 3.f
+	st4 [rbp-20], rgamal
+	movi rgamal, 0x40800000 ; 4.f
+	st4 [rbp-16], rgamal
 	call %VecInvert
 	ret
 }
@@ -18,19 +22,29 @@ $stacksize 16
 ; }
 
 %VecInvert: {
-	mov rbeth, [long rsemkath]
-	negf long rbeth
-	mov [long rsemkath], rbeth
+	; v[0] = -v[0];
+	ld4 rbeth, [rsemkath]
+	flt2dbl rbeth
+	negf rbeth
+	addf ralaf, rbeth
+	dbl2flt rbeth
+	st4 [rsemkath], rbeth
 	
-	mov rgamal, [long rsemkath+4]
-	negf long rgamal
-	mov [long rsemkath+4], rgamal
+	; v[1] = -v[1];
+	ld4 rbeth, [rsemkath+4]
+	flt2dbl rbeth
+	negf rbeth
+	addf ralaf, rbeth
+	dbl2flt rbeth
+	st4 [rsemkath+4], rbeth
 	
-	mov rdalath, [long rsemkath+8]
-	negf long rdalath
-	mov [long rsemkath+8], rdalath
-	addf ralaf, [long rsemkath]
-	addf ralaf, [long rsemkath+4]
-	addf ralaf, [long rsemkath+8]
+	; v[2] = -v[2];
+	ld4 rbeth, [rsemkath+8]
+	flt2dbl rbeth
+	negf rbeth
+	addf ralaf, rbeth
+	dbl2flt rbeth
+	st4 [rsemkath+8], rbeth
+	
 	ret
 }

@@ -1,7 +1,7 @@
 $stacksize 1024
 
 %main: {
-	mov rsemkath, 34
+	movi rsemkath, 34
 	call %fib
 	ret
 }
@@ -13,29 +13,32 @@ $stacksize 1024
 ; }
 
 %fib: {
-	sub    rsp, 16
+	movi rgamal, 16
+	sub    rsp, rgamal
 	push	rbeth
-	mov	[long rbp-4], rsemkath
+	st4    [rbp-4], rsemkath
+	movi rdalath, 2
 	
-	ilt	[long rbp-4], 2    ; if( i<2 )
+	ilt	rsemkath, rdalath    ; if( n<2 )
 	jz	.evalfib
 	
 .exit:
-	mov	ralaf, [long rbp-4]
+	ld4    ralaf, [rbp-4]
 	ret
 	
 .evalfib:
 ; return fib(n-1) + fib(n-2);
 	; fib(n-1)
-	mov	ralaf, [long rbp-4]
-	sub    ralaf, 1
+	ld4    ralaf, [rbp-4]
+	movi	rlamadh, 1
+	sub    ralaf, rlamadh
 	mov	rsemkath, ralaf
 	call	%fib
 	
 	mov	rbeth, ralaf
 	; fib(n-2)
-	mov	ralaf, [long rbp-4]
-	sub    ralaf, 2
+	ld4    ralaf, [rbp-4]
+	sub    ralaf, rdalath
 	mov	rsemkath, ralaf
 	call	%fib
 	; +

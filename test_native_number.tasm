@@ -1,4 +1,4 @@
-$stacksize 0xFF
+$stacksize 0xf
 $native %AddOne    ; int AddOne(const int n);
 
 ; int main()
@@ -8,33 +8,17 @@ $native %AddOne    ; int AddOne(const int n);
 ; 		count = AddOne(count);
 ; }
 
-;%main: {
-;	mov [long rbp-4], 0 ; int length = 0;
-;	mov [long rbp-8], 0 ; int i = 0;
-;	jmp .L2
-;.L3:
-;	mov rsemkath, [long rbp-4]
-;	syscall %AddOne, 1
-;	mov [long rbp-4], ralaf
-;	inc [long rbp-8]
-;.L2:
-;	lt [long rbp-8], 1000000000
-;	jnz .L3
-;	mov ralaf, [long rbp-4]
-;	ret
-;}
-
-
 %main: {
-	mov rbeth, 1000000000
-	xorb ralaf, ralaf
+	movi rbeth, 1000000000
+	bit_xor ralaf, ralaf
 	
 .loop:
 	mov rsemkath, ralaf
-	mov ralaf, 1
+	movi ralaf, 1
 	syscall %AddOne
 	dec rbeth
-	cmp rbeth, 0
+	movi rgamal, 0
+	cmp rbeth, rgamal
 	jz .loop
 	ret
 }
