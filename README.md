@@ -116,8 +116,8 @@ Changing the header file requires that you recompile tagha for the change to tak
 
 ## Credits
 
-Khanno Hanna - main developer of Tagha.
-Id Software - developers of Quake 3 Virtual Machine, which inspired Tagha's creation.
+* Khanno Hanna - main developer of Tagha.
+* Id Software - developers of Quake 3 Virtual Machine, which inspired Tagha's creation.
 
 ## Contact
 
