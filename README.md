@@ -56,7 +56,7 @@ int main(int argc, char **argv)
 	struct Tagha vm;
 
 	// assume "LoadScriptFromFile" is a real function.
-	Tagha\_Init(&vm, LoadScriptFromFile("my\_tbc\_script.tbc"));
+	Tagha\_Init(&vm, LoadScriptFromFile("my_tbc_script.tbc"));
 
 	// Execute our script!
 	Tagha_RunScript(&vm, 0, NULL);
