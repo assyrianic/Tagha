@@ -125,4 +125,4 @@ I can be contacted through the discord link above.
 
 ## License
 
-This project is licensed under GPL License v3.
+This project is licensed under LGPL License v3.
