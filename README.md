@@ -1,5 +1,5 @@
 # Tagha Virtual Machine
-TaghaVM is a minimal, fast, self-contained register-based virtual machine && runtime environment designed as an alternative to a C dynamic loading plugin system as well as giving binary portability to C code!
+TaghaVM is a minimal, fast, memory-safe, self-contained register-based virtual machine && runtime environment designed as an alternative to a C dynamic loading plugin system as well as giving binary portability to C code!
 
 ## Rationale:
 You might be thinking, *why not just pick a scripting language*? You're correct. One could simply choose a scripting language and I even advise using a scripting language **but** not all developers want to use a scripting language nor require one and they could have various reasons such as performance, syntax, maybe bloated runtimes.
@@ -15,6 +15,7 @@ The Rationale for Tagha is...
 + 4. have a runtime environment without dependencies (beyond libc of course)
 + 5. be portable and embeddable for any program and platform.
 + 6. be small and minimal.
++ 7. be memory safe.
 
 # Features
 * self-contained.
@@ -34,6 +35,7 @@ The Rationale for Tagha is...
 * small. The runtime environment static library is only <50kb.
 * Tagha is not natively threaded, this is by design, this is so any developer can thread Tagha in anyway they wish whether by having a single VM instance run multiple scripts in a multi-threaded way OR use an array of Tagha VM instances each running their own scripts in a threaded manner.
 * Speed, tagha is very fast for a virtual machine that does not use a JIT.
+* Memory safe, tagha can sandbox scripts that have safemode enabled.
 
 # How to Build Tagha
 Tagha's repo contains many build scripts. If you simply want a working static library and not have to fuss about...
@@ -54,6 +56,5 @@ The TASM Assembler has a single software dependency by using my [C Data Structur
 * Once you've created a tasm script, run `./tasm 'my_tasm_source.tasm'`
 * if there's no errors reported, a `.tbc` file with the same filename as your tasm script should be generated.
 * to use the TBC scripts, embed Tagha into your C or C++ application and direct your application to the file directly or a special directory for tbc scripts.
-* Tagha is not natively threaded, this is by design, you can thread Tagha in anyway you wish whether by having a single VM instance run multiple scripts in a multi-threaded, managed way OR have an array of Tagha VM instances each running their own scripts in a threaded manner.
 
 For more information, please check out the [Tagha Wiki](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki).
