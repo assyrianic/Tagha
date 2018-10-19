@@ -1,9 +1,15 @@
+# Introduction
+
+TaghaVM is a little-endian, 64-bit register-based VM. Tagha has 22, 64-bit general purpose registers, named after the Syriac alphabet, with 3 additional special purpose registers.
+
+Tagha also uses a stack for establishing call frames, creating local variables, and for holding function arguments to functions that require more than 8 parameters. Stack operations moves the stack pointer by 8 bytes.
+
 # VM Registers
 
 ## General Purpose Registers
 
 ### alaf
-accumulator register (return values go here).
+Accumulator register (return values go here).
 
 ### beth
 ### gamal
@@ -20,39 +26,39 @@ accumulator register (return values go here).
 ### noon
 
 ### semkath
-in both bytecode and native functions, contains the 1st param value.
+In both bytecode and native functions, contains the 1st param value.
 
 ### _eh
-in both bytecode and native functions, contains the 2nd param value.
+In both bytecode and native functions, contains the 2nd param value.
 
 ### peh
-in both bytecode and native functions, contains the 3rd param value.
+In both bytecode and native functions, contains the 3rd param value.
 
 ### sadhe
-in both bytecode and native functions, contains the 4th param value.
+In both bytecode and native functions, contains the 4th param value.
 
 ### qof
-in both bytecode and native functions, contains the 5th param value.
+In both bytecode and native functions, contains the 5th param value.
 
 ### reesh
-in both bytecode and native functions, contains the 6th param value.
+In both bytecode and native functions, contains the 6th param value.
 
 ### sheen
-in both bytecode and native functions, contains the 7th param value.
+In both bytecode and native functions, contains the 7th param value.
 
 ### taw
-in both bytecode and native functions, contains the 8th param value.
+In both bytecode and native functions, contains the 8th param value.
 
 ## Special Purpose Registers
 
 ### rsp
-stack pointer
+Stack Pointer
 
 ### rbp
-base pointer aka stack frame pointer
+Base Pointer aka stack frame pointer
 
 ### ip
-instruction pointer, not accessable in tagha assembly.
+Instruction Pointer, not accessable in tagha assembly.
 
 
 # VM Opcodes
@@ -460,3 +466,24 @@ same as CMP but for floating point values. Math is done for the largest data wid
 
 ### Description
 same as NEQ but for floating point values. Math is done for the largest data width that's enabled (meaning if both doubles and floats are used, NEQF will perform on doubles, regardless whether floats are defined or not).
+
+# VM Instruction Encoding
+
+All opcodes take up a single byte and additional bytes depending on whether they operate on registers, immediate values, or doing memory operations.
+
+Here's a crude ASCII art of the instruction encodings for Tagha opcodes:
+
+-------------------------------------------------
+| byte: opcode                                                         |
+| byte: opcode | byte: register id                                   |
+| byte: opcode | byte: dest reg | byte: src reg                     |
+| byte: opcode | 8 bytes: imm (immediate) value                 |
+| byte: opcode | byte: register id | 8 bytes: imm value          |
+| byte: opcode | byte: dest reg | byte: src reg | 4 bytes: offset |
+-------------------------------------------------
+
+# Calling Convention
+
+Tagha's Calling convention is consistent for both bytecode and native C or (C++) functions.
+
+Arguments 1 to 8 are stored in registers `semkath` to `taw` while any further arguments are dumped to the stack.

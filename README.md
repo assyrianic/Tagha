@@ -32,13 +32,14 @@ The Rationale for Tagha is...
 * uses computed gotos (the ones that use a void\*) which is 20%-25% faster than a switch {[citation](http://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables)}.
 * Tagha is "64-bit" as the registers and memory addresses are 64-bit. (will run slower on 32-bit systems/OSes).
 * Embeddable.
+* Does no memory allocation at all, thus no garbage collecting.
 * scripts can call host-defined functions (Native Interface).
 * host can give arguments and call script functions and retrieve return values.
 * host can bind its own global variables to script-side global variables by name (the script-side global variable must be a pointer).
 * integer & float arithmetic, (un)conditional jumps, comparison operations, and stack and memory manipulations.
 * function call and return opcodes automatically execute function prologues and epilogues.
 * little-endian format (only).
-* small. The runtime environment static library is only <50kb.
+* small. The runtime environment static library is <50kb.
 * Tagha is not natively threaded, this is by design, this is so any developer can thread Tagha in anyway they wish whether by having a single VM instance run multiple scripts in a multi-threaded way OR use an array of Tagha VM instances each running their own scripts in a threaded manner.
 * Speed, tagha is very fast for a virtual machine that does not use a JIT.
 * Memory safe, tagha can sandbox scripts that have safemode enabled.
@@ -56,7 +57,7 @@ int main(int argc, char **argv)
 	struct Tagha vm;
 
 	// assume "LoadScriptFromFile" is a real function.
-	Tagha\_Init(&vm, LoadScriptFromFile("my\_tbc\_script.tbc"));
+	Tagha_Init(&vm, LoadScriptFromFile("my_tbc_script.tbc"));
 
 	// Execute our script!
 	Tagha_RunScript(&vm, 0, NULL);
@@ -92,7 +93,7 @@ To compile `.tasm` scripts to `.tbc` executables, you'll need to build the Tagha
 
 The TASM Assembler has a single software dependency by using my [C Data Structure Collection](https://github.com/assyrianic/C-Data-Structure-Collection) to accomodate data structures like the symbol tables, etc.
 
-* run the `build_tagha_toolchain.sh` script which will build the C data structure collection library and link it to a build of the Tagha Assembler.
+* run the `build_tagha_assembler.sh` script which will build the C data structure collection library and link it to a build of the Tagha Assembler.
 * you should have an executable called `tasm`
 
 ### How to create TBC Scripts with TASM.
@@ -116,8 +117,8 @@ Changing the header file requires that you recompile tagha for the change to tak
 
 ## Credits
 
-Khanno Hanna - main developer of Tagha.
-Id Software - developers of Quake 3 Virtual Machine, which inspired Tagha's creation.
+* Khanno Hanna - main developer of Tagha.
+* Id Software - developers of Quake 3 Virtual Machine, which inspired Tagha's creation.
 
 ## Contact
 

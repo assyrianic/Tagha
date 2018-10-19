@@ -1,0 +1,24 @@
+$stacksize 0xf
+$native %AddOne    ; int AddOne(const int n);
+
+; int main()
+; {
+; 	int count = 0; // 1,000,000,000
+; 	for (int i = 0; i < iterations; i++)
+; 		count = AddOne(count);
+; }
+
+%main: {
+	movi rbeth, 1000000000
+	bit_xor ralaf, ralaf
+	
+.loop:
+	mov rsemkath, ralaf
+	movi ralaf, 1
+	syscall %AddOne
+	dec rbeth
+	movi rgamal, 0
+	cmp rbeth, rgamal
+	jz .loop
+	ret
+}

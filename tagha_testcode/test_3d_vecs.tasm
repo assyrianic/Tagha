@@ -1,0 +1,50 @@
+$stacksize 16
+
+%main: {
+	movi rgamal, 32
+	sub rsp, rgamal
+	loadaddr rsemkath, [rbp-24]
+	movi rgamal, 0x40000000 ; 2.f
+	st4 [rbp-24], rgamal
+	movi rgamal, 0x40400000 ; 3.f
+	st4 [rbp-20], rgamal
+	movi rgamal, 0x40800000 ; 4.f
+	st4 [rbp-16], rgamal
+	call %VecInvert
+	ret
+}
+
+; void VecInvert(float v[3])
+; {
+; 	v[0] = -v[0];
+; 	v[1] = -v[1];
+; 	v[2] = -v[2];
+; }
+
+%VecInvert: {
+	; v[0] = -v[0];
+	ld4 rbeth, [rsemkath]
+	flt2dbl rbeth
+	negf rbeth
+	addf ralaf, rbeth
+	dbl2flt rbeth
+	st4 [rsemkath], rbeth
+	
+	; v[1] = -v[1];
+	ld4 rbeth, [rsemkath+4]
+	flt2dbl rbeth
+	negf rbeth
+	addf ralaf, rbeth
+	dbl2flt rbeth
+	st4 [rsemkath+4], rbeth
+	
+	; v[2] = -v[2];
+	ld4 rbeth, [rsemkath+8]
+	flt2dbl rbeth
+	negf rbeth
+	addf ralaf, rbeth
+	dbl2flt rbeth
+	st4 [rsemkath+8], rbeth
+	
+	ret
+}

@@ -1,0 +1,53 @@
+# manually set stack size
+# directives start with $
+# if stacksize isn't set, the default stacksize is 255 which will end up as
+# 255 * 8 == 2040 bytes of stack size.
+$stacksize 0xff
+
+# global var named 'i' which is 12 bytes (struct) and is assigned the values after the bytesize.
+$global i, 12,	0
+$global n, 4, byte 0, byte 0, byte 0, byte 0x40 # alternative: long 0x40000000 or 1073741824
+
+# global var for strings, number is string length WITH null terminator.
+$global str, 30,	"bytecode says you suck hahaah"
+$native %puts
+
+; $safe and $safemode (same thing) added memory bounds checking
+; every time a load or store instruction is executed.
+$safe
+$safemode
+
+# uint32_t factorial(const uint32_t i) {
+#     if( i<=1 )
+#         return 1;
+#     return i * factorial(i-1);
+# }
+
+%main: {
+	movi rsemkath, 5
+	call %factorial
+	ret
+}
+
+%factorial: {
+	movi	rbeth, 1 ; 10 bytes
+	st4 [rbp-4], rsemkath ; 7 bytes
+	
+# if( i<=1 )
+	cmp	rsemkath, rbeth ; 3 bytes
+	jz	.cont ; 9 bytes
+	
+# return 1;
+	mov ralaf, rbeth ; 3 bytes
+	ret ; 1 bytes
+	
+.cont:
+# return i * factorial(i-1);
+	ld4 ralaf, [rbp-4]
+	sub ralaf, rbeth
+	mov rsemkath, ralaf
+	call %factorial
+	ld4 rgamal, [rbp-4]
+	mul ralaf, rgamal
+	ret
+}
