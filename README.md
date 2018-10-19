@@ -56,7 +56,7 @@ int main(int argc, char **argv)
 	struct Tagha vm;
 
 	// assume "LoadScriptFromFile" is a real function.
-	Tagha_Init(&vm, LoadScriptFromFile("my_tbc_script.tbc"));
+	Tagha\_Init(&vm, LoadScriptFromFile("my\_tbc\_script.tbc"));
 
 	// Execute our script!
 	Tagha_RunScript(&vm, 0, NULL);
@@ -116,8 +116,8 @@ Changing the header file requires that you recompile tagha for the change to tak
 
 ## Credits
 
-* Khanno Hanna - main developer of Tagha.
-* Id Software - developers of Quake 3 Virtual Machine, which inspired Tagha's creation.
+Khanno Hanna - main developer of Tagha.
+Id Software - developers of Quake 3 Virtual Machine, which inspired Tagha's creation.
 
 ## Contact
 

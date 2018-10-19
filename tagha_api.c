@@ -88,7 +88,7 @@ void Tagha_Init(struct Tagha *const restrict vm, void *script)
 	*vm = (struct Tagha){0};
 	PrepModule(script);
 	vm->Header = script;
-	vm->ScriptFlags = vm->Header[18];
+	vm->SafeMode = vm->Header[18];
 }
 
 void Tagha_InitNatives(struct Tagha *const restrict vm, void *restrict script, const struct NativeInfo natives[restrict])
@@ -347,7 +347,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids >> 8].PtrUInt8 + *pc.PtrInt32++};
 		// do a memcheck here.
-		if( vm->ScriptFlags & FlagSafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8 >= vm->Footer) ) {
+		if( vm->SafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
@@ -358,7 +358,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids >> 8].PtrUInt8 + *pc.PtrInt32++};
 		// do a memcheck here.
-		if( vm->ScriptFlags & FlagSafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+1 >= vm->Footer) ) {
+		if( vm->SafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+1 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
@@ -369,7 +369,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids >> 8].PtrUInt8 + *pc.PtrInt32++};
 		// do a memcheck here.
-		if( vm->ScriptFlags & FlagSafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+3 >= vm->Footer) ) {
+		if( vm->SafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+3 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
@@ -380,7 +380,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids >> 8].PtrUInt8 + *pc.PtrInt32++};
 		// do a memcheck here.
-		if( vm->ScriptFlags & FlagSafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+7 >= vm->Footer) ) {
+		if( vm->SafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+7 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
@@ -392,7 +392,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids & 0xff].PtrUInt8 + *pc.PtrInt32++};
 		// do a memcheck here.
-		if( vm->ScriptFlags & FlagSafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8 >= vm->Footer) ) {
+		if( vm->SafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
@@ -403,7 +403,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids & 0xff].PtrUInt8 + *pc.PtrInt32++};
 		// do a memcheck here.
-		if( vm->ScriptFlags & FlagSafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+1 >= vm->Footer) ) {
+		if( vm->SafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+1 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
@@ -414,7 +414,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids & 0xff].PtrUInt8 + *pc.PtrInt32++};
 		// do a memcheck here.
-		if( vm->ScriptFlags & FlagSafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+3 >= vm->Footer) ) {
+		if( vm->SafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+3 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
@@ -425,7 +425,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids & 0xff].PtrUInt8 + *pc.PtrInt32++};
 		// do a memcheck here.
-		if( vm->ScriptFlags & FlagSafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+7 >= vm->Footer) ) {
+		if( vm->SafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+7 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
@@ -609,7 +609,6 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	exec_syscall: { /* char: opcode | i64: index */
 		TaghaNative *const nativeref = GetNativeByIndex(vm->Header, (-1 - *pc.PtrInt64++));
 		if( !nativeref ) {
-			// commenting this out because it slows down the code for some reason...
 			vm->Error = ErrMissingNative;
 			goto *dispatch[halt];
 		}

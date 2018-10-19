@@ -163,9 +163,6 @@ enum TaghaErrCode {
 	ErrStackSize, ErrStackOver,
 };
 
-enum TaghaFlags {
-	FlagSafeMode = 1,
-};
 
 // Script structure.
 struct Tagha {
@@ -180,7 +177,7 @@ struct Tagha {
 	};
 	uint8_t *Header, *Footer;
 	enum TaghaErrCode Error;
-	uint8_t ScriptFlags;
+	bool SafeMode : 1;
 	bool CondFlag : 1; /* conditional flag for conditional jumps! */
 };
 
@@ -232,12 +229,12 @@ int32_t Tagha_RunScript(struct Tagha *, int32_t, char *[]);
 		\
 		X(jmp) X(jz) X(jnz) \
 		X(call) X(callr) X(syscall) X(syscallr) X(ret) \
+		X(nop) \
 		\
 		X(flt2dbl) X(dbl2flt) X(int2dbl) X(int2flt) \
 		X(addf) X(subf) X(mulf) X(divf) \
 		X(incf) X(decf) X(negf) \
-		X(ltf) X(lef) X(gtf) X(gef) X(cmpf) X(neqf) \
-		X(nop)
+		X(ltf) X(lef) X(gtf) X(gef) X(cmpf) X(neqf)
 #else
 	#define INSTR_SET	\
 		X(halt) \
@@ -259,7 +256,6 @@ int32_t Tagha_RunScript(struct Tagha *, int32_t, char *[]);
 		\
 		X(jmp) X(jz) X(jnz) \
 		X(call) X(callr) X(syscall) X(syscallr) X(ret) \
-		\
 		X(nop)
 #endif
 
