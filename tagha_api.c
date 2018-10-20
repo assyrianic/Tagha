@@ -55,7 +55,9 @@ static void InvokeNative(struct Tagha *const vm, const size_t argcount, TaghaNat
 	memcpy(params+reg_params, vm->regStk.PtrSelf, sizeof params[0] * (argcount-reg_params));
 	vm->regStk.PtrSelf += (argcount-reg_params);
 	// invoke!
-	(*NativeCall)(vm, &vm->regAlaf, argcount, params);
+	union TaghaVal retval = (union TaghaVal){0};
+	(*NativeCall)(vm, &retval, argcount, params);
+	memcpy(&vm->regAlaf, &reval, sizeof retval);
 }
 
 
@@ -628,7 +630,9 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			/* save stack space by using the registers for passing arguments. */
 			/* the other registers can then be used for other data operations. */
 			if( argcount <= reg_params ) {
-				(*nativeref)(vm, &vm->regAlaf, argcount, vm->Regs+reg_param_initial);
+				union TaghaVal retval = (union TaghaVal){0};
+				(*nativeref)(vm, &retval, argcount, vm->Regs+reg_param_initial);
+				memcpy(&vm->regAlaf, &reval, sizeof retval);
 				DISPATCH();
 			}
 			/* if the native has more than a certain num of params, get from both registers && stack. */
@@ -655,7 +659,9 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			/* save stack space by using the registers for passing arguments. */
 			/* the other registers can then be used for other data operations. */
 			if( argcount <= reg_params ) {
+				union TaghaVal retval = (union TaghaVal){0};
 				(*nativeref)(vm, &vm->regAlaf, argcount, vm->Regs+reg_param_initial);
+				memcpy(&vm->regAlaf, &reval, sizeof retval);
 				DISPATCH();
 			}
 			/* if the native has more than a certain num of params, get from both registers && stack. */

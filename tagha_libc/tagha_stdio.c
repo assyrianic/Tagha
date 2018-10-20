@@ -301,9 +301,6 @@ static void native_perror(struct Tagha *const restrict sys, union TaghaVal *cons
 
 bool Tagha_LoadstdioNatives(struct Tagha *const restrict sys)
 {
-	if( !sys )
-		return false;
-	
 	const struct NativeInfo libc_stdio_natives[] = {
 		{"remove", native_remove},
 		{"rename", native_rename},
@@ -336,5 +333,5 @@ bool Tagha_LoadstdioNatives(struct Tagha *const restrict sys)
 		{"perror", native_perror},
 		{NULL, NULL}
 	};
-	return Tagha_RegisterNatives(sys, libc_stdio_natives);
+	return sys ? Tagha_RegisterNatives(sys, libc_stdio_natives) : false;
 }

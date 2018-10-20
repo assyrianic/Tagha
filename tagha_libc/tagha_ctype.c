@@ -1,5 +1,5 @@
-
 #include <stdlib.h>
+#include <ctype.h>
 
 /* int isalnum(int c); */
 static void native_isalnum(struct Tagha *const restrict sys, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
@@ -88,9 +88,6 @@ static void native_isxdigit(struct Tagha *const restrict sys, union TaghaVal *co
 
 bool Tagha_LoadctypeNatives(struct Tagha *const restrict sys)
 {
-	if( !sys )
-		return false;
-	
 	const struct NativeInfo libc_ctype_natives[] = {
 		{"isalnum", native_isalnum},
 		{"isalpha", native_isalpha},
@@ -108,5 +105,5 @@ bool Tagha_LoadctypeNatives(struct Tagha *const restrict sys)
 		{"isxdigit", native_isxdigit},
 		{NULL, NULL}
 	};
-	return Tagha_RegisterNatives(sys, libc_ctype_natives);
+	return sys ? Tagha_RegisterNatives(sys, libc_ctype_natives) : false;
 }

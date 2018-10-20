@@ -244,9 +244,6 @@ static void native_wcstombs(struct Tagha *const restrict sys, union TaghaVal *co
 
 bool Tagha_LoadstdlibNatives(struct Tagha *const restrict sys)
 {
-	if( !sys )
-		return false;
-	
 	const struct NativeInfo libc_stdlib_natives[] = {
 		{"malloc", native_malloc},
 		{"free", native_free},
@@ -281,5 +278,5 @@ bool Tagha_LoadstdlibNatives(struct Tagha *const restrict sys)
 		{"wcstombs", native_wcstombs},
 		{NULL, NULL}
 	};
-	return Tagha_RegisterNatives(sys, libc_stdlib_natives);
+	return sys ? Tagha_RegisterNatives(sys, libc_stdlib_natives) : false;
 }
