@@ -1,0 +1,27 @@
+$stacksize 16
+$safemode
+
+$global g_var, 12,	0
+
+
+; test global variable going out of bounds.
+%test_globalmembnds: {
+	loadglobal rgamal, g_var
+	movi rbeth, 50
+	st4 [rgamal-100], rbeth
+	ret
+}
+
+; test local var going out of bounds.
+; remember we have a stack size of 128 bytes.
+%test_stackbnds: {
+	movi rbeth, 90
+	st4 [rbp-100], rbeth ; this probably overwrites alot of global var data but it won't overwrite func data.
+	ret
+}
+
+%main: {
+	call %test_globalmembnds
+	call %test_stackbnds
+	ret
+}

@@ -78,7 +78,7 @@ struct Tagha *MakeScriptByName(const char *restrict filename, const struct Nativ
 }
 
 
-#include "tagha_libc/libtagha.c"
+#include "../tagha_libc/libtagha.c"
 
 int main(const int argc, char *argv[restrict static argc+1])
 {

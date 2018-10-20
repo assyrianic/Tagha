@@ -5,12 +5,12 @@ cd "$(dirname "$0")"
 # -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations
 
 
-gcc		-Wextra -Wall -std=c99 -pg -O2 -c	tagha_api.c  #-fno-guess-branch-probability -fomit-frame-pointer
+gcc		-Wextra -Wall -std=c99 -s -O2 -c	tagha_api.c  #-fno-guess-branch-probability -fomit-frame-pointer
 #gcc		-Wextra -Wall -std=c99 -s -O2 -S -masm=intel tagha_api.c
 
 ar			cr libtagha.a	tagha_api.o
 
-gcc -Wextra -Wall -std=c99 -pg -O2 test_hostapp.c -L. -ltagha -o taghavmgcc_hosttest
+gcc -Wextra -Wall -std=c99 -s -O2 test_hostapp.c -L. -ltagha -o taghavmgcc_hosttest
 
 
 

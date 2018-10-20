@@ -175,7 +175,7 @@ struct Tagha {
 		};
 		union TaghaVal Regs[regsize];
 	};
-	uint8_t *Header, *Footer;
+	uint8_t *Header, *DataBase, *Footer;
 	enum TaghaErrCode Error;
 	bool SafeMode : 1;
 	bool CondFlag : 1; /* conditional flag for conditional jumps! */

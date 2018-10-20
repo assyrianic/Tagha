@@ -42,15 +42,15 @@ static void PrepModule(uint8_t *const module)
 
 static void InvokeNative(struct Tagha *const vm, const size_t argcount, TaghaNative *const NativeCall)
 {
-	const uint8_t reg_params = 8;
-	const uint8_t first_param_register = regSemkath;
+	const uint8_t reg_param_initial = regSemkath;
+	const uint8_t reg_params = regTaw - regSemkath + 1;
 	
 	/* save stack space by using the registers for passing arguments.
 	 * the other registers can then be used for other data operations.
 	 */
 	union TaghaVal params[argcount];
 	// copy native params from registers first.
-	memcpy(params, vm->Regs+first_param_register, sizeof params[0] * reg_params);
+	memcpy(params, vm->Regs+reg_param_initial, sizeof params[0] * reg_params);
 	// now copy the remaining params off the stack && pop them.
 	memcpy(params+reg_params, vm->regStk.PtrSelf, sizeof params[0] * (argcount-reg_params));
 	vm->regStk.PtrSelf += (argcount-reg_params);
@@ -323,7 +323,8 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	/* loads a function index which could be a native */
 	exec_loadfunc: { /* char: opcode | char: regid | i64: index */
 		const uint8_t regid = *pc.PtrUInt8++;
-		vm->Regs[regid].Int64 = *pc.PtrInt64++;
+		//vm->Regs[regid].Int64 = *pc.PtrInt64++;
+		memcpy(&vm->Regs[regid].Int64, pc.PtrInt64++, sizeof(int64_t));
 		DISPATCH();
 	}
 	exec_loadaddr: { /* char: opcode | char: regid1 | char: regid2 | i32: offset */
@@ -334,12 +335,14 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	
 	exec_movi: { /* char: opcode | char: regid | i64: imm */
 		const uint8_t regid = *pc.PtrUInt8++;
-		vm->Regs[regid] = *pc.PtrVal++;
+		//vm->Regs[regid] = *pc.PtrVal++;
+		memcpy(&vm->Regs[regid], pc.PtrVal++, sizeof(union TaghaVal));
 		DISPATCH();
 	}
 	exec_mov: { /* char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.PtrUInt16++;
-		vm->Regs[regids & 0xff] = vm->Regs[regids >> 8];
+		//vm->Regs[regids & 0xff] = vm->Regs[regids >> 8];
+		memcpy(&vm->Regs[regids & 0xff], &vm->Regs[regids >> 8], sizeof(union TaghaVal));
 		DISPATCH();
 	}
 	
@@ -347,7 +350,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids >> 8].PtrUInt8 + *pc.PtrInt32++};
 		// do a memcheck here.
-		if( vm->SafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8 >= vm->Footer) ) {
+		if( vm->SafeMode && (mem.PtrUInt8 < vm->DataBase || mem.PtrUInt8 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
@@ -358,7 +361,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids >> 8].PtrUInt8 + *pc.PtrInt32++};
 		// do a memcheck here.
-		if( vm->SafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+1 >= vm->Footer) ) {
+		if( vm->SafeMode && (mem.PtrUInt8 < vm->DataBase || mem.PtrUInt8+1 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
@@ -369,7 +372,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids >> 8].PtrUInt8 + *pc.PtrInt32++};
 		// do a memcheck here.
-		if( vm->SafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+3 >= vm->Footer) ) {
+		if( vm->SafeMode && (mem.PtrUInt8 < vm->DataBase || mem.PtrUInt8+3 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
@@ -380,7 +383,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids >> 8].PtrUInt8 + *pc.PtrInt32++};
 		// do a memcheck here.
-		if( vm->SafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+7 >= vm->Footer) ) {
+		if( vm->SafeMode && (mem.PtrUInt8 < vm->DataBase || mem.PtrUInt8+7 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
@@ -392,44 +395,48 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids & 0xff].PtrUInt8 + *pc.PtrInt32++};
 		// do a memcheck here.
-		if( vm->SafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8 >= vm->Footer) ) {
+		if( vm->SafeMode && (mem.PtrUInt8 < vm->DataBase || mem.PtrUInt8 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
-		*mem.PtrUInt8 = vm->Regs[regids >> 8].UInt8;
+		memcpy(mem.Ptr, &vm->Regs[regids >> 8], sizeof(uint8_t));
+		//*mem.PtrUInt8 = vm->Regs[regids >> 8].UInt8;
 		DISPATCH();
 	}
 	exec_st2: { /* char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids & 0xff].PtrUInt8 + *pc.PtrInt32++};
 		// do a memcheck here.
-		if( vm->SafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+1 >= vm->Footer) ) {
+		if( vm->SafeMode && (mem.PtrUInt8 < vm->DataBase || mem.PtrUInt8+1 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
-		*mem.PtrUInt16 = vm->Regs[regids >> 8].UInt16;
+		memcpy(mem.Ptr, &vm->Regs[regids >> 8], sizeof(uint16_t));
+		//*mem.PtrUInt16 = vm->Regs[regids >> 8].UInt16;
 		DISPATCH();
 	}
 	exec_st4: { /* char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids & 0xff].PtrUInt8 + *pc.PtrInt32++};
 		// do a memcheck here.
-		if( vm->SafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+3 >= vm->Footer) ) {
+		if( vm->SafeMode && (mem.PtrUInt8 < vm->DataBase || mem.PtrUInt8+3 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
-		*mem.PtrUInt32 = vm->Regs[regids >> 8].UInt32;
+		memcpy(mem.Ptr, &vm->Regs[regids >> 8], sizeof(uint32_t));
+		//*mem.PtrUInt32 = vm->Regs[regids >> 8].UInt32;
 		DISPATCH();
 	}
 	exec_st8: { /* char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids & 0xff].PtrUInt8 + *pc.PtrInt32++};
 		// do a memcheck here.
-		if( vm->SafeMode && (mem.PtrUInt8 < vm->Header || mem.PtrUInt8+7 >= vm->Footer) ) {
+		if( vm->SafeMode && (mem.PtrUInt8 < vm->DataBase || mem.PtrUInt8+7 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
-		*mem.PtrUInt64 = vm->Regs[regids >> 8].UInt64;
+		memcpy(mem.Ptr, &vm->Regs[regids >> 8], sizeof(uint64_t));
+		//*mem.PtrUInt64 = vm->Regs[regids >> 8].UInt64;
 		DISPATCH();
 	}
 	
@@ -613,8 +620,8 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			goto *dispatch[halt];
 		}
 		else {
-			const uint8_t reg_params = 8;
 			const uint8_t reg_param_initial = regSemkath;
+			const uint8_t reg_params = regTaw - regSemkath + 1;
 			const size_t argcount = vm->regAlaf.SizeInt;
 			vm->regAlaf.UInt64 = 0;
 			
@@ -622,10 +629,13 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			/* the other registers can then be used for other data operations. */
 			if( argcount <= reg_params ) {
 				(*nativeref)(vm, &vm->regAlaf, argcount, vm->Regs+reg_param_initial);
+				DISPATCH();
 			}
 			/* if the native has more than a certain num of params, get from both registers && stack. */
-			else InvokeNative(vm, argcount, nativeref);
-			DISPATCH();
+			else {
+				InvokeNative(vm, argcount, nativeref);
+				DISPATCH();
+			}
 		}
 	}
 	exec_syscallr: { /* char: opcode | char: reg id */
@@ -637,8 +647,8 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			goto *dispatch[halt];
 		}
 		else {
-			const uint8_t reg_params = 8;
 			const uint8_t reg_param_initial = regSemkath;
+			const uint8_t reg_params = regTaw - regSemkath + 1;
 			const size_t argcount = vm->regAlaf.SizeInt;
 			vm->regAlaf.UInt64 = 0;
 			
@@ -646,10 +656,13 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			/* the other registers can then be used for other data operations. */
 			if( argcount <= reg_params ) {
 				(*nativeref)(vm, &vm->regAlaf, argcount, vm->Regs+reg_param_initial);
+				DISPATCH();
 			}
 			/* if the native has more than a certain num of params, get from both registers && stack. */
-			else InvokeNative(vm, argcount, nativeref);
-			DISPATCH();
+			else {
+				InvokeNative(vm, argcount, nativeref);
+				DISPATCH();
+			}
 		}
 	}
 	
@@ -844,7 +857,9 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 		return -1;
 	}
 	
-	reader.PtrUInt32 += 2;
+	reader.PtrUInt32++;
+	vm->DataBase = (vm->Header + *reader.PtrUInt32++);
+	vm->DataBase += 4;
 	
 	union TaghaVal *Stack = (union TaghaVal *)(vm->Header + *reader.PtrUInt32);
 	vm->regStk.PtrSelf = vm->regBase.PtrSelf = Stack + stacksize - 1;
@@ -879,7 +894,10 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 		vm->Error = ErrStackSize;
 		return -1;
 	}
-	reader.PtrUInt32 += 2;
+	
+	reader.PtrUInt32++;
+	vm->DataBase = (vm->Header + *reader.PtrUInt32++);
+	vm->DataBase += 4;
 	
 	union TaghaVal *Stack = (union TaghaVal *)(vm->Header + *reader.PtrUInt32);
 	vm->regStk.PtrSelf = vm->regBase.PtrSelf = Stack + stacksize - 1;
@@ -887,8 +905,8 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 	
 	/* remember that arguments must be passed right to left.
 	 we have enough args to fit in registers. */
-	const uint8_t reg_params = 8;
 	const uint8_t reg_param_initial = regSemkath;
+	const uint8_t reg_params = regTaw - regSemkath + 1;
 	const size_t bytecount = sizeof(union TaghaVal) * args;
 	
 	/* save stack space by using the registers for passing arguments. */
