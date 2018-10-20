@@ -660,7 +660,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			/* the other registers can then be used for other data operations. */
 			if( argcount <= reg_params ) {
 				union TaghaVal retval = (union TaghaVal){0};
-				(*nativeref)(vm, &vm->regAlaf, argcount, vm->Regs+reg_param_initial);
+				(*nativeref)(vm, &retval, argcount, vm->Regs+reg_param_initial);
 				memcpy(&vm->regAlaf, &reval, sizeof retval);
 				DISPATCH();
 			}
