@@ -632,7 +632,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( argcount <= reg_params ) {
 				union TaghaVal retval = (union TaghaVal){0};
 				(*nativeref)(vm, &retval, argcount, vm->Regs+reg_param_initial);
-				memcpy(&vm->regAlaf, &reval, sizeof retval);
+				memcpy(&vm->regAlaf, &retval, sizeof retval);
 				DISPATCH();
 			}
 			/* if the native has more than a certain num of params, get from both registers && stack. */
@@ -661,7 +661,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			if( argcount <= reg_params ) {
 				union TaghaVal retval = (union TaghaVal){0};
 				(*nativeref)(vm, &retval, argcount, vm->Regs+reg_param_initial);
-				memcpy(&vm->regAlaf, &reval, sizeof retval);
+				memcpy(&vm->regAlaf, &retval, sizeof retval);
 				DISPATCH();
 			}
 			/* if the native has more than a certain num of params, get from both registers && stack. */
