@@ -57,7 +57,7 @@ static void InvokeNative(struct Tagha *const vm, const size_t argcount, TaghaNat
 	// invoke!
 	union TaghaVal retval = (union TaghaVal){0};
 	(*NativeCall)(vm, &retval, argcount, params);
-	memcpy(&vm->regAlaf, &reval, sizeof retval);
+	memcpy(&vm->regAlaf, &retval, sizeof retval);
 }
 
 
