@@ -40,7 +40,7 @@ static void PrepModule(uint8_t *const module)
 	}
 }
 
-static void InvokeNative(struct Tagha *const vm, const size_t argcount, TaghaNative *const NativeCall)
+static void InvokeNative(struct Tagha *const vm, TaghaNative *const NativeCall)
 {
 	const uint8_t reg_param_initial = regSemkath;
 	const uint8_t reg_params = regTaw - regSemkath + 1;
@@ -48,6 +48,7 @@ static void InvokeNative(struct Tagha *const vm, const size_t argcount, TaghaNat
 	/* save stack space by using the registers for passing arguments.
 	 * the other registers can then be used for other data operations.
 	 */
+	const size_t argcount = vm->regAlaf.SizeInt;
 	union TaghaVal params[argcount];
 	// copy native params from registers first.
 	memcpy(params, vm->Regs+reg_param_initial, sizeof params[0] * reg_params);
@@ -356,7 +357,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
-		vm->Regs[regids & 0xff].UInt64 = *mem.PtrUInt8;
+		vm->Regs[regids & 0xff].UInt64 = (uint64_t) *mem.PtrUInt8;
 		DISPATCH();
 	}
 	exec_ld2: { /* char: opcode | char: dest reg | char: src reg | i32: offset */
@@ -367,7 +368,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
-		vm->Regs[regids & 0xff].UInt64 = *mem.PtrUInt16;
+		vm->Regs[regids & 0xff].UInt64 = (uint64_t) *mem.PtrUInt16;
 		DISPATCH();
 	}
 	exec_ld4: { /* char: opcode | char: dest reg | char: src reg | i32: offset */
@@ -378,7 +379,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 			vm->Error = ErrBadPtr;
 			return -1;
 		}
-		vm->Regs[regids & 0xff].UInt64 = *mem.PtrUInt32;
+		vm->Regs[regids & 0xff].UInt64 = (uint64_t) *mem.PtrUInt32;
 		DISPATCH();
 	}
 	exec_ld8: { /* char: opcode | char: dest reg | char: src reg | i32: offset */
@@ -611,7 +612,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		vm->regBase = *vm->regStk.PtrSelf++; /* pop rbp */
 		pc.Ptr = (*vm->regStk.PtrSelf++).Ptr; /* pop rip */
 		if( !pc.Ptr )
-			goto *dispatch[halt];
+			return vm->regAlaf.Int32;
 		else { DISPATCH(); }
 	}
 	
@@ -624,20 +625,18 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		else {
 			const uint8_t reg_param_initial = regSemkath;
 			const uint8_t reg_params = regTaw - regSemkath + 1;
-			const size_t argcount = vm->regAlaf.SizeInt;
-			vm->regAlaf.UInt64 = 0;
 			
 			/* save stack space by using the registers for passing arguments. */
 			/* the other registers can then be used for other data operations. */
-			if( argcount <= reg_params ) {
+			if( vm->regAlaf.SizeInt <= reg_params ) {
 				union TaghaVal retval = (union TaghaVal){0};
-				(*nativeref)(vm, &retval, argcount, vm->Regs+reg_param_initial);
+				(*nativeref)(vm, &retval, vm->regAlaf.SizeInt, vm->Regs+reg_param_initial);
 				memcpy(&vm->regAlaf, &retval, sizeof retval);
 				DISPATCH();
 			}
 			/* if the native has more than a certain num of params, get from both registers && stack. */
 			else {
-				InvokeNative(vm, argcount, nativeref);
+				InvokeNative(vm, nativeref);
 				DISPATCH();
 			}
 		}
@@ -653,20 +652,18 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		else {
 			const uint8_t reg_param_initial = regSemkath;
 			const uint8_t reg_params = regTaw - regSemkath + 1;
-			const size_t argcount = vm->regAlaf.SizeInt;
-			vm->regAlaf.UInt64 = 0;
 			
 			/* save stack space by using the registers for passing arguments. */
 			/* the other registers can then be used for other data operations. */
-			if( argcount <= reg_params ) {
+			if( vm->regAlaf.SizeInt <= reg_params ) {
 				union TaghaVal retval = (union TaghaVal){0};
-				(*nativeref)(vm, &retval, argcount, vm->Regs+reg_param_initial);
+				(*nativeref)(vm, &retval, vm->regAlaf.SizeInt, vm->Regs+reg_param_initial);
 				memcpy(&vm->regAlaf, &retval, sizeof retval);
 				DISPATCH();
 			}
 			/* if the native has more than a certain num of params, get from both registers && stack. */
 			else {
-				InvokeNative(vm, argcount, nativeref);
+				InvokeNative(vm, nativeref);
 				DISPATCH();
 			}
 		}

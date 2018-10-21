@@ -46,16 +46,16 @@ void Vector_Free(struct Vector **vecref, fnDestructor *const dtor)
 	free(*vecref), *vecref=NULL;
 }
 
-inline size_t Vector_Len(const struct Vector *const v)
+size_t Vector_Len(const struct Vector *const v)
 {
 	return v ? v->Len : 0;
 }
 
-inline size_t Vector_Count(const struct Vector *const v)
+size_t Vector_Count(const struct Vector *const v)
 {
 	return v && v->Table ? v->Count : 0;
 }
-inline union Value *Vector_GetTable(const struct Vector *const v)
+union Value *Vector_GetTable(const struct Vector *const v)
 {
 	return v ? v->Table : NULL;
 }

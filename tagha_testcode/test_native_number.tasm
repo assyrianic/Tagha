@@ -10,14 +10,14 @@ $native %AddOne    ; int AddOne(const int n);
 
 %main: {
 	movi rbeth, 1000000000
-	bit_xor ralaf, ralaf
+	movi ralaf, 0
+	movi rgamal, 0
 	
 .loop:
 	mov rsemkath, ralaf
 	movi ralaf, 1
 	syscall %AddOne
 	dec rbeth
-	movi rgamal, 0
 	cmp rbeth, rgamal
 	jz .loop
 	ret

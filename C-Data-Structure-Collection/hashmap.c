@@ -91,12 +91,12 @@ void Map_Free(struct Hashmap **mapref, fnDestructor *const dtor)
 	free(*mapref), *mapref=NULL;
 }
 
-inline size_t Map_Count(const struct Hashmap *const map)
+size_t Map_Count(const struct Hashmap *const map)
 {
 	return map ? map->Count : 0;
 }
 
-inline size_t Map_Len(const struct Hashmap *const map)
+size_t Map_Len(const struct Hashmap *const map)
 {
 	return map ? map->Len : 0;
 }

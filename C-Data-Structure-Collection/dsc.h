@@ -39,6 +39,15 @@ extern "C" {
 	#endif
 #endif
 
+
+#ifndef DLL_EXPORT
+	#ifdef OS_WINDOWS
+		#define DSC_EXPORT __declspec(dllexport)
+	#else
+		#define DSC_EXPORT extern
+	#endif
+#endif
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
