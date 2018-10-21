@@ -376,7 +376,7 @@ int64_t LexLabelValue(struct TaghaAsmbler *const restrict tasm, const bool first
 			return label->Addr - tasm->ProgramCounter;
 		}
 		else {
-			return label->IsNativeFunc ? -(LinkMap_GetIndexByName(tasm->FuncTable, tasm->Lexeme->CStr) + 1) : (LinkMap_GetIndexByName(tasm->FuncTable, tasm->Lexeme->CStr) + 1);
+			return label->IsNativeFunc ? -((int64_t)LinkMap_GetIndexByName(tasm->FuncTable, tasm->Lexeme->CStr) + 1) : ((int64_t)LinkMap_GetIndexByName(tasm->FuncTable, tasm->Lexeme->CStr) + 1);
 		}
 	}
 	return 0;
