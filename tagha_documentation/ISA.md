@@ -487,3 +487,5 @@ Here's a crude ASCII art of the instruction encodings for Tagha opcodes:
 Tagha's Calling convention is consistent for both bytecode and native C or (C++) functions.
 
 Arguments 1 to 8 are stored in registers `semkath` to `taw` while any further arguments are dumped to the stack.
+
+For native C(++) functions, more than 8 parameters will require ALL parameters to be dumped to the stack. Only 8 OR LESS can be passed by registers.

@@ -40,27 +40,6 @@ static void PrepModule(uint8_t *const module)
 	}
 }
 
-static void InvokeNative(struct Tagha *const vm, TaghaNative *const NativeCall)
-{
-	const uint8_t reg_param_initial = regSemkath;
-	const uint8_t reg_params = regTaw - regSemkath + 1;
-	
-	/* save stack space by using the registers for passing arguments.
-	 * the other registers can then be used for other data operations.
-	 */
-	const size_t argcount = vm->regAlaf.SizeInt;
-	union TaghaVal params[argcount];
-	// copy native params from registers first.
-	memcpy(params, vm->Regs+reg_param_initial, sizeof params[0] * reg_params);
-	// now copy the remaining params off the stack && pop them.
-	memcpy(params+reg_params, vm->regStk.PtrSelf, sizeof params[0] * (argcount-reg_params));
-	vm->regStk.PtrSelf += (argcount-reg_params);
-	// invoke!
-	union TaghaVal retval = (union TaghaVal){0};
-	(*NativeCall)(vm, &retval, argcount, params);
-	memcpy(&vm->regAlaf, &retval, sizeof retval);
-}
-
 
 struct Tagha *Tagha_New(void *restrict script)
 {
@@ -621,51 +600,41 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		if( !nativeref ) {
 			vm->Error = ErrMissingNative;
 			goto *dispatch[halt];
-		}
-		else {
+		} else {
 			const uint8_t reg_param_initial = regSemkath;
 			const uint8_t reg_params = regTaw - regSemkath + 1;
+			union TaghaVal retval = (union TaghaVal){0};
 			
 			/* save stack space by using the registers for passing arguments. */
 			/* the other registers can then be used for other data operations. */
-			if( vm->regAlaf.SizeInt <= reg_params ) {
-				union TaghaVal retval = (union TaghaVal){0};
-				(*nativeref)(vm, &retval, vm->regAlaf.SizeInt, vm->Regs+reg_param_initial);
-				memcpy(&vm->regAlaf, &retval, sizeof retval);
-				DISPATCH();
-			}
-			/* if the native has more than a certain num of params, get from both registers && stack. */
-			else {
-				InvokeNative(vm, nativeref);
-				DISPATCH();
-			}
+			( vm->regAlaf.SizeInt <= reg_params ) ?
+				(*nativeref)(vm, &retval, vm->regAlaf.SizeInt, vm->Regs+reg_param_initial) :
+				/* if the native call has more than a certain num of params, get all params from stack. */
+				((*nativeref)(vm, &retval, vm->regAlaf.SizeInt, vm->regStk.PtrSelf), vm->regStk.PtrSelf += vm->regAlaf.SizeInt);
+			memcpy(&vm->regAlaf, &retval, sizeof retval);
+			DISPATCH();
 		}
 	}
 	exec_syscallr: { /* char: opcode | char: reg id */
 		const uint8_t regid = *pc.PtrUInt8++;
 		TaghaNative *const nativeref = GetNativeByIndex(vm->Header, (-1 - vm->Regs[regid].Int64));
 		if( !nativeref ) {
-			// commenting this out because it slows down the code for some reason...
 			vm->Error = ErrMissingNative;
 			goto *dispatch[halt];
-		}
-		else {
+		} else {
 			const uint8_t reg_param_initial = regSemkath;
 			const uint8_t reg_params = regTaw - regSemkath + 1;
+			union TaghaVal retval = (union TaghaVal){0};
 			
 			/* save stack space by using the registers for passing arguments. */
 			/* the other registers can then be used for other data operations. */
-			if( vm->regAlaf.SizeInt <= reg_params ) {
-				union TaghaVal retval = (union TaghaVal){0};
-				(*nativeref)(vm, &retval, vm->regAlaf.SizeInt, vm->Regs+reg_param_initial);
-				memcpy(&vm->regAlaf, &retval, sizeof retval);
-				DISPATCH();
-			}
-			/* if the native has more than a certain num of params, get from both registers && stack. */
-			else {
-				InvokeNative(vm, nativeref);
-				DISPATCH();
-			}
+			( vm->regAlaf.SizeInt <= reg_params ) ?
+				(*nativeref)(vm, &retval, vm->regAlaf.SizeInt, vm->Regs+reg_param_initial) :
+				/* if the native call has more than a certain num of params, get all params from stack. */
+				((*nativeref)(vm, &retval, vm->regAlaf.SizeInt, vm->regStk.PtrSelf), vm->regStk.PtrSelf += vm->regAlaf.SizeInt);
+			//vm->regAlaf=retval;
+			memcpy(&vm->regAlaf, &retval, sizeof retval);
+			DISPATCH();
 		}
 	}
 	
