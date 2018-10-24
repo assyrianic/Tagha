@@ -6,13 +6,6 @@
 
 ### Rationale:
 
-You might be thinking, *why not just pick a scripting language*? You're correct. One could simply choose a scripting language and I even advise using a scripting language **but** not all developers want to use a scripting language nor require one and they could have various reasons such as performance, syntax, maybe bloated runtimes.
-
-Besides a scripting system, the other option would be to use a native shared library plugin system. What's the problem with shared libraries? They're not binary portable unless you make a build system for every platform you plan to ship your software for and hand out new binaries for every patch and update.
-
-
-The Rationale for Tagha is...
-
 + 1. give C (and by extension C++) binary portability.
 + 2. be fast.
 + 3. be open-source.
@@ -127,3 +120,17 @@ I can be contacted through the discord link above.
 ## License
 
 This project is licensed under MIT License.
+
+
+## FAQ
+* Q: _**why not just pick a scripting language?**_
+* A: You're right. Any developer could simply choose an existing scripting language and its implementation, but not all developers want to use a scripting language and they could have various reasons like performance, syntax, maybe the runtime is too bloated. Secondly, not all developers might know the language or are comfortable with it. Perhaps for the sake of consistency with the code base, they want the entire code to be in one language. After all, to be able to utilize the scripting language, you'd need to learn it as well as learning the API of the host app.
+
+* Q: _**Why implement TaghaVM in C and not C++?**_
+* A: The design choices I gave to TaghaVM was to be minimal, fast, and with little-to-no dependencies except for a few C standard library functions. To achieve this, I needed to use C which allowed me to manipulate memory as fast and seamless as possible. I'm aware C++ allows me to manipulate memory but it's not without trouble. Secondly, TaghaVM should be no bother to C++ programmers since a C++ interface is available from `tagha.h`.
+
+* Q: _**Can TaghaVM be used to implement any language?**_
+* A: Yes but not perfectly. If we take Lua's example, Lua values are entirely pointers to a tagged union type in which the types are either a float value, string, or table/hashmap. Since most of TaghaVMs registers are general-purpose (can hold/use memory locations), they can hold/use the Lua values themselves but Lua's high level opcodes would have to be broken up into lower level operations since Tagha is a low-level VM that operates upon the byte sizes of the data, regardless of their actual types. This may possibly result in worse performance than just running Lua's code on its respective VM.
+
+* Q: _**Will you implement a JIT in the future?**_
+* A: Yes but a primitive JIT will be used since I need to keep the compilation delay as small as possible.

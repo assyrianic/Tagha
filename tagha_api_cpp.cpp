@@ -56,4 +56,9 @@ void *CTagha::GetRawScriptPtr()
 	return Tagha_GetRawScriptPtr((struct Tagha *)this);
 }
 
+void CTagha::ThrowError(const int32_t err)
+{
+	Tagha_ThrowError((struct Tagha *)this, err);
+}
+
 /////////////////////////////////////////////////////////////////////////////////

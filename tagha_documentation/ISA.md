@@ -467,25 +467,25 @@ same as CMP but for floating point values. Math is done for the largest data wid
 ### Description
 same as NEQ but for floating point values. Math is done for the largest data width that's enabled (meaning if both doubles and floats are used, NEQF will perform on doubles, regardless whether floats are defined or not).
 
+
 # VM Instruction Encoding
 
 All opcodes take up a single byte and additional bytes depending on whether they operate on registers, immediate values, or doing memory operations.
 
 Here's a crude ASCII art of the instruction encodings for Tagha opcodes:
-
 -------------------------------------------------
-| byte: opcode                                                         |
-| byte: opcode | byte: register id                                   |
-| byte: opcode | byte: dest reg | byte: src reg                     |
-| byte: opcode | 8 bytes: imm (immediate) value                 |
-| byte: opcode | byte: register id | 8 bytes: imm value          |
-| byte: opcode | byte: dest reg | byte: src reg | 4 bytes: offset |
+* | byte: opcode                                                         |
+* | byte: opcode | byte: register id                                   |
+* | byte: opcode | byte: dest reg | byte: src reg                     |
+* | byte: opcode | 8 bytes: imm (immediate) value                 |
+* | byte: opcode | byte: register id | 8 bytes: imm value          |
+* | byte: opcode | byte: dest reg | byte: src reg | 4 bytes: offset |
 -------------------------------------------------
 
 # Calling Convention
 
 Tagha's Calling convention is consistent for both bytecode and native C or (C++) functions.
 
-Arguments 1 to 8 are stored in registers `semkath` to `taw` while any further arguments are dumped to the stack.
+Arguments 1 to 8 are stored in registers `semkath` to `taw`.
 
-For native C(++) functions, more than 8 parameters will require ALL parameters to be dumped to the stack. Only 8 OR LESS can be passed by registers.
+For native C or C++ functions, more than 8 parameters will require ALL parameters to be dumped to the stack. Only 8 OR LESS can be passed by registers.

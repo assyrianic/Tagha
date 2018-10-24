@@ -206,6 +206,7 @@ int32_t Tagha_Exec(struct Tagha *)
 int32_t Tagha_CallFunc(struct Tagha *, const char *, size_t, union TaghaVal []);
 union TaghaVal Tagha_GetReturnValue(const struct Tagha *);
 int32_t Tagha_RunScript(struct Tagha *, int32_t, char *[]);
+void Tagha_ThrowError(struct Tagha *, int32_t);
 
 
 #ifdef FLOATING_POINT_OPS
@@ -288,5 +289,6 @@ class CTagha : public Tagha {
 	const char *GetError();
 	void PrintVMState();
 	void *GetRawScriptPtr();
+	void ThrowError(int32_t);
 };
 #endif

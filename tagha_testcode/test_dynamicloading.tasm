@@ -31,12 +31,13 @@ $safe
 	; copy the module ptr to register semkath.
 	ld8 rsemkath, [rbp-24]
 	
+	movi rheh, 0
+	
 	; test dynamic loading function invocation overhead
 .loop:
 	movi ralaf, 5
 	syscall %Tagha_InvokeFunc ; Tagha_InvokeFunc(module, "factorial", &val, 1, &(union TaghaVal){5});
 	dec rbeth
-	movi rheh, 0
 	cmp rbeth, rheh
 	jz .loop
 	

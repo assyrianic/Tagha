@@ -449,27 +449,27 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	}
 	exec_bit_and: { /* char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.PtrUInt16++;
-		vm->Regs[regids & 0xff].Int64 &= vm->Regs[regids >> 8].Int64;
+		vm->Regs[regids & 0xff].UInt64 &= vm->Regs[regids >> 8].UInt64;
 		DISPATCH();
 	}
 	exec_bit_or: { /* char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.PtrUInt16++;
-		vm->Regs[regids & 0xff].Int64 |= vm->Regs[regids >> 8].Int64;
+		vm->Regs[regids & 0xff].UInt64 |= vm->Regs[regids >> 8].UInt64;
 		DISPATCH();
 	}
 	exec_bit_xor: { /* char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.PtrUInt16++;
-		vm->Regs[regids & 0xff].Int64 ^= vm->Regs[regids >> 8].Int64;
+		vm->Regs[regids & 0xff].UInt64 ^= vm->Regs[regids >> 8].UInt64;
 		DISPATCH();
 	}
 	exec_shl: { /* char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.PtrUInt16++;
-		vm->Regs[regids & 0xff].Int64 <<= vm->Regs[regids >> 8].Int64;
+		vm->Regs[regids & 0xff].UInt64 <<= vm->Regs[regids >> 8].UInt64;
 		DISPATCH();
 	}
 	exec_shr: { /* char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.PtrUInt16++;
-		vm->Regs[regids & 0xff].Int64 >>= vm->Regs[regids >> 8].Int64;
+		vm->Regs[regids & 0xff].UInt64 >>= vm->Regs[regids >> 8].UInt64;
 		DISPATCH();
 	}
 	exec_bit_not: { /* char: opcode | char: regid */
@@ -489,7 +489,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	}
 	exec_neg: { /* char: opcode | char: regid */
 		const uint8_t regid = *pc.PtrUInt8++;
-		vm->Regs[regid].UInt64 = -vm->Regs[regid].UInt64;
+		vm->Regs[regid].Int64 = -vm->Regs[regid].Int64;
 		DISPATCH();
 	}
 	
@@ -612,7 +612,10 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				/* if the native call has more than a certain num of params, get all params from stack. */
 				((*nativeref)(vm, &retval, vm->regAlaf.SizeInt, vm->regStk.PtrSelf), vm->regStk.PtrSelf += vm->regAlaf.SizeInt);
 			memcpy(&vm->regAlaf, &retval, sizeof retval);
-			DISPATCH();
+			
+			if( vm->Error != ErrNone )
+				return vm->Error;
+			else { DISPATCH(); }
 		}
 	}
 	exec_syscallr: { /* char: opcode | char: reg id */
@@ -632,9 +635,11 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				(*nativeref)(vm, &retval, vm->regAlaf.SizeInt, vm->Regs+reg_param_initial) :
 				/* if the native call has more than a certain num of params, get all params from stack. */
 				((*nativeref)(vm, &retval, vm->regAlaf.SizeInt, vm->regStk.PtrSelf), vm->regStk.PtrSelf += vm->regAlaf.SizeInt);
-			//vm->regAlaf=retval;
 			memcpy(&vm->regAlaf, &retval, sizeof retval);
-			DISPATCH();
+			
+			if( vm->Error != ErrNone )
+				return vm->Error;
+			else { DISPATCH(); }
 		}
 	}
 	
@@ -831,12 +836,13 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	
 	reader.PtrUInt32++;
 	vm->DataBase = (vm->Header + *reader.PtrUInt32++);
-	vm->DataBase += 4;
+	vm->DataBase += sizeof(int32_t);
 	
 	union TaghaVal *Stack = (union TaghaVal *)(vm->Header + *reader.PtrUInt32);
 	vm->regStk.PtrSelf = vm->regBase.PtrSelf = Stack + stacksize - 1;
 	vm->Footer = (uint8_t *)(Stack + stacksize);
 	
+	vm->Error = ErrNone;
 	(--vm->regStk.PtrSelf)->Int64 = 0LL;	/* push NULL return address. */
 	*--vm->regStk.PtrSelf = vm->regBase; /* push rbp */
 	vm->regBase = vm->regStk; /* mov rbp, rsp */
@@ -869,7 +875,7 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 	
 	reader.PtrUInt32++;
 	vm->DataBase = (vm->Header + *reader.PtrUInt32++);
-	vm->DataBase += 4;
+	vm->DataBase += sizeof(int32_t);
 	
 	union TaghaVal *Stack = (union TaghaVal *)(vm->Header + *reader.PtrUInt32);
 	vm->regStk.PtrSelf = vm->regBase.PtrSelf = Stack + stacksize - 1;
@@ -896,7 +902,7 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 		memcpy(vm->regStk.PtrSelf, values+reg_params, sizeof(union TaghaVal) * (args-reg_params));
 		vm->regStk.PtrSelf -= (args-reg_params);
 	}
-	
+	vm->Error = ErrNone;
 	(--vm->regStk.PtrSelf)->Int64 = 0LL;	/* push NULL return address. */
 	*--vm->regStk.PtrSelf = vm->regBase; /* push rbp */
 	vm->regBase = vm->regStk; /* mov rbp, rsp */
@@ -926,10 +932,10 @@ const char *Tagha_GetError(const struct Tagha *const restrict vm)
 	switch( vm->Error ) {
 		case ErrInstrBounds: return "Out of Bound Instruction";
 		case ErrNone: return "None";
-		case ErrBadPtr: return "Null or Invalid Pointer";
+		case ErrBadPtr: return "Null/Invalid Pointer";
 		case ErrMissingFunc: return "Missing Function";
-		case ErrInvalidScript: return "Null or Invalid Script";
-		case ErrStackSize: return "Bad Stack Size given";
+		case ErrInvalidScript: return "Null/Invalid Script";
+		case ErrStackSize: return "Bad Stack Size";
 		case ErrMissingNative: return "Missing Native";
 		case ErrStackOver: return "Stack Overflow";
 		default: return "Unknown Error";
@@ -941,4 +947,10 @@ void *Tagha_GetRawScriptPtr(const struct Tagha *const restrict vm)
 	return !vm ? NULL : vm->Header;
 }
 
+void Tagha_ThrowError(struct Tagha *const vm, const int32_t err)
+{
+	if( !vm || !err )
+		return;
+	vm->Error = err;
+}
 /************************************************/

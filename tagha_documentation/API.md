@@ -305,6 +305,22 @@ Executes a script by calling its main function.
 ### Return Value
 returns a status int32 value, returns `-1` if an error occurred.
 
+
+## Tagha_ThrowError
+```c
+void Tagha_ThrowError(int32_t err);
+```
+
+### Description
+Allows a developer to manually throw a VM exception. This is especially needed if an error occurs within a native C or C++ function call and the script needs to stop for whatever reason.
+
+### Parameters
+`err` - value that's higher than 0, can be either a user defined error or a Tagha Error enum value.
+
+### Return Value
+None.
+
+
 # C++ Interface
 
 # Datatypes
@@ -477,3 +493,18 @@ None.
 
 ### Return Value
 pointer to the script datum, `NULL` if no script was initialized to it.
+
+
+## CTagha::ThrowError
+```c++
+void CTagha::ThrowError(int32_t err);
+```
+
+### Description
+Same as `Tagha_ThrowError` but in a C++ class setting.
+
+### Parameters
+`err` - user defined error or using tagha error enum values.
+
+### Return Value
+None.
