@@ -78,7 +78,7 @@ static void native_strtod(struct Tagha *const restrict sys, union TaghaVal *cons
 	const char *restrict str = params[0].Ptr;
 	if( !str )
 		return;
-	RetVal->Double = strtod(str, (char **)params[1].PtrPtr);
+	RetVal->Double = strtod(str, params[1].Ptr);
 }
 
 /* float strtof(const char *str, char **endptr); */
@@ -87,7 +87,7 @@ static void native_strtof(struct Tagha *const restrict sys, union TaghaVal *cons
 	const char *restrict str = params[0].Ptr;
 	if( !str )
 		return;
-	RetVal->Float = strtof(str, (char **)params[1].PtrPtr);
+	RetVal->Float = strtof(str, params[1].Ptr);
 }
 
 /* long int strtol(const char *str, char **endptr, int base); */
@@ -96,7 +96,7 @@ static void native_strtol(struct Tagha *const restrict sys, union TaghaVal *cons
 	const char *restrict str = params[0].Ptr;
 	if( !str )
 		return;
-	RetVal->Int32 = strtol(str, (char **)params[1].PtrPtr, params[2].Int32);
+	RetVal->Int32 = strtol(str, params[1].Ptr, params[2].Int32);
 }
 
 /* long long int strtoll(const char *str, char **endptr, int base); */
@@ -105,7 +105,7 @@ static void native_strtoll(struct Tagha *const restrict sys, union TaghaVal *con
 	const char *restrict str = params[0].Ptr;
 	if( !str )
 		return;
-	RetVal->Int64 = strtoll(str, (char **)params[1].PtrPtr, params[2].Int32);
+	RetVal->Int64 = strtoll(str, params[1].Ptr, params[2].Int32);
 }
 
 /* unsigned long int strtoul(const char *str, char **endptr, int base); */
@@ -114,7 +114,7 @@ static void native_strtoul(struct Tagha *const restrict sys, union TaghaVal *con
 	const char *restrict str = params[0].Ptr;
 	if( !str )
 		return;
-	RetVal->UInt64 = strtoul(str, (char **)params[1].PtrPtr, params[2].Int32);
+	RetVal->UInt64 = strtoul(str, params[1].Ptr, params[2].Int32);
 }
 
 /* unsigned long long int strtoull(const char *str, char **endptr, int base); */
@@ -123,7 +123,7 @@ static void native_strtoull(struct Tagha *const restrict sys, union TaghaVal *co
 	const char *restrict str = params[0].Ptr;
 	if( !str )
 		return;
-	RetVal->UInt64 = strtoll(str, (char **)params[1].PtrPtr, params[2].Int32);
+	RetVal->UInt64 = strtoll(str, params[1].Ptr, params[2].Int32);
 }
 
 /* void abort(void); */
