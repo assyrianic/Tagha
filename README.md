@@ -17,22 +17,23 @@
 
 ### Features
 
-* self-contained.
-* has its own, open source implementation of libc.
-* register-based virtual machine with 3 different addressing modes to tackle any kind of operation.
+* Self-contained, meaning that everything the code base needs is packaged together and there's no dependencies except for C standard lib obviously.
+* Has its own, open source implementation of libc.
+* Register-based virtual machine that handles immediate values, register, and memory operations.
+* Supports 1, 2, 4, and 8 byte operations.
 * 22 **general purpose registers** + 3 reserved-use (stack pointers and instruction pointer) registers.
-* floats and doubles are supported (can be compiled without).
-* uses computed gotos (the ones that use a void\*) which is 20%-25% faster than a switch {[citation](http://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables)}.
-* Tagha is "64-bit" as the registers and memory addresses are 64-bit. (will run slower on 32-bit systems/OSes).
+* Floats and doubles are supported (can be compiled without).
+* Uses computed gotos (the ones that use a void\*) which is 20%-25% faster than a switch {[citation](http://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables)}.
+* Tagha is 64-bit as the registers and memory addresses are 64-bit. (will run slower on 32-bit systems/OSes).
 * Embeddable.
 * Does no memory allocation at all, thus no garbage collecting.
-* scripts can call host-defined functions (Native Interface).
-* host can give arguments and call script functions and retrieve return values.
-* host can bind its own global variables to script-side global variables by name (the script-side global variable must be a pointer).
-* integer & float arithmetic, (un)conditional jumps, comparison operations, and stack and memory manipulations.
-* function call and return opcodes automatically execute function prologues and epilogues.
-* little-endian format (only).
-* small. The runtime environment static library is <50kb.
+* Scripts can call host-defined functions (Native Interface).
+* Host can give arguments and call script functions and retrieve return values.
+* Host can bind its own global variables to script-side global variables by name (the script-side global variable must be a pointer).
+* Integer & float arithmetic, (un)conditional jumps, comparison operations, and stack and memory manipulations.
+* Function call and return opcodes automatically execute function prologues and epilogues.
+* Little-endian format (only).
+* Small. The runtime environment static library is <50kb.
 * Tagha is not natively threaded, this is by design, this is so any developer can thread Tagha in anyway they wish whether by having a single VM instance run multiple scripts in a multi-threaded way OR use an array of Tagha VM instances each running their own scripts in a threaded manner.
 * Speed, tagha is very fast for a virtual machine that does not use a JIT.
 * Memory safe, tagha can sandbox scripts that have safemode enabled.
