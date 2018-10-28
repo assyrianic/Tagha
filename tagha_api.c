@@ -554,14 +554,16 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	}
 	exec_jz: { /* char: opcode | i64: offset */
 		const int64_t offset = *pc.PtrInt64++;
-		if( !vm->CondFlag )
-			pc.PtrUInt8 += offset;
+		//if( !vm->CondFlag )
+		//	pc.PtrUInt8 += offset;
+		pc.PtrUInt8 += ( !vm->CondFlag ) ? offset : 0;
 		DISPATCH();
 	}
 	exec_jnz: { /* char: opcode | i64: offset */
 		const int64_t offset = *pc.PtrInt64++;
-		if( vm->CondFlag )
-			pc.PtrUInt8 += offset;
+		//if( vm->CondFlag )
+		//	pc.PtrUInt8 += offset;
+		pc.PtrUInt8 += ( vm->CondFlag ) ? offset : 0;
 		DISPATCH();
 	}
 	exec_call: { /* char: opcode | i64: offset */
