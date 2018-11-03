@@ -830,17 +830,16 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	vm->regSemkath.Int32 = argc;
 	
 	/* check out stack size and align it by the size of union TaghaVal. */
-	const uint32_t stacksize = *reader.PtrUInt32++;
+	const uint32_t stacksize = reader.PtrUInt32[0];
 	if( !stacksize ) {
 		vm->Error = ErrStackSize;
 		return -1;
 	}
 	
-	reader.PtrUInt32++;
-	vm->DataBase = (vm->Header + *reader.PtrUInt32++);
-	vm->DataBase += sizeof(int32_t);
+	vm->DataBase = (vm->Header + reader.PtrUInt32[2]);
+	vm->DataBase += sizeof(uint32_t);
 	
-	union TaghaVal *Stack = (union TaghaVal *)(vm->Header + *reader.PtrUInt32);
+	union TaghaVal *Stack = (union TaghaVal *)(vm->Header + reader.PtrUInt32[3]);
 	vm->regStk.PtrSelf = vm->regBase.PtrSelf = Stack + stacksize - 1;
 	vm->Footer = (uint8_t *)(Stack + stacksize);
 	
@@ -869,17 +868,16 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 	reader.PtrUInt16++;
 	
 	/* check out stack size && align it by the size of union TaghaVal. */
-	const uint32_t stacksize = *reader.PtrUInt32++;
+	const uint32_t stacksize = reader.PtrUInt32[0];
 	if( !stacksize ) {
 		vm->Error = ErrStackSize;
 		return -1;
 	}
 	
-	reader.PtrUInt32++;
-	vm->DataBase = (vm->Header + *reader.PtrUInt32++);
-	vm->DataBase += sizeof(int32_t);
+	vm->DataBase = (vm->Header + reader.PtrUInt32[2]);
+	vm->DataBase += sizeof(uint32_t);
 	
-	union TaghaVal *Stack = (union TaghaVal *)(vm->Header + *reader.PtrUInt32);
+	union TaghaVal *Stack = (union TaghaVal *)(vm->Header + reader.PtrUInt32[3]);
 	vm->regStk.PtrSelf = vm->regBase.PtrSelf = Stack + stacksize - 1;
 	vm->Footer = (uint8_t *)(Stack + stacksize);
 	
