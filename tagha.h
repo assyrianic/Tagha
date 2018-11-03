@@ -18,7 +18,8 @@ extern "C" {
 #	endif
 #endif
 
-union TaghaVal {
+
+typedef union TaghaVal {
 	bool Bool, *PtrBool;
 	int8_t Int8, *PtrInt8;
 	int16_t Int16, *PtrInt16;
@@ -40,9 +41,9 @@ union TaghaVal {
  #endif
 	void *Ptr;
 	union TaghaVal *PtrSelf;
-};
+} TaghaVal;
 
-union TaghaPtr {
+typedef union TaghaPtr {
 	uint8_t *restrict PtrUInt8;
 	uint16_t *restrict PtrUInt16;
 	uint32_t *restrict PtrUInt32;
@@ -64,7 +65,7 @@ union TaghaPtr {
 	union TaghaVal *restrict PtrVal;
 	union TaghaPtr *restrict PtrSelf;
 	void *restrict Ptr;
-};
+} TaghaPtr;
 
 
 /* Script File/Binary Format Structure (Jun 23, 2018)
@@ -79,35 +80,35 @@ union TaghaPtr {
  * .functions table
  * 4 bytes: amount of funcs
  * n bytes: func table
- *		1 byte: 0 if bytecode func, 1 if it's a native, other flags.
- * 		4 bytes: string size + '\0' of func string
- *		4 bytes: instr len, 8 if native.
- * 		n bytes: func string
- * 		if bytecode func: n bytes - instructions
- *		else: 8 bytes: native address (0 at first, will be filled in during runtime)
+ *     1 byte: 0 if bytecode func, 1 if it's a native, other flags.
+ *     4 bytes: string size + '\0' of func string
+ *     4 bytes: instr len, 8 if native.
+ *     n bytes: func string
+ *     if bytecode func: n bytes - instructions
+ *     else: 8 bytes: native address (0 at first, will be filled in during runtime)
  * 
  * .globalvars table
  * 4 bytes: amount of global vars
  * n bytes: global vars table
- * 		1 byte: flags
- * 		4 bytes: string size + '\0' of global var string
- *		4 bytes: byte size, 8 if ptr.
- * 		n bytes: global var string
- * 		if bytecode var: n bytes: data. All 0 if not initialized in script code.
- *		else: 8 bytes: var address (0 at first, filled in during runtime)
+ *     1 byte: flags
+ *     4 bytes: string size + '\0' of global var string
+ *     4 bytes: byte size, 8 if ptr.
+ *     n bytes: global var string
+ *     if bytecode var: n bytes: data. All 0 if not initialized in script code.
+ *     else: 8 bytes: var address (0 at first, filled in during runtime)
  * 
  * n bytes : stack base
  */
 
 #pragma pack(push, 1)
-struct TaghaHeader {
+typedef struct TaghaHeader {
 	uint16_t Magic;
 	uint32_t StackSize;
 	uint32_t FuncTblOffs;
 	uint32_t VarTblOffs;
 	uint32_t StackOffs;
 	uint8_t Flags;
-};
+} TaghaHeader;
 #pragma pack(pop)
 
 
@@ -136,10 +137,10 @@ struct Tagha;
 typedef void TaghaNative(struct Tagha *vm, union TaghaVal *ret, size_t args, union TaghaVal params[]);
 typedef union TaghaVal TaghaSysCall(struct Tagha *vm, int8_t callid, size_t args, union TaghaVal params[]);
 
-struct NativeInfo {
+typedef struct NativeInfo {
 	const char *Name;
 	TaghaNative *NativeCFunc;
-};
+} NativeInfo;
 
 
 #define REGISTER_FILE \
@@ -151,21 +152,21 @@ struct NativeInfo {
 	Y(regStk) Y(regBase) Y(regInstr)
 
 #define Y(y) y,
-enum RegID { REGISTER_FILE regsize };
+typedef enum RegID { REGISTER_FILE regsize } RegID;
 #undef Y
 
-enum TaghaErrCode {
+typedef enum TaghaErrCode {
 	ErrInstrBounds = -1,
 	ErrNone=0,
 	ErrBadPtr,
 	ErrMissingFunc, ErrMissingNative,
 	ErrInvalidScript,
 	ErrStackSize, ErrStackOver,
-};
+} TaghaErrCode;
 
 
 // Script structure.
-struct Tagha {
+typedef struct Tagha {
 	union {
 		struct {
 			#define Y(y) union TaghaVal y;
@@ -179,7 +180,7 @@ struct Tagha {
 	enum TaghaErrCode Error;
 	bool SafeMode : 1;
 	bool CondFlag : 1; /* conditional flag for conditional jumps! */
-};
+} Tagha;
 
 
 struct Tagha *Tagha_New(void *);
@@ -261,7 +262,7 @@ void Tagha_ThrowError(struct Tagha *, int32_t);
 #endif
 
 #define X(x) x,
-enum InstrSet { INSTR_SET };
+typedef enum InstrSet { INSTR_SET } InstrSet;
 #undef X
 
 #ifdef __cplusplus
