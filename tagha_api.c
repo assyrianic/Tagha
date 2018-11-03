@@ -573,7 +573,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		 * Since we're pushing the restrict-qualified pointer's memory that it points to,
 		 * This is NOT undefined behavior because it's not aliasing access of the instruction stream.
 		 */
-		const uint64_t index = *pc.PtrUInt64++;
+		const int64_t index = *pc.PtrInt64++;
 		(--vm->regStk.PtrSelf)->Ptr = pc.Ptr;	/* push rip */
 		*--vm->regStk.PtrSelf = vm->regBase;	/* push rbp */
 		vm->regBase = vm->regStk;	/* mov rbp, rsp */
@@ -585,7 +585,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		(--vm->regStk.PtrSelf)->Ptr = pc.Ptr;	/* push rip */
 		*--vm->regStk.PtrSelf = vm->regBase;	/* push rbp */
 		vm->regBase = vm->regStk;	/* mov rbp, rsp */
-		pc.PtrUInt8 = GetFunctionOffsetByIndex(vm->Header, (vm->Regs[regid].UInt64 - 1));
+		pc.PtrUInt8 = GetFunctionOffsetByIndex(vm->Header, (vm->Regs[regid].Int64 - 1));
 		DISPATCH();
 	}
 	exec_ret: { /* char: opcode */
