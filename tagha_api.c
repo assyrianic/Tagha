@@ -13,9 +13,8 @@ static void			*GetVariableOffsetByIndex(uint8_t *, size_t);
 
 static void PrepModule(uint8_t *const module)
 {
-	union TaghaPtr reader = {module};
-	reader.PtrUInt8 += 10;
-	const uint32_t vartable_offset = *reader.PtrUInt32;
+	union TaghaPtr reader = {module + 2};
+	const uint32_t vartable_offset = reader.PtrUInt32[2];
 	
 	reader.PtrUInt8 = module + vartable_offset;
 	const uint32_t globalvars = *reader.PtrUInt32++;
@@ -184,9 +183,8 @@ static TaghaNative *GetNativeByIndex(uint8_t *const hdr, const size_t index)
 
 static void *GetVariableOffsetByName(uint8_t *const module, const char *restrict varname)
 {
-	union TaghaPtr reader = {module};
-	reader.PtrUInt8 += 10;
-	const uint32_t vartable_offset = *reader.PtrUInt32;
+	union TaghaPtr reader = {module + 2};
+	const uint32_t vartable_offset = reader.PtrUInt32[2];
 	
 	reader.PtrUInt8 = module + vartable_offset;
 	const uint32_t globalvars = *reader.PtrUInt32++;
@@ -204,9 +202,8 @@ static void *GetVariableOffsetByName(uint8_t *const module, const char *restrict
 
 static void *GetVariableOffsetByIndex(uint8_t *const module, const size_t index)
 {
-	union TaghaPtr reader = {module};
-	reader.PtrUInt8 += 10;
-	const uint32_t vartable_offset = *reader.PtrUInt32;
+	union TaghaPtr reader = {module + 2};
+	const uint32_t vartable_offset = reader.PtrUInt32[2];
 	
 	reader.PtrUInt8 = module + vartable_offset;
 	const uint32_t globalvars = *reader.PtrUInt32++;
