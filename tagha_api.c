@@ -24,16 +24,13 @@ static void PrepModule(uint8_t *const module)
 		const uint32_t cstrlen = sizes & 0xffFFffFF;
 		const uint32_t datalen = sizes >> 32;
 		if( !strcmp("stdin", reader.PtrCStr) ) {
-			FILE **fileptr = (FILE **)(reader.PtrUInt8 + cstrlen);
-			*fileptr = stdin;
+			*(FILE **)(reader.PtrUInt8 + cstrlen) = stdin;
 		}
 		else if( !strcmp("stdout", reader.PtrCStr) ) {
-			FILE **fileptr = (FILE **)(reader.PtrUInt8 + cstrlen);
-			*fileptr = stdout;
+			*(FILE **)(reader.PtrUInt8 + cstrlen) = stdout;
 		}
 		else if( !strcmp("stderr", reader.PtrCStr) ) {
-			FILE **fileptr = (FILE **)(reader.PtrUInt8 + cstrlen);
-			*fileptr = stderr;
+			*(FILE **)(reader.PtrUInt8 + cstrlen) = stderr;
 		}
 		reader.PtrUInt8 += (cstrlen + datalen);
 	}
