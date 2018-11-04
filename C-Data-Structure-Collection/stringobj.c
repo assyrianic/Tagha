@@ -1,6 +1,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include "dsc.h"
 
 /*
@@ -114,8 +115,7 @@ void String_AddStr(struct String *const restrict strobj, const char *restrict cs
 	strobj->Len += strlen(cstr);
 	if( strobj->CStr ) {
 		strcat(newstr, strobj->CStr);
-		free(strobj->CStr);
-		strobj->CStr=NULL;
+		free(strobj->CStr), strobj->CStr=NULL;
 	}
 	strcat(newstr, cstr);
 	strobj->CStr = newstr;
@@ -166,36 +166,36 @@ void String_CopyStr(struct String *const restrict strobj, const char *restrict c
 	strobj->CStr[strobj->Len] = 0;
 }
 
-int32_t String_CmpCStr(const struct String *const restrict strobj, const char *restrict cstr)
+int32_t String_Format(struct String *const restrict strobj, const char *restrict fmt, ...)
 {
-	if( !strobj || !cstr || !strobj->CStr )
+	if( !strobj || !fmt )
 		return -1;
 	
-	return strcmp(strobj->CStr, cstr);
+	va_list ap;
+	va_start(ap, fmt);
+	const int32_t result = vsnprintf(strobj->CStr, strobj->Len, fmt, ap);
+	va_end(ap);
+	return result;
+}
+
+int32_t String_CmpCStr(const struct String *const restrict strobj, const char *restrict cstr)
+{
+	return ( !strobj || !cstr || !strobj->CStr ) ? -1 : strcmp(strobj->CStr, cstr);
 }
 
 int32_t String_CmpStr(const struct String *const restrict strobjA, const struct String *const restrict strobjB)
 {
-	if( !strobjA || !strobjB || !strobjA->CStr || !strobjB->CStr )
-		return -1;
-	
-	return strcmp(strobjA->CStr, strobjB->CStr);
+	return ( !strobjA || !strobjB || !strobjA->CStr || !strobjB->CStr ) ? -1 : strcmp(strobjA->CStr, strobjB->CStr);
 }
 
 int32_t String_NCmpCStr(const struct String *const restrict strobj, const char *restrict cstr, const size_t len)
 {
-	if( !strobj || !cstr || !strobj->CStr )
-		return -1;
-	
-	return strncmp(strobj->CStr, cstr, len);
+	return ( !strobj || !cstr || !strobj->CStr ) ? -1 : strncmp(strobj->CStr, cstr, len);
 }
 
 int32_t String_NCmpStr(const struct String *const restrict strobjA, const struct String *const restrict strobjB, const size_t len)
 {
-	if( !strobjA || !strobjB || !strobjA->CStr || !strobjB->CStr )
-		return -1;
-	
-	return strncmp(strobjA->CStr, strobjB->CStr, len);
+	return ( !strobjA || !strobjB || !strobjA->CStr || !strobjB->CStr ) ? -1 : strncmp(strobjA->CStr, strobjB->CStr, len);
 }
 
 bool String_IsEmpty(const struct String *const strobj)

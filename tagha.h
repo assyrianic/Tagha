@@ -68,6 +68,7 @@ typedef union TaghaPtr {
 } TaghaPtr;
 
 
+
 /* Script File/Binary Format Structure (Jun 23, 2018)
  * ------------------------------ start of header ------------------------------
  * 2 bytes: magic verifier ==> 0xC0DE
@@ -178,8 +179,10 @@ typedef struct Tagha {
 	};
 	uint8_t *Header, *DataBase, *Footer;
 	enum TaghaErrCode Error;
-	bool SafeMode : 1;
-	bool CondFlag : 1; /* conditional flag for conditional jumps! */
+	bool
+		SafeMode : 1,
+		CondFlag : 1 /* conditional flag for conditional jumps! */
+	;
 } Tagha;
 
 

@@ -408,7 +408,7 @@ void Graph_FromMap(struct Graph *const graph, const struct Hashmap *const map)
 	for( size_t i=0 ; i<map->Len ; i++ ) {
 		struct Vector *vec = map->Table + i;
 		for( size_t n=0 ; n<Vector_Count(vec) ; n++ ) {
-			struct KeyNode *node = vec->Table[n].Ptr;
+			struct KeyValPair *node = vec->Table[n].Ptr;
 			Graph_InsertVertexByValue(graph, node->Data);
 		}
 	}
@@ -442,7 +442,7 @@ void Graph_FromLinkMap(struct Graph *const graph, const struct LinkMap *const ma
 		return;
 	
 	for( size_t i=0 ; i<map->Order.Count ; i++ ) {
-		struct KeyNode *n = map->Order.Table[i].Ptr;
+		struct KeyValPair *n = map->Order.Table[i].Ptr;
 		Graph_InsertVertexByValue(graph, n->Data);
 	}
 }

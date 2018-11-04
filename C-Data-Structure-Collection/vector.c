@@ -223,7 +223,7 @@ void Vector_FromMap(struct Vector *const restrict v, const struct Hashmap *const
 	for( size_t i=0 ; i<map->Len ; i++ ) {
 		struct Vector *restrict vec = map->Table + i;
 		for( size_t n=0 ; n<Vector_Count(vec) ; n++ ) {
-			struct KeyNode *node = vec->Table[n].Ptr;
+			struct KeyValPair *node = vec->Table[n].Ptr;
 			v->Table[v->Count++] = node->Data;
 		}
 	}
@@ -265,7 +265,7 @@ void Vector_FromLinkMap(struct Vector *const v, const struct LinkMap *const map)
 			Vector_Resize(v);
 	
 	for( size_t i=0 ; i<map->Order.Count ; i++ ) {
-		struct KeyNode *n = map->Order.Table[i].Ptr;
+		struct KeyValPair *n = map->Order.Table[i].Ptr;
 		v->Table[v->Count++] = n->Data;
 	}
 }

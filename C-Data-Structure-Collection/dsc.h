@@ -40,11 +40,19 @@ extern "C" {
 #endif
 
 
-#ifndef DLL_EXPORT
+#ifndef DSC_EXPORT
 	#ifdef OS_WINDOWS
 		#define DSC_EXPORT __declspec(dllexport)
 	#else
 		#define DSC_EXPORT extern
+	#endif
+#endif
+
+#ifndef DSC_IMPORT
+	#ifdef OS_WINDOWS
+		#define DSC_IMPORT __declspec(dllimport)
+	#else
+		#define DSC_IMPORT
 	#endif
 #endif
 
@@ -103,81 +111,41 @@ struct LinkMap;
 struct MemPool;
 
 union Value {
-	bool Bool, BoolArray[8], *BoolPtr, (*BoolFunc)(), *(*BoolPtrFunc)();
-	int8_t Int8, Int8Array[8], *Int8Ptr, (*Int8Func)(), *(*Int8PtrFunc)();
-	int16_t Int16, Int16Array[4], *Int16Ptr, (*Int16Func)(), *(*Int16PtrFunc)();
-	int32_t Int32, Int32Array[2], *Int32Ptr, (*Int32Func)(), *(*Int32PtrFunc)();
-	int64_t Int64, *Int64Ptr, (*Int64Func)(), *(*Int64PtrFunc)();
+	bool Bool, BoolArray[8], *BoolPtr;
+	int8_t Int8, Int8Array[8], *Int8Ptr;
+	int16_t Int16, Int16Array[4], *Int16Ptr;
+	int32_t Int32, Int32Array[2], *Int32Ptr;
+	int64_t Int64, *Int64Ptr;
 	
-	uint8_t UInt8, UInt8Array[8], *UInt8Ptr, (*UInt8Func)(), *(*UInt8PtrFunc)();
-	uint16_t UInt16, UInt16Array[4], *UInt16Ptr, (*UInt16Func)(), *(*UInt16PtrFunc)();
-	uint32_t UInt32, UInt32Array[2], *UInt32Ptr, (*UInt32Func)(), *(*UInt32PtrFunc)();
-	uint64_t UInt64, *UInt64Ptr, (*UInt64Func)(), *(*UInt64PtrFunc)();
-	size_t IntSize, *IntSizePtr, (*IntSizeFunc)(), *(*IntSizePtrFunc)();
+	uint8_t UInt8, UInt8Array[8], *UInt8Ptr;
+	uint16_t UInt16, UInt16Array[4], *UInt16Ptr;
+	uint32_t UInt32, UInt32Array[2], *UInt32Ptr;
+	uint64_t UInt64, *UInt64Ptr;
+	size_t IntSize, *IntSizePtr;
 	
-	float Float, FloatArray[2], *FloatPtr, (*FloatFunc)(), *(*FloatPtrFunc)();
-	double Double, *DoublePtr, (*DoubleFunc)(), *(*DoublePtrFunc)();
+	float Float, FloatArray[2], *FloatPtr;
+	double Double, *DoublePtr;
 	
-	void *Ptr, (*VoidFunc)(), *(*VoidPtrFunc)();
-	union Value *SelfPtr, (*SelfFunc)(), *(*SelfPtrFunc)();
-	struct Variant *VariantPtr, (*VariantFunc)(), *(*VariantPtrFunc)();
-	struct String *StrObjPtr, (*StrObjFunc)(), *(*StrObjPtrFunc)();
-	struct Vector *VecPtr, (*VecFunc)(), *(*VecPtrFunc)();
-	struct Hashmap *MapPtr, (*MapFunc)(), *(*MapPtrFunc)();
-	struct UniLinkedList *UniListPtr, (*UniListFunc)(), *(*UniListPtrFunc)();
-	struct BiLinkedList *BiListPtr, (*BiListFunc)(), *(*BiListPtrFunc)();
-	struct ByteBuffer *BufferPtr, (*BufferFunc)(), *(*BufferPtrFunc)();
-	struct Tuple *TuplePtr, (*TupleFunc)(), *(*TuplePtrFunc)();
-	struct Graph *GraphPtr, (*GraphFunc)(), *(*GraphPtrFunc)();
-	struct TreeNode *TreePtr, (*TreeFunc)(), *(*TreePtrFunc)();
-	struct LinkMap *LinkMapPtr, (*LinkMapFunc)(), *(*LinkMapPtrFunc)();
-};
-
-enum ValType {
-	TypeInvalid=0,
-	// integer types
-	TypeBool, TypeBoolPtr, TypeBoolFunc, TypeBoolPtrFunc,
-	TypeInt8, TypeInt8Ptr, TypeInt8Func, TypeInt8PtrFunc, 
-	TypeInt16, TypeInt16Ptr, TypeInt16Func, TypeInt16PtrFunc, 
-	TypeInt32, TypeInt32Ptr, TypeInt32Func, TypeInt32PtrFunc, 
-	TypeInt64, TypeInt64Ptr, TypeInt64Func, TypeInt64PtrFunc, 
-	TypeUInt8, TypeUInt8Ptr, TypeUInt8Func, TypeUInt8PtrFunc, 
-	TypeUInt16, TypeUInt16Ptr, TypeUInt16Func, TypeUInt16PtrFunc, 
-	TypeUInt32, TypeUInt32Ptr, TypeUInt32Func, TypeUInt32PtrFunc, 
-	TypeUInt64, TypeUInt64Ptr, TypeUInt64Func, TypeUInt64PtrFunc, 
-	TypeIntSize, TypeIntSizePtr, TypeIntSizeFunc, TypeIntSizePtrFunc, 
-	
-	// floating point types
-	TypeFloat, TypeFloatPtr, TypeFloatFunc, TypeFloatPtrFunc,
-	TypeDouble, TypeDoublePtr, TypeDoubleFunc, TypeDoublePtrFunc,
-	// misc.
-	TypePtr, TypePtrPtr, TypeVoidFunc, TypePtrFunc,
-	TypeSelfPtr, TypeSelfFunc, TypeSelfPtrFunc,
-	TypeVariantPtr, TypeVariantFunc, TypeVariantPtrFunc,
-	// data structure oriented.
-	TypeStrObjPtr, TypeStrObjFunc, TypeStrObjPtrFunc,
-	TypeVecPtr, TypeVecFunc, TypeVecPtrFunc,
-	TypeMapPtr, TypeMapFunc, TypeMapPtrFunc,
-	TypeUniListPtr, TypeUniListFunc, TypeUniListPtrFunc,
-	TypeBiListPtr, TypeBiListFunc, TypeBiListPtrFunc,
-	TypeBufferPtr, TypeBufferFunc, TypeBufferPtrFunc,
-	TypeTuplePtr, TypeTupleFunc, TypeTuplePtrFunc,
-	TypeGraphPtr, TypeGraphFunc, TypeGraphPtrFunc,
-	TypeTreePtr, TypeTreeFunc, TypeTreePtrFunc,
-	TypeLinkMapPtr, TypeLinkMapFunc, TypeLinkMapPtrFunc,
+	void *Ptr;
+	union Value *SelfPtr;
+	struct Variant *VarPtr;
+	struct String *StrObjPtr;
+	struct Vector *VecPtr;
+	struct Hashmap *MapPtr;
+	struct UniLinkedList *UniListPtr;
+	struct BiLinkedList *BiListPtr;
+	struct ByteBuffer *ByteBufferPtr;
+	struct Tuple *TuplePtr;
+	struct Graph *GraphPtr;
+	struct TreeNode *TreeNodePtr;
+	struct LinkMap *LinkMapPtr;
 };
 
 // discriminated union type
 struct Variant {
 	union Value Val;
-	enum ValType TypeTag;
+	int32_t TypeTag;
 };
-
-inline void free_safe(void *p)
-{
-	void **restrict pp = p;
-	free(*pp), *pp=NULL;
-}
 
 
 /************* C++ Style Automated String (stringobj.c) *************/
@@ -199,6 +167,7 @@ char *String_GetStr(const struct String *);
 size_t String_Len(const struct String *);
 void String_Copy(struct String *, const struct String *);
 void String_CopyStr(struct String *, const char *);
+int32_t String_Format(struct String *, const char *, ...);
 int32_t String_CmpCStr(const struct String *, const char *);
 int32_t String_CmpStr(const struct String *, const struct String *);
 int32_t String_NCmpCStr(const struct String *, const char *, size_t);
@@ -251,16 +220,16 @@ struct Vector *Vector_NewFromLinkMap(const struct LinkMap *);
 /***************/
 
 /************* Hashmap (hashmap.c) *************/
-struct KeyNode {
+struct KeyValPair {
 	struct String KeyName;
 	union Value Data;
 };
 
-struct KeyNode *KeyNode_New(void);
-struct KeyNode *KeyNode_NewSP(const char *, union Value);
+struct KeyValPair *KeyValPair_New(void);
+struct KeyValPair *KeyValPair_NewSP(const char *, union Value);
 
-void KeyNode_Del(struct KeyNode *, fnDestructor *);
-void KeyNode_Free(struct KeyNode **, fnDestructor *);
+void KeyValPair_Del(struct KeyValPair *, fnDestructor *);
+void KeyValPair_Free(struct KeyValPair **, fnDestructor *);
 
 
 struct Hashmap {
@@ -277,7 +246,7 @@ size_t Map_Count(const struct Hashmap *);
 size_t Map_Len(const struct Hashmap *);
 bool Map_Rehash(struct Hashmap *);
 
-bool Map_InsertNode(struct Hashmap *, struct KeyNode *);
+bool Map_InsertNode(struct Hashmap *, struct KeyValPair *);
 bool Map_Insert(struct Hashmap *, const char *, union Value);
 
 union Value Map_Get(const struct Hashmap *, const char *);
@@ -285,7 +254,7 @@ void Map_Set(struct Hashmap *, const char *, union Value);
 
 void Map_Delete(struct Hashmap *, const char *, fnDestructor *);
 bool Map_HasKey(const struct Hashmap *, const char *);
-struct KeyNode *Map_GetKeyNode(const struct Hashmap *, const char *);
+struct KeyValPair *Map_GetKeyValPair(const struct Hashmap *, const char *);
 struct Vector *Map_GetKeyTable(const struct Hashmap *);
 
 void Map_FromUniLinkedList(struct Hashmap *, const struct UniLinkedList *);
@@ -440,10 +409,11 @@ void ByteBuffer_InsertFloat(struct ByteBuffer *, float);
 void ByteBuffer_InsertDouble(struct ByteBuffer *, double);
 void ByteBuffer_InsertString(struct ByteBuffer *, const char *, size_t);
 void ByteBuffer_InsertObject(struct ByteBuffer *, const void *, size_t);
+void ByteBuffer_InsertZeroes(struct ByteBuffer *, size_t);
 void ByteBuffer_Delete(struct ByteBuffer *, size_t);
 void ByteBuffer_Resize(struct ByteBuffer *);
-void ByteBuffer_DumpToFile(const struct ByteBuffer *, void *);
-size_t ByteBuffer_ReadFromFile(struct ByteBuffer *, void *);
+void ByteBuffer_DumpToFile(const struct ByteBuffer *, FILE *);
+size_t ByteBuffer_ReadFromFile(struct ByteBuffer *, FILE *);
 void ByteBuffer_Append(struct ByteBuffer *, struct ByteBuffer *);
 /***************/
 
@@ -481,6 +451,7 @@ struct Tuple *Tuple_NewFromLinkMap(const struct LinkMap *);
 /************* Memory Pool (mempool.c) *************/
 // uncomment 'POOL_NO_MALLOC' if you can't or don't want to use 'malloc/calloc'.
 // library will need recompiling though.
+
 //#define POOL_NO_MALLOC
 
 #ifdef POOL_NO_MALLOC
@@ -656,7 +627,7 @@ size_t TreeNode_GetChildCount(const struct TreeNode *);
 struct LinkMap {
 	union {
 		struct {
-			struct Vector *Table; // a vector of vectors!
+			struct Vector *Table;
 			size_t Len, Count;
 		};
 		struct Hashmap Map;
@@ -673,9 +644,9 @@ size_t LinkMap_Len(const struct LinkMap *);
 bool LinkMap_Rehash(struct LinkMap *);
 
 bool LinkMap_Insert(struct LinkMap *, const char *, union Value);
-bool LinkMap_InsertNode(struct LinkMap *, struct KeyNode *);
+bool LinkMap_InsertNode(struct LinkMap *, struct KeyValPair *);
 
-struct KeyNode *LinkMap_GetNodeByIndex(const struct LinkMap *, size_t);
+struct KeyValPair *LinkMap_GetNodeByIndex(const struct LinkMap *, size_t);
 union Value LinkMap_Get(const struct LinkMap *, const char *);
 void LinkMap_Set(struct LinkMap *, const char *, union Value);
 union Value LinkMap_GetByIndex(const struct LinkMap *, size_t);
@@ -684,10 +655,10 @@ void LinkMap_SetByIndex(struct LinkMap *, size_t, union Value);
 void LinkMap_Delete(struct LinkMap *, const char *, fnDestructor *);
 void LinkMap_DeleteByIndex(struct LinkMap *, size_t, fnDestructor *);
 bool LinkMap_HasKey(const struct LinkMap *, const char *);
-struct KeyNode *LinkMap_GetNodeByKey(const struct LinkMap *, const char *);
+struct KeyValPair *LinkMap_GetNodeByKey(const struct LinkMap *, const char *);
 struct Vector *LinkMap_GetKeyTable(const struct LinkMap *);
 size_t LinkMap_GetIndexByName(const struct LinkMap *, const char *);
-size_t LinkMap_GetIndexByNode(const struct LinkMap *, struct KeyNode *);
+size_t LinkMap_GetIndexByNode(const struct LinkMap *, struct KeyValPair *);
 size_t LinkMap_GetIndexByValue(const struct LinkMap *, union Value);
 
 void LinkMap_FromMap(struct LinkMap *, const struct Hashmap *);

@@ -4,14 +4,14 @@
 #include "dsc.h"
 
 
-struct KeyNode *KeyNode_New(void)
+struct KeyValPair *KeyValPair_New(void)
 {
-	return calloc(1, sizeof(struct KeyNode));
+	return calloc(1, sizeof(struct KeyValPair));
 }
 
-struct KeyNode *KeyNode_NewSP(const char *restrict cstr, const union Value val)
+struct KeyValPair *KeyValPair_NewSP(const char *restrict cstr, const union Value val)
 {
-	struct KeyNode *restrict n = KeyNode_New();
+	struct KeyValPair *restrict n = KeyValPair_New();
 	if( n ) {
 		String_InitStr(&n->KeyName, cstr);
 		n->Data = val;
@@ -19,7 +19,7 @@ struct KeyNode *KeyNode_NewSP(const char *restrict cstr, const union Value val)
 	return n;
 }
 
-void KeyNode_Del(struct KeyNode *const n, fnDestructor *const dtor)
+void KeyValPair_Del(struct KeyValPair *const n, fnDestructor *const dtor)
 {
 	if( !n )
 		return;
@@ -29,12 +29,12 @@ void KeyNode_Del(struct KeyNode *const n, fnDestructor *const dtor)
 		(*dtor)(&n->Data.Ptr);
 }
 
-void KeyNode_Free(struct KeyNode **noderef, fnDestructor *const dtor)
+void KeyValPair_Free(struct KeyValPair **noderef, fnDestructor *const dtor)
 {
 	if( !noderef || !*noderef )
 		return;
 	
-	KeyNode_Del(*noderef, dtor);
+	KeyValPair_Del(*noderef, dtor);
 	free(*noderef), *noderef=NULL;
 }
 
@@ -73,8 +73,8 @@ void Map_Del(struct Hashmap *const map, fnDestructor *const dtor)
 	for( size_t i=0 ; i<map->Len ; i++ ) {
 		struct Vector *vec = map->Table+i;
 		for( size_t i=0 ; i<vec->Len ; i++ ) {
-			struct KeyNode *kv = vec->Table[i].Ptr;
-			KeyNode_Free(&kv, dtor);
+			struct KeyValPair *kv = vec->Table[i].Ptr;
+			KeyValPair_Free(&kv, dtor);
 		}
 		Vector_Del(vec, NULL);
 	}
@@ -126,7 +126,7 @@ bool Map_Rehash(struct Hashmap *const map)
 	for( size_t i=0 ; i<old_size ; i++ ) {
 		struct Vector *restrict vec = curr + i;
 		for( size_t n=0 ; n<Vector_Count(vec) ; n++ ) {
-			struct KeyNode *node = vec->Table[n].Ptr;
+			struct KeyValPair *node = vec->Table[n].Ptr;
 			Map_InsertNode(map, node);
 		}
 		Vector_Del(vec, NULL);
@@ -135,7 +135,7 @@ bool Map_Rehash(struct Hashmap *const map)
 	return true;
 }
 
-bool Map_InsertNode(struct Hashmap *const map, struct KeyNode *node)
+bool Map_InsertNode(struct Hashmap *const map, struct KeyValPair *node)
 {
 	if( !map || !node || !node->KeyName.CStr )
 		return false;
@@ -168,10 +168,10 @@ bool Map_Insert(struct Hashmap *const restrict map, const char *restrict strkey,
 	if( !map || !strkey )
 		return false;
 	
-	struct KeyNode *node = KeyNode_NewSP(strkey, val);
+	struct KeyValPair *node = KeyValPair_NewSP(strkey, val);
 	bool b = Map_InsertNode(map, node);
 	if( !b )
-		KeyNode_Free(&node, NULL);
+		KeyValPair_Free(&node, NULL);
 	return b;
 }
 
@@ -183,7 +183,7 @@ union Value Map_Get(const struct Hashmap *const restrict map, const char *restri
 	const size_t hash = GenHash(strkey) % map->Len;
 	struct Vector *restrict vec = map->Table+hash;
 	for( size_t i=0 ; i<Vector_Count(vec) ; i++ ) {
-		const struct KeyNode *restrict kv = vec->Table[i].Ptr;
+		const struct KeyValPair *restrict kv = vec->Table[i].Ptr;
 		if( !String_CmpCStr(&kv->KeyName, strkey) )
 			return kv->Data;
 	}
@@ -198,7 +198,7 @@ void Map_Set(struct Hashmap *const restrict map, const char *restrict strkey, co
 	const size_t hash = GenHash(strkey) % map->Len;
 	struct Vector *restrict vec = map->Table+hash;
 	for( size_t i=0 ; i<Vector_Count(vec) ; i++ ) {
-		struct KeyNode *restrict kv = vec->Table[i].Ptr;
+		struct KeyValPair *restrict kv = vec->Table[i].Ptr;
 		if( !String_CmpCStr(&kv->KeyName, strkey) )
 			kv->Data = val;
 	}
@@ -212,9 +212,9 @@ void Map_Delete(struct Hashmap *const restrict map, const char *restrict strkey,
 	const size_t hash = GenHash(strkey) % map->Len;
 	struct Vector *restrict vec = map->Table+hash;
 	for( size_t i=0 ; i<vec->Count ; i++ ) {
-		struct KeyNode *kv = vec->Table[i].Ptr;
+		struct KeyValPair *kv = vec->Table[i].Ptr;
 		if( !String_CmpCStr(&kv->KeyName, strkey) ) {
-			KeyNode_Del(kv, dtor);
+			KeyValPair_Del(kv, dtor);
 			Vector_Delete(vec, i, NULL);
 			map->Count--;
 			break;
@@ -230,14 +230,14 @@ bool Map_HasKey(const struct Hashmap *const restrict map, const char *restrict s
 	const size_t hash = GenHash(strkey) % map->Len;
 	struct Vector *restrict vec = map->Table+hash;
 	for( size_t i=0 ; i<Vector_Count(vec) ; i++ ) {
-		const struct KeyNode *restrict kv = vec->Table[i].Ptr;
+		const struct KeyValPair *restrict kv = vec->Table[i].Ptr;
 		if( !String_CmpCStr(&kv->KeyName, strkey) )
 			return true;
 	}
 	return false;
 }
 
-struct KeyNode *Map_GetKeyNode(const struct Hashmap *const restrict map, const char *restrict strkey)
+struct KeyValPair *Map_GetKeyValPair(const struct Hashmap *const restrict map, const char *restrict strkey)
 {
 	if( !map || !strkey || !map->Table )
 		return NULL;
@@ -245,7 +245,7 @@ struct KeyNode *Map_GetKeyNode(const struct Hashmap *const restrict map, const c
 	const size_t hash = GenHash(strkey) % map->Len;
 	struct Vector *restrict vec = map->Table+hash;
 	for( size_t i=0 ; i<Vector_Count(vec) ; i++ ) {
-		struct KeyNode *restrict kv = vec->Table[i].Ptr;
+		struct KeyValPair *restrict kv = vec->Table[i].Ptr;
 		if( !String_CmpCStr(&kv->KeyName, strkey) )
 			return kv;
 	}
@@ -328,8 +328,8 @@ void Map_FromLinkMap(struct Hashmap *const map, const struct LinkMap *const link
 		return;
 	
 	for( size_t i=0 ; i<linkmap->Order.Count ; i++ ) {
-		struct KeyNode *n = linkmap->Order.Table[i].Ptr;
-		Map_InsertNode(map, KeyNode_NewSP(n->KeyName.CStr, n->Data));
+		struct KeyValPair *n = linkmap->Order.Table[i].Ptr;
+		Map_InsertNode(map, KeyValPair_NewSP(n->KeyName.CStr, n->Data));
 	}
 }
 

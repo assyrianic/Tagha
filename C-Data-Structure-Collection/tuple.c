@@ -86,7 +86,7 @@ void Tuple_FromMap(struct Tuple *const tup, const struct Hashmap *const map)
 	for( size_t i=0 ; i<map->Len ; i++ ) {
 		struct Vector *vec = map->Table + i;
 		for( size_t n=0 ; n<Vector_Count(vec) ; n++ ) {
-			struct KeyNode *node = vec->Table[n].Ptr;
+			struct KeyValPair *node = vec->Table[n].Ptr;
 			list_items[x++] = node->Data;
 		}
 	}
@@ -144,7 +144,7 @@ void Tuple_FromLinkMap(struct Tuple *const tup, const struct LinkMap *const map)
 	union Value list_items[map->Count];
 	size_t i=0;
 	for( ; i<map->Order.Count ; i++ ) {
-		struct KeyNode *n = map->Order.Table[i].Ptr;
+		struct KeyValPair *n = map->Order.Table[i].Ptr;
 		list_items[i] = n->Data;
 	}
 	Tuple_Init(tup, i, list_items);

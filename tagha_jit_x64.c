@@ -1,143 +1,120 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <limits.h>
 #include "tagha.h"
 
-static void			*GetFunctionOffsetByName(uint8_t *, const char *);
-static void			*GetFunctionOffsetByIndex(uint8_t *, size_t);
-static TaghaNative		*GetNativeByIndex(uint8_t *, size_t);
+#define TAGHA_PAGE_SIZE    4096
 
-static void			*GetVariableOffsetByName(uint8_t *, const char *);
-static void			*GetVariableOffsetByIndex(uint8_t *, size_t);
-//static bool			VerifyTaghaScript(uint8_t *);
+#if defined(_WIN32) || defined(_WIN64)
+#  ifndef OS_WINDOWS
+#    define OS_WINDOWS 1
+#  endif
+#elif defined(unix) || defined(__unix) || defined(__unix__) || defined(__linux__) || defined(linux) || defined(__linux) || defined(__FreeBSD__)
+#  ifndef OS_LINUX_UNIX
+#    define OS_LINUX_UNIX 1
+#  endif
+#elif defined(__ANDROID__)
+#  ifndef OS_ANDROID
+#    define OS_ANDROID 1
+#  endif
+#else
+#  ifndef OS_MAC
+#    define OS_MAC 1
+#  endif
+#endif
 
-static void PrepModule(uint8_t *const module)
+
+struct JITFunc;
+typedef struct JITFunc *jitfunc_ptr;
+
+struct JITFunc {
+	uint8_t Code[TAGHA_PAGE_SIZE - sizeof(size_t)];
+	size_t Len;
+};
+
+jitfunc_ptr jitfunc_create(void)
 {
-	union TaghaPtr reader = {module + 2};
-	const uint32_t vartable_offset = reader.PtrUInt32[2];
+# ifdef OS_WINDOWS
+	return VirtualAlloc(NULL, TAGHA_PAGE_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+# else
+	// giving undefined symbol for MAP_ANON and ANONYMOUS.
+	return mmap(NULL, TAGHA_PAGE_SIZE, PROT_READ | PROT_WRITE, 0x20 | MAP_PRIVATE, -1, 0);
+# endif
+}
+
+void jitfunc_protect(jitfunc_ptr jit)
+{
+	if( !jit )
+		return;
+# ifdef OS_WINDOWS
+	DWORD i;
+	VirtualProtect(jit, sizeof *jit, PAGE_EXECUTE_READ, &i);
+# else
+	mprotect(jit, TAGHA_PAGE_SIZE, PROT_READ | PROT_EXEC);
+# endif
+}
+
+static void jitfunc_unprotect(jitfunc_ptr jit)
+{
+	if( !jit )
+		return;
+# ifdef OS_WINDOWS
+	DWORD i;
+	VirtualProtect(jit, sizeof *jit, PAGE_READWRITE, &i);
+# else
+	mprotect(jit, TAGHA_PAGE_SIZE, PROT_READ | PROT_WRITE);
+# endif
+}
+
+void jitfunc_free(jitfunc_ptr *jitref)
+{
+	if( !jitref || !*jitref )
+		return;
+# ifdef OS_WINDOWS
+	VirtualFree(*jitref, 0, MEM_RELEASE);
+# else
+	munmap(*jitref, TAGHA_PAGE_SIZE);
+# endif
+	*jitref = NULL;
+}
+
+void jitfunc_insert(jitfunc_ptr jit, const size_t bytes, const uint64_t instr)
+{
+	if( !jit )
+		return;
 	
-	reader.PtrUInt8 = module + vartable_offset;
-	const uint32_t globalvars = *reader.PtrUInt32++;
-	for( uint32_t i=0 ; i<globalvars ; i++ ) {
-		reader.PtrUInt8++;
-		const uint64_t sizes = *reader.PtrUInt64++;
-		const uint32_t cstrlen = sizes & 0xffFFffFF;
-		const uint32_t datalen = sizes >> 32;
-		if( !strcmp("stdin", reader.PtrCStr) ) {
-			*(FILE **)(reader.PtrUInt8 + cstrlen) = stdin;
-		}
-		else if( !strcmp("stdout", reader.PtrCStr) ) {
-			*(FILE **)(reader.PtrUInt8 + cstrlen) = stdout;
-		}
-		else if( !strcmp("stderr", reader.PtrCStr) ) {
-			*(FILE **)(reader.PtrUInt8 + cstrlen) = stderr;
-		}
-		reader.PtrUInt8 += (cstrlen + datalen);
+	memcpy(jit->Code + jit->Len, &instr, bytes);
+	jit->Len += bytes;
+}
+
+void jitfunc_imm(jitfunc_ptr jit, uint64_t imm)
+{
+	if( !jit )
+		return;
+	
+	/* 8 byte imm values that have the first 4 bytes set to max are encoded as 4 bytes. */
+	if( imm>>32 == UINT32_MAX ) {
+		memcpy(jit->Code + jit->Len, &imm, sizeof(uint32_t));
+		jit->Len += sizeof(uint32_t);
+	} else {
+		memcpy(jit->Code + jit->Len, &imm, sizeof imm);
+		jit->Len += immlen;
 	}
 }
 
-
-struct Tagha *Tagha_New(void *restrict script)
+static void *jitfunc_givefunc(jitfunc_ptr jit)
 {
-	struct Tagha *restrict vm = calloc(1, sizeof *vm);
-	Tagha_Init(vm, script);
-	return vm;
+	return jit->Code;
 }
 
-struct Tagha *Tagha_NewNatives(void *restrict script, const struct NativeInfo natives[restrict])
+static void jitfunc_clear(jitfunc_ptr jit)
 {
-	struct Tagha *restrict vm = Tagha_New(script);
-	Tagha_RegisterNatives(vm, natives);
-	return vm;
-}
-
-void Tagha_Free(struct Tagha **vmref)
-{
-	if( !vmref || !*vmref )
-		return;
-	free(*vmref), *vmref = NULL;
-}
-
-void Tagha_Init(struct Tagha *const restrict vm, void *script)
-{
-	if( !vm || !script )
-		return;
-	
-	*vm = (struct Tagha){0};
-	PrepModule(script);
-	vm->Header = script;
-	vm->SafeMode = vm->Header[18];
-}
-
-void Tagha_InitNatives(struct Tagha *const restrict vm, void *restrict script, const struct NativeInfo natives[restrict])
-{
-	Tagha_Init(vm, script);
-	Tagha_RegisterNatives(vm, natives);
+	memset(jit->Code, 0, jit->Len);
 }
 
 
-
-void Tagha_PrintVMState(const struct Tagha *const vm)
-{
-	if( !vm )
-		return;
-	
-	printf("=== Tagha VM State Info ===\n\nPrinting Registers:\nregister alaf: '%" PRIu64 "'\nregister beth: '%" PRIu64 "'\nregister gamal: '%" PRIu64 "'\nregister dalath: '%" PRIu64 "'\nregister heh: '%" PRIu64 "'\nregister waw: '%" PRIu64 "'\nregister zain: '%" PRIu64 "'\nregister heth: '%" PRIu64 "'\nregister teth: '%" PRIu64 "'\nregister yodh: '%" PRIu64 "'\nregister kaf: '%" PRIu64 "'\nregister lamadh: '%" PRIu64 "'\nregister meem: '%" PRIu64 "'\nregister noon: '%" PRIu64 "'\nregister semkath: '%" PRIu64 "'\nregister eh: '%" PRIu64 "'\nregister peh: '%" PRIu64 "'\nregister sadhe: '%" PRIu64 "'\nregister qof: '%" PRIu64 "'\nregister reesh: '%" PRIu64 "'\nregister sheen: '%" PRIu64 "'\nregister taw: '%" PRIu64 "'\nregister stack pointer: '%p'\nregister base pointer: '%p'\nregister instruction pointer: '%p'\n\nPrinting Condition Flag: %u\n=== End Tagha VM State Info ===\n",
-	vm->regAlaf.UInt64,
-	vm->regBeth.UInt64,
-	vm->regGamal.UInt64,
-	vm->regDalath.UInt64,
-	vm->regHeh.UInt64,
-	vm->regWaw.UInt64,
-	vm->regZain.UInt64,
-	vm->regHeth.UInt64,
-	vm->regTeth.UInt64,
-	vm->regYodh.UInt64,
-	vm->regKaf.UInt64,
-	vm->regLamadh.UInt64,
-	vm->regMeem.UInt64,
-	vm->regNoon.UInt64,
-	vm->regSemkath.UInt64,
-	vm->reg_Eh.UInt64,
-	vm->regPeh.UInt64,
-	vm->regSadhe.UInt64,
-	vm->regQof.UInt64,
-	vm->regReesh.UInt64,
-	vm->regSheen.UInt64,
-	vm->regTaw.UInt64,
-	vm->regStk.Ptr,
-	vm->regBase.Ptr,
-	vm->regInstr.Ptr,
-	vm->CondFlag);
-}
-
-bool Tagha_RegisterNatives(struct Tagha *const restrict vm, const struct NativeInfo natives[])
-{
-	if( !vm || !vm->Header || !natives )
-		return false;
-	
-	for( const struct NativeInfo *restrict n=natives ; n->NativeCFunc && n->Name ; n++ ) {
-		TaghaNative **nativeref = GetFunctionOffsetByName(vm->Header, n->Name);
-		nativeref ? (*nativeref = n->NativeCFunc) : (void)nativeref;
-	}
-	return true;
-}
-
-static void *GetFunctionOffsetByName(uint8_t *const hdr, const char *restrict funcname)
-{
-	union TaghaPtr reader = {hdr + sizeof(struct TaghaHeader)};
-	const uint32_t funcs = *reader.PtrUInt32++;
-	for( uint32_t i=0 ; i<funcs ; i++ ) {
-		reader.PtrUInt8++;
-		const uint64_t sizes = *reader.PtrUInt64++;
-		const uint32_t cstrlen = sizes & 0xffFFffFF;
-		const uint32_t datalen = sizes >> 32;
-		if( !strcmp(funcname, reader.PtrCStr) )
-			return reader.PtrUInt8 + cstrlen;
-		else reader.PtrUInt8 += (cstrlen + datalen);
-	}
-	return NULL;
-}
 
 static void *GetFunctionOffsetByIndex(uint8_t *const hdr, const size_t index)
 {
@@ -177,29 +154,11 @@ static TaghaNative *GetNativeByIndex(uint8_t *const hdr, const size_t index)
 	return NULL;
 }
 
-static void *GetVariableOffsetByName(uint8_t *const module, const char *restrict varname)
-{
-	union TaghaPtr reader = {module + 2};
-	const uint32_t vartable_offset = reader.PtrUInt32[2];
-	
-	reader.PtrUInt8 = module + vartable_offset;
-	const uint32_t globalvars = *reader.PtrUInt32++;
-	for( uint32_t i=0 ; i<globalvars ; i++ ) {
-		reader.PtrUInt8++;
-		const uint64_t sizes = *reader.PtrUInt64++;
-		const uint32_t cstrlen = sizes & 0xffFFffFF;
-		const uint32_t datalen = sizes >> 32;
-		if( !strcmp(varname, reader.PtrCStr) )
-			return reader.PtrUInt8 + cstrlen;
-		else reader.PtrUInt8 += (cstrlen + datalen);
-	}
-	return NULL;
-}
-
 static void *GetVariableOffsetByIndex(uint8_t *const module, const size_t index)
 {
-	union TaghaPtr reader = {module + 2};
-	const uint32_t vartable_offset = reader.PtrUInt32[2];
+	union TaghaPtr reader = {module};
+	reader.PtrUInt8 += 10;
+	const uint32_t vartable_offset = *reader.PtrUInt32;
 	
 	reader.PtrUInt8 = module + vartable_offset;
 	const uint32_t globalvars = *reader.PtrUInt32++;
@@ -221,12 +180,13 @@ static void *GetVariableOffsetByIndex(uint8_t *const module, const size_t index)
 
 //#include <unistd.h>	// sleep() func
 
-int32_t Tagha_Exec(struct Tagha *const restrict vm)
+int32_t Tagha_JITExec(struct Tagha *const restrict vm)
 {
 	if( !vm )
 		return -1;
 	
 	union TaghaPtr pc = {vm->regInstr.PtrUInt8};
+	jitfunc_ptr jit = jitfunc_create();
 	
 #define X(x) #x ,
 	/* for debugging purposes. */
@@ -259,19 +219,64 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	}
 	/* push immediate value. */
 	exec_pushi: { /* char: opcode | i64: imm */
-		*--vm->regStk.PtrSelf = *pc.PtrVal++;
+		// movabs r11
+		jitfunc_insert(jit, 2, 0x49BB); jitfunc_imm(jit, *pc.PtrUInt64++);
+		// push r11
+		jitfunc_insert(jit, 2, 0x4153);
 		DISPATCH();
 	}
 	/* push a register's contents. */
 	exec_push: { /* char: opcode | char: regid */
-		*--vm->regStk.PtrSelf = vm->Regs[*pc.PtrUInt8++];
-		DISPATCH();
+		switch( *pc.PtrUInt8++ ) {
+			case regStk:
+				jitfunc_insert(jit, 1, 0x54); // push rsp
+				DISPATCH();
+			case regBase:
+				jitfunc_insert(jit, 1, 0x55); // push rbp
+				DISPATCH();
+			case regSemkath:
+				jitfunc_insert(jit, 2, 0x4153); // push r11
+				DISPATCH();
+			case reg_Eh:
+				jitfunc_insert(jit, 2, 0x4154); // push r12
+				DISPATCH();
+			case regPeh:
+				jitfunc_insert(jit, 2, 0x4155); // push r13
+				DISPATCH();
+			case regSadhe:
+				jitfunc_insert(jit, 2, 0x4156); // push r14
+				DISPATCH();
+			default:
+				jitfunc_insert(jit, 2, 0x4157); // push r15
+				DISPATCH();
+		}
 	}
 	
 	/* pops a value from the stack into a register then reduces stack by 8 bytes. */
 	exec_pop: { /* char: opcode | char: regid */
-		vm->Regs[*pc.PtrUInt8++] = *vm->regStk.PtrSelf++;
-		DISPATCH();
+		switch( *pc.PtrUInt8++ ) {
+			case regStk:
+				jitfunc_insert(jit, 1, 0x5c); // pop rsp
+				DISPATCH();
+			case regBase:
+				jitfunc_insert(jit, 1, 0x5d); // pop rbp
+				DISPATCH();
+			case regSemkath:
+				jitfunc_insert(jit, 2, 0x415B); // pop r11
+				DISPATCH();
+			case reg_Eh:
+				jitfunc_insert(jit, 2, 0x415C); // pop r12
+				DISPATCH();
+			case regPeh:
+				jitfunc_insert(jit, 2, 0x415D); // pop r13
+				DISPATCH();
+			case regSadhe:
+				jitfunc_insert(jit, 2, 0x415E); // pop r14
+				DISPATCH();
+			default:
+				jitfunc_insert(jit, 2, 0x415F); // pop r15
+				DISPATCH();
+		}
 	}
 	
 	exec_loadglobal: { /* char: opcode | char: regid | u64: index */
@@ -293,15 +298,34 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	}
 	
 	exec_movi: { /* char: opcode | char: regid | i64: imm */
-		const uint8_t regid = *pc.PtrUInt8++;
-		//vm->Regs[regid] = *pc.PtrVal++;
-		memcpy(&vm->Regs[regid], pc.PtrVal++, sizeof(union TaghaVal));
+		switch( *pc.PtrUInt8++ ) {
+			case regStk:
+				jitfunc_insert(jit, 2, 0x48BC); // mov rsp, <imm64>
+				break;
+			case regBase:
+				jitfunc_insert(jit, 2, 0x48BD); // mov rbp, <imm64>
+				break;
+			case regSemkath:
+				jitfunc_insert(jit, 2, 0x49BB); // mov r11, <imm64>
+				break;
+			case reg_Eh:
+				jitfunc_insert(jit, 2, 0x49BC); // mov r12, <imm64>
+				break;
+			case regPeh:
+				jitfunc_insert(jit, 2, 0x49BD); // mov r13, <imm64>
+				break;
+			case regSadhe:
+				jitfunc_insert(jit, 2, 0x49BE); // mov r14, <imm64>
+				break;
+			default:
+				jitfunc_insert(jit, 2, 0x49BF); // mov r15, <imm64>
+		}
+		jitfunc_imm(jit, *pc.PtrUInt64++);
 		DISPATCH();
 	}
 	exec_mov: { /* char: opcode | char: dest reg | char: src reg */
-		const uint16_t regids = *pc.PtrUInt16++;
-		//vm->Regs[regids & 0xff] = vm->Regs[regids >> 8];
-		memcpy(&vm->Regs[regids & 0xff], &vm->Regs[regids >> 8], sizeof(union TaghaVal));
+		pc.PtrUInt16++;
+		jitfunc_insert(jit, 3, 0x4D89E3); // mov r11, r12
 		DISPATCH();
 	}
 	
@@ -311,6 +335,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		// do a memcheck here.
 		if( vm->SafeMode && (mem.PtrUInt8 < vm->DataBase || mem.PtrUInt8 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
+			jitfunc_free(&jit);
 			return -1;
 		}
 		vm->Regs[regids & 0xff].UInt64 = (uint64_t) *mem.PtrUInt8;
@@ -322,6 +347,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		// do a memcheck here.
 		if( vm->SafeMode && (mem.PtrUInt8 < vm->DataBase || mem.PtrUInt8+1 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
+			jitfunc_free(&jit);
 			return -1;
 		}
 		vm->Regs[regids & 0xff].UInt64 = (uint64_t) *mem.PtrUInt16;
@@ -333,6 +359,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		// do a memcheck here.
 		if( vm->SafeMode && (mem.PtrUInt8 < vm->DataBase || mem.PtrUInt8+3 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
+			jitfunc_free(&jit);
 			return -1;
 		}
 		vm->Regs[regids & 0xff].UInt64 = (uint64_t) *mem.PtrUInt32;
@@ -344,6 +371,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		// do a memcheck here.
 		if( vm->SafeMode && (mem.PtrUInt8 < vm->DataBase || mem.PtrUInt8+7 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
+			jitfunc_free(&jit);
 			return -1;
 		}
 		vm->Regs[regids & 0xff].UInt64 = *mem.PtrUInt64;
@@ -356,6 +384,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		// do a memcheck here.
 		if( vm->SafeMode && (mem.PtrUInt8 < vm->DataBase || mem.PtrUInt8 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
+			jitfunc_free(&jit);
 			return -1;
 		}
 		memcpy(mem.Ptr, &vm->Regs[regids >> 8], sizeof(uint8_t));
@@ -368,6 +397,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		// do a memcheck here.
 		if( vm->SafeMode && (mem.PtrUInt8 < vm->DataBase || mem.PtrUInt8+1 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
+			jitfunc_free(&jit);
 			return -1;
 		}
 		memcpy(mem.Ptr, &vm->Regs[regids >> 8], sizeof(uint16_t));
@@ -380,6 +410,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		// do a memcheck here.
 		if( vm->SafeMode && (mem.PtrUInt8 < vm->DataBase || mem.PtrUInt8+3 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
+			jitfunc_free(&jit);
 			return -1;
 		}
 		memcpy(mem.Ptr, &vm->Regs[regids >> 8], sizeof(uint32_t));
@@ -392,6 +423,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		// do a memcheck here.
 		if( vm->SafeMode && (mem.PtrUInt8 < vm->DataBase || mem.PtrUInt8+7 >= vm->Footer) ) {
 			vm->Error = ErrBadPtr;
+			jitfunc_free(&jit);
 			return -1;
 		}
 		memcpy(mem.Ptr, &vm->Regs[regids >> 8], sizeof(uint64_t));
@@ -525,32 +557,58 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_jmp: { /* char: opcode | i64: offset */
+		jitfunc_protect(jit);
+		void (*jitfunc)(void) = jitfunc_givefunc(jit);
+		(*jitfunc)();
+		jitfunc_clear(jit);
+		jitfunc_unprotect(jit);
+		
 		const int64_t offset = *pc.PtrInt64++;
 		pc.PtrUInt8 += offset;
 		DISPATCH();
 	}
 	exec_jz: { /* char: opcode | i64: offset */
+		jitfunc_protect(jit);
+		void (*jitfunc)(void) = jitfunc_givefunc(jit);
+		(*jitfunc)();
+		jitfunc_clear(jit);
+		jitfunc_unprotect(jit);
+		
 		const int64_t offset = *pc.PtrInt64++;
 		//if( !vm->CondFlag )
 		//	pc.PtrUInt8 += offset;
+		//pc.PtrUInt8 = ( !vm->CondFlag ) ? pc.PtrUInt8 + offset : pc.PtrUInt8;
 		pc.PtrUInt8 += ( !vm->CondFlag ) ? offset : 0;
 		DISPATCH();
 	}
 	exec_jnz: { /* char: opcode | i64: offset */
+		jitfunc_protect(jit);
+		void (*jitfunc)(void) = jitfunc_givefunc(jit);
+		(*jitfunc)();
+		jitfunc_clear(jit);
+		jitfunc_unprotect(jit);
+		
 		const int64_t offset = *pc.PtrInt64++;
 		//if( vm->CondFlag )
 		//	pc.PtrUInt8 += offset;
+		//pc.PtrUInt8 = ( vm->CondFlag ) ? pc.PtrUInt8 + offset : pc.PtrUInt8;
 		pc.PtrUInt8 += ( vm->CondFlag ) ? offset : 0;
 		DISPATCH();
 	}
 	exec_call: { /* char: opcode | i64: offset */
+		jitfunc_protect(jit);
+		void (*jitfunc)(void) = jitfunc_givefunc(jit);
+		(*jitfunc)();
+		jitfunc_clear(jit);
+		jitfunc_unprotect(jit);
+		
 		/* The restrict type qualifier is an indication to the compiler that,
 		 * if the memory addressed by the restrict-qualified pointer is modified,
 		 * no other pointer will access that same memory.
 		 * Since we're pushing the restrict-qualified pointer's memory that it points to,
 		 * This is NOT undefined behavior because it's not aliasing access of the instruction stream.
 		 */
-		const int64_t index = *pc.PtrInt64++;
+		const uint64_t index = *pc.PtrUInt64++;
 		(--vm->regStk.PtrSelf)->Ptr = pc.Ptr;	/* push rip */
 		*--vm->regStk.PtrSelf = vm->regBase;	/* push rbp */
 		vm->regBase = vm->regStk;	/* mov rbp, rsp */
@@ -558,26 +616,47 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 		DISPATCH();
 	}
 	exec_callr: { /* char: opcode | char: regid */
+		jitfunc_protect(jit);
+		void (*jitfunc)(void) = jitfunc_givefunc(jit);
+		(*jitfunc)();
+		jitfunc_clear(jit);
+		jitfunc_unprotect(jit);
+		
 		const uint8_t regid = *pc.PtrUInt8++;
 		(--vm->regStk.PtrSelf)->Ptr = pc.Ptr;	/* push rip */
 		*--vm->regStk.PtrSelf = vm->regBase;	/* push rbp */
 		vm->regBase = vm->regStk;	/* mov rbp, rsp */
-		pc.PtrUInt8 = GetFunctionOffsetByIndex(vm->Header, (vm->Regs[regid].Int64 - 1));
+		pc.PtrUInt8 = GetFunctionOffsetByIndex(vm->Header, (vm->Regs[regid].UInt64 - 1));
 		DISPATCH();
 	}
 	exec_ret: { /* char: opcode */
+		jitfunc_protect(jit);
+		void (*jitfunc)(void) = jitfunc_givefunc(jit);
+		(*jitfunc)();
+		jitfunc_clear(jit);
+		jitfunc_unprotect(jit);
+		
 		vm->regStk = vm->regBase; /* mov rsp, rbp */
 		vm->regBase = *vm->regStk.PtrSelf++; /* pop rbp */
 		pc.Ptr = (*vm->regStk.PtrSelf++).Ptr; /* pop rip */
-		if( !pc.Ptr )
+		if( !pc.Ptr ) {
+			jitfunc_free(&jit);
 			return vm->regAlaf.Int32;
+		}
 		else { DISPATCH(); }
 	}
 	
 	exec_syscall: { /* char: opcode | i64: index */
+		jitfunc_protect(jit);
+		void (*jitfunc)(void) = jitfunc_givefunc(jit);
+		(*jitfunc)();
+		jitfunc_clear(jit);
+		jitfunc_unprotect(jit);
+		
 		TaghaNative *const nativeref = GetNativeByIndex(vm->Header, (-1 - *pc.PtrInt64++));
 		if( !nativeref ) {
 			vm->Error = ErrMissingNative;
+			jitfunc_free(&jit);
 			goto *dispatch[halt];
 		} else {
 			const uint8_t reg_param_initial = regSemkath;
@@ -592,16 +671,25 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				((*nativeref)(vm, &retval, vm->regAlaf.SizeInt, vm->regStk.PtrSelf), vm->regStk.PtrSelf += vm->regAlaf.SizeInt);
 			memcpy(&vm->regAlaf, &retval, sizeof retval);
 			
-			if( vm->Error != ErrNone )
+			if( vm->Error != ErrNone ) {
+				jitfunc_free(&jit);
 				return vm->Error;
+			}
 			else { DISPATCH(); }
 		}
 	}
 	exec_syscallr: { /* char: opcode | char: reg id */
+		jitfunc_protect(jit);
+		void (*jitfunc)(void) = jitfunc_givefunc(jit);
+		(*jitfunc)();
+		jitfunc_clear(jit);
+		jitfunc_unprotect(jit);
+		
 		const uint8_t regid = *pc.PtrUInt8++;
 		TaghaNative *const nativeref = GetNativeByIndex(vm->Header, (-1 - vm->Regs[regid].Int64));
 		if( !nativeref ) {
 			vm->Error = ErrMissingNative;
+			jitfunc_free(&jit);
 			goto *dispatch[halt];
 		} else {
 			const uint8_t reg_param_initial = regSemkath;
@@ -616,14 +704,16 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 				((*nativeref)(vm, &retval, vm->regAlaf.SizeInt, vm->regStk.PtrSelf), vm->regStk.PtrSelf += vm->regAlaf.SizeInt);
 			memcpy(&vm->regAlaf, &retval, sizeof retval);
 			
-			if( vm->Error != ErrNone )
+			if( vm->Error != ErrNone ) {
+				jitfunc_free(&jit);
 				return vm->Error;
+			}
 			else { DISPATCH(); }
 		}
 	}
 	
 #ifdef FLOATING_POINT_OPS
-	exec_flt2dbl: { /* treat as no op if one float is defined but not the other. */
+	exec_flt2dbl: { /* treat as no op if one float type is defined but not the other. */
 	 /* char: opcode | char: reg id */
 		const uint8_t regid = *pc.PtrUInt8++;
 	#if defined(__TAGHA_FLOAT32_DEFINED) && defined(__TAGHA_FLOAT64_DEFINED)
@@ -782,153 +872,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 #endif
 	exec_halt:
 	//Tagha_PrintVMState(vm);
+	jitfunc_free(&jit);
 	return vm->regAlaf.Int32;
 }
-
-int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, char *argv[restrict static argc+1])
-{
-	if( !vm || !vm->Header )
-		return -1;
-	
-	union TaghaPtr reader = {vm->Header};
-	if( *reader.PtrUInt16 != 0xC0DE ) {
-		vm->Error = ErrInvalidScript;
-		return -1;
-	}
-	reader.PtrUInt16++;
-	
-	/* push argc, argv to registers. */
-	union TaghaVal MainArgs[argc+1];
-	MainArgs[argc].Ptr = NULL;
-	if( argv )
-		for( int32_t i=0 ; i<argc ; i++ )
-			MainArgs[i].Ptr = argv[i];
-	vm->reg_Eh.Ptr = MainArgs;
-	vm->regSemkath.Int32 = argc;
-	
-	/* check out stack size and align it by the size of union TaghaVal. */
-	const uint32_t stacksize = reader.PtrUInt32[0];
-	if( !stacksize ) {
-		vm->Error = ErrStackSize;
-		return -1;
-	}
-	
-	vm->DataBase = (vm->Header + reader.PtrUInt32[2]);
-	vm->DataBase += sizeof(uint32_t);
-	
-	union TaghaVal *Stack = (union TaghaVal *)(vm->Header + reader.PtrUInt32[3]);
-	vm->regStk.PtrSelf = vm->regBase.PtrSelf = Stack + stacksize - 1;
-	vm->Footer = (uint8_t *)(Stack + stacksize);
-	
-	vm->Error = ErrNone;
-	(--vm->regStk.PtrSelf)->Int64 = 0LL;	/* push NULL return address. */
-	*--vm->regStk.PtrSelf = vm->regBase; /* push rbp */
-	vm->regBase = vm->regStk; /* mov rbp, rsp */
-	vm->regInstr.Ptr = GetFunctionOffsetByName(vm->Header, "main");
-	if( !vm->regInstr.Ptr ) {
-		vm->Error = ErrMissingFunc;
-		return -1;
-	}
-	else return Tagha_Exec(vm);
-}
-
-int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict funcname, const size_t args, union TaghaVal values[static args])
-{
-	if( !vm || !vm->Header || !funcname || !values )
-		return -1;
-	
-	union TaghaPtr reader = {vm->Header};
-	if( *reader.PtrUInt16 != 0xC0DE ) {
-		vm->Error = ErrInvalidScript;
-		return -1;
-	}
-	reader.PtrUInt16++;
-	
-	/* check out stack size && align it by the size of union TaghaVal. */
-	const uint32_t stacksize = reader.PtrUInt32[0];
-	if( !stacksize ) {
-		vm->Error = ErrStackSize;
-		return -1;
-	}
-	
-	vm->DataBase = (vm->Header + reader.PtrUInt32[2]);
-	vm->DataBase += sizeof(uint32_t);
-	
-	union TaghaVal *Stack = (union TaghaVal *)(vm->Header + reader.PtrUInt32[3]);
-	vm->regStk.PtrSelf = vm->regBase.PtrSelf = Stack + stacksize - 1;
-	vm->Footer = (uint8_t *)(Stack + stacksize);
-	
-	/* remember that arguments must be passed right to left.
-	 we have enough args to fit in registers. */
-	const uint8_t reg_param_initial = regSemkath;
-	const uint8_t reg_params = regTaw - regSemkath + 1;
-	const size_t bytecount = sizeof(union TaghaVal) * args;
-	
-	/* save stack space by using the registers for passing arguments. */
-	/* the other registers can be used for other data ops. */
-	if( args <= reg_params ) {
-		memcpy(vm->Regs+reg_param_initial, values, bytecount);
-	}
-	/* if the function has more than a certain num of params, push from both registers && stack. */
-	else {
-		if( vm->regStk.PtrSelf - (args-reg_params) < Stack ) {
-			vm->Error = ErrStackOver;
-			return -1;
-		}
-		memcpy(vm->Regs+reg_param_initial, values, sizeof(union TaghaVal) * reg_params);
-		memcpy(vm->regStk.PtrSelf, values+reg_params, sizeof(union TaghaVal) * (args-reg_params));
-		vm->regStk.PtrSelf -= (args-reg_params);
-	}
-	vm->Error = ErrNone;
-	(--vm->regStk.PtrSelf)->Int64 = 0LL;	/* push NULL return address. */
-	*--vm->regStk.PtrSelf = vm->regBase; /* push rbp */
-	vm->regBase = vm->regStk; /* mov rbp, rsp */
-	vm->regInstr.Ptr = GetFunctionOffsetByName(vm->Header, funcname);
-	if( !vm->regInstr.Ptr ) {
-		vm->Error = ErrMissingFunc;
-		return -1;
-	}
-	else return Tagha_Exec(vm);
-}
-
-union TaghaVal Tagha_GetReturnValue(const struct Tagha *const vm)
-{
-	return vm ? vm->regAlaf : (union TaghaVal){0};
-}
-
-void *Tagha_GetGlobalVarByName(struct Tagha *const restrict vm, const char *restrict varname)
-{
-	return !vm || !vm->Header || !varname ? NULL : GetVariableOffsetByName(vm->Header, varname);
-}
-
-const char *Tagha_GetError(const struct Tagha *const restrict vm)
-{
-	if( !vm )
-		return "Null VM Pointer";
-	
-	switch( vm->Error ) {
-		case ErrInstrBounds: return "Out of Bound Instruction";
-		case ErrNone: return "None";
-		case ErrBadPtr: return "Null/Invalid Pointer";
-		case ErrMissingFunc: return "Missing Function";
-		case ErrInvalidScript: return "Null/Invalid Script";
-		case ErrStackSize: return "Bad Stack Size";
-		case ErrMissingNative: return "Missing Native";
-		case ErrStackOver: return "Stack Overflow";
-		default: return "Unknown Error";
-	}
-}
-
-void *Tagha_GetRawScriptPtr(const struct Tagha *const restrict vm)
-{
-	return !vm ? NULL : vm->Header;
-}
-
-void Tagha_ThrowError(struct Tagha *const vm, const int32_t err)
-{
-	if( !vm || !err )
-		return;
-	vm->Error = err;
-}
 /************************************************/
-

@@ -15,12 +15,12 @@ static void native_free(struct Tagha *const restrict sys, union TaghaVal *const 
 }
 
 /* non-standard addition. */
-/* void safe_free(void **pptr); */
+/* void safe_free(void *ptrref); */
 static void native_safe_free(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	void **restrict pptr = params[0].Ptr;
-	if( *pptr ) {
-		free(*pptr), *pptr=NULL;
+	void **restrict ptrref = params[0].Ptr;
+	if( *ptrref ) {
+		free(*ptrref), *ptrref=NULL;
 	}
 }
 

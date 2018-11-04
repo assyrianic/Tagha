@@ -85,7 +85,7 @@ If you need help in embedding, check out the [Tagha Wiki](https://github.com/ass
 
 To compile `.tasm` scripts to `.tbc` executables, you'll need to build the Tagha Assembler.
 
-The TASM Assembler has a single software dependency by using my [C Data Structure Collection](https://github.com/assyrianic/C-Data-Structure-Collection) to accomodate data structures like the symbol tables, etc.
+The TASM Assembler has a single software dependency by using my C Data Structure Collection to accomodate data structures like the symbol tables, etc.
 
 * run the `build_tagha_assembler.sh` script which will build the C data structure collection library and link it to a build of the Tagha Assembler.
 * you should have an executable called `tasm`
@@ -134,4 +134,4 @@ This project is licensed under MIT License.
 * A: Yes but not perfectly. If we take Lua's example, Lua values are entirely pointers to a tagged union type in which the types are either a float value, string, or table/hashmap. Since most of TaghaVMs registers are general-purpose (can hold/use memory locations), they can hold/use the Lua values themselves but Lua's high level opcodes would have to be broken up into lower level operations since Tagha is a low-level VM that operates upon the byte sizes of the data, regardless of their actual types. This may possibly result in worse performance than just running Lua's code on its respective VM.
 
 * Q: _**Will you implement a JIT in the future?**_
-* A: Yes but a primitive JIT will be used since I need to keep the compilation delay as small as possible.
+* A: Maybe.

@@ -25,8 +25,8 @@ void LinkMap_Del(struct LinkMap *const map, fnDestructor *const dtor)
 	for( size_t i=0 ; i<map->Len ; i++ ) {
 		struct Vector *vec = map->Table+i;
 		for( size_t i=0 ; i<vec->Len ; i++ ) {
-			struct KeyNode *kv = vec->Table[i].Ptr;
-			KeyNode_Free(&kv, dtor);
+			struct KeyValPair *kv = vec->Table[i].Ptr;
+			KeyValPair_Free(&kv, dtor);
 		}
 		Vector_Del(vec, NULL);
 	}
@@ -78,7 +78,7 @@ bool LinkMap_Rehash(struct LinkMap *const map)
 	for( size_t i=0 ; i<old_size ; i++ ) {
 		struct Vector *vec = curr + i;
 		for( size_t n=0 ; n<Vector_Count(vec) ; n++ ) {
-			struct KeyNode *node = vec->Table[n].Ptr;
+			struct KeyValPair *node = vec->Table[n].Ptr;
 			LinkMap_InsertNode(map, node);
 		}
 		Vector_Del(vec, NULL);
@@ -87,7 +87,7 @@ bool LinkMap_Rehash(struct LinkMap *const map)
 	return true;
 }
 
-bool LinkMap_InsertNode(struct LinkMap *const map, struct KeyNode *node)
+bool LinkMap_InsertNode(struct LinkMap *const map, struct KeyValPair *node)
 {
 	if( !map || !node || !node->KeyName.CStr )
 		return false;
@@ -117,14 +117,14 @@ bool LinkMap_Insert(struct LinkMap *const restrict map, const char *restrict str
 	if( !map || !strkey )
 		return false;
 	
-	struct KeyNode *node = KeyNode_NewSP(strkey, val);
+	struct KeyValPair *node = KeyValPair_NewSP(strkey, val);
 	bool b = LinkMap_InsertNode(map, node);
 	if( !b )
-		KeyNode_Free(&node, NULL);
+		KeyValPair_Free(&node, NULL);
 	return b;
 }
 
-struct KeyNode *LinkMap_GetNodeByIndex(const struct LinkMap *const map, const size_t index)
+struct KeyValPair *LinkMap_GetNodeByIndex(const struct LinkMap *const map, const size_t index)
 {
 	if( !map || !map->Table || !map->Order.Table )
 		return NULL;
@@ -152,7 +152,7 @@ union Value LinkMap_GetByIndex(const struct LinkMap *const map, const size_t ind
 	if( !map || !map->Table )
 		return (union Value){0};
 	
-	struct KeyNode *node = LinkMap_GetNodeByIndex(map, index);
+	struct KeyValPair *node = LinkMap_GetNodeByIndex(map, index);
 	return ( node ) ? node->Data : (union Value){0};
 }
 
@@ -161,7 +161,7 @@ void LinkMap_SetByIndex(struct LinkMap *const map, const size_t index, const uni
 	if( !map || !map->Table )
 		return;
 	
-	struct KeyNode *node = LinkMap_GetNodeByIndex(map, index);
+	struct KeyValPair *node = LinkMap_GetNodeByIndex(map, index);
 	if( node )
 		node->Data = val;
 }
@@ -179,7 +179,7 @@ void LinkMap_DeleteByIndex(struct LinkMap *const map, const size_t index, fnDest
 	if( !map || !map->Table )
 		return;
 	
-	struct KeyNode *kv = LinkMap_GetNodeByIndex(map, index);
+	struct KeyValPair *kv = LinkMap_GetNodeByIndex(map, index);
 	if( !kv )
 		return;
 	
@@ -191,12 +191,12 @@ bool LinkMap_HasKey(const struct LinkMap *const restrict map, const char *restri
 {
 	return !map || !map->Table ? false : Map_HasKey(&map->Map, strkey);
 }
-struct KeyNode *LinkMap_GetNodeByKey(const struct LinkMap *const restrict map, const char *restrict strkey)
+struct KeyValPair *LinkMap_GetNodeByKey(const struct LinkMap *const restrict map, const char *restrict strkey)
 {
 	if( !map || !map->Table )
 		return NULL;
 	
-	return Map_GetKeyNode(&map->Map, strkey);
+	return Map_GetKeyValPair(&map->Map, strkey);
 }
 struct Vector *LinkMap_GetKeyTable(const struct LinkMap *const map)
 {
@@ -209,14 +209,14 @@ size_t LinkMap_GetIndexByName(const struct LinkMap *const restrict map, const ch
 		return SIZE_MAX;
 	
 	for( size_t i=0 ; i<map->Order.Count ; i++ ) {
-		struct KeyNode *kv = map->Order.Table[i].Ptr;
+		struct KeyValPair *kv = map->Order.Table[i].Ptr;
 		if( !String_CmpCStr(&kv->KeyName, strkey) )
 			return i;
 	}
 	return SIZE_MAX;
 }
 
-size_t LinkMap_GetIndexByNode(const struct LinkMap *const map, struct KeyNode *const node)
+size_t LinkMap_GetIndexByNode(const struct LinkMap *const map, struct KeyValPair *const node)
 {
 	if( !map || !node )
 		return SIZE_MAX;
@@ -234,7 +234,7 @@ size_t LinkMap_GetIndexByValue(const struct LinkMap *const map, const union Valu
 		return SIZE_MAX;
 	
 	for( size_t i=0 ; i<map->Order.Count ; i++ ) {
-		struct KeyNode *n = map->Order.Table[i].Ptr;
+		struct KeyValPair *n = map->Order.Table[i].Ptr;
 		if( n->Data.UInt64 == val.UInt64 )
 			return i;
 	}
@@ -250,8 +250,8 @@ void LinkMap_FromMap(struct LinkMap *const linkmap, const struct Hashmap *const 
 	for( size_t i=0 ; i<map->Len ; i++ ) {
 		struct Vector *vec = map->Table + i;
 		for( size_t n=0 ; n<Vector_Count(vec) ; n++ ) {
-			struct KeyNode *kv = vec->Table[n].Ptr;
-			LinkMap_InsertNode(linkmap, KeyNode_NewSP(kv->KeyName.CStr, kv->Data));
+			struct KeyValPair *kv = vec->Table[n].Ptr;
+			LinkMap_InsertNode(linkmap, KeyValPair_NewSP(kv->KeyName.CStr, kv->Data));
 		}
 	}
 }

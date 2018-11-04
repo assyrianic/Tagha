@@ -102,6 +102,18 @@ void ByteBuffer_InsertObject(struct ByteBuffer *const restrict p, const void *re
 	p->Count += size;
 }
 
+void ByteBuffer_InsertZeroes(struct ByteBuffer *const p, const size_t zeroes)
+{
+	if( !p )
+		return;
+	else if( p->Count+zeroes >= p->Len )
+		while( p->Count+zeroes >= p->Len )
+			ByteBuffer_Resize(p);
+	
+	memset(p->Buffer+p->Count, 0, zeroes);
+	p->Count += zeroes;
+}
+
 void ByteBuffer_Delete(struct ByteBuffer *const p, const size_t index)
 {
 	if( !p || index >= p->Count )
@@ -160,29 +172,26 @@ void ByteBuffer_Resize(struct ByteBuffer *const restrict p)
 	p->Buffer = newdata;
 }
 
-void ByteBuffer_DumpToFile(const struct ByteBuffer *const restrict p, void *vfile)
+void ByteBuffer_DumpToFile(const struct ByteBuffer *const p, FILE *const file)
 {
-	if( !p || !p->Buffer || !vfile )
+	if( !p || !p->Buffer || !file )
 		return;
 	
-	FILE *const file = vfile;
 	fwrite(p->Buffer, sizeof *p->Buffer, p->Count, file);
 }
 
-size_t ByteBuffer_ReadFromFile(struct ByteBuffer *const restrict p, void *vfile)
+size_t ByteBuffer_ReadFromFile(struct ByteBuffer *const p, FILE *const file)
 {
-	if( !p || !vfile )
+	if( !p || !file )
 		return 0;
 	
-	FILE *const file = vfile;
-	
 	// get the total file size.
-	size_t filesize = 0;
-	if( !fseek(file, 0, SEEK_END) ) {
-		if( ftell(file) != -1L )
-			filesize = (size_t)ftell(file);
-		rewind(file);
-	}
+	fseek(file, 0, SEEK_END);
+	const int64_t filesize = ftell(file);
+	if( filesize <= -1 )
+		return 0;
+	
+	rewind(file);
 	
 	// check if buffer can hold it.
 	// if not, resize until it can.

@@ -263,7 +263,7 @@ bool TaghaAsm_ParseGlobalVarDirective(struct TaghaAsmbler *const restrict tasm)
 	for( size_t i=0 ; i<ByteBuffer_Count(vardata) ; i++ )
 		printf("tasm: global var[%zu] == %u\n", i, vardata->Buffer[i]);
 	*/
-	LinkMap_Insert(tasm->VarTable, varname->CStr, (union Value){.BufferPtr=vardata});
+	LinkMap_Insert(tasm->VarTable, varname->CStr, (union Value){.ByteBufferPtr=vardata});
 	String_Del(varname);
 	return true;
 }
@@ -983,7 +983,7 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 	struct ByteBuffer datatable; ByteBuffer_Init(&datatable);
 	
 	for( size_t i=0 ; i<tasm->FuncTable->Count ; i++ ) {
-		struct KeyNode *node = LinkMap_GetNodeByIndex(tasm->FuncTable, i);
+		struct KeyValPair *node = LinkMap_GetNodeByIndex(tasm->FuncTable, i);
 		struct LabelInfo *label = node->Data.Ptr;
 		if( !label )
 			continue;
@@ -1012,7 +1012,7 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 	}
 	
 	for( size_t i=0 ; i<tasm->VarTable->Count ; i++ ) {
-		struct KeyNode *node = LinkMap_GetNodeByIndex(tasm->VarTable, i);
+		struct KeyValPair *node = LinkMap_GetNodeByIndex(tasm->VarTable, i);
 		struct ByteBuffer *bytedata = node->Data.Ptr;
 		if( !bytedata )
 			continue;
