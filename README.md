@@ -109,6 +109,9 @@ If you need to re-enable floating point support for all types, simply uncomment 
 
 Changing the header file requires that you recompile tagha for the change to take effect.
 
+### Testing
+If you just wish to quickly build and test the tagha code base, drag and drop "tagha.h" and "tagha_api.c" into the "tagha_testcode" folder and run the "profile.sh" shell script.
+
 ## Credits
 
 * Khanno Hanna - main developer of Tagha.
