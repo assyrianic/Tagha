@@ -63,7 +63,7 @@ void Tagha_Init(struct Tagha *const restrict vm, void *script)
 	if( !vm || !script )
 		return;
 	
-	*vm = (struct Tagha){0};
+	memset(vm, 0, sizeof *vm);
 	PrepModule(script);
 	vm->Header = script;
 	vm->SafeMode = vm->Header[18];
