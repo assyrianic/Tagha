@@ -297,18 +297,18 @@ struct CNativeInfo {
 
 class CTagha : public Tagha {
  public:
-	CTagha(void *);
-	CTagha(void *, const struct CNativeInfo []);
-	~CTagha();
+	TAGHA_EXPORT CTagha(void *);
+	TAGHA_EXPORT CTagha(void *, const struct CNativeInfo []);
+	TAGHA_EXPORT ~CTagha();
 	
-	bool RegisterNatives(const struct CNativeInfo []);
-	void *GetGlobalVarByName(const char *);
-	int32_t CallFunc(const char *, size_t, union TaghaVal []);
-	union TaghaVal GetReturnValue();
-	int32_t RunScript(int32_t, char *[]);
-	const char *GetError();
-	void PrintVMState();
-	void *GetRawScriptPtr();
-	void ThrowError(int32_t);
+	TAGHA_EXPORT bool RegisterNatives(const struct CNativeInfo []);
+	TAGHA_EXPORT void *GetGlobalVarByName(const char *);
+	TAGHA_EXPORT int32_t CallFunc(const char *, size_t, union TaghaVal []);
+	TAGHA_EXPORT union TaghaVal GetReturnValue();
+	TAGHA_EXPORT int32_t RunScript(int32_t, char *[]);
+	TAGHA_EXPORT const char *GetError();
+	TAGHA_EXPORT void PrintVMState();
+	TAGHA_EXPORT void *GetRawScriptPtr();
+	TAGHA_EXPORT void ThrowError(int32_t);
 };
 #endif
