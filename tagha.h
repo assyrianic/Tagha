@@ -18,6 +18,22 @@ extern "C" {
 #	endif
 #endif
 
+#if defined(_WIN32) || defined(_WIN64)
+#	ifndef OS_WINDOWS
+#		define OS_WINDOWS 1
+#	endif
+#endif
+
+#ifdef TAGHA_DLL
+#	ifndef TAGHA_LIB
+#		define TAGHA_EXPORT __declspec(dllimport)
+#	else
+#		define TAGHA_EXPORT __declspec(dllexport)
+#	endif
+#else
+#	define TAGHA_EXPORT 
+#endif
+
 
 typedef union TaghaVal {
 	bool Bool, *PtrBool;
@@ -186,31 +202,31 @@ typedef struct Tagha {
 } Tagha;
 
 
-struct Tagha *Tagha_New(void *);
-struct Tagha *Tagha_NewNatives(void *, const struct NativeInfo []);
-void Tagha_Free(struct Tagha **);
+TAGHA_EXPORT struct Tagha *Tagha_New(void *);
+TAGHA_EXPORT struct Tagha *Tagha_NewNatives(void *, const struct NativeInfo []);
+TAGHA_EXPORT void Tagha_Free(struct Tagha **);
 
-void Tagha_Init(struct Tagha *, void *);
-void Tagha_InitNatives(struct Tagha *, void *, const struct NativeInfo []);
-void Tagha_Del(struct Tagha *);
+TAGHA_EXPORT void Tagha_Init(struct Tagha *, void *);
+TAGHA_EXPORT void Tagha_InitNatives(struct Tagha *, void *, const struct NativeInfo []);
+TAGHA_EXPORT void Tagha_Del(struct Tagha *);
 
-void Tagha_PrintVMState(const struct Tagha *);
-const char *Tagha_GetError(const struct Tagha *);
+TAGHA_EXPORT void Tagha_PrintVMState(const struct Tagha *);
+TAGHA_EXPORT const char *Tagha_GetError(const struct Tagha *);
 
-bool Tagha_RegisterNatives(struct Tagha *, const struct NativeInfo []);
-void *Tagha_GetGlobalVarByName(struct Tagha *, const char *);
-void *Tagha_GetRawScriptPtr(const struct Tagha *);
+TAGHA_EXPORT bool Tagha_RegisterNatives(struct Tagha *, const struct NativeInfo []);
+TAGHA_EXPORT void *Tagha_GetGlobalVarByName(struct Tagha *, const char *);
+TAGHA_EXPORT void *Tagha_GetRawScriptPtr(const struct Tagha *);
 
-int32_t Tagha_Exec(struct Tagha *)
+TAGHA_EXPORT int32_t Tagha_Exec(struct Tagha *)
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 	__attribute__ ((hot)) // hot attribute for further optimizations.
 #endif
 ;
 
-int32_t Tagha_CallFunc(struct Tagha *, const char *, size_t, union TaghaVal []);
-union TaghaVal Tagha_GetReturnValue(const struct Tagha *);
-int32_t Tagha_RunScript(struct Tagha *, int32_t, char *[]);
-void Tagha_ThrowError(struct Tagha *, int32_t);
+TAGHA_EXPORT int32_t Tagha_CallFunc(struct Tagha *, const char *, size_t, union TaghaVal []);
+TAGHA_EXPORT union TaghaVal Tagha_GetReturnValue(const struct Tagha *);
+TAGHA_EXPORT int32_t Tagha_RunScript(struct Tagha *, int32_t, char *[]);
+TAGHA_EXPORT void Tagha_ThrowError(struct Tagha *, int32_t);
 
 
 #ifdef FLOATING_POINT_OPS

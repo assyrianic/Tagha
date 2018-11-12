@@ -5,13 +5,13 @@ extern "C" {
 #endif
 
 #include <stdio.h>
-#include "../C-Data-Structure-Collection/dsc.h"
+#include "../libharbol/harbol.h"
 #include "../tagha.h"
 
 //#define TASM_DEBUG
 
 struct LabelInfo {
-	struct ByteBuffer Bytecode;
+	struct HarbolByteBuffer Bytecode;
 	uint64_t Addr;
 	bool IsFunc : 1;
 	bool IsNativeFunc : 1;
@@ -20,8 +20,8 @@ struct LabelInfo {
 bool Label_Free(void *);
 
 struct TaghaAsmbler {
-	struct String OutputName, *ActiveFuncLabel, *Lexeme;
-	struct LinkMap
+	struct HarbolString OutputName, *ActiveFuncLabel, *Lexeme;
+	struct HarbolLinkMap
 		*LabelTable, *FuncTable, *VarTable,
 		*Opcodes, *Registers
 	;

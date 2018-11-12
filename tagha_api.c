@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef OS_WINDOWS
+	#define TAGHA_LIB
+#endif
 #include "tagha.h"
 
 static void			*GetFunctionOffsetByName(uint8_t *, const char *);
@@ -37,28 +41,28 @@ static void PrepModule(uint8_t *const module)
 }
 
 
-struct Tagha *Tagha_New(void *restrict script)
+TAGHA_EXPORT struct Tagha *Tagha_New(void *restrict script)
 {
 	struct Tagha *restrict vm = calloc(1, sizeof *vm);
 	Tagha_Init(vm, script);
 	return vm;
 }
 
-struct Tagha *Tagha_NewNatives(void *restrict script, const struct NativeInfo natives[restrict])
+TAGHA_EXPORT struct Tagha *Tagha_NewNatives(void *restrict script, const struct NativeInfo natives[restrict])
 {
 	struct Tagha *restrict vm = Tagha_New(script);
 	Tagha_RegisterNatives(vm, natives);
 	return vm;
 }
 
-void Tagha_Free(struct Tagha **vmref)
+TAGHA_EXPORT void Tagha_Free(struct Tagha **vmref)
 {
 	if( !vmref || !*vmref )
 		return;
 	free(*vmref), *vmref = NULL;
 }
 
-void Tagha_Init(struct Tagha *const restrict vm, void *script)
+TAGHA_EXPORT void Tagha_Init(struct Tagha *const restrict vm, void *script)
 {
 	if( !vm || !script )
 		return;
@@ -69,7 +73,7 @@ void Tagha_Init(struct Tagha *const restrict vm, void *script)
 	vm->SafeMode = vm->Header[18];
 }
 
-void Tagha_InitNatives(struct Tagha *const restrict vm, void *restrict script, const struct NativeInfo natives[restrict])
+TAGHA_EXPORT void Tagha_InitNatives(struct Tagha *const restrict vm, void *restrict script, const struct NativeInfo natives[restrict])
 {
 	Tagha_Init(vm, script);
 	Tagha_RegisterNatives(vm, natives);
@@ -77,7 +81,7 @@ void Tagha_InitNatives(struct Tagha *const restrict vm, void *restrict script, c
 
 
 
-void Tagha_PrintVMState(const struct Tagha *const vm)
+TAGHA_EXPORT void Tagha_PrintVMState(const struct Tagha *const vm)
 {
 	if( !vm )
 		return;
@@ -111,7 +115,7 @@ void Tagha_PrintVMState(const struct Tagha *const vm)
 	vm->CondFlag);
 }
 
-bool Tagha_RegisterNatives(struct Tagha *const restrict vm, const struct NativeInfo natives[])
+TAGHA_EXPORT bool Tagha_RegisterNatives(struct Tagha *const restrict vm, const struct NativeInfo natives[])
 {
 	if( !vm || !vm->Header || !natives )
 		return false;
@@ -221,7 +225,7 @@ static void *GetVariableOffsetByIndex(uint8_t *const module, const size_t index)
 
 //#include <unistd.h>	// sleep() func
 
-int32_t Tagha_Exec(struct Tagha *const restrict vm)
+TAGHA_EXPORT int32_t Tagha_Exec(struct Tagha *const restrict vm)
 {
 	if( !vm )
 		return -1;
@@ -785,7 +789,7 @@ int32_t Tagha_Exec(struct Tagha *const restrict vm)
 	return vm->regAlaf.Int32;
 }
 
-int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, char *argv[restrict static argc+1])
+TAGHA_EXPORT int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, char *argv[restrict static argc+1])
 {
 	if( !vm || !vm->Header )
 		return -1;
@@ -832,7 +836,7 @@ int32_t Tagha_RunScript(struct Tagha *const restrict vm, const int32_t argc, cha
 	else return Tagha_Exec(vm);
 }
 
-int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict funcname, const size_t args, union TaghaVal values[static args])
+TAGHA_EXPORT int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict funcname, const size_t args, union TaghaVal values[static args])
 {
 	if( !vm || !vm->Header || !funcname || !values )
 		return -1;
@@ -891,17 +895,17 @@ int32_t Tagha_CallFunc(struct Tagha *const restrict vm, const char *restrict fun
 	else return Tagha_Exec(vm);
 }
 
-union TaghaVal Tagha_GetReturnValue(const struct Tagha *const vm)
+TAGHA_EXPORT union TaghaVal Tagha_GetReturnValue(const struct Tagha *const vm)
 {
 	return vm ? vm->regAlaf : (union TaghaVal){0};
 }
 
-void *Tagha_GetGlobalVarByName(struct Tagha *const restrict vm, const char *restrict varname)
+TAGHA_EXPORT void *Tagha_GetGlobalVarByName(struct Tagha *const restrict vm, const char *restrict varname)
 {
 	return !vm || !vm->Header || !varname ? NULL : GetVariableOffsetByName(vm->Header, varname);
 }
 
-const char *Tagha_GetError(const struct Tagha *const restrict vm)
+TAGHA_EXPORT const char *Tagha_GetError(const struct Tagha *const restrict vm)
 {
 	if( !vm )
 		return "Null VM Pointer";
@@ -919,12 +923,12 @@ const char *Tagha_GetError(const struct Tagha *const restrict vm)
 	}
 }
 
-void *Tagha_GetRawScriptPtr(const struct Tagha *const restrict vm)
+TAGHA_EXPORT void *Tagha_GetRawScriptPtr(const struct Tagha *const restrict vm)
 {
 	return !vm ? NULL : vm->Header;
 }
 
-void Tagha_ThrowError(struct Tagha *const vm, const int32_t err)
+TAGHA_EXPORT void Tagha_ThrowError(struct Tagha *const vm, const int32_t err)
 {
 	if( !vm || !err )
 		return;

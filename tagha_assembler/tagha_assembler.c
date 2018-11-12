@@ -55,53 +55,53 @@ static bool SkipWhiteSpace(char **restrict strRef)
 	return **strRef != 0;
 }
 
-static bool LexIdentifier(char **restrict strRef, struct String *const restrict strobj)
+static bool LexIdentifier(char **restrict strRef, struct HarbolString *const restrict strobj)
 {
 	if( !*strRef or !**strRef or !strobj )
 		return false;
 	
-	String_Del(strobj);
-	String_AddChar(strobj, *(*strRef)++);
+	HarbolString_Del(strobj);
+	HarbolString_AddChar(strobj, *(*strRef)++);
 	while( **strRef and IsPossibleIdentifier(**strRef) )
-		String_AddChar(strobj, *(*strRef)++);
+		HarbolString_AddChar(strobj, *(*strRef)++);
 	
 	return strobj->Len > 0;
 }
 
-static bool LexNumber(char **restrict strRef, struct String *const restrict strobj)
+static bool LexNumber(char **restrict strRef, struct HarbolString *const restrict strobj)
 {
 	if( !*strRef or !**strRef or !strobj )
 		return false;
 	
-	String_Del(strobj);
+	HarbolString_Del(strobj);
 	if( **strRef=='0' ) {
 		if( (*strRef)[1]=='x' or (*strRef)[1]=='X' ) { // hexadecimal.
-			String_AddStr(strobj, (*strRef)[1]=='x' ? "0x" : "0X");
+			HarbolString_AddStr(strobj, (*strRef)[1]=='x' ? "0x" : "0X");
 			(*strRef) += 2;
 			while( **strRef and IsHex(**strRef) )
-				String_AddChar(strobj, *(*strRef)++);
+				HarbolString_AddChar(strobj, *(*strRef)++);
 		}
 		else if( (*strRef)[1]=='b' or (*strRef)[1]=='B' ) { // binary.
-			String_AddStr(strobj, (*strRef)[1]=='b' ? "0b" : "0B");
+			HarbolString_AddStr(strobj, (*strRef)[1]=='b' ? "0b" : "0B");
 			(*strRef) += 2;
 			while( **strRef and **strRef=='1' or **strRef=='0' )
-				String_AddChar(strobj, *(*strRef)++);
+				HarbolString_AddChar(strobj, *(*strRef)++);
 		}
 		else { // octal.
-			String_AddChar(strobj, *(*strRef)++);
+			HarbolString_AddChar(strobj, *(*strRef)++);
 			while( **strRef and IsOctal(**strRef) )
-				String_AddChar(strobj, *(*strRef)++);
+				HarbolString_AddChar(strobj, *(*strRef)++);
 		}
 	}
 	else {
 		while( **strRef and IsDecimal(**strRef) )
-			String_AddChar(strobj, *(*strRef)++);
+			HarbolString_AddChar(strobj, *(*strRef)++);
 	}
 	/*
 	if( **strRef=='.' ) { // add float support.
-		String_AddChar(strobj, *(*strRef)++);
+		HarbolString_AddChar(strobj, *(*strRef)++);
 		while( **strRef and IsDecimal(**strRef) )
-			String_AddChar(strobj, *(*strRef)++);
+			HarbolString_AddChar(strobj, *(*strRef)++);
 	}
 	*/
 	return strobj->Len > 0;
@@ -119,7 +119,7 @@ bool TaghaAsm_ParseStackDirective(struct TaghaAsmbler *const restrict tasm)
 		exit(-1);
 	}
 	LexNumber(&tasm->Iter, tasm->Lexeme);
-	const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
+	const bool isbinary = !HarbolString_NCmpCStr(tasm->Lexeme, "0b", 2) or !HarbolString_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
 	tasm->Stacksize = strtoul(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
 	return true;
 }
@@ -136,7 +136,7 @@ bool TaghaAsm_ParseGlobalVarDirective(struct TaghaAsmbler *const restrict tasm)
 		exit(-1);
 	}
 	
-	struct String *varname = &(struct String){0};
+	struct HarbolString *varname = &(struct HarbolString){0};
 	LexIdentifier(&tasm->Iter, varname);
 	SkipWhiteSpace(&tasm->Iter);
 	if( *tasm->Iter==',' )
@@ -148,9 +148,9 @@ bool TaghaAsm_ParseGlobalVarDirective(struct TaghaAsmbler *const restrict tasm)
 		exit(-1);
 	}
 	LexNumber(&tasm->Iter, tasm->Lexeme);
-	const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
+	const bool isbinary = !HarbolString_NCmpCStr(tasm->Lexeme, "0b", 2) or !HarbolString_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
 	size_t bytes = strtoull(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
-	struct ByteBuffer *vardata = ByteBuffer_New();
+	struct HarbolByteBuffer *vardata = HarbolByteBuffer_New();
 	if( !vardata ) {
 		puts("tasm error: out of memory!");
 		exit(-1);
@@ -161,13 +161,13 @@ bool TaghaAsm_ParseGlobalVarDirective(struct TaghaAsmbler *const restrict tasm)
 	
 	while( bytes ) {
 		SkipWhiteSpace(&tasm->Iter);
-		if( *tasm->Iter=='"' ) { // string
-			String_Del(tasm->Lexeme);
+		if( *tasm->Iter=='"' ) { // HarbolString
+			HarbolString_Del(tasm->Lexeme);
 			const char quote = *tasm->Iter++;
 			while( *tasm->Iter and *tasm->Iter != quote ) {
 				const char charval = *tasm->Iter++;
 				if( !charval ) { // sudden EOF?
-					puts("tasm error: sudden EOF in global directive string copying!");
+					puts("tasm error: sudden EOF in global directive HarbolString copying!");
 					exit(-1);
 				}
 				// handle escape chars
@@ -175,78 +175,78 @@ bool TaghaAsm_ParseGlobalVarDirective(struct TaghaAsmbler *const restrict tasm)
 					const char escape = *tasm->Iter++;
 					switch( escape ) {
 						case 'a':
-							String_AddChar(tasm->Lexeme, '\a'); break;
+							HarbolString_AddChar(tasm->Lexeme, '\a'); break;
 						case 'n':
-							String_AddChar(tasm->Lexeme, '\n'); break;
+							HarbolString_AddChar(tasm->Lexeme, '\n'); break;
 						case 'r':
-							String_AddChar(tasm->Lexeme, '\r'); break;
+							HarbolString_AddChar(tasm->Lexeme, '\r'); break;
 						case 't':
-							String_AddChar(tasm->Lexeme, '\t'); break;
+							HarbolString_AddChar(tasm->Lexeme, '\t'); break;
 						case 'v':
-							String_AddChar(tasm->Lexeme, '\v'); break;
+							HarbolString_AddChar(tasm->Lexeme, '\v'); break;
 						case 'f':
-							String_AddChar(tasm->Lexeme, '\f'); break;
+							HarbolString_AddChar(tasm->Lexeme, '\f'); break;
 						case '\'':
-							String_AddChar(tasm->Lexeme, '\''); break;
+							HarbolString_AddChar(tasm->Lexeme, '\''); break;
 						case '"':
-							String_AddChar(tasm->Lexeme, '"'); break;
+							HarbolString_AddChar(tasm->Lexeme, '"'); break;
 						case '\\':
-							String_AddChar(tasm->Lexeme, '\\'); break;
+							HarbolString_AddChar(tasm->Lexeme, '\\'); break;
 						case '0':
-							String_AddChar(tasm->Lexeme, '\0'); break;
+							HarbolString_AddChar(tasm->Lexeme, '\0'); break;
 					}
 				}
-				else String_AddChar(tasm->Lexeme, charval);
+				else HarbolString_AddChar(tasm->Lexeme, charval);
 			}
-			ByteBuffer_InsertString(vardata, tasm->Lexeme->CStr, tasm->Lexeme->Len);
+			HarbolByteBuffer_InsertString(vardata, tasm->Lexeme->CStr, tasm->Lexeme->Len);
 			bytes = 0;
 		}
 		else if( *tasm->Iter==',' )
 			tasm->Iter++;
 		else if( IsDecimal(*tasm->Iter) ) {
 			LexNumber(&tasm->Iter, tasm->Lexeme);
-			const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
+			const bool isbinary = !HarbolString_NCmpCStr(tasm->Lexeme, "0b", 2) or !HarbolString_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
 			const uint64_t data = strtoull(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
 			if( data ) {
 				printf("tasm error: single numeric arguments for global vars must be 0! on line: %zu\n", tasm->CurrLine);
 				exit(-1);
 			}
 			while( bytes-- )
-				ByteBuffer_InsertByte(vardata, 0);
+				HarbolByteBuffer_InsertByte(vardata, 0);
 			break;
 		}
 		else if( IsAlphabetic(*tasm->Iter) ) {
 			LexIdentifier(&tasm->Iter, tasm->Lexeme);
-			if( !String_NCmpCStr(tasm->Lexeme, "byte", sizeof "byte") ) {
+			if( !HarbolString_NCmpCStr(tasm->Lexeme, "byte", sizeof "byte") ) {
 				SkipWhiteSpace(&tasm->Iter);
 				LexNumber(&tasm->Iter, tasm->Lexeme);
-				const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
+				const bool isbinary = !HarbolString_NCmpCStr(tasm->Lexeme, "0b", 2) or !HarbolString_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
 				const uint8_t data = strtoull(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
-				ByteBuffer_InsertByte(vardata, data);
+				HarbolByteBuffer_InsertByte(vardata, data);
 				bytes--;
 			}
-			else if( !String_NCmpCStr(tasm->Lexeme, "half", sizeof "half") ) {
+			else if( !HarbolString_NCmpCStr(tasm->Lexeme, "half", sizeof "half") ) {
 				SkipWhiteSpace(&tasm->Iter);
 				LexNumber(&tasm->Iter, tasm->Lexeme);
-				const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
+				const bool isbinary = !HarbolString_NCmpCStr(tasm->Lexeme, "0b", 2) or !HarbolString_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
 				const uint16_t data = strtoull(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
-				ByteBuffer_InsertInt(vardata, data, sizeof(uint16_t));
+				HarbolByteBuffer_InsertInt(vardata, data, sizeof(uint16_t));
 				bytes -= sizeof(uint16_t);
 			}
-			else if( !String_NCmpCStr(tasm->Lexeme, "long", sizeof "long") ) {
+			else if( !HarbolString_NCmpCStr(tasm->Lexeme, "long", sizeof "long") ) {
 				SkipWhiteSpace(&tasm->Iter);
 				LexNumber(&tasm->Iter, tasm->Lexeme);
-				const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
+				const bool isbinary = !HarbolString_NCmpCStr(tasm->Lexeme, "0b", 2) or !HarbolString_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
 				const uint32_t data = strtoull(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
-				ByteBuffer_InsertInt(vardata, data, sizeof(uint32_t));
+				HarbolByteBuffer_InsertInt(vardata, data, sizeof(uint32_t));
 				bytes -= sizeof(uint32_t);
 			}
-			else if( !String_NCmpCStr(tasm->Lexeme, "word", sizeof "word") ) {
+			else if( !HarbolString_NCmpCStr(tasm->Lexeme, "word", sizeof "word") ) {
 				SkipWhiteSpace(&tasm->Iter);
 				LexNumber(&tasm->Iter, tasm->Lexeme);
-				const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
+				const bool isbinary = !HarbolString_NCmpCStr(tasm->Lexeme, "0b", 2) or !HarbolString_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
 				const uint64_t data = strtoull(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
-				ByteBuffer_InsertInt(vardata, data, sizeof(uint64_t));
+				HarbolByteBuffer_InsertInt(vardata, data, sizeof(uint64_t));
 				bytes -= sizeof(uint64_t);
 			}
 		}
@@ -260,11 +260,11 @@ bool TaghaAsm_ParseGlobalVarDirective(struct TaghaAsmbler *const restrict tasm)
 #endif
 	/*
 	printf("tasm: adding global var '%s'\n", varname->CStr);
-	for( size_t i=0 ; i<ByteBuffer_Count(vardata) ; i++ )
+	for( size_t i=0 ; i<HarbolByteBuffer_Count(vardata) ; i++ )
 		printf("tasm: global var[%zu] == %u\n", i, vardata->Buffer[i]);
 	*/
-	LinkMap_Insert(tasm->VarTable, varname->CStr, (union Value){.ByteBufferPtr=vardata});
-	String_Del(varname);
+	HarbolLinkMap_Insert(tasm->VarTable, varname->CStr, (union HarbolValue){.ByteBufferPtr=vardata});
+	HarbolString_Del(varname);
 	return true;
 }
 
@@ -288,8 +288,8 @@ bool TaghaAsm_ParseNativeDirective(struct TaghaAsmbler *const restrict tasm)
 	}
 	label->Addr = 0;
 	label->IsFunc = label->IsNativeFunc = true;
-	union Value native = (union Value){.Ptr = label};
-	LinkMap_Insert(tasm->FuncTable, tasm->Lexeme->CStr, native);
+	union HarbolValue native = (union HarbolValue){.Ptr = label};
+	HarbolLinkMap_Insert(tasm->FuncTable, tasm->Lexeme->CStr, native);
 #ifdef TASM_DEBUG
 	printf("tasm: added native function '%s'\n", tasm->Lexeme->CStr);
 #endif
@@ -300,19 +300,19 @@ int64_t LexImmValue(struct TaghaAsmbler *const restrict tasm)
 {
 	LexNumber(&tasm->Iter, tasm->Lexeme);
 	tasm->ProgramCounter += 8;
-	const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
+	const bool isbinary = !HarbolString_NCmpCStr(tasm->Lexeme, "0b", 2) or !HarbolString_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
 	return strtoll(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
 }
 
 uint8_t LexRegisterID(struct TaghaAsmbler *const restrict tasm)
 {
 	LexIdentifier(&tasm->Iter, tasm->Lexeme);
-	if( !LinkMap_HasKey(tasm->Registers, tasm->Lexeme->CStr) ) {
+	if( !HarbolLinkMap_HasKey(tasm->Registers, tasm->Lexeme->CStr) ) {
 		printf("tasm error: invalid register name '%s' on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
 		exit(-1);
 	}
 	tasm->ProgramCounter++;
-	return LinkMap_Get(tasm->Registers, tasm->Lexeme->CStr).UInt64;
+	return HarbolLinkMap_Get(tasm->Registers, tasm->Lexeme->CStr).UInt64;
 }
 
 void LexRegDeref(struct TaghaAsmbler *const restrict tasm, uint8_t *restrict idref, int32_t *offsetref)
@@ -321,11 +321,11 @@ void LexRegDeref(struct TaghaAsmbler *const restrict tasm, uint8_t *restrict idr
 	tasm->ProgramCounter += 5; // 1 for byte as register id and 4 byte offset.
 	SkipWhiteSpace(&tasm->Iter);
 	LexIdentifier(&tasm->Iter, tasm->Lexeme);
-	if( !LinkMap_HasKey(tasm->Registers, tasm->Lexeme->CStr) ) {
+	if( !HarbolLinkMap_HasKey(tasm->Registers, tasm->Lexeme->CStr) ) {
 		printf("tasm error: invalid register name '%s' in register indirection on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
 		exit(-1);
 	}
-	*idref = LinkMap_Get(tasm->Registers, tasm->Lexeme->CStr).UInt64;
+	*idref = HarbolLinkMap_Get(tasm->Registers, tasm->Lexeme->CStr).UInt64;
 	*offsetref = 0;
 	
 	SkipWhiteSpace(&tasm->Iter);
@@ -345,7 +345,7 @@ void LexRegDeref(struct TaghaAsmbler *const restrict tasm, uint8_t *restrict idr
 		}
 		LexNumber(&tasm->Iter, tasm->Lexeme);
 		SkipWhiteSpace(&tasm->Iter);
-		const bool isbinary = !String_NCmpCStr(tasm->Lexeme, "0b", 2) or !String_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
+		const bool isbinary = !HarbolString_NCmpCStr(tasm->Lexeme, "0b", 2) or !HarbolString_NCmpCStr(tasm->Lexeme, "0B", 2) ? true : false;
 		int32_t offset = strtol(isbinary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, isbinary ? 2 : 0);
 		offset = closer=='-' ? -offset : offset;
 		//printf("offset == %i\n", offset);
@@ -363,12 +363,12 @@ int64_t LexLabelValue(struct TaghaAsmbler *const restrict tasm, const bool first
 	const bool isfunclbl = *tasm->Iter=='%';
 	LexIdentifier(&tasm->Iter, tasm->Lexeme);
 	tasm->ProgramCounter += 8;
-	if( !firstpass and !LinkMap_HasKey(isfunclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr) ) {
+	if( !firstpass and !HarbolLinkMap_HasKey(isfunclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr) ) {
 		printf("tasm error: undefined label '%s' on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
 		exit(-1);
 	}
 	if( !firstpass ) {
-		struct LabelInfo *label = LinkMap_Get(isfunclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr).Ptr;
+		struct LabelInfo *label = HarbolLinkMap_Get(isfunclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr).Ptr;
 		if( !isfunclbl ) {
 		#ifdef TASM_DEBUG
 			printf("label->Addr (%llu) - tasm->ProgramCounter (%zu) == '%lli'\n", label->Addr, tasm->ProgramCounter, label->Addr - tasm->ProgramCounter);
@@ -376,7 +376,7 @@ int64_t LexLabelValue(struct TaghaAsmbler *const restrict tasm, const bool first
 			return label->Addr - tasm->ProgramCounter;
 		}
 		else {
-			return label->IsNativeFunc ? -((int64_t)LinkMap_GetIndexByName(tasm->FuncTable, tasm->Lexeme->CStr) + 1) : ((int64_t)LinkMap_GetIndexByName(tasm->FuncTable, tasm->Lexeme->CStr) + 1);
+			return label->IsNativeFunc ? -((int64_t)HarbolLinkMap_GetIndexByName(tasm->FuncTable, tasm->Lexeme->CStr) + 1) : ((int64_t)HarbolLinkMap_GetIndexByName(tasm->FuncTable, tasm->Lexeme->CStr) + 1);
 		}
 	}
 	return 0;
@@ -412,13 +412,13 @@ bool TaghaAsm_ParseRegRegInstr(struct TaghaAsmbler *const restrict tasm, const b
 	const uint8_t srcreg = LexRegisterID(tasm);
 	
 	if( !firstpass ) {
-		struct LabelInfo *label = LinkMap_Get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
+		struct LabelInfo *label = HarbolLinkMap_Get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
 		if( !label ) {
 			printf("tasm error: undefined label '%s' on line: %zu\n", tasm->ActiveFuncLabel->CStr, tasm->CurrLine);
 			exit(-1);
 		}
-		ByteBuffer_InsertByte(&label->Bytecode, destreg);
-		ByteBuffer_InsertByte(&label->Bytecode, srcreg);
+		HarbolByteBuffer_InsertByte(&label->Bytecode, destreg);
+		HarbolByteBuffer_InsertByte(&label->Bytecode, srcreg);
 	}
 	return true;
 }
@@ -435,12 +435,12 @@ bool TaghaAsm_ParseOneRegInstr(struct TaghaAsmbler *const restrict tasm, const b
 	}
 	const uint8_t regid = LexRegisterID(tasm);
 	if( !firstpass ) {
-		struct LabelInfo *label = LinkMap_Get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
+		struct LabelInfo *label = HarbolLinkMap_Get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
 		if( !label ) {
 			printf("tasm error: undefined label '%s' on line: %zu\n", tasm->ActiveFuncLabel->CStr, tasm->CurrLine);
 			exit(-1);
 		}
-		ByteBuffer_InsertByte(&label->Bytecode, regid);
+		HarbolByteBuffer_InsertByte(&label->Bytecode, regid);
 	}
 	return true;
 }
@@ -462,14 +462,14 @@ bool TaghaAsm_ParseOneImmInstr(struct TaghaAsmbler *const restrict tasm, const b
 	// global variable label.
 	else if( IsAlphabetic(*tasm->Iter) ) {
 		LexIdentifier(&tasm->Iter, tasm->Lexeme);
-		if( !LinkMap_HasKey(tasm->VarTable, tasm->Lexeme->CStr) ) {
+		if( !HarbolLinkMap_HasKey(tasm->VarTable, tasm->Lexeme->CStr) ) {
 			printf("tasm error: undefined global var '%s' in opcode on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
 			exit(-1);
 		}
 		tasm->ProgramCounter += 8;
-		immval = LinkMap_GetIndexByName(tasm->VarTable, tasm->Lexeme->CStr);
+		immval = HarbolLinkMap_GetIndexByName(tasm->VarTable, tasm->Lexeme->CStr);
 	#ifdef TASM_DEBUG
-		printf("tasm: global's '%s' index is '%zu'\n", tasm->Lexeme->CStr, LinkMap_GetIndexByName(tasm->VarTable, tasm->Lexeme->CStr));
+		printf("tasm: global's '%s' index is '%zu'\n", tasm->Lexeme->CStr, HarbolLinkMap_GetIndexByName(tasm->VarTable, tasm->Lexeme->CStr));
 	#endif
 	}
 	else {
@@ -478,12 +478,12 @@ bool TaghaAsm_ParseOneImmInstr(struct TaghaAsmbler *const restrict tasm, const b
 	}
 	
 	if( !firstpass ) {
-		struct LabelInfo *label = LinkMap_Get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
+		struct LabelInfo *label = HarbolLinkMap_Get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
 		if( !label ) {
 			printf("tasm error: undefined label '%s' on line: %zu\n", tasm->ActiveFuncLabel->CStr, tasm->CurrLine);
 			exit(-1);
 		}
-		ByteBuffer_InsertInt(&label->Bytecode, immval, sizeof immval);
+		HarbolByteBuffer_InsertInt(&label->Bytecode, immval, sizeof immval);
 	}
 	return true;
 }
@@ -517,14 +517,14 @@ bool TaghaAsm_ParseRegMemInstr(struct TaghaAsmbler *const restrict tasm, const b
 	LexRegDeref(tasm, &srcreg, &offset);
 	
 	if( !firstpass ) {
-		struct LabelInfo *label = LinkMap_Get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
+		struct LabelInfo *label = HarbolLinkMap_Get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
 		if( !label ) {
 			printf("tasm error: undefined label '%s' on line: %zu\n", tasm->ActiveFuncLabel->CStr, tasm->CurrLine);
 			exit(-1);
 		}
-		ByteBuffer_InsertByte(&label->Bytecode, destreg);
-		ByteBuffer_InsertByte(&label->Bytecode, srcreg);
-		ByteBuffer_InsertInt(&label->Bytecode, offset, sizeof offset);
+		HarbolByteBuffer_InsertByte(&label->Bytecode, destreg);
+		HarbolByteBuffer_InsertByte(&label->Bytecode, srcreg);
+		HarbolByteBuffer_InsertInt(&label->Bytecode, offset, sizeof offset);
 	}
 	return true;
 }
@@ -557,14 +557,14 @@ bool TaghaAsm_ParseMemRegInstr(struct TaghaAsmbler *const restrict tasm, const b
 	const uint8_t srcreg = LexRegisterID(tasm);
 	
 	if( !firstpass ) {
-		struct LabelInfo *label = LinkMap_Get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
+		struct LabelInfo *label = HarbolLinkMap_Get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
 		if( !label ) {
 			printf("tasm error: undefined label '%s' on line: %zu\n", tasm->ActiveFuncLabel->CStr, tasm->CurrLine);
 			exit(-1);
 		}
-		ByteBuffer_InsertByte(&label->Bytecode, destreg);
-		ByteBuffer_InsertByte(&label->Bytecode, srcreg);
-		ByteBuffer_InsertInt(&label->Bytecode, offset, sizeof offset);
+		HarbolByteBuffer_InsertByte(&label->Bytecode, destreg);
+		HarbolByteBuffer_InsertByte(&label->Bytecode, srcreg);
+		HarbolByteBuffer_InsertInt(&label->Bytecode, offset, sizeof offset);
 	}
 	return true;
 }
@@ -598,14 +598,14 @@ bool TaghaAsm_ParseRegImmInstr(struct TaghaAsmbler *const restrict tasm, const b
 	// global variable label.
 	else if( IsAlphabetic(*tasm->Iter) ) {
 		LexIdentifier(&tasm->Iter, tasm->Lexeme);
-		if( !LinkMap_HasKey(tasm->VarTable, tasm->Lexeme->CStr) ) {
+		if( !HarbolLinkMap_HasKey(tasm->VarTable, tasm->Lexeme->CStr) ) {
 			printf("tasm error: undefined global var '%s' in opcode on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
 			exit(-1);
 		}
 		tasm->ProgramCounter += 8;
-		immval = LinkMap_GetIndexByName(tasm->VarTable, tasm->Lexeme->CStr);
+		immval = HarbolLinkMap_GetIndexByName(tasm->VarTable, tasm->Lexeme->CStr);
 	#ifdef TASM_DEBUG
-		printf("tasm: global's '%s' index is '%zu'\n", tasm->Lexeme->CStr, LinkMap_GetIndexByName(tasm->VarTable, tasm->Lexeme->CStr));
+		printf("tasm: global's '%s' index is '%zu'\n", tasm->Lexeme->CStr, HarbolLinkMap_GetIndexByName(tasm->VarTable, tasm->Lexeme->CStr));
 	#endif
 	}
 	else {
@@ -614,13 +614,13 @@ bool TaghaAsm_ParseRegImmInstr(struct TaghaAsmbler *const restrict tasm, const b
 	}
 	
 	if( !firstpass ) {
-		struct LabelInfo *label = LinkMap_Get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
+		struct LabelInfo *label = HarbolLinkMap_Get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
 		if( !label ) {
 			printf("tasm error: undefined label '%s' on line: %zu\n", tasm->ActiveFuncLabel->CStr, tasm->CurrLine);
 			exit(-1);
 		}
-		ByteBuffer_InsertByte(&label->Bytecode, regid);
-		ByteBuffer_InsertInt(&label->Bytecode, immval, sizeof immval);
+		HarbolByteBuffer_InsertByte(&label->Bytecode, regid);
+		HarbolByteBuffer_InsertInt(&label->Bytecode, immval, sizeof immval);
 	}
 	return true;
 }
@@ -631,88 +631,88 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 		return false;
 	
 	// set up our data.
-	tasm->Lexeme = &(struct String){0},
-	tasm->LabelTable = &(struct LinkMap){0},
-	tasm->FuncTable = &(struct LinkMap){0},
-	tasm->VarTable = &(struct LinkMap){0},
-	tasm->Opcodes = &(struct LinkMap){0},
-	tasm->Registers = &(struct LinkMap){0};
+	tasm->Lexeme = &(struct HarbolString){0},
+	tasm->LabelTable = &(struct HarbolLinkMap){0},
+	tasm->FuncTable = &(struct HarbolLinkMap){0},
+	tasm->VarTable = &(struct HarbolLinkMap){0},
+	tasm->Opcodes = &(struct HarbolLinkMap){0},
+	tasm->Registers = &(struct HarbolLinkMap){0};
 	
 	// set up registers and map their IDs
-	LinkMap_Insert(tasm->Registers, "RALAF", (union Value){.UInt64 = regAlaf});
-	LinkMap_Insert(tasm->Registers, "ralaf", (union Value){.UInt64 = regAlaf});
+	HarbolLinkMap_Insert(tasm->Registers, "RALAF", (union HarbolValue){.UInt64 = regAlaf});
+	HarbolLinkMap_Insert(tasm->Registers, "ralaf", (union HarbolValue){.UInt64 = regAlaf});
 	
-	LinkMap_Insert(tasm->Registers, "RBETH", (union Value){.UInt64 = regBeth});
-	LinkMap_Insert(tasm->Registers, "rbeth", (union Value){.UInt64 = regBeth});
+	HarbolLinkMap_Insert(tasm->Registers, "RBETH", (union HarbolValue){.UInt64 = regBeth});
+	HarbolLinkMap_Insert(tasm->Registers, "rbeth", (union HarbolValue){.UInt64 = regBeth});
 	
-	LinkMap_Insert(tasm->Registers, "RGAMAL", (union Value){.UInt64 = regGamal});
-	LinkMap_Insert(tasm->Registers, "rgamal", (union Value){.UInt64 = regGamal});
+	HarbolLinkMap_Insert(tasm->Registers, "RGAMAL", (union HarbolValue){.UInt64 = regGamal});
+	HarbolLinkMap_Insert(tasm->Registers, "rgamal", (union HarbolValue){.UInt64 = regGamal});
 	
-	LinkMap_Insert(tasm->Registers, "RDALATH", (union Value){.UInt64 = regDalath});
-	LinkMap_Insert(tasm->Registers, "rdalath", (union Value){.UInt64 = regDalath});
+	HarbolLinkMap_Insert(tasm->Registers, "RDALATH", (union HarbolValue){.UInt64 = regDalath});
+	HarbolLinkMap_Insert(tasm->Registers, "rdalath", (union HarbolValue){.UInt64 = regDalath});
 	
-	LinkMap_Insert(tasm->Registers, "RHEH", (union Value){.UInt64 = regHeh});
-	LinkMap_Insert(tasm->Registers, "rheh", (union Value){.UInt64 = regHeh});
+	HarbolLinkMap_Insert(tasm->Registers, "RHEH", (union HarbolValue){.UInt64 = regHeh});
+	HarbolLinkMap_Insert(tasm->Registers, "rheh", (union HarbolValue){.UInt64 = regHeh});
 	
-	LinkMap_Insert(tasm->Registers, "RWAW", (union Value){.UInt64 = regWaw});
-	LinkMap_Insert(tasm->Registers, "rwaw", (union Value){.UInt64 = regWaw});
+	HarbolLinkMap_Insert(tasm->Registers, "RWAW", (union HarbolValue){.UInt64 = regWaw});
+	HarbolLinkMap_Insert(tasm->Registers, "rwaw", (union HarbolValue){.UInt64 = regWaw});
 	
-	LinkMap_Insert(tasm->Registers, "RZAIN", (union Value){.UInt64 = regZain});
-	LinkMap_Insert(tasm->Registers, "rzain", (union Value){.UInt64 = regZain});
+	HarbolLinkMap_Insert(tasm->Registers, "RZAIN", (union HarbolValue){.UInt64 = regZain});
+	HarbolLinkMap_Insert(tasm->Registers, "rzain", (union HarbolValue){.UInt64 = regZain});
 	
-	LinkMap_Insert(tasm->Registers, "RHETH", (union Value){.UInt64 = regHeth});
-	LinkMap_Insert(tasm->Registers, "rheth", (union Value){.UInt64 = regHeth});
+	HarbolLinkMap_Insert(tasm->Registers, "RHETH", (union HarbolValue){.UInt64 = regHeth});
+	HarbolLinkMap_Insert(tasm->Registers, "rheth", (union HarbolValue){.UInt64 = regHeth});
 	
-	LinkMap_Insert(tasm->Registers, "RTETH", (union Value){.UInt64 = regTeth});
-	LinkMap_Insert(tasm->Registers, "rteth", (union Value){.UInt64 = regTeth});
+	HarbolLinkMap_Insert(tasm->Registers, "RTETH", (union HarbolValue){.UInt64 = regTeth});
+	HarbolLinkMap_Insert(tasm->Registers, "rteth", (union HarbolValue){.UInt64 = regTeth});
 	
-	LinkMap_Insert(tasm->Registers, "RYODH", (union Value){.UInt64 = regYodh});
-	LinkMap_Insert(tasm->Registers, "ryodh", (union Value){.UInt64 = regYodh});
+	HarbolLinkMap_Insert(tasm->Registers, "RYODH", (union HarbolValue){.UInt64 = regYodh});
+	HarbolLinkMap_Insert(tasm->Registers, "ryodh", (union HarbolValue){.UInt64 = regYodh});
 	
-	LinkMap_Insert(tasm->Registers, "RKAF", (union Value){.UInt64 = regKaf});
-	LinkMap_Insert(tasm->Registers, "rkaf", (union Value){.UInt64 = regKaf});
+	HarbolLinkMap_Insert(tasm->Registers, "RKAF", (union HarbolValue){.UInt64 = regKaf});
+	HarbolLinkMap_Insert(tasm->Registers, "rkaf", (union HarbolValue){.UInt64 = regKaf});
 	
-	LinkMap_Insert(tasm->Registers, "RLAMADH", (union Value){.UInt64 = regLamadh});
-	LinkMap_Insert(tasm->Registers, "rlamadh", (union Value){.UInt64 = regLamadh});
+	HarbolLinkMap_Insert(tasm->Registers, "RLAMADH", (union HarbolValue){.UInt64 = regLamadh});
+	HarbolLinkMap_Insert(tasm->Registers, "rlamadh", (union HarbolValue){.UInt64 = regLamadh});
 	
-	LinkMap_Insert(tasm->Registers, "RMEEM", (union Value){.UInt64 = regMeem});
-	LinkMap_Insert(tasm->Registers, "rmeem", (union Value){.UInt64 = regMeem});
+	HarbolLinkMap_Insert(tasm->Registers, "RMEEM", (union HarbolValue){.UInt64 = regMeem});
+	HarbolLinkMap_Insert(tasm->Registers, "rmeem", (union HarbolValue){.UInt64 = regMeem});
 	
-	LinkMap_Insert(tasm->Registers, "RNOON", (union Value){.UInt64 = regNoon});
-	LinkMap_Insert(tasm->Registers, "rnoon", (union Value){.UInt64 = regNoon});
+	HarbolLinkMap_Insert(tasm->Registers, "RNOON", (union HarbolValue){.UInt64 = regNoon});
+	HarbolLinkMap_Insert(tasm->Registers, "rnoon", (union HarbolValue){.UInt64 = regNoon});
 	
-	LinkMap_Insert(tasm->Registers, "RSEMKATH", (union Value){.UInt64 = regSemkath});
-	LinkMap_Insert(tasm->Registers, "rsemkath", (union Value){.UInt64 = regSemkath});
+	HarbolLinkMap_Insert(tasm->Registers, "RSEMKATH", (union HarbolValue){.UInt64 = regSemkath});
+	HarbolLinkMap_Insert(tasm->Registers, "rsemkath", (union HarbolValue){.UInt64 = regSemkath});
 	
-	LinkMap_Insert(tasm->Registers, "R_EH", (union Value){.UInt64 = reg_Eh});
-	LinkMap_Insert(tasm->Registers, "r_eh", (union Value){.UInt64 = reg_Eh});
+	HarbolLinkMap_Insert(tasm->Registers, "R_EH", (union HarbolValue){.UInt64 = reg_Eh});
+	HarbolLinkMap_Insert(tasm->Registers, "r_eh", (union HarbolValue){.UInt64 = reg_Eh});
 	
-	LinkMap_Insert(tasm->Registers, "RPEH", (union Value){.UInt64 = regPeh});
-	LinkMap_Insert(tasm->Registers, "rpeh", (union Value){.UInt64 = regPeh});
+	HarbolLinkMap_Insert(tasm->Registers, "RPEH", (union HarbolValue){.UInt64 = regPeh});
+	HarbolLinkMap_Insert(tasm->Registers, "rpeh", (union HarbolValue){.UInt64 = regPeh});
 	
-	LinkMap_Insert(tasm->Registers, "RSADHE", (union Value){.UInt64 = regSadhe});
-	LinkMap_Insert(tasm->Registers, "rsadhe", (union Value){.UInt64 = regSadhe});
+	HarbolLinkMap_Insert(tasm->Registers, "RSADHE", (union HarbolValue){.UInt64 = regSadhe});
+	HarbolLinkMap_Insert(tasm->Registers, "rsadhe", (union HarbolValue){.UInt64 = regSadhe});
 	
-	LinkMap_Insert(tasm->Registers, "RQOF", (union Value){.UInt64 = regQof});
-	LinkMap_Insert(tasm->Registers, "rqof", (union Value){.UInt64 = regQof});
+	HarbolLinkMap_Insert(tasm->Registers, "RQOF", (union HarbolValue){.UInt64 = regQof});
+	HarbolLinkMap_Insert(tasm->Registers, "rqof", (union HarbolValue){.UInt64 = regQof});
 	
-	LinkMap_Insert(tasm->Registers, "RREESH", (union Value){.UInt64 = regReesh});
-	LinkMap_Insert(tasm->Registers, "rreesh", (union Value){.UInt64 = regReesh});
+	HarbolLinkMap_Insert(tasm->Registers, "RREESH", (union HarbolValue){.UInt64 = regReesh});
+	HarbolLinkMap_Insert(tasm->Registers, "rreesh", (union HarbolValue){.UInt64 = regReesh});
 	
-	LinkMap_Insert(tasm->Registers, "RSHEEN", (union Value){.UInt64 = regSheen});
-	LinkMap_Insert(tasm->Registers, "rsheen", (union Value){.UInt64 = regSheen});
+	HarbolLinkMap_Insert(tasm->Registers, "RSHEEN", (union HarbolValue){.UInt64 = regSheen});
+	HarbolLinkMap_Insert(tasm->Registers, "rsheen", (union HarbolValue){.UInt64 = regSheen});
 	
-	LinkMap_Insert(tasm->Registers, "RTAW", (union Value){.UInt64 = regTaw});
-	LinkMap_Insert(tasm->Registers, "rtaw", (union Value){.UInt64 = regTaw});
+	HarbolLinkMap_Insert(tasm->Registers, "RTAW", (union HarbolValue){.UInt64 = regTaw});
+	HarbolLinkMap_Insert(tasm->Registers, "rtaw", (union HarbolValue){.UInt64 = regTaw});
 	
-	LinkMap_Insert(tasm->Registers, "RSP", (union Value){.UInt64 = regStk});
-	LinkMap_Insert(tasm->Registers, "rsp", (union Value){.UInt64 = regStk});
+	HarbolLinkMap_Insert(tasm->Registers, "RSP", (union HarbolValue){.UInt64 = regStk});
+	HarbolLinkMap_Insert(tasm->Registers, "rsp", (union HarbolValue){.UInt64 = regStk});
 	
-	LinkMap_Insert(tasm->Registers, "RBP", (union Value){.UInt64 = regBase});
-	LinkMap_Insert(tasm->Registers, "rbp", (union Value){.UInt64 = regBase});
+	HarbolLinkMap_Insert(tasm->Registers, "RBP", (union HarbolValue){.UInt64 = regBase});
+	HarbolLinkMap_Insert(tasm->Registers, "rbp", (union HarbolValue){.UInt64 = regBase});
 	
 	// set up our instruction set!
-	#define X(x) LinkMap_Insert(tasm->Opcodes, #x, (union Value){.UInt64 = x});
+	#define X(x) HarbolLinkMap_Insert(tasm->Opcodes, #x, (union HarbolValue){.UInt64 = x});
 		INSTR_SET;
 	#undef X
 	
@@ -731,7 +731,7 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 		//printf("tasm debug: printing line:: '%s'\n", tasm->Iter);
 	#endif
 		while( *tasm->Iter ) {
-			String_Del(tasm->Lexeme);
+			HarbolString_Del(tasm->Lexeme);
 			// skip whitespace.
 			SkipWhiteSpace(&tasm->Iter);
 			
@@ -741,7 +741,7 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 			
 			else if( *tasm->Iter=='}' ) {
 				tasm->Iter++;
-				String_Del(tasm->ActiveFuncLabel);
+				HarbolString_Del(tasm->ActiveFuncLabel);
 				tasm->ActiveFuncLabel = NULL;
 				tasm->ProgramCounter = 0;
 				break;
@@ -749,17 +749,17 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 			// parse the directives!
 			else if( *tasm->Iter=='$' ) {
 				LexIdentifier(&tasm->Iter, tasm->Lexeme);
-				if( !String_NCmpCStr(tasm->Lexeme, "$stacksize", sizeof "$stacksize") ) {
+				if( !HarbolString_NCmpCStr(tasm->Lexeme, "$stacksize", sizeof "$stacksize") ) {
 					TaghaAsm_ParseStackDirective(tasm);
 				#ifdef TASM_DEBUG
 					printf("tasm: Stack size set to: %u\n", tasm->Stacksize);
 				#endif
 				}
-				else if( !String_NCmpCStr(tasm->Lexeme, "$global", sizeof "$global") )
+				else if( !HarbolString_NCmpCStr(tasm->Lexeme, "$global", sizeof "$global") )
 					TaghaAsm_ParseGlobalVarDirective(tasm);
-				else if( !String_NCmpCStr(tasm->Lexeme, "$native", sizeof "$native") )
+				else if( !HarbolString_NCmpCStr(tasm->Lexeme, "$native", sizeof "$native") )
 					TaghaAsm_ParseNativeDirective(tasm);
-				else if( !String_NCmpCStr(tasm->Lexeme, "$safemode", sizeof "$safemode") || !String_NCmpCStr(tasm->Lexeme, "$safe", sizeof "$safe")  )
+				else if( !HarbolString_NCmpCStr(tasm->Lexeme, "$safemode", sizeof "$safemode") || !HarbolString_NCmpCStr(tasm->Lexeme, "$safe", sizeof "$safe")  )
 					tasm->Safemode = 1;
 				break;
 			}
@@ -786,7 +786,7 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 					printf("tasm error: %s labels must have alphabetic names! line: %zu\n", funclbl ? "function" : "jump", tasm->CurrLine);
 					exit(-1);
 				}
-				else if( LinkMap_HasKey(funclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr) ) {
+				else if( HarbolLinkMap_HasKey(funclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr) ) {
 					printf("tasm error: redefinition of label '%s' on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
 					exit(-1);
 				}
@@ -797,15 +797,15 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 					exit(-1);
 				}
 				if( funclbl ) {
-					tasm->ActiveFuncLabel = &(struct String){0};
-					String_Copy(tasm->ActiveFuncLabel, tasm->Lexeme);
+					tasm->ActiveFuncLabel = &(struct HarbolString){0};
+					HarbolString_Copy(tasm->ActiveFuncLabel, tasm->Lexeme);
 				}
 				label->Addr = tasm->ProgramCounter;
 				label->IsFunc = funclbl;
 #ifdef TASM_DEBUG
 				printf("%s Label '%s' is located at address: %zu\n", funclbl ? "Func" : "Local", tasm->Lexeme->CStr, tasm->ProgramCounter);
 #endif
-				LinkMap_Insert(funclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr, (union Value){.Ptr = label});
+				HarbolLinkMap_Insert(funclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr, (union HarbolValue){.Ptr = label});
 			}
 			// it's an opcode!
 			else if( IsAlphabetic(*tasm->Iter) ) {
@@ -814,11 +814,11 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 					exit(-1);
 				}
 				LexIdentifier(&tasm->Iter, tasm->Lexeme);
-				if( !LinkMap_HasKey(tasm->Opcodes, tasm->Lexeme->CStr) ) {
+				if( !HarbolLinkMap_HasKey(tasm->Opcodes, tasm->Lexeme->CStr) ) {
 					printf("tasm error: unknown opcode '%s' on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
 					exit(-1);
 				}
-				uint8_t opcode = LinkMap_Get(tasm->Opcodes, tasm->Lexeme->CStr).UInt64;
+				uint8_t opcode = HarbolLinkMap_Get(tasm->Opcodes, tasm->Lexeme->CStr).UInt64;
 				switch( opcode ) {
 					// opcodes that take no args
 					case halt: case ret: case nop:
@@ -885,7 +885,7 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 		//printf("tasm debug: printing line:: '%s'\n", tasm->Iter);
 	#endif
 		while( *tasm->Iter ) {
-			String_Del(tasm->Lexeme);
+			HarbolString_Del(tasm->Lexeme);
 			// skip whitespace.
 			SkipWhiteSpace(&tasm->Iter);
 			
@@ -894,7 +894,7 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 				break;
 			else if( *tasm->Iter=='}' ) {
 				tasm->Iter++;
-				String_Del(tasm->ActiveFuncLabel);
+				HarbolString_Del(tasm->ActiveFuncLabel);
 				tasm->ActiveFuncLabel = NULL;
 				tasm->ProgramCounter = 0;
 				break;
@@ -907,21 +907,21 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 				SkipWhiteSpace(&tasm->Iter);
 				if( funclbl ) {
 					tasm->Iter++;
-					tasm->ActiveFuncLabel = &(struct String){0};
-					String_Copy(tasm->ActiveFuncLabel, tasm->Lexeme);
+					tasm->ActiveFuncLabel = &(struct HarbolString){0};
+					HarbolString_Copy(tasm->ActiveFuncLabel, tasm->Lexeme);
 					SkipWhiteSpace(&tasm->Iter);
 				}
 			}
 			// parse opcode!
 			if( IsAlphabetic(*tasm->Iter) ) {
 				LexIdentifier(&tasm->Iter, tasm->Lexeme);
-				if( !LinkMap_HasKey(tasm->Opcodes, tasm->Lexeme->CStr) ) {
+				if( !HarbolLinkMap_HasKey(tasm->Opcodes, tasm->Lexeme->CStr) ) {
 					printf("tasm error: unknown opcode '%s' on line: %zu\n", tasm->Lexeme->CStr, tasm->CurrLine);
 					exit(-1);
 				}
-				uint8_t opcode = LinkMap_Get(tasm->Opcodes, tasm->Lexeme->CStr).UInt64;
-				struct LabelInfo *label = LinkMap_Get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
-				ByteBuffer_InsertByte(&label->Bytecode, opcode);
+				uint8_t opcode = HarbolLinkMap_Get(tasm->Opcodes, tasm->Lexeme->CStr).UInt64;
+				struct LabelInfo *label = HarbolLinkMap_Get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
+				HarbolByteBuffer_InsertByte(&label->Bytecode, opcode);
 				switch( opcode ) {
 					// opcodes that take no args
 					case halt: case ret: case nop:
@@ -979,30 +979,30 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 		tasm->Stacksize = 128;
 	
 	// build our func table & global var table
-	struct ByteBuffer functable; ByteBuffer_Init(&functable);
-	struct ByteBuffer datatable; ByteBuffer_Init(&datatable);
+	struct HarbolByteBuffer functable; HarbolByteBuffer_Init(&functable);
+	struct HarbolByteBuffer datatable; HarbolByteBuffer_Init(&datatable);
 	
 	for( size_t i=0 ; i<tasm->FuncTable->Count ; i++ ) {
-		struct KeyValPair *node = LinkMap_GetNodeByIndex(tasm->FuncTable, i);
+		struct HarbolKeyValPair *node = HarbolLinkMap_GetNodeByIndex(tasm->FuncTable, i);
 		struct LabelInfo *label = node->Data.Ptr;
 		if( !label )
 			continue;
 		
 		// write flag
-		ByteBuffer_InsertByte(&functable, label->IsNativeFunc);
+		HarbolByteBuffer_InsertByte(&functable, label->IsNativeFunc);
 		// write strlen
-		ByteBuffer_InsertInt(&functable, node->KeyName.Len, sizeof(uint32_t));
+		HarbolByteBuffer_InsertInt(&functable, node->KeyName.Len, sizeof(uint32_t));
 		
-		// write string
+		// write HarbolString
 		label->IsNativeFunc ? 
-			ByteBuffer_InsertInt(&functable, 8, sizeof(uint32_t))
-				: ByteBuffer_InsertInt(&functable, label->Bytecode.Count, sizeof(uint32_t));
+			HarbolByteBuffer_InsertInt(&functable, 8, sizeof(uint32_t))
+				: HarbolByteBuffer_InsertInt(&functable, label->Bytecode.Count, sizeof(uint32_t));
 		
 		// write instrlen.
-		ByteBuffer_InsertString(&functable, node->KeyName.CStr+1, node->KeyName.Len-1);
+		HarbolByteBuffer_InsertString(&functable, node->KeyName.CStr+1, node->KeyName.Len-1);
 		label->IsNativeFunc ?
-			ByteBuffer_InsertInt(&functable, 0, sizeof(uint64_t))
-				: ByteBuffer_Append(&functable, &label->Bytecode) ;
+			HarbolByteBuffer_InsertInt(&functable, 0, sizeof(uint64_t))
+				: HarbolByteBuffer_Append(&functable, &label->Bytecode) ;
 	#ifdef TASM_DEBUG
 		printf("func label: %s\nData:\n", node->KeyName.CStr);
 		for( size_t i=0 ; i<label->Bytecode.Count ; i++ )
@@ -1012,21 +1012,21 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 	}
 	
 	for( size_t i=0 ; i<tasm->VarTable->Count ; i++ ) {
-		struct KeyValPair *node = LinkMap_GetNodeByIndex(tasm->VarTable, i);
-		struct ByteBuffer *bytedata = node->Data.Ptr;
+		struct HarbolKeyValPair *node = HarbolLinkMap_GetNodeByIndex(tasm->VarTable, i);
+		struct HarbolByteBuffer *bytedata = node->Data.Ptr;
 		if( !bytedata )
 			continue;
 		
 		// write flag.
-		ByteBuffer_InsertByte(&datatable, 0);
+		HarbolByteBuffer_InsertByte(&datatable, 0);
 		// write strlen.
-		ByteBuffer_InsertInt(&datatable, node->KeyName.Len+1, sizeof(uint32_t));
+		HarbolByteBuffer_InsertInt(&datatable, node->KeyName.Len+1, sizeof(uint32_t));
 		// write byte count.
-		ByteBuffer_InsertInt(&datatable, bytedata->Count, sizeof(uint32_t));
-		// write string.
-		ByteBuffer_InsertString(&datatable, node->KeyName.CStr, node->KeyName.Len);
+		HarbolByteBuffer_InsertInt(&datatable, bytedata->Count, sizeof(uint32_t));
+		// write HarbolString.
+		HarbolByteBuffer_InsertString(&datatable, node->KeyName.CStr, node->KeyName.Len);
 		// write byte data.
-		ByteBuffer_Append(&datatable, bytedata);
+		HarbolByteBuffer_Append(&datatable, bytedata);
 	#ifdef TASM_DEBUG
 		printf("global var: %s\nData:\n", node->KeyName.CStr);
 		for( size_t i=0 ; i<bytedata->Count ; i++ )
@@ -1036,34 +1036,34 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 	}
 	
 	// build the header table.
-	struct ByteBuffer tbcfile; ByteBuffer_Init(&tbcfile);
-	ByteBuffer_InsertInt(&tbcfile, 0xC0DE, sizeof(uint16_t));
-	ByteBuffer_InsertInt(&tbcfile, tasm->Stacksize, sizeof tasm->Stacksize);
+	struct HarbolByteBuffer tbcfile; HarbolByteBuffer_Init(&tbcfile);
+	HarbolByteBuffer_InsertInt(&tbcfile, 0xC0DE, sizeof(uint16_t));
+	HarbolByteBuffer_InsertInt(&tbcfile, tasm->Stacksize, sizeof tasm->Stacksize);
 	// write function table offset.
-	ByteBuffer_InsertInt(&tbcfile, sizeof(struct TaghaHeader), sizeof(uint32_t));
+	HarbolByteBuffer_InsertInt(&tbcfile, sizeof(struct TaghaHeader), sizeof(uint32_t));
 	
 	// write global variable table offset.
-	ByteBuffer_InsertInt(&tbcfile, functable.Count + sizeof(struct TaghaHeader) + 4, sizeof(uint32_t));
+	HarbolByteBuffer_InsertInt(&tbcfile, functable.Count + sizeof(struct TaghaHeader) + 4, sizeof(uint32_t));
 	
 	// write stack offset.
-	ByteBuffer_InsertInt(&tbcfile, functable.Count + datatable.Count + sizeof(struct TaghaHeader) + 8, sizeof(uint32_t));
+	HarbolByteBuffer_InsertInt(&tbcfile, functable.Count + datatable.Count + sizeof(struct TaghaHeader) + 8, sizeof(uint32_t));
 	
 	// write flags, currently none.
-	ByteBuffer_InsertByte(&tbcfile, tasm->Safemode | 0);
+	HarbolByteBuffer_InsertByte(&tbcfile, tasm->Safemode | 0);
 	
 	// now build function table.
-	ByteBuffer_InsertInt(&tbcfile, tasm->FuncTable->Count, sizeof(uint32_t));
-	ByteBuffer_Append(&tbcfile, &functable);
-	ByteBuffer_Del(&functable);
+	HarbolByteBuffer_InsertInt(&tbcfile, tasm->FuncTable->Count, sizeof(uint32_t));
+	HarbolByteBuffer_Append(&tbcfile, &functable);
+	HarbolByteBuffer_Del(&functable);
 	
 	// now build global variable table.
-	ByteBuffer_InsertInt(&tbcfile, tasm->VarTable->Count, sizeof(uint32_t));
-	ByteBuffer_Append(&tbcfile, &datatable);
-	ByteBuffer_Del(&datatable);
+	HarbolByteBuffer_InsertInt(&tbcfile, tasm->VarTable->Count, sizeof(uint32_t));
+	HarbolByteBuffer_Append(&tbcfile, &datatable);
+	HarbolByteBuffer_Del(&datatable);
 	
 	// now build stack
 	for( size_t i=0 ; i<tasm->Stacksize ; i++ )
-		ByteBuffer_InsertInt(&tbcfile, 0, sizeof(union TaghaVal));
+		HarbolByteBuffer_InsertInt(&tbcfile, 0, sizeof(union TaghaVal));
 	
 	{ // scoping this section off so we can use restricted pointer.
 		char *restrict iter = tasm->OutputName.CStr;
@@ -1085,20 +1085,20 @@ bool TaghaAsm_Assemble(struct TaghaAsmbler *const restrict tasm)
 		exit(-1);
 	}
 	//for( size_t n=0 ; n<(tasm->Stacksize*8) ; n++ )
-	//	ByteBuffer_InsertByte(&tbcfile, 0);
-	ByteBuffer_DumpToFile(&tbcfile, tbcscript);
+	//	HarbolByteBuffer_InsertByte(&tbcfile, 0);
+	HarbolByteBuffer_DumpToFile(&tbcfile, tbcscript);
 	fclose(tbcscript); tbcscript=NULL;
 	
-	ByteBuffer_Del(&tbcfile);
-	String_Del(&tasm->OutputName);
-	String_Del(tasm->Lexeme);
-	String_Del(tasm->ActiveFuncLabel);
+	HarbolByteBuffer_Del(&tbcfile);
+	HarbolString_Del(&tasm->OutputName);
+	HarbolString_Del(tasm->Lexeme);
+	HarbolString_Del(tasm->ActiveFuncLabel);
 	
-	LinkMap_Del(tasm->LabelTable, Label_Free);
-	LinkMap_Del(tasm->FuncTable, Label_Free);
-	LinkMap_Del(tasm->VarTable, (bool(*)(void*))ByteBuffer_Free);
-	LinkMap_Del(tasm->Opcodes, NULL);
-	LinkMap_Del(tasm->Registers, NULL);
+	HarbolLinkMap_Del(tasm->LabelTable, Label_Free);
+	HarbolLinkMap_Del(tasm->FuncTable, Label_Free);
+	HarbolLinkMap_Del(tasm->VarTable, (fnDestructor *)HarbolByteBuffer_Free);
+	HarbolLinkMap_Del(tasm->Opcodes, NULL);
+	HarbolLinkMap_Del(tasm->Registers, NULL);
 	fclose(tasm->Src); tasm->Src=NULL;
 	return true;
 }
@@ -1109,7 +1109,7 @@ bool Label_Free(void *p)
 	if( !labelref || !*labelref )
 		return false;
 	
-	ByteBuffer_Del(&(*labelref)->Bytecode);
+	HarbolByteBuffer_Del(&(*labelref)->Bytecode);
 	free(*labelref), *labelref=NULL;
 	return true;
 }
@@ -1142,7 +1142,7 @@ int main(int argc, char *argv[])
 		struct TaghaAsmbler *restrict tasm = &(struct TaghaAsmbler){0};
 		tasm->Src = tasmfile;
 		tasm->SrcSize = GetFileSize(tasmfile);
-		String_InitStr(&tasm->OutputName, argv[i]);
+		HarbolString_InitStr(&tasm->OutputName, argv[i]);
 		TaghaAsm_Assemble(tasm);
 	}
 }
