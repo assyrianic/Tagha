@@ -8,30 +8,25 @@ extern "C" {
 #include <stdbool.h>
 #include <stddef.h>
 #include <inttypes.h>
+#include "libharbol/harbol.h"
 
 #define __TAGHA_FLOAT32_DEFINED // allow tagha to use 32-bit floats
 #define __TAGHA_FLOAT64_DEFINED // allow tagha to use 64-bit floats
 
 #if defined(__TAGHA_FLOAT32_DEFINED) || defined(__TAGHA_FLOAT64_DEFINED)
-#	ifndef FLOATING_POINT_OPS
-#		define FLOATING_POINT_OPS
-#	endif
-#endif
-
-#if defined(_WIN32) || defined(_WIN64)
-#	ifndef OS_WINDOWS
-#		define OS_WINDOWS 1
-#	endif
+	#ifndef TAGHA_FLOATING_POINT_OPS
+		#define TAGHA_FLOATING_POINT_OPS
+	#endif
 #endif
 
 #ifdef TAGHA_DLL
-#	ifndef TAGHA_LIB
-#		define TAGHA_EXPORT __declspec(dllimport)
-#	else
-#		define TAGHA_EXPORT __declspec(dllexport)
-#	endif
+	#ifndef TAGHA_LIB
+		#define TAGHA_EXPORT __declspec(dllimport)
+	#else
+		#define TAGHA_EXPORT __declspec(dllexport)
+	#endif
 #else
-#	define TAGHA_EXPORT 
+	#define TAGHA_EXPORT 
 #endif
 
 
@@ -56,6 +51,7 @@ typedef union TaghaVal {
 	double Double, *PtrDouble;
  #endif
 	void *Ptr;
+	const char *PtrCStr;
 	union TaghaVal *PtrSelf;
 } TaghaVal;
 
@@ -85,13 +81,10 @@ typedef union TaghaPtr {
 
 
 
-/* Script File/Binary Format Structure (Jun 23, 2018)
+/* Script File/Binary Format Structure
  * ------------------------------ start of header ------------------------------
  * 2 bytes: magic verifier ==> 0xC0DE
  * 4 bytes: stack size, stack size needed for the code
- * 4 bytes: func table offset (from header)
- * 4 bytes: global var table offset (from header)
- * 4 bytes: stack base offset (from header)
  * 1 byte: flags
  * ------------------------------ end of header ------------------------------
  * .functions table
@@ -113,54 +106,18 @@ typedef union TaghaPtr {
  *     n bytes: global var string
  *     if bytecode var: n bytes: data. All 0 if not initialized in script code.
  *     else: 8 bytes: var address (0 at first, filled in during runtime)
- * 
- * n bytes : stack base
  */
 
-#pragma pack(push, 1)
-typedef struct TaghaHeader {
-	uint16_t Magic;
-	uint32_t StackSize;
-	uint32_t FuncTblOffs;
-	uint32_t VarTblOffs;
-	uint32_t StackOffs;
-	uint8_t Flags;
-} TaghaHeader;
-#pragma pack(pop)
+struct TaghaModule;
+typedef void TaghaNativeFunc(struct TaghaModule *ctxt, union TaghaVal *ret, size_t args, union TaghaVal params[]);
 
-
-/*
- Things to consider concerning Native functions:
-	- Parameters can be of any size in bytes, not just 8 bytes.
-	- Return values must also be of any size in bytes.
-		-- usually optimized into a hidden pointer argument.
-	- the native function must be able to take an n-amount of Parameters.
-	Possible Solutions:
-		Pass ALL values by reference or...
-		Set a standard that all arguments and return values given fit within 8 bytes or less.
-*/
-
-/* Tagha's Calling Convention:
- * Params are passed from right to left. (last argument is pushed first, first arg is last.)
- * The first 8 parameters are passed registers Semkath to Taw, remaining params are pushed to the stack.
- * If 8 params, Taw will hold the 8th param, Semkath the first.
- * 
- * Return values must be 8 or less bytes in size in register 'Alaf'.
- * For Natives, structs must always be passed by pointer.
- *
- * Since 'Alaf' is the return value register and Semkath to Taw are for functions, they need preservation, all other registers are volatile.
- */
-struct Tagha;
-typedef void TaghaNative(struct Tagha *vm, union TaghaVal *ret, size_t args, union TaghaVal params[]);
-typedef union TaghaVal TaghaSysCall(struct Tagha *vm, int8_t callid, size_t args, union TaghaVal params[]);
-
-typedef struct NativeInfo {
+typedef struct TaghaNative {
 	const char *Name;
-	TaghaNative *NativeCFunc;
-} NativeInfo;
+	TaghaNativeFunc *NativeCFunc;
+} TaghaNative;
 
 
-#define REGISTER_FILE \
+#define TAGHA_REGISTER_FILE \
 	Y(regAlaf) Y(regBeth) Y(regGamal) Y(regDalath) \
 	Y(regHeh) Y(regWaw) Y(regZain) Y(regHeth) Y(regTeth) Y(regYodh) Y(regKaf) \
 	Y(regLamadh) Y(regMeem) Y(regNoon) Y(regSemkath) Y(reg_Eh) \
@@ -169,7 +126,7 @@ typedef struct NativeInfo {
 	Y(regStk) Y(regBase) Y(regInstr)
 
 #define Y(y) y,
-typedef enum RegID { REGISTER_FILE regsize } RegID;
+typedef enum TaghaRegID { TAGHA_REGISTER_FILE MaxRegisters } TaghaRegID;
 #undef Y
 
 typedef enum TaghaErrCode {
@@ -181,56 +138,87 @@ typedef enum TaghaErrCode {
 	ErrStackSize, ErrStackOver,
 } TaghaErrCode;
 
+/* Tagha Item
+ * represents either a function or global variable.
+ */
+typedef struct TaghaItem {
+	union {
+		uint8_t *Data;
+		void *RawPtr;
+		TaghaNativeFunc *NativeFunc;
+	};
+	size_t Bytes;
+	uint8_t IsNative : 1; // is this something from the machine like a pointer or function?
+} TaghaItem;
+
 
 // Script structure.
-typedef struct Tagha {
-	union {
-		struct {
-			#define Y(y) union TaghaVal y;
-			REGISTER_FILE
-			#undef Y
-			#undef REGISTER_FILE
+typedef struct TaghaModule {
+	struct /* TaghaCPU */ { // 208 bytes on 64-bit systems
+		union {
+			struct {
+				#define Y(y) union TaghaVal y;
+				TAGHA_REGISTER_FILE
+				#undef Y
+				#undef TAGHA_REGISTER_FILE
+			};
+			union TaghaVal Regs[MaxRegisters];
 		};
-		union TaghaVal Regs[regsize];
-	};
-	uint8_t *Header, *DataBase, *Footer;
-	enum TaghaErrCode Error;
-	bool
-		SafeMode : 1,
-		CondFlag : 1 /* conditional flag for conditional jumps! */
+		bool CondFlag : 1;
+	}; /* TaghaCPU */
+	struct HarbolLinkMap // 48 bytes on 64-bit systems
+		FuncMap,
+		VarMap
+		//DLLMap
 	;
-} Tagha;
+	struct HarbolMemoryPool Heap; // 40 bytes on 64-bit systems
+	struct {
+		union TaghaVal *Stack;
+		size_t StackSize;
+	};
+	enum TaghaErrCode Error : 8;
+	bool SafeMode : 1;
+} TaghaModule; // 416 bytes
 
 
-TAGHA_EXPORT struct Tagha *Tagha_New(void *);
-TAGHA_EXPORT struct Tagha *Tagha_NewNatives(void *, const struct NativeInfo []);
-TAGHA_EXPORT void Tagha_Free(struct Tagha **);
+TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_file(const char filename[]);
+TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_buffer(uint8_t buffer[]);
+TAGHA_EXPORT bool tagha_module_free(struct TaghaModule **modref);
 
-TAGHA_EXPORT void Tagha_Init(struct Tagha *, void *);
-TAGHA_EXPORT void Tagha_InitNatives(struct Tagha *, void *, const struct NativeInfo []);
-TAGHA_EXPORT void Tagha_Del(struct Tagha *);
+TAGHA_EXPORT void tagha_module_print_vm_state(const struct TaghaModule *module);
+TAGHA_EXPORT const char *tagha_module_get_error(const struct TaghaModule *module);
+TAGHA_EXPORT bool tagha_module_register_natives(struct TaghaModule *module, const struct TaghaNative natives[]);
+TAGHA_EXPORT bool tagha_module_register_ptr(struct TaghaModule *module, const char varname[], void *ptr);
 
-TAGHA_EXPORT void Tagha_PrintVMState(const struct Tagha *);
-TAGHA_EXPORT const char *Tagha_GetError(const struct Tagha *);
+TAGHA_EXPORT void *tagha_module_get_globalvar_by_name(struct TaghaModule *module, const char varname[]);
 
-TAGHA_EXPORT bool Tagha_RegisterNatives(struct Tagha *, const struct NativeInfo []);
-TAGHA_EXPORT void *Tagha_GetGlobalVarByName(struct Tagha *, const char *);
-TAGHA_EXPORT void *Tagha_GetRawScriptPtr(const struct Tagha *);
-
-TAGHA_EXPORT int32_t Tagha_Exec(struct Tagha *)
-#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-	__attribute__ ((hot)) // hot attribute for further optimizations.
-#endif
-;
-
-TAGHA_EXPORT int32_t Tagha_CallFunc(struct Tagha *, const char *, size_t, union TaghaVal []);
-TAGHA_EXPORT union TaghaVal Tagha_GetReturnValue(const struct Tagha *);
-TAGHA_EXPORT int32_t Tagha_RunScript(struct Tagha *, int32_t, char *[]);
-TAGHA_EXPORT void Tagha_ThrowError(struct Tagha *, int32_t);
+TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *module, const char funcname[], size_t args, union TaghaVal params[], union TaghaVal *return_val);
+TAGHA_EXPORT int32_t tagha_module_run(struct TaghaModule *module, int32_t iargc, char *strargv[]);
+TAGHA_EXPORT void tagha_module_throw_error(struct TaghaModule *module, int32_t err);
 
 
-#ifdef FLOATING_POINT_OPS
-	#define INSTR_SET	\
+/*
+typedef struct TaghaSystem {
+	struct HarbolLinkMap
+		ModuleMap,
+		NativeMap
+	;
+} TaghaSystem;
+
+TAGHA_EXPORT struct TaghaSystem *tagha_system_new(void);
+TAGHA_EXPORT bool tagha_system_free(struct TaghaSystem **sysref);
+
+TAGHA_EXPORT void tagha_system_init(struct TaghaSystem *sys);
+TAGHA_EXPORT void tagha_system_del(struct TaghaSystem *sys);
+
+TAGHA_EXPORT bool tagha_system_add_module_ptr(struct TaghaSystem *sys, const char name[], struct TaghaModule *module);
+TAGHA_EXPORT bool tagha_system_add_module_file(struct TaghaSystem *sys, const char filename[]);
+TAGHA_EXPORT bool tagha_system_del_module(struct TaghaSystem *sys, const char name[]);
+TAGHA_EXPORT bool tagha_system_add_natives(struct TaghaSystem *sys, const struct TaghaNative natives[]);
+*/
+
+#ifdef TAGHA_FLOATING_POINT_OPS
+	#define TAGHA_INSTR_SET	\
 		X(halt) \
 		X(pushi) X(push) X(pop) \
 		\
@@ -257,7 +245,7 @@ TAGHA_EXPORT void Tagha_ThrowError(struct Tagha *, int32_t);
 		X(incf) X(decf) X(negf) \
 		X(ltf) X(lef) X(gtf) X(gef) X(cmpf) X(neqf)
 #else
-	#define INSTR_SET	\
+	#define TAGHA_INSTR_SET	\
 		X(halt) \
 		X(pushi) X(push) X(pop) \
 		\
@@ -281,34 +269,9 @@ TAGHA_EXPORT void Tagha_ThrowError(struct Tagha *, int32_t);
 #endif
 
 #define X(x) x,
-typedef enum InstrSet { INSTR_SET } InstrSet;
+typedef enum TaghaInstrSet { TAGHA_INSTR_SET } TaghaInstrSet;
 #undef X
 
 #ifdef __cplusplus
 }
-
-class CTagha;
-typedef void TaghaNative_cpp(class CTagha *, union TaghaVal *, size_t, union TaghaVal []);
-
-struct CNativeInfo {
-	const char *Name;
-	TaghaNative_cpp *NativeFunc;
-};
-
-class CTagha : public Tagha {
- public:
-	TAGHA_EXPORT CTagha(void *);
-	TAGHA_EXPORT CTagha(void *, const struct CNativeInfo []);
-	TAGHA_EXPORT ~CTagha();
-	
-	TAGHA_EXPORT bool RegisterNatives(const struct CNativeInfo []);
-	TAGHA_EXPORT void *GetGlobalVarByName(const char *);
-	TAGHA_EXPORT int32_t CallFunc(const char *, size_t, union TaghaVal []);
-	TAGHA_EXPORT union TaghaVal GetReturnValue();
-	TAGHA_EXPORT int32_t RunScript(int32_t, char *[]);
-	TAGHA_EXPORT const char *GetError();
-	TAGHA_EXPORT void PrintVMState();
-	TAGHA_EXPORT void *GetRawScriptPtr();
-	TAGHA_EXPORT void ThrowError(int32_t);
-};
 #endif

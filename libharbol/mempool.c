@@ -6,15 +6,15 @@
 #include "harbol.h"
 
 
-static inline size_t AlignSize(const size_t size, const size_t align)
+static size_t AlignSize(const size_t size, const size_t align)
 {
 	return (size + (align-1)) & -align;
 }
 
 #ifdef POOL_NO_MALLOC
-HARBOL_EXPORT void HarbolMemoryPool_Init(struct HarbolMemoryPool *const mempool)
+HARBOL_EXPORT void harbol_mempool_init(struct HarbolMemoryPool *const mempool)
 #else
-HARBOL_EXPORT void HarbolMemoryPool_Init(struct HarbolMemoryPool *const mempool, const size_t size)
+HARBOL_EXPORT void harbol_mempool_init(struct HarbolMemoryPool *const mempool, const size_t size)
 #endif
 {
 	if( !mempool )
@@ -24,21 +24,21 @@ HARBOL_EXPORT void HarbolMemoryPool_Init(struct HarbolMemoryPool *const mempool,
 	
 #ifdef POOL_NO_MALLOC
 	// allocate the mempool bottom towards the very end of the mempool.
-	mempool->HeapBottom = mempool->HeapMem + (POOL_HEAPSIZE-1);
+	mempool->HeapBottom = mempool->HeapMem + POOL_HEAPSIZE;
 	mempool->HeapSize = POOL_HEAPSIZE;
 #else
 	// align the mempool size to at least the size of an alloc node.
 	mempool->HeapSize = AlignSize(size, sizeof(struct HarbolAllocNode));
-	mempool->HeapMem = calloc(mempool->HeapSize, sizeof *mempool->HeapMem);
-	//printf("HarbolMemoryPool_Init :: mempool->HeapSize == %zu\n", mempool->HeapSize);
+	mempool->HeapMem = calloc(mempool->HeapSize+1, sizeof *mempool->HeapMem);
+	//printf("harbol_mempool_init :: mempool->HeapSize == %zu\n", mempool->HeapSize);
 	if( !mempool->HeapMem )
 		return;
 	
-	mempool->HeapBottom = mempool->HeapMem + (mempool->HeapSize-1);
+	mempool->HeapBottom = mempool->HeapMem + mempool->HeapSize;
 #endif
 }
 
-HARBOL_EXPORT void HarbolMemoryPool_Del(struct HarbolMemoryPool *const mempool)
+HARBOL_EXPORT void harbol_mempool_del(struct HarbolMemoryPool *const mempool)
 {
 	if( !mempool )
 		return;
@@ -50,7 +50,7 @@ HARBOL_EXPORT void HarbolMemoryPool_Del(struct HarbolMemoryPool *const mempool)
 	memset(mempool, 0, sizeof *mempool);
 }
 
-HARBOL_EXPORT void *HarbolMemoryPool_Alloc(struct HarbolMemoryPool *const restrict mempool, const size_t size)
+HARBOL_EXPORT void *harbol_mempool_alloc(struct HarbolMemoryPool *const restrict mempool, const size_t size)
 {
 	if( !mempool || !size )
 		return NULL;
@@ -73,13 +73,13 @@ HARBOL_EXPORT void *HarbolMemoryPool_Alloc(struct HarbolMemoryPool *const restri
 		// if we got here, that means we found a size that's good.
 		if( *FreeNode ) {
 			struct HarbolAllocNode *const n = *FreeNode;
-			//puts("HarbolMemoryPool_Alloc :: *FreeNode is valid.");
+			//puts("harbol_mempool_alloc :: *FreeNode is valid.");
 			if( (uintptr_t)n < (uintptr_t)mempool->HeapMem || ((uintptr_t)n - (uintptr_t)mempool->HeapMem) >= mempool->HeapSize || n->Size >= mempool->HeapSize || !n->Size )
 				return NULL;
 			
-			const size_t Memory_Split = 8;
+			const size_t Memory_Split = sizeof(intptr_t);
 			if( n->Size < AllocSize + Memory_Split ) {
-				//puts("HarbolMemoryPool_Alloc :: allocating close sized node");
+				//puts("harbol_mempool_alloc :: allocating close sized node");
 				/* close in size - reduce fragmentation by not splitting */
 				NewMem = *FreeNode;
 				*FreeNode = NewMem->NextFree;
@@ -88,7 +88,7 @@ HARBOL_EXPORT void *HarbolMemoryPool_Alloc(struct HarbolMemoryPool *const restri
 			}
 			else {
 				/* split this big memory chunk */
-				//puts("HarbolMemoryPool_Alloc :: allocating split up node");
+				//puts("harbol_mempool_alloc :: allocating split up node");
 				NewMem = (struct HarbolAllocNode *)( (uint8_t *)n + (n->Size - AllocSize) );
 				//if( (uintptr_t)NewMem < (uintptr_t)mempool->HeapMem || ((uintptr_t)NewMem - (uintptr_t)mempool->HeapMem) >= mempool->HeapSize )
 				//	return NULL;
@@ -100,7 +100,7 @@ HARBOL_EXPORT void *HarbolMemoryPool_Alloc(struct HarbolMemoryPool *const restri
 		}
 	}
 	if( !NewMem ) {
-		//puts("HarbolMemoryPool_Alloc :: allocating from main mempool.");
+		//puts("harbol_mempool_alloc :: allocating from main mempool.");
 		// couldn't allocate from a freelist
 		if( mempool->HeapBottom-AllocSize < mempool->HeapMem )
 			return NULL;
@@ -124,28 +124,31 @@ HARBOL_EXPORT void *HarbolMemoryPool_Alloc(struct HarbolMemoryPool *const restri
 	// --------------
 	void *restrict ReturnMem = (uint8_t *)NewMem + sizeof *NewMem;
 	memset(ReturnMem, 0, NewMem->Size - sizeof *NewMem);
-	//printf("HarbolMemoryPool_Alloc :: AllocSize - sizeof *NewMem == %zu\n", AllocSize - sizeof *NewMem);
+	//printf("harbol_mempool_alloc :: AllocSize - sizeof *NewMem == %zu\n", AllocSize - sizeof *NewMem);
 	return ReturnMem;
 }
 
-HARBOL_EXPORT void *HarbolMemoryPool_Realloc(struct HarbolMemoryPool *const restrict mempool, void *ptr, const size_t newsize)
+HARBOL_EXPORT void *harbol_mempool_realloc(struct HarbolMemoryPool *const restrict mempool, void *ptr, const size_t newsize)
 {
-	if( !mempool || !newsize || (uintptr_t)ptr <= (uintptr_t)mempool->HeapMem )
-		return NULL;
-	else if( !ptr ) // NULL ptr should make this work like regular Allocation.
-		return HarbolMemoryPool_Alloc(mempool, newsize);
-	
-	struct HarbolAllocNode *MemNode = (ptr - sizeof *MemNode);
-	void *ResizedBlock = HarbolMemoryPool_Alloc(mempool, newsize);
-	if( !ResizedBlock )
+	if( !ptr ) // NULL ptr should make this work like regular Allocation.
+		return harbol_mempool_alloc(mempool, newsize);
+	else if( (uintptr_t)ptr <= (uintptr_t)mempool->HeapMem )
 		return NULL;
 	
-	memmove(ResizedBlock, ptr, MemNode->Size - sizeof *MemNode);
-	HarbolMemoryPool_Dealloc(mempool, ptr);
-	return ResizedBlock;
+	struct HarbolAllocNode *ptr_node = (ptr - sizeof *ptr_node);
+	const size_t node_size = sizeof *ptr_node;
+	
+	void *resized_block = harbol_mempool_alloc(mempool, newsize);
+	if( !resized_block )
+		return NULL;
+	
+	struct HarbolAllocNode *resized_node = (resized_block - sizeof *resized_node);
+	memmove(resized_block, ptr, ptr_node->Size > resized_node->Size ? (resized_node->Size - node_size) : (ptr_node->Size - node_size));
+	harbol_mempool_dealloc(mempool, ptr);
+	return resized_block;
 }
 
-HARBOL_EXPORT void HarbolMemoryPool_Dealloc(struct HarbolMemoryPool *const restrict mempool, void *ptr)
+HARBOL_EXPORT void harbol_mempool_dealloc(struct HarbolMemoryPool *const restrict mempool, void *ptr)
 {
 	if( !mempool || !ptr || (uintptr_t)ptr <= (uintptr_t)mempool->HeapMem )
 		return;
@@ -171,51 +174,50 @@ HARBOL_EXPORT void HarbolMemoryPool_Dealloc(struct HarbolMemoryPool *const restr
 		mempool->FreeList = MemNode;
 		mempool->FreeNodes++;
 		if( mempool->FreeNodes>10 )
-			HarbolMemoryPool_Defrag(mempool);
+			harbol_mempool_defrag(mempool);
 	}
 }
 
-HARBOL_EXPORT void HarbolMemoryPool_Destroy(struct HarbolMemoryPool *const restrict mempool, void *ptr)
+HARBOL_EXPORT void harbol_mempool_destroy(struct HarbolMemoryPool *const restrict mempool, void *ptr)
 {
 	if( !mempool || !ptr )
 		return;
 	
 	void **const restrict ptrref = ptr;
-	HarbolMemoryPool_Dealloc(mempool, *ptrref), *ptrref=NULL;
+	harbol_mempool_dealloc(mempool, *ptrref), *ptrref=NULL;
 }
 
-HARBOL_EXPORT size_t HarbolMemoryPool_Remaining(const struct HarbolMemoryPool *const mempool)
+HARBOL_EXPORT size_t harbol_mempool_get_remaining(const struct HarbolMemoryPool *const mempool)
 {
 	if( !mempool || !mempool->HeapMem )
 		return 0;
-	size_t total_remaining = mempool->HeapBottom - mempool->HeapMem;
-	if( mempool->FreeList ) {
+	size_t total_remaining = (uintptr_t)mempool->HeapBottom - (uintptr_t)mempool->HeapMem;
+	if( mempool->FreeList )
 		for( struct HarbolAllocNode *n=mempool->FreeList ; n ; n=n->NextFree )
 			total_remaining += n->Size;
-	}
 	return total_remaining;
 }
 
-HARBOL_EXPORT size_t HarbolMemoryPool_Size(const struct HarbolMemoryPool *const mempool)
+HARBOL_EXPORT size_t harbol_mempool_get_heap_size(const struct HarbolMemoryPool *const mempool)
 {
 	return !mempool || !mempool->HeapMem ? 0 : mempool->HeapSize;
 }
 
-HARBOL_EXPORT struct HarbolAllocNode *HarbolMemoryPool_GetFreeList(const struct HarbolMemoryPool *const mempool)
+HARBOL_EXPORT struct HarbolAllocNode *harbol_mempool_get_freelist(const struct HarbolMemoryPool *const mempool)
 {
 	return !mempool ? NULL : mempool->FreeList;
 }
 
-HARBOL_EXPORT bool HarbolMemoryPool_Defrag(struct HarbolMemoryPool *const mempool)
+HARBOL_EXPORT bool harbol_mempool_defrag(struct HarbolMemoryPool *const mempool)
 {
 	if( !mempool || !mempool->FreeList )
 		return false;
 	///*
 	// if the memory pool has been entirely released, fully defrag it.
-	if( mempool->HeapSize-1 == HarbolMemoryPool_Remaining(mempool) ) {
+	if( mempool->HeapSize == harbol_mempool_get_remaining(mempool) ) {
 		mempool->FreeList = NULL;
 		memset(mempool->HeapMem, 0, mempool->HeapSize);
-		mempool->HeapBottom = mempool->HeapMem + (mempool->HeapSize-1);
+		mempool->HeapBottom = mempool->HeapMem + mempool->HeapSize;
 		mempool->FreeNodes = 0;
 		return true;
 	}

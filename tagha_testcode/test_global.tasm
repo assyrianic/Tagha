@@ -11,7 +11,6 @@
 
 $stacksize 8 # 64 byte stack is more than enough really.
 $global g_pPlayer, 8,	0
-;$safe
 
 %main: {
 	movi rgamal, 32

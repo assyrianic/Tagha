@@ -30,3 +30,7 @@ test_native_string.tbc - purpose: profile loading a string and calling a C funct
 test_native_number.tbc - purpose: profile calling a C function 1 billion times with a number and adding it.
 	accurate result:
 		result?: '1000000000' <-- "1,000,000,000"
+
+test_selfcall.tbc - purpose: test having the invoking API call a function within itself.
+	accurate result:
+		send nudes <-- the called function should print "send nudes".

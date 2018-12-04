@@ -23,5 +23,8 @@ $native %fgets  # char *fgets(char *, int, FILE *);
 	loadaddr rsemkath, [rbp-256]
 	movi ralaf, 3
 	syscall %fgets
+	
+	movi ralaf, 1
+	syscall %puts
 	ret
 }
