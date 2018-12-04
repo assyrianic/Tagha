@@ -24,9 +24,9 @@
 * 22 **general purpose registers** + 3 reserved-use (stack pointers and instruction pointer) registers.
 * Floats and doubles are supported (can be compiled without).
 * Uses computed gotos (the ones that use a void\*) which is 20%-25% faster than a switch {[citation](http://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables)}.
-* Tagha is 64-bit as the registers and memory addresses are 64-bit. (will run slower on 32-bit systems/OSes).
+* Tagha is 64-bit as the registers and memory addresses are 64-bit. (will run slower on 32-bit OSes and significantly slower on 32-bit systems.)
 * Embeddable.
-* Does no memory allocation at all, thus no garbage collecting.
+* Tagha allocates what is needed and does no garbage collecting.
 * Scripts can call host-defined functions (Native Interface).
 * Host can give arguments and call script functions and retrieve return values.
 * Host can bind its own global variables to script-side global variables by name (the script-side global variable must be a pointer).
@@ -46,15 +46,16 @@
 #include <stdlib.h>
 #include "tagha.h"
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
-	struct Tagha vm;
-
-	// assume "LoadScriptFromFile" is a real function.
-	Tagha_Init(&vm, LoadScriptFromFile("my_tbc_script.tbc"));
-
-	// Execute our script!
-	Tagha_RunScript(&vm, 0, NULL);
+	/* make our script instance. */
+	struct TaghaModule *script = tagha_module_new_from_file("my_tbc_script.tbc");
+	
+	/* call 'main' with no command-line arguments. */
+	tagha_module_run(script, 0, NULL);
+	
+	/* clean up script, pointer will be set to NULL. */
+	tagha_module_free(&script);
 }
 ```
 
@@ -71,29 +72,32 @@ Simply drop a message or your question and you'll be reached in no time!
 
 ### Requirements
 
-C99 compiler and libc implementation with stdlib.h, stdio.h, and stddef.h.
+C99 compiler and libc implementation with stdlib.h, stdio.h, and stddef.h. Everything the code base requires is there.
 
 ### Installation
 
 To embed tagha into your application, you must first build tagha as either a static or shared library.
-You can build a static library of tagha by executing one of the build shell scripts that's part of the tagha repo.
+
+create a directory with the repo file and run `make tagha` which will create a static AND shared library of tagha.
 
 Once you've built tagha as a library, include "tagha.h" into your C or C++ application.
 
 If you need help in embedding, check out the [Tagha Wiki](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)). A [C++ tutorial](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C-Plus-Plus)) is also available if needed!
 
 
-To compile `.tasm` scripts to `.tbc` executables, you'll need to build the Tagha Assembler.
+To compile `.tasm` scripts to `.tbc` executables, you'll need to build the Tagha Assembler! Run `make tagha_asm` which will build the tagha assembler executable named `tagha_asm`.
 
-The TASM Assembler has a single software dependency by using my C Data Structure Collection to accomodate data structures like the symbol tables, etc.
+### How to create TBC Scripts with Tagha ASM.
 
-* run the `build_tagha_assembler.sh` script which will build the C data structure collection library and link it to a build of the Tagha Assembler.
-* you should have an executable called `tasm`
+Scripts can be created by taking a tasm script and supplying it as a command-line argument to tagha assembler. Here's an example:
 
-### How to create TBC Scripts with TASM.
-* Once you've created a tasm script, run `./tasm 'my_tasm_source.tasm'`
-* if there's no errors reported, a `.tbc` file with the same filename as the tasm script will be generated.
-* to use the TBC scripts, embed Tagha into your C or C++ application and direct your application to the file directly or a special directory for tbc scripts.
+```sh 
+./tasm 'script.tasm'
+```
+
+If there are no errors reported, a `.tbc` file with the same filename as the tasm script will be produced. Now that you have a usable tbc script, you can run it from your C or C++ application.
+
+To use the tbc scripts, embed Tagha into your C or C++ application and direct your application to the file directly or a special directory for tbc scripts.
 
 ### Configuration
 
@@ -110,12 +114,13 @@ If you need to re-enable floating point support for all types, simply uncomment 
 Changing the header file requires that you recompile tagha for the change to take effect.
 
 ### Testing
-If you just wish to quickly build and test the tagha code base, drag and drop "tagha.h" and "tagha_api.c" into the "tagha_testcode" folder and run the "profile.sh" shell script.
+If you wish to build and test the tagha code base, compile `test_hostapp.c` with either the shared or static tagha library, compile the tagha assembler and compile the testing .tasm scripts in `tagha_testcode`, and then run the .tbc scripts.
 
 ## Credits
 
 * Khanno Hanna - main developer of Tagha.
 * Id Software - developers of Quake 3 Virtual Machine, which inspired Tagha's creation.
+* Noxabellus - .
 
 ## Contact
 
@@ -131,7 +136,7 @@ This project is licensed under MIT License.
 * A: You're right. Any developer could simply choose an existing scripting language and its implementation, but not all developers want to use a scripting language and they could have various reasons like performance, syntax, maybe the runtime is too bloated. Secondly, not all developers might know the language or are comfortable with it. Perhaps for the sake of consistency with the code base, they want the entire code to be in one language. After all, to be able to utilize the scripting language, you'd need to learn it as well as learning the API of the host app.
 
 * Q: _**Why implement TaghaVM in C and not C++?**_
-* A: The design choices I gave to TaghaVM was to be minimal, fast, and with little-to-no dependencies except for a few C standard library functions. To achieve this, I needed to use C which allowed me to manipulate memory as fast and seamless as possible. I'm aware C++ allows me to manipulate memory but it's not without trouble. Secondly, TaghaVM should be no bother to C++ programmers since a C++ interface is available from `tagha.h`.
+* A: The design choices I gave to TaghaVM was to be minimal, fast, and with little-to-no dependencies except for a few C standard library functions. To achieve this, I needed to use C which allowed me to manipulate memory as fast and seamless as possible. I'm aware C++ allows me to manipulate memory but it's not without trouble.
 
 * Q: _**Can TaghaVM be used to implement any language?**_
 * A: Yes but not perfectly. If we take Lua's example, Lua values are entirely pointers to a tagged union type in which the types are either a float value, string, or table/hashmap. Since most of TaghaVMs registers are general-purpose (can hold/use memory locations), they can hold/use the Lua values themselves but Lua's high level opcodes would have to be broken up into lower level operations since Tagha is a low-level VM that operates upon the byte sizes of the data, regardless of their actual types. This may possibly result in worse performance than just running Lua's code on its respective VM.

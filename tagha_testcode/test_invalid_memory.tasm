@@ -8,7 +8,7 @@ $global g_var, 12,	0
 %test_globalmembnds: {
 	loadglobal rgamal, g_var
 	movi rbeth, 50
-	st4 [rgamal-100], rbeth
+	st4 [rgamal-300], rbeth
 	ret
 }
 
@@ -16,7 +16,7 @@ $global g_var, 12,	0
 ; remember we have a stack size of 128 bytes.
 %test_stackbnds: {
 	movi rbeth, 90
-	st4 [rbp-100], rbeth ; this probably overwrites alot of global var data but it won't overwrite func data.
+	st4 [rbp-128], rbeth ; this probably overwrites alot of global var data but it won't overwrite func data.
 	ret
 }
 

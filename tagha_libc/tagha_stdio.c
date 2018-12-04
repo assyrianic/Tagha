@@ -8,27 +8,27 @@
  */
 
 /* int remove(const char *filename); */
-static void native_remove(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_remove(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Int32 = remove(params[0].Ptr);
+	retval->Int32 = remove(params[0].Ptr);
 }
 
 /* int rename(const char *oldname, const char *newname); */
-static void native_rename(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_rename(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Int32 = rename(params[0].Ptr, params[1].Ptr);
+	retval->Int32 = rename(params[0].Ptr, params[1].Ptr);
 }
 
 /* FILE *tmpfile(void); */
-static void native_tmpfile(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_tmpfile(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Ptr = tmpfile();
+	retval->Ptr = tmpfile();
 }
 
 /* char *tmpnam(char *str); */
-static void native_tmpnam(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_tmpnam(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Ptr = tmpnam(params[0].Ptr);
+	retval->Ptr = tmpnam(params[0].Ptr);
 }
 
 
@@ -37,33 +37,33 @@ static void native_tmpnam(struct Tagha *const restrict sys, union TaghaVal *cons
  */
 
 /* int fclose(FILE *stream); */
-static void native_fclose(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fclose(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	if( params[0].Ptr ) {
-		RetVal->Int32 = fclose(params[0].Ptr);
+		retval->Int32 = fclose(params[0].Ptr);
 		return;
 	}
-	RetVal->Int32 = -1;
+	retval->Int32 = -1;
 }
 
 /* int fflush(FILE *stream); */
-static void native_fflush(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fflush(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Int32 = fflush(params[0].Ptr);
+	retval->Int32 = fflush(params[0].Ptr);
 }
 
 /* FILE *fopen(const char *filename, const char *modes); */
-static void native_fopen(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fopen(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	const char *mode = params[1].Ptr;
 	if( !mode ) {
 		return;
 	}
-	RetVal->Ptr = fopen(params[0].Ptr, mode);
+	retval->Ptr = fopen(params[0].Ptr, mode);
 }
 
 /* FILE *freopen(const char *filename, const char *mode, FILE *stream); */
-static void native_freopen(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_freopen(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	const char *filename = params[0].Ptr;
 	const char *mode = params[1].Ptr;
@@ -72,11 +72,11 @@ static void native_freopen(struct Tagha *const restrict sys, union TaghaVal *con
 	if( !filename or !mode or !pStream ) {
 		return; // retval data is already zeroed out.
 	}
-	RetVal->Ptr = freopen(filename, mode, pStream);
+	retval->Ptr = freopen(filename, mode, pStream);
 }
 
 /* void setbuf(FILE *stream, char *buffer); */
-static void native_setbuf(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_setbuf(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	FILE *pStream = params[0].Ptr;
 	if( !pStream ) {
@@ -91,35 +91,35 @@ static void native_setbuf(struct Tagha *const restrict sys, union TaghaVal *cons
  */
 
 /* int fprintf(FILE *stream, const char *format, ...); */
-static void native_fprintf(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fprintf(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	FILE *stream = params[0].Ptr;
 	if( !stream ) {
-		RetVal->Int32 = -1;
+		retval->Int32 = -1;
 		return;
 	}
 	
 	const char *format = params[1].Ptr;
 	if( !format ) {
-		RetVal->Int32 = -1;
+		retval->Int32 = -1;
 		return;
 	}
 	
-	RetVal->Int32 = 0;
+	retval->Int32 = 0;
 }
 
 /* int fscanf(FILE *stream, const char *format, ...); */
-static void native_fscanf(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fscanf(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	FILE *stream = params[0].Ptr;
 	if( !stream ) {
-		RetVal->Int32 = -1;
+		retval->Int32 = -1;
 		return;
 	}
 	
 	const char *fmt = params[1].Ptr;
 	if( !fmt ) {
-		RetVal->Int32 = -1;
+		retval->Int32 = -1;
 		return;
 	}
 	// flags
@@ -147,161 +147,161 @@ static void native_fscanf(struct Tagha *const restrict sys, union TaghaVal *cons
 		}
 	}
 	
-	RetVal->Int32 = -1;
+	retval->Int32 = -1;
 	// Need some help with this one...
 }
 
 /* int printf(const char *fmt, ...); */
-static void native_printf(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_printf(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	const char *str = params[0].Ptr;
 	if( !str ) {
-		RetVal->Int32 = -1;
+		retval->Int32 = -1;
 		return;
 	}
-	RetVal->Int32 = 0;
+	retval->Int32 = 0;
 }
 
 /* int puts(const char *s); */
-static void native_puts(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_puts(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	const char *str = params[0].Ptr;
 	if( !str ) {
-		RetVal->Int32 = -1;
+		retval->Int32 = -1;
 		return;
 	}
 	// push back the value of the return val of puts.
-	RetVal->Int32 = puts(str);
+	retval->Int32 = puts(str);
 }
 
 /* int setvbuf(FILE *stream, char *buffer, int mode, size_t size); */
-static void native_setvbuf(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_setvbuf(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	FILE *stream = params[0].Ptr;
 	char *buffer = params[1].Ptr;
 	if( !stream ) {
-		RetVal->Int32 = -1;
+		retval->Int32 = -1;
 		return;
 	}
 	else if( !buffer ) {
-		RetVal->Int32 = -1;
+		retval->Int32 = -1;
 		return;
 	}
-	RetVal->Int32 = setvbuf(stream, buffer, params[2].Int32, params[3].UInt64);
+	retval->Int32 = setvbuf(stream, buffer, params[2].Int32, params[3].UInt64);
 }
 
 /* int fgetc(FILE *stream); */
-static void native_fgetc(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fgetc(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Int32 = fgetc(params[0].Ptr);
+	retval->Int32 = fgetc(params[0].Ptr);
 }
 
 /* char *fgets(char *str, int num, FILE *stream); */
-static void native_fgets(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fgets(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Ptr = fgets(params[0].Ptr, params[1].Int32, params[2].Ptr);
+	retval->Ptr = fgets(params[0].Ptr, params[1].Int32, params[2].Ptr);
 }
 
 /* int fputc(int character, FILE *stream); */
-static void native_fputc(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fputc(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Int32 = fputc(params[0].Int32, params[1].Ptr);
+	retval->Int32 = fputc(params[0].Int32, params[1].Ptr);
 }
 
 /* int fputs(const char *str, FILE *stream); */
-static void native_fputs(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fputs(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Int32 = fputs(params[0].Ptr, params[1].Ptr);
+	retval->Int32 = fputs(params[0].Ptr, params[1].Ptr);
 }
 
 /* int getc(FILE *stream); */
-static void native_getc(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_getc(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Int32 = getc(params[0].Ptr);
+	retval->Int32 = getc(params[0].Ptr);
 }
 
 /* int getchar(void); */
-static void native_getchar(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_getchar(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Int32 = getchar();
+	retval->Int32 = getchar();
 }
 
 /* int putc(int character, FILE *stream); */
-static void native_putc(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_putc(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Int32 = putc(params[0].Int32, params[1].Ptr);
+	retval->Int32 = putc(params[0].Int32, params[1].Ptr);
 }
 
 /* int putchar(int character); */
-static void native_putchar(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_putchar(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Int32 = putchar(params[0].Int32);
+	retval->Int32 = putchar(params[0].Int32);
 }
 
 /* int ungetc(int character, FILE *stream); */
-static void native_ungetc(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_ungetc(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Int32 = ungetc(params[0].Int32, params[1].Ptr);
+	retval->Int32 = ungetc(params[0].Int32, params[1].Ptr);
 }
 
 /* size_t fread(void *ptr, size_t size, size_t count, FILE *stream); */
-static void native_fread(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fread(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->UInt64 = fread(params[0].Ptr, params[1].UInt64, params[2].UInt64, params[3].Ptr);
+	retval->UInt64 = fread(params[0].Ptr, params[1].UInt64, params[2].UInt64, params[3].Ptr);
 }
 
 /* size_t fwrite(const void *ptr, size_t size, size_t count, FILE *stream); */
-static void native_fwrite(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fwrite(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->UInt64 = fwrite(params[0].Ptr, params[1].UInt64, params[2].UInt64, params[3].Ptr);
+	retval->UInt64 = fwrite(params[0].Ptr, params[1].UInt64, params[2].UInt64, params[3].Ptr);
 }
 
 /* int fseek(FILE *stream, long int offset, int origin); */
-static void native_fseek(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fseek(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Int32 = fseek(params[0].Ptr, params[1].UInt64, params[2].Int32);
+	retval->Int32 = fseek(params[0].Ptr, params[1].UInt64, params[2].Int32);
 }
 
 /* long int ftell(FILE *stream); */
-static void native_ftell(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_ftell(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Int64 = ftell(params[0].Ptr);
+	retval->Int64 = ftell(params[0].Ptr);
 }
 
 /* void rewind(FILE *stream); */
-static void native_rewind(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_rewind(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	rewind(params[0].Ptr);
 }
 
 /* void clearerr(FILE *stream); */
-static void native_clearerr(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_clearerr(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	clearerr(params[0].Ptr);
 }
 
 /* int feof(FILE *stream); */
-static void native_feof(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_feof(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Int32 = feof(params[0].Ptr);
+	retval->Int32 = feof(params[0].Ptr);
 }
 
 /* int ferror(FILE *stream); */
-static void native_ferror(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_ferror(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	RetVal->Int32 = ferror(params[0].Ptr);
+	retval->Int32 = ferror(params[0].Ptr);
 }
 
 /* void perror(const char *str); */
-static void native_perror(struct Tagha *const restrict sys, union TaghaVal *const restrict RetVal, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_perror(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
 	perror(params[0].Ptr);
 }
 
 
-bool Tagha_LoadstdioNatives(struct Tagha *const restrict sys)
+bool tagha_module_load_stdio_natives(struct TaghaModule *const restrict module)
 {
-	const struct NativeInfo libc_stdio_natives[] = {
+	const struct TaghaNative libc_stdio_natives[] = {
 		{"remove", native_remove},
 		{"rename", native_rename},
 		{"tmpfile", native_tmpfile},
@@ -333,5 +333,5 @@ bool Tagha_LoadstdioNatives(struct Tagha *const restrict sys)
 		{"perror", native_perror},
 		{NULL, NULL}
 	};
-	return sys ? Tagha_RegisterNatives(sys, libc_stdio_natives) : false;
+	return module ? tagha_module_register_natives(module, libc_stdio_natives) : false;
 }

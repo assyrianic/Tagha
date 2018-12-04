@@ -1,4 +1,5 @@
 $stacksize 1024
+$safe
 
 %main: {
         movi rsemkath, 34

@@ -13,20 +13,20 @@ typedef struct HarbolString {
 } HarbolString;
 */
 
-HARBOL_EXPORT struct HarbolString *HarbolString_New(void)
+HARBOL_EXPORT struct HarbolString *harbol_string_new(void)
 {
 	return calloc(1, sizeof(struct HarbolString));
 }
 
-HARBOL_EXPORT struct HarbolString *HarbolString_NewStr(const char *restrict cstr)
+HARBOL_EXPORT struct HarbolString *harbol_string_new_cstr(const char cstr[restrict])
 {
 	struct HarbolString *restrict str = calloc(1, sizeof *str);
 	if( str )
-		HarbolString_CopyStr(str, cstr);
+		harbol_string_copy_cstr(str, cstr);
 	return str;
 }
 
-HARBOL_EXPORT void HarbolString_Del(struct HarbolString *const strobj)
+HARBOL_EXPORT void harbol_string_del(struct HarbolString *const strobj)
 {
 	if( !strobj )
 		return;
@@ -36,17 +36,17 @@ HARBOL_EXPORT void HarbolString_Del(struct HarbolString *const strobj)
 	memset(strobj, 0, sizeof *strobj);
 }
 
-HARBOL_EXPORT bool HarbolString_Free(struct HarbolString **strobjref)
+HARBOL_EXPORT bool harbol_string_free(struct HarbolString **strobjref)
 {
 	if( !strobjref || !*strobjref )
 		return false;
 	
-	HarbolString_Del(*strobjref);
+	harbol_string_del(*strobjref);
 	free(*strobjref); *strobjref=NULL;
 	return *strobjref==NULL;
 }
 
-HARBOL_EXPORT void HarbolString_Init(struct HarbolString *const strobj)
+HARBOL_EXPORT void harbol_string_init(struct HarbolString *const strobj)
 {
 	if( !strobj )
 		return;
@@ -54,16 +54,16 @@ HARBOL_EXPORT void HarbolString_Init(struct HarbolString *const strobj)
 	memset(strobj, 0, sizeof *strobj);
 }
 
-HARBOL_EXPORT void HarbolString_InitStr(struct HarbolString *const restrict strobj, const char *restrict cstr)
+HARBOL_EXPORT void harbol_string_init_cstr(struct HarbolString *const restrict strobj, const char cstr[restrict])
 {
 	if( !strobj )
 		return;
 	
 	memset(strobj, 0, sizeof *strobj);
-	HarbolString_CopyStr(strobj, cstr);
+	harbol_string_copy_cstr(strobj, cstr);
 }
 
-HARBOL_EXPORT void HarbolString_AddChar(struct HarbolString *const restrict strobj, const char c)
+HARBOL_EXPORT void harbol_string_add_char(struct HarbolString *const restrict strobj, const char c)
 {
 	if( !strobj )
 		return;
@@ -87,7 +87,7 @@ HARBOL_EXPORT void HarbolString_AddChar(struct HarbolString *const restrict stro
 	strobj->CStr[strobj->Len] = 0;
 }
 
-HARBOL_EXPORT void HarbolString_Add(struct HarbolString *const restrict strobjA, const struct HarbolString *const restrict strobjB)
+HARBOL_EXPORT void harbol_string_add_str(struct HarbolString *const restrict strobjA, const struct HarbolString *const restrict strobjB)
 {
 	if( !strobjA || !strobjB || !strobjB->CStr )
 		return;
@@ -106,7 +106,7 @@ HARBOL_EXPORT void HarbolString_Add(struct HarbolString *const restrict strobjA,
 	strobjA->CStr[strobjA->Len] = 0;
 }
 
-HARBOL_EXPORT void HarbolString_AddStr(struct HarbolString *const restrict strobj, const char *restrict cstr)
+HARBOL_EXPORT void harbol_string_add_cstr(struct HarbolString *const restrict strobj, const char cstr[restrict])
 {
 	if( !strobj || !cstr )
 		return;
@@ -125,17 +125,17 @@ HARBOL_EXPORT void HarbolString_AddStr(struct HarbolString *const restrict strob
 	strobj->CStr[strobj->Len] = 0;
 }
 
-HARBOL_EXPORT char *HarbolString_GetStr(const struct HarbolString *const strobj)
+HARBOL_EXPORT char *harbol_string_get_cstr(const struct HarbolString *const strobj)
 {
 	return (strobj) ? strobj->CStr : NULL;
 }
 
-HARBOL_EXPORT size_t HarbolString_Len(const struct HarbolString *const strobj)
+HARBOL_EXPORT size_t harbol_string_get_len(const struct HarbolString *const strobj)
 {
 	return (strobj) ? strobj->Len : 0;
 }
 
-HARBOL_EXPORT void HarbolString_Copy(struct HarbolString *const restrict strobjA, const struct HarbolString *const restrict strobjB)
+HARBOL_EXPORT void harbol_string_copy_str(struct HarbolString *const restrict strobjA, const struct HarbolString *const restrict strobjB)
 {
 	if( !strobjA || !strobjB || !strobjB->CStr )
 		return;
@@ -152,7 +152,7 @@ HARBOL_EXPORT void HarbolString_Copy(struct HarbolString *const restrict strobjA
 	strobjA->CStr[strobjA->Len] = 0;
 }
 
-HARBOL_EXPORT void HarbolString_CopyStr(struct HarbolString *const restrict strobj, const char *restrict cstr)
+HARBOL_EXPORT void harbol_string_copy_cstr(struct HarbolString *const restrict strobj, const char cstr[restrict])
 {
 	if( !strobj || !cstr )
 		return;
@@ -169,7 +169,7 @@ HARBOL_EXPORT void HarbolString_CopyStr(struct HarbolString *const restrict stro
 	strobj->CStr[strobj->Len] = 0;
 }
 
-HARBOL_EXPORT int32_t HarbolString_Format(struct HarbolString *const restrict strobj, const char *restrict fmt, ...)
+HARBOL_EXPORT int32_t harbol_string_format(struct HarbolString *const restrict strobj, const char fmt[restrict], ...)
 {
 	if( !strobj || !fmt )
 		return -1;
@@ -181,32 +181,32 @@ HARBOL_EXPORT int32_t HarbolString_Format(struct HarbolString *const restrict st
 	return result;
 }
 
-HARBOL_EXPORT int32_t HarbolString_CmpCStr(const struct HarbolString *const restrict strobj, const char *restrict cstr)
+HARBOL_EXPORT int32_t harbol_string_cmpcstr(const struct HarbolString *const restrict strobj, const char cstr[restrict])
 {
 	return ( !strobj || !cstr || !strobj->CStr ) ? -1 : strcmp(strobj->CStr, cstr);
 }
 
-HARBOL_EXPORT int32_t HarbolString_CmpStr(const struct HarbolString *const restrict strobjA, const struct HarbolString *const restrict strobjB)
+HARBOL_EXPORT int32_t harbol_string_cmpstr(const struct HarbolString *const restrict strobjA, const struct HarbolString *const restrict strobjB)
 {
 	return ( !strobjA || !strobjB || !strobjA->CStr || !strobjB->CStr ) ? -1 : strcmp(strobjA->CStr, strobjB->CStr);
 }
 
-HARBOL_EXPORT int32_t HarbolString_NCmpCStr(const struct HarbolString *const restrict strobj, const char *restrict cstr, const size_t len)
+HARBOL_EXPORT int32_t harbol_string_ncmpcstr(const struct HarbolString *const restrict strobj, const char cstr[restrict], const size_t len)
 {
 	return ( !strobj || !cstr || !strobj->CStr ) ? -1 : strncmp(strobj->CStr, cstr, len);
 }
 
-HARBOL_EXPORT int32_t HarbolString_NCmpStr(const struct HarbolString *const restrict strobjA, const struct HarbolString *const restrict strobjB, const size_t len)
+HARBOL_EXPORT int32_t harbol_string_ncmpstr(const struct HarbolString *const restrict strobjA, const struct HarbolString *const restrict strobjB, const size_t len)
 {
 	return ( !strobjA || !strobjB || !strobjA->CStr || !strobjB->CStr ) ? -1 : strncmp(strobjA->CStr, strobjB->CStr, len);
 }
 
-HARBOL_EXPORT bool HarbolString_IsEmpty(const struct HarbolString *const strobj)
+HARBOL_EXPORT bool harbol_string_is_empty(const struct HarbolString *const strobj)
 {
 	return( !strobj || strobj->Len==0 || strobj->CStr==NULL || strobj->CStr[0]==0 );
 }
 
-HARBOL_EXPORT bool HarbolString_Reserve(struct HarbolString *const strobj, const size_t size)
+HARBOL_EXPORT bool harbol_string_reserve(struct HarbolString *const strobj, const size_t size)
 {
 	if( !strobj || !size )
 		return false;
@@ -219,12 +219,12 @@ HARBOL_EXPORT bool HarbolString_Reserve(struct HarbolString *const strobj, const
 	return true;
 }
 
-HARBOL_EXPORT char *HarbolString_fgets(struct HarbolString *const strobj, FILE *const file)
+HARBOL_EXPORT char *harbol_string_fgets(struct HarbolString *const strobj, FILE *const file)
 {
 	return ( !strobj || !file ) ? NULL : fgets(strobj->CStr, strobj->Len, file);
 }
 
-HARBOL_EXPORT void HarbolString_Empty(struct HarbolString *const strobj)
+HARBOL_EXPORT void harbol_string_clear(struct HarbolString *const strobj)
 {
 	if( !strobj || !strobj->CStr )
 		return;

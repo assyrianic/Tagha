@@ -17,7 +17,7 @@ struct LabelInfo {
 	bool IsNativeFunc : 1;
 };
 
-bool Label_Free(void *);
+bool label_free(void *);
 
 struct TaghaAsmbler {
 	struct HarbolString OutputName, *ActiveFuncLabel, *Lexeme;
@@ -32,14 +32,14 @@ struct TaghaAsmbler {
 	uint8_t Safemode : 1;
 };
 
-bool TaghaAsm_ParseRegRegInstr(struct TaghaAsmbler *, bool);
-bool TaghaAsm_ParseOneRegInstr(struct TaghaAsmbler *, bool);
-bool TaghaAsm_ParseOneImmInstr(struct TaghaAsmbler *, bool);
-bool TaghaAsm_ParseRegMemInstr(struct TaghaAsmbler *, bool);
-bool TaghaAsm_ParseMemRegInstr(struct TaghaAsmbler *, bool);
-bool TaghaAsm_ParseRegImmInstr(struct TaghaAsmbler *, bool);
+bool tagha_asm_parse_RegRegInstr(struct TaghaAsmbler *, bool);
+bool tagha_asm_parse_OneRegInstr(struct TaghaAsmbler *, bool);
+bool tagha_asm_parse_OneImmInstr(struct TaghaAsmbler *, bool);
+bool tagha_asm_parse_RegMemInstr(struct TaghaAsmbler *, bool);
+bool tagha_asm_parse_MemRegInstr(struct TaghaAsmbler *, bool);
+bool tagha_asm_parse_RegImmInstr(struct TaghaAsmbler *, bool);
 
-bool TaghaAsm_Assemble(struct TaghaAsmbler *);
+bool tagha_asm_assemble(struct TaghaAsmbler *);
 
 
 #ifdef __cplusplus

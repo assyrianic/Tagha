@@ -1,34 +1,19 @@
 CC = gcc
-
-CFLAGS = -Wall -Wextra -std=c99 -s -O2
-CPPFLAGS = -Wall -Wextra -std=c++11 -s -O2
-
-TESTFLAGS = -Wall -Wextra -std=c99 -g -O2
-
-DEPS = tagha.h
-#LIBS = -ldl -lm
+CFLAGS = -Wextra -Wall -std=c99 -s -O2
+TESTFLAGS = -Wextra -Wall -std=c99 -g -O2
 
 SRCS = tagha_api.c
-SRCScpp = tagha_api_cpp.cpp
 
 OBJS = $(SRCS:.c=.o)
-OBJScpp = $(SRCS:.cpp=.o)
+LIBNAME = libtagha
 
+tagha:
+	$(CC) $(CFLAGS) -c libharbol/stringobj.c libharbol/vector.c libharbol/hashmap.c libharbol/mempool.c libharbol/linkmap.c $(SRCS)
+	ar cr $(LIBNAME).a stringobj.o vector.o hashmap.o mempool.o linkmap.o $(OBJS)
+	$(CC) -shared stringobj.o vector.o hashmap.o mempool.o linkmap.o $(OBJS) -o $(LIBNAME).so
 
-tagha_static:
-	$(CC) $(CFLAGS) -c $(SRCS)
-	ar cr libtagha.a $(OBJS)
-
-tagha_shared:
-	$(CC) $(CFLAGS) -fPIC -c $(SRCS)
-	$(CC) -shared -o libtagha.so $(OBJS)
-
-test:
-	$(CC) $(TESTFLAGS) $(SRCS) tagha_testcode/test_hostapp.c -o tagha_testappc
-
-tagha_cpp_static:
-	$(CC) $(CPPFLAGS) -c $(SRCScpp) -L. -ltagha
-	ar cr libtaghacpp.a $(OBJScpp)
+tagha_asm:
+	$(CC) $(CFLAGS) libharbol/stringobj.c libharbol/vector.c libharbol/hashmap.c libharbol/bytebuffer.c libharbol/linkmap.c tagha_assembler/tagha_assembler.c -o tagha_asm
 
 clean:
 	$(RM) *.o
