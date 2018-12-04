@@ -82,7 +82,7 @@ create a directory with the repo file and run `make tagha` which will create a s
 
 Once you've built tagha as a library, include "tagha.h" into your C or C++ application.
 
-If you need help in embedding, check out the [Tagha Wiki](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)). A [C++ tutorial](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C-Plus-Plus)) is also available if needed!
+If you need help in embedding, check out the C tutorial on embedding in the documentation folder.
 
 
 To compile `.tasm` scripts to `.tbc` executables, you'll need to build the Tagha Assembler! Run `make tagha_asm` which will build the tagha assembler executable named `tagha_asm`.
