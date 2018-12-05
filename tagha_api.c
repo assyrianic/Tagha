@@ -190,7 +190,7 @@ TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_file(const char filename[
 	return module;
 }
 
-TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_buffer(uint8_t buffer[])
+TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_buffer(uint8_t buffer[restrict])
 {
 	if( !buffer )
 		return NULL;
