@@ -267,7 +267,7 @@ Executes a script by calling its main function.
 returns a status int32_t value, returns `-1` if an error occurred.
 
 
-## Tagha_ThrowError
+## tagha_module_throw_error
 ```c
 void tagha_module_throw_error(struct TaghaModule *module, int32_t err);
 ```
