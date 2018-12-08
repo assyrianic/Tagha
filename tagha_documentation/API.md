@@ -282,3 +282,18 @@ Allows a developer to manually throw a VM runtime exception. Only use within a n
 ### Return Value
 None.
 
+
+## tagha_module_force_safemode
+```c
+void tagha_module_force_safemode(struct TaghaModule *module);
+```
+
+### Description
+Forces a module to run in safemode.
+
+### Parameters
+`module` - pointer to a `struct TaghaModule` instance.
+
+### Return Value
+None.
+

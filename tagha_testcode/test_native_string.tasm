@@ -11,25 +11,25 @@ $native %strlen    ; size_t strlen(const char *);
 ; }
 
 %main: {
-	movi rgamal, 0
-	st4 [rbp-4], rgamal ; int length = 0;
-	st4 [rbp-8], rgamal ; int i = 0;
-	jmp .L2
+	movi		rgamal, 0
+	st4			[rbp-4], rgamal ; int length = 0;
+	st4			[rbp-8], rgamal ; int i = 0;
+	jmp			.L2
 .L3:
-	loadglobal rsemkath, test_str
-	movi ralaf, 1
-	syscall %strlen
-	st4 [rbp-4], ralaf
-	ld4 rdalath, [rbp-8]
-	inc rdalath
-	st4 [rbp-8], rdalath
+	loadglobal	rsemkath, test_str
+	movi		ralaf, 1
+	syscall		%strlen
+	st4			[rbp-4], ralaf
+	ld4			rdalath, [rbp-8]
+	inc			rdalath
+	st4			[rbp-8], rdalath
 .L2:
-	movi rheh, 10000000
-	ld4 rwaw, [rbp-8]
-	ult rwaw, rheh
-	jnz .L3
-	ld4 rzain, [rbp-4]
-	mul rzain, rheh
-	mov ralaf, rzain
+	movi		rheh, 10000000
+	ld4			rwaw, [rbp-8]
+	ult			rwaw, rheh
+	jnz			.L3
+	ld4			rzain, [rbp-4]
+	mul			rzain, rheh
+	mov			ralaf, rzain
 	ret
 }

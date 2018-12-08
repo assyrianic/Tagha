@@ -111,10 +111,9 @@ int main(const int argc, char *argv[restrict static argc+1])
 		struct Player {
 			float speed;
 			uint32_t health, ammo;
-		};
-		struct Player player = (struct Player){0};
+		} player = (struct Player){0};
 		// tagha_module_get_globalvar_by_name returns a pointer to the data.
-		// if the data itself is a pointer, then you gotta use a pointer-pointer.
+		// if the data from the script itself is a pointer, then it'll return a pointer-pointer.
 		tagha_module_register_ptr(module, "g_pPlayer", &player);
 		
 		const struct TaghaNative host_natives[] = {
@@ -128,8 +127,12 @@ int main(const int argc, char *argv[restrict static argc+1])
 			{NULL, NULL}
 		};
 		tagha_module_register_natives(module, host_natives);
+		char argv1[] = {"example1"};
+		char argv2[] = {"example2"};
+		char *module_args[] = { argv1,argv2,NULL };
+		
 		const clock_t start = clock();
-		const int32_t result = tagha_module_run(module, 0, NULL);
+		const int32_t result = tagha_module_run(module, 2, module_args);
 		const clock_t end = clock();
 		tagha_module_print_vm_state(module);
 		//if( pp )

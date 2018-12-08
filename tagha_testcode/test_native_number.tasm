@@ -9,16 +9,16 @@ $native %add_one    ; int add_one(const int n);
 ; }
 
 %main: {
-	movi rbeth, 1000000000
-	movi ralaf, 0
-	movi rgamal, 0
+	movi	rbeth, 1000000000
+	movi	ralaf, 0
+	movi	rgamal, 0
 	
 .loop:
-	mov rsemkath, ralaf
-	movi ralaf, 1
-	syscall %add_one
-	dec rbeth
-	cmp rbeth, rgamal
-	jz .loop
+	mov		rsemkath, ralaf
+	movi	ralaf, 1
+	syscall	%add_one
+	dec		rbeth
+	cmp		rbeth, rgamal
+	jz		.loop
 	ret
 }

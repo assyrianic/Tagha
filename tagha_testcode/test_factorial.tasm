@@ -24,30 +24,30 @@ $safemode
 # }
 
 %main: {
-	movi rsemkath, 5
-	call %factorial
+	movi	rsemkath, 5 ; 10 bytes
+	call	%factorial ; 9 bytes
 	ret
 }
 
 %factorial: {
 	movi	rbeth, 1 ; 10 bytes
-	st4 [rbp-4], rsemkath ; 7 bytes
+	st4		[rbp-4], rsemkath ; 7 bytes
 	
 # if( i<=1 )
-	cmp	rsemkath, rbeth ; 3 bytes
-	jz	.cont ; 9 bytes
+	cmp		rsemkath, rbeth ; 3 bytes
+	jz		.cont ; 9 bytes
 	
 # return 1;
-	mov ralaf, rbeth ; 3 bytes
+	mov		ralaf, rbeth ; 3 bytes
 	ret ; 1 bytes
 	
 .cont:
 # return i * factorial(i-1);
-	ld4 ralaf, [rbp-4]
-	sub ralaf, rbeth
-	mov rsemkath, ralaf
-	call %factorial
-	ld4 rgamal, [rbp-4]
-	mul ralaf, rgamal
+	ld4		ralaf, [rbp-4]
+	sub		ralaf, rbeth
+	mov		rsemkath, ralaf
+	call	%factorial
+	ld4		rgamal, [rbp-4]
+	mul		ralaf, rgamal
 	ret
 }

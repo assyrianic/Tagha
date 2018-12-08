@@ -2,9 +2,9 @@ $stacksize 1024
 $safe
 
 %main: {
-        movi rsemkath, 34
-        call %fib
-        ret
+	movi	rsemkath, 34
+	call	%fib
+	ret
 }
 
 ; O(2^n) algorithm
@@ -14,35 +14,35 @@ $safe
 ; }
 
 %fib: {
-        movi        rgamal, 16
-        sub        rsp, rgamal
-        push        rbeth
-        st4        [rbp-4], rsemkath
-        movi        rdalath, 2
-        
-        ilt        rsemkath, rdalath    ; if( n<2 )
-        jz        .evalfib
-        
+	movi	rgamal, 16
+	sub		rsp, rgamal
+	push	rbeth
+	st4		[rbp-4], rsemkath
+	movi	rdalath, 2
+	
+	ilt		rsemkath, rdalath ; if( n<2 )
+	jz		.evalfib
+	
 .exit:
-        ld4        ralaf, [rbp-4]
-        ret
-        
+	ld4		ralaf, [rbp-4]
+	ret
+	
 .evalfib:
 ; return fib(n-1) + fib(n-2);
-        ; fib(n-1)
-        ld4        ralaf, [rbp-4]
-        dec        ralaf
-        mov        rsemkath, ralaf
-        call        %fib
-        
-        mov        rbeth, ralaf
-        ; fib(n-2)
-        ld4        ralaf, [rbp-4]
-        sub        ralaf, rdalath
-        mov        rsemkath, ralaf
-        call        %fib
-        ; +
-        add        ralaf, rbeth
-        pop        rbeth
-        ret
+	; fib(n-1)
+	ld4		ralaf, [rbp-4]
+	dec		ralaf
+	mov		rsemkath, ralaf
+	call	%fib
+	
+	mov		rbeth, ralaf
+	; fib(n-2)
+	ld4		ralaf, [rbp-4]
+	sub		ralaf, rdalath
+	mov		rsemkath, ralaf
+	call	%fib
+	; +
+	add		ralaf, rbeth
+	pop		rbeth
+	ret
 }

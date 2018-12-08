@@ -92,6 +92,7 @@ pops a value from the stack into a register.
 
 ### Description
 loads the address of a global variable into a register.
+Assembler can use `loadvar` & `loadglobal` naming of opcode.
 
 
 ## LOADADDR
@@ -200,24 +201,28 @@ modulos the integer value of a source register to a destination register.
 
 ### Description
 peforms bitwise AND of the integer value of a source register to a destination register.
+Assembler can use `and` & `bit_and` naming of opcode.
 
 
 ## BIT_OR
 
 ### Description
 peforms bitwise OR of the integer value of a source register to a destination register.
+Assembler can use `or` & `bit_or` naming of opcode.
 
 
 ## BIT_XOR
 
 ### Description
 peforms bitwise XOR of the integer value of a source register to a destination register.
+Assembler can use `xor` & `bit_xor` naming of opcode.
 
 
 ## BIT_NOT
 
 ### Description
 peforms bitwise NOT to a register.
+Assembler can use `not` & `bit_not` naming of opcode.
 
 
 ## SHL

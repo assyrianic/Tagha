@@ -4,6 +4,13 @@
 #include "tagha_assembler.h"
 
 
+bool tagha_asm_parse_RegRegInstr(struct TaghaAsmbler *, bool);
+bool tagha_asm_parse_OneRegInstr(struct TaghaAsmbler *, bool);
+bool tagha_asm_parse_OneImmInstr(struct TaghaAsmbler *, bool);
+bool tagha_asm_parse_RegMemInstr(struct TaghaAsmbler *, bool);
+bool tagha_asm_parse_MemRegInstr(struct TaghaAsmbler *, bool);
+bool tagha_asm_parse_RegImmInstr(struct TaghaAsmbler *, bool);
+
 static inline bool is_space(const char c)
 {
 	return( c == ' ' || c == '\t' || c == '\r' || c == '\v' || c == '\f' );
@@ -694,6 +701,12 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 	#define X(x) harbol_linkmap_insert(tasm->Opcodes, #x, (union HarbolValue){.UInt64 = x});
 		TAGHA_INSTR_SET;
 	#undef X
+	// add additional for specific opcodes.
+	harbol_linkmap_insert(tasm->Opcodes, "and", (union HarbolValue){.UInt64 = bit_and});
+	harbol_linkmap_insert(tasm->Opcodes, "or", (union HarbolValue){.UInt64 = bit_or});
+	harbol_linkmap_insert(tasm->Opcodes, "xor", (union HarbolValue){.UInt64 = bit_xor});
+	harbol_linkmap_insert(tasm->Opcodes, "not", (union HarbolValue){.UInt64 = bit_not});
+	harbol_linkmap_insert(tasm->Opcodes, "loadvar", (union HarbolValue){.UInt64 = loadglobal});
 	
 	/* FIRST PASS. Collect labels + their PC relative addresses */
 	#define MAX_LINE_CHARS 2048
@@ -1081,28 +1094,35 @@ static size_t get_filesize(FILE *const restrict file)
 	
 	if( !fseek(file, 0, SEEK_END) ) {
 		size = ftell(file);
-		if( size == -1 )
+		if( size<=-1 )
 			return 0L;
 		rewind(file);
 	}
 	return (size_t)size;
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char *argv[restrict static argc+1])
 {
 	if( argc<=1 )
 		return -1;
-	
-	for( int i=1 ; i<argc ; i++ ) {
-		FILE *tasmfile = fopen(argv[i], "r");
-		if( !tasmfile )
-			continue;
-		
-		struct TaghaAsmbler *restrict tasm = &(struct TaghaAsmbler){0};
-		tasm->Src = tasmfile;
-		tasm->SrcSize = get_filesize(tasmfile);
-		harbol_string_init_cstr(&tasm->OutputName, argv[i]);
-		tagha_asm_assemble(tasm);
+	else if( !strcmp(argv[1], "--help") ) {
+		puts("Tagha Assembler. Part of the Tagha Runtime Environment Toolkit\nTo compile a tasm script to tbc, supply a script name as a command-line argument to the program.\nExample: './tagha_asm script.tasm'");
+	}
+	else if( !strcmp(argv[1], "--version") ) {
+		puts("Tagha Assembler Version 1.0.0");
+	}
+	else {
+		for( int i=1 ; i<argc ; i++ ) {
+			FILE *tasmfile = fopen(argv[i], "r");
+			if( !tasmfile )
+				continue;
+			
+			struct TaghaAsmbler *const tasm = &(struct TaghaAsmbler){0};
+			tasm->Src = tasmfile;
+			tasm->SrcSize = get_filesize(tasmfile);
+			harbol_string_init_cstr(&tasm->OutputName, argv[i]);
+			tagha_asm_assemble(tasm);
+		}
 	}
 }
 

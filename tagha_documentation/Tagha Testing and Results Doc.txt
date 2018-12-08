@@ -33,4 +33,10 @@ test_native_number.tbc - purpose: profile calling a C function 1 billion times w
 
 test_selfcall.tbc - purpose: test having the invoking API call a function within itself.
 	accurate result:
-		send nudes <-- the called function should print "send nudes".
+		send nudes <-- the correct output should print "send nudes".
+
+test_argv.tbc - purpose: testing argv pointer vector passed to main.
+	accurate resut:
+		example1 <-- correct output
+		example2 <-- correct output, printed twice
+		example2

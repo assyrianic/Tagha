@@ -120,7 +120,8 @@ If you wish to build and test the tagha code base, compile `test_hostapp.c` with
 
 * Khanno Hanna - main developer of Tagha.
 * Id Software - developers of Quake 3 Virtual Machine, which inspired Tagha's creation.
-* Noxabellus - .
+* Noxabellus - helping out with development, design, and accidentally giving me ideas.
+* Animu/Megumazing - helping out with development & design.
 
 ## Contact
 

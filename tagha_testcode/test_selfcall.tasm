@@ -16,55 +16,56 @@ $native %puts
 $safe
 
 %prior_func: {
-	movi rgamal, 32
-	sub rsp, rgamal
-	loadglobal rsemkath, flwr_str
-	movi ralaf, 1
-	syscall %puts
+	movi		rgamal, 32
+	sub			rsp, rgamal
+	loadglobal	rsemkath, flwr_str
+	movi		ralaf, 1
+	syscall		%puts
 	ret
 }
 
 %func: {
-	movi rgamal, 32
-	sub rsp, rgamal
-	loadglobal rsemkath, nude_str
-	movi ralaf, 1
-	syscall %puts
+	movi		rgamal, 32
+	sub			rsp, rgamal
+	loadglobal	rsemkath, nude_str
+	movi		ralaf, 1
+	syscall		%puts
+	call		%prior_func
 	ret
 }
 
 %another_func: {
-	movi rgamal, 32
-	sub rsp, rgamal
-	loadglobal rsemkath, kek_str
-	movi ralaf, 1
-	syscall %puts
+	movi		rgamal, 32
+	sub			rsp, rgamal
+	loadglobal	rsemkath, kek_str
+	movi		ralaf, 1
+	syscall		%puts
 	ret
 }
 
 %main: {
-	movi rgamal, 32
-	sub rsp, rgamal
-	call %prior_func
+	movi		rgamal, 32
+	sub			rsp, rgamal
+	call		%prior_func
 	
 	; load return TaghaVal ptr.
-	loadaddr rqof, [rbp-8]
+	loadaddr	rqof, [rbp-8]
 	
 	; load NULL array
-	movi rsadhe, 0
+	movi		rsadhe, 0
 	
 	; load constant array size
-	movi rpeh, 0
+	movi		rpeh, 0
 	; load string of function we want to execute.
-	loadglobal r_eh, func_str
+	loadglobal	r_eh, func_str
 	; copy the module ptr to register semkath.
-	loadglobal rsemkath, self ; load our self-referencing module
-	ld8 rsemkath, [rsemkath]
+	loadglobal	rsemkath, self ; load our self-referencing module
+	ld8			rsemkath, [rsemkath]
 	
-	movi ralaf, 5
-	syscall %tagha_module_call ; tagha_module_call(self, "func", 0, NULL, &val);
-	call %another_func
+	movi		ralaf, 5
+	syscall		%tagha_module_call ; tagha_module_call(self, "func", 0, NULL, &val);
+	call		%another_func
 	
-	ld8 ralaf, [rbp-8]
+	ld8			ralaf, [rbp-8]
 	ret
 }

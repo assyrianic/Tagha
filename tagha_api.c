@@ -103,7 +103,7 @@ static bool _read_module_data(struct TaghaModule *const restrict module, uint8_t
 		struct TaghaItem *funcitem = harbol_mempool_alloc(&module->Heap, sizeof *funcitem);
 		//printf("allocating new func item == %zu\n", harbol_mempool_get_remaining(&module->Heap));
 		funcitem->Bytes = datalen;
-		funcitem->IsNative = flag;
+		funcitem->Flags = flag;
 		const char *cstr = iter.Ptr;
 		//printf("func cstr == '%s'\n", cstr);
 		iter.PtrUInt8 += cstrlen;
@@ -281,14 +281,15 @@ TAGHA_EXPORT bool tagha_module_register_natives(struct TaghaModule *const module
 	
 	for( const struct TaghaNative *restrict n=natives ; n->NativeCFunc && n->Name ; n++ ) {
 		struct TaghaItem *item = harbol_linkmap_get(&module->FuncMap, n->Name).Ptr;
-		if( !item || !item->IsNative )
+		if( !item || item->Flags != 1 )
 			continue;
 		item->NativeFunc = n->NativeCFunc;
+		item->Flags = 3;
 	}
 	return true;
 }
 
-TAGHA_EXPORT bool tagha_module_register_ptr(struct TaghaModule *const restrict module, const char varname[restrict], void *restrict ptr)
+TAGHA_EXPORT bool tagha_module_register_ptr(struct TaghaModule *const restrict module, const char varname[restrict], void *ptr)
 {
 	void **restrict p = tagha_module_get_globalvar_by_name(module, varname);
 	if( !p )
@@ -318,9 +319,9 @@ TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module
 	if( !item ) {
 		module->Error = ErrMissingFunc;
 		return -1;
-	} else if( item->IsNative ) {
+	} else if( item->Flags & TAGHA_FLAG_NATIVE ) {
 		/* make sure our native function was registered first or else we crash ;) */
-		if( item->NativeFunc ) {
+		if( item->Flags & TAGHA_FLAG_LINKED ) {
 			(*item->NativeFunc)(module, retval, args, params);
 			return module->Error == ErrNone ? 0 : module->Error;
 		} else {
@@ -333,8 +334,6 @@ TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module
 		const uint8_t reg_param_initial = regSemkath;
 		const uint8_t reg_params = regTaw - regSemkath + 1;
 		const size_t bytecount = sizeof(union TaghaVal) * args;
-		/* scrub our stack */
-		memset(module->Stack, 0, sizeof *module->Stack * module->StackSize);
 		
 		/* save stack space by using the registers for passing arguments.
 			the other registers can be used for different operations. */
@@ -377,16 +376,18 @@ TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module
 	}
 }
 
-TAGHA_EXPORT int32_t tagha_module_run(struct TaghaModule *const restrict module, const int32_t argc, char *strargv[restrict])
+TAGHA_EXPORT int32_t tagha_module_run(struct TaghaModule *const restrict module, const int32_t argc, char *sargv[restrict static argc+1])
 {
 	if( !module )
 		return -1;
 	
 	union TaghaVal argv[argc+1];
+	memset(argv, 0, sizeof(union TaghaVal) * argc+1);
+	
 	argv[argc].Ptr = NULL;
-	if( strargv )
+	if( sargv )
 		for( int32_t i=0 ; i<argc ; i++ )
-			argv[i].Ptr = strargv[i];
+			argv[i].Ptr = sargv[i];
 	
 	union TaghaVal
 		retval = {0},
@@ -406,6 +407,12 @@ TAGHA_EXPORT void tagha_module_throw_error(struct TaghaModule *const module, con
 	module->Error = err;
 }
 
+TAGHA_EXPORT void tagha_module_force_safemode(struct TaghaModule *const module)
+{
+	if( !module )
+		return;
+	module->SafeMode = true;
+}
 
 //#include <unistd.h>	// sleep() func
 
@@ -468,7 +475,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	
 	exec_loadglobal: { /* char: opcode | char: regid | u64: index */
 		const uint8_t regid = *pc.PtrUInt8++;
-		struct TaghaItem *const restrict global = harbol_linkmap_get_by_index(&vm->VarMap, *pc.PtrUInt64++).Ptr;
+		//struct TaghaItem *const restrict global = harbol_linkmap_get_by_index(&vm->VarMap, *pc.PtrUInt64++).Ptr;
+		struct TaghaItem *const restrict global = vm->VarMap.Order.Table[*pc.PtrUInt64++].KvPairPtr->Data.Ptr;
 		vm->Regs[regid].Ptr = global->RawPtr;
 		DISPATCH();
 	}
@@ -747,7 +755,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 		(--vm->regStk.PtrSelf)->Ptr = pc.Ptr;	/* push rip */
 		*--vm->regStk.PtrSelf = vm->regBase;	/* push rbp */
 		vm->regBase = vm->regStk;	/* mov rbp, rsp */
-		struct TaghaItem *const restrict func = harbol_linkmap_get_by_index(&vm->FuncMap, index - 1).Ptr;
+		//struct TaghaItem *const restrict func = harbol_linkmap_get_by_index(&vm->FuncMap, index - 1).Ptr;
+		struct TaghaItem *const restrict func = vm->FuncMap.Order.Table[index - 1].KvPairPtr->Data.Ptr;
 		pc.PtrUInt8 = func->RawPtr;
 		DISPATCH();
 	}
@@ -756,7 +765,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 		(--vm->regStk.PtrSelf)->Ptr = pc.Ptr;	/* push rip */
 		*--vm->regStk.PtrSelf = vm->regBase;	/* push rbp */
 		vm->regBase = vm->regStk;	/* mov rbp, rsp */
-		struct TaghaItem *const restrict func = harbol_linkmap_get_by_index(&vm->FuncMap, (vm->Regs[regid].Int64 - 1)).Ptr;
+		//struct TaghaItem *const restrict func = harbol_linkmap_get_by_index(&vm->FuncMap, (vm->Regs[regid].Int64 - 1)).Ptr;
+		struct TaghaItem *const restrict func = vm->FuncMap.Order.Table[(vm->Regs[regid].Int64 - 1)].KvPairPtr->Data.Ptr;
 		pc.PtrUInt8 = func->RawPtr;
 		DISPATCH();
 	}
@@ -770,22 +780,23 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	}
 	
 	exec_syscall: { /* char: opcode | i64: index */
-		struct TaghaItem *const restrict native = harbol_linkmap_get_by_index(&vm->FuncMap, (-1 - *pc.PtrInt64++)).Ptr;
-		TaghaNativeFunc *const nativecall = native->NativeFunc;
-		if( !nativecall ) {
+		//struct TaghaItem *const restrict native = harbol_linkmap_get_by_index(&vm->FuncMap, (-1 - *pc.PtrInt64++)).Ptr;
+		struct TaghaItem *const restrict native = vm->FuncMap.Order.Table[(-1 - *pc.PtrInt64++)].KvPairPtr->Data.Ptr;
+		if( native->Flags != (TAGHA_FLAG_NATIVE + TAGHA_FLAG_LINKED) ) {
 			vm->Error = ErrMissingNative;
 			goto *dispatch[halt];
 		} else {
 			const uint8_t reg_param_initial = regSemkath;
 			const uint8_t reg_params = regTaw - regSemkath + 1;
 			union TaghaVal retval = (union TaghaVal){0};
+			const size_t args = vm->regAlaf.SizeInt;
 			
 			/* save stack space by using the registers for passing arguments. */
 			/* the other registers can then be used for other data operations. */
 			( vm->regAlaf.SizeInt <= reg_params ) ?
-				(*nativecall)(vm, &retval, vm->regAlaf.SizeInt, vm->Regs+reg_param_initial) :
+				(*native->NativeFunc)(vm, &retval, args, vm->Regs+reg_param_initial) :
 				/* if the native call has more than a certain num of params, get all params from stack. */
-				((*nativecall)(vm, &retval, vm->regAlaf.SizeInt, vm->regStk.PtrSelf), vm->regStk.PtrSelf += vm->regAlaf.SizeInt);
+				((*native->NativeFunc)(vm, &retval, args, vm->regStk.PtrSelf), vm->regStk.PtrSelf += args);
 			memcpy(&vm->regAlaf, &retval, sizeof retval);
 			
 			if( vm->Error != ErrNone )
@@ -795,22 +806,23 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	}
 	exec_syscallr: { /* char: opcode | char: reg id */
 		const uint8_t regid = *pc.PtrUInt8++;
-		struct TaghaItem *const restrict native = harbol_linkmap_get_by_index(&vm->FuncMap, (-1 - vm->Regs[regid].Int64)).Ptr;
-		TaghaNativeFunc *const nativecall = native->NativeFunc;
-		if( !nativecall ) {
+		//struct TaghaItem *const restrict native = harbol_linkmap_get_by_index(&vm->FuncMap, (-1 - vm->Regs[regid].Int64)).Ptr;
+		struct TaghaItem *const restrict native = vm->FuncMap.Order.Table[(-1 - vm->Regs[regid].Int64)].KvPairPtr->Data.Ptr;
+		if( native->Flags != (TAGHA_FLAG_NATIVE + TAGHA_FLAG_LINKED) ) {
 			vm->Error = ErrMissingNative;
 			goto *dispatch[halt];
 		} else {
 			const uint8_t reg_param_initial = regSemkath;
 			const uint8_t reg_params = regTaw - regSemkath + 1;
 			union TaghaVal retval = (union TaghaVal){0};
+			const size_t args = vm->regAlaf.SizeInt;
 			
 			/* save stack space by using the registers for passing arguments. */
 			/* the other registers can then be used for other data operations. */
 			( vm->regAlaf.SizeInt <= reg_params ) ?
-				(*nativecall)(vm, &retval, vm->regAlaf.SizeInt, vm->Regs+reg_param_initial) :
+				(*native->NativeFunc)(vm, &retval, args, vm->Regs+reg_param_initial) :
 				/* if the native call has more than a certain num of params, get all params from stack. */
-				((*nativecall)(vm, &retval, vm->regAlaf.SizeInt, vm->regStk.PtrSelf), vm->regStk.PtrSelf += vm->regAlaf.SizeInt);
+				((*native->NativeFunc)(vm, &retval, args, vm->regStk.PtrSelf), vm->regStk.PtrSelf += args);
 			memcpy(&vm->regAlaf, &retval, sizeof retval);
 			
 			if( vm->Error != ErrNone )

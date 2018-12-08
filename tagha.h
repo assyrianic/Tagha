@@ -80,7 +80,6 @@ typedef union TaghaPtr {
 } TaghaPtr;
 
 
-
 /* Script File/Binary Format Structure
  * ------------------------------ start of header ------------------------------
  * 2 bytes: magic verifier ==> 0xC0DE
@@ -141,6 +140,8 @@ typedef enum TaghaErrCode {
 /* Tagha Item
  * represents either a function or global variable.
  */
+#define TAGHA_FLAG_NATIVE	1
+#define TAGHA_FLAG_LINKED	2
 typedef struct TaghaItem {
 	union {
 		uint8_t *Data;
@@ -148,11 +149,18 @@ typedef struct TaghaItem {
 		TaghaNativeFunc *NativeFunc;
 	};
 	size_t Bytes;
-	uint8_t IsNative : 1; // is this something from the machine like a pointer or function?
+	uint8_t Flags; // 0-bytecode based, 1-native based, 2-resolved
 } TaghaItem;
 
 
-// Script structure.
+/* Script/Module Structure.
+ * Consists of:
+ * A virtual machine context
+ * An internal stack
+ * Dynamic symbol table for functions and global variables
+ * An internal memory allocator
+ * and flags
+ */
 typedef struct TaghaModule {
 	struct /* TaghaCPU */ { // 208 bytes on 64-bit systems
 		union {
@@ -169,7 +177,6 @@ typedef struct TaghaModule {
 	struct HarbolLinkMap // 48 bytes on 64-bit systems
 		FuncMap,
 		VarMap
-		//DLLMap
 	;
 	struct HarbolMemoryPool Heap; // 40 bytes on 64-bit systems
 	struct {
@@ -195,6 +202,7 @@ TAGHA_EXPORT void *tagha_module_get_globalvar_by_name(struct TaghaModule *module
 TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *module, const char funcname[], size_t args, union TaghaVal params[], union TaghaVal *return_val);
 TAGHA_EXPORT int32_t tagha_module_run(struct TaghaModule *module, int32_t iargc, char *strargv[]);
 TAGHA_EXPORT void tagha_module_throw_error(struct TaghaModule *module, int32_t err);
+TAGHA_EXPORT void tagha_module_force_safemode(struct TaghaModule *module);
 
 
 /*

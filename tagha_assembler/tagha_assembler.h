@@ -32,12 +32,6 @@ struct TaghaAsmbler {
 	uint8_t Safemode : 1;
 };
 
-bool tagha_asm_parse_RegRegInstr(struct TaghaAsmbler *, bool);
-bool tagha_asm_parse_OneRegInstr(struct TaghaAsmbler *, bool);
-bool tagha_asm_parse_OneImmInstr(struct TaghaAsmbler *, bool);
-bool tagha_asm_parse_RegMemInstr(struct TaghaAsmbler *, bool);
-bool tagha_asm_parse_MemRegInstr(struct TaghaAsmbler *, bool);
-bool tagha_asm_parse_RegImmInstr(struct TaghaAsmbler *, bool);
 
 bool tagha_asm_assemble(struct TaghaAsmbler *);
 
