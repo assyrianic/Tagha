@@ -34,7 +34,7 @@
 * Function call and return opcodes automatically execute function prologues and epilogues.
 * Little-endian format (only).
 * Small. The runtime environment static library is <50kb.
-* Tagha is not natively threaded, this is by design, this is so any developer can thread Tagha in anyway they wish whether by having a single VM instance run multiple scripts in a multi-threaded way OR use an array of Tagha VM instances each running their own scripts in a threaded manner.
+* Tagha's entire code is **less than 1k lines of code**!
 * Speed, tagha is very fast for a virtual machine that does not use a JIT.
 * Memory safe, tagha can sandbox scripts that have safemode enabled.
 
