@@ -100,6 +100,7 @@ constant C string (const char *) of the name of the native function.
 pointer to native C function (C++ interface has it's own implementation).
 The native must have the signature: `void (*)(struct TaghaModule *ctxt, union TaghaVal *ret, size_t args, union TaghaVal params[]);`
 
+
 # Functions/Methods
 
 ## tagha_module_new_from_file
@@ -111,7 +112,7 @@ struct TaghaModule *tagha_module_new_from_file(const char filename[]);
 Allocates a `struct TaghaModule` pointer from a script file.
 
 ### Parameters
-`filename` - filename of the script to load.
+* `filename` - filename of the script to load.
 
 ### Return Value
 pointer to a newly allocated `struct TaghaModule` pointer, returns `NULL` if an error occured or problems reading the script.
@@ -126,7 +127,7 @@ struct TaghaModule *tagha_module_new_from_buffer(uint8_t buffer[]);
 Allocates a `struct TaghaModule` pointer from an existing data buffer.
 
 ### Parameters
-`buffer` - pointer to raw script data.
+* `buffer` - pointer to raw script data.
 
 ### Return Value
 pointer to a newly allocated `struct TaghaModule` pointer, return `NULL` if an error occured or problem reading the buffer data.
@@ -141,7 +142,7 @@ bool tagha_module_free(struct TaghaModule **modref);
 Deallocates a `struct TaghaModule` pointer's data, deallocates itself, and then sets the pointer to `NULL`.
 
 ### Parameters
-`modref` - reference to a `struct TaghaModule` pointer.
+* `modref` - reference to a `struct TaghaModule` pointer.
 
 ### Return Value
 boolean value whether the deallocation was successful or not.
@@ -156,7 +157,7 @@ void tagha_module_print_vm_state(const struct TaghaModule *module);
 Prints the registers and condition flag of a Tagha module instance.
 
 ### Parameters
-`module` - pointer to a `struct TaghaModule` instance.
+* `module` - pointer to a `struct TaghaModule` instance.
 
 ### Return Value
 None.
@@ -171,7 +172,7 @@ const char *tagha_module_get_error(const struct TaghaModule *module);
 Returns a constant string of an error message to check what error had occurred. When an error or exception occurs in the VM portion of a module, a return value of `-1` is returned and the module's error field is set.
 
 ### Parameters
-`module` - pointer to a `struct TaghaModule` instance.
+* `module` - pointer to a `struct TaghaModule` instance.
 
 ### Return Value
 constant C string (const char *) error message. Returns `NULL` if the module instance was `NULL`.
@@ -186,8 +187,8 @@ bool tagha_module_register_natives(struct TaghaModule *module, const struct Tagh
 Registers the native C functions to a module for data communication between C code and the script's bytecode.
 
 ### Parameters
-`module` - pointer to a `struct TaghaModule` instance.
-`natives` - array of `struct TaghaNative`'s to register.
+* `module` - pointer to a `struct TaghaModule` instance.
+* `natives` - array of `struct TaghaNative`'s to register.
 
 ### Return Value
 true or false if the operation was successful or not.
@@ -206,9 +207,9 @@ tagha_module_register_ptr(module, "stdin", stdin);
 Will crash the program if the variable name given is not a pointer on the script's side.
 
 ### Parameters
-`module` - pointer to a `struct TaghaModule` instance.
-`varname` - string name of the global ptr variable to register.
-`ptr` - ptr value to register.
+* `module` - pointer to a `struct TaghaModule` instance.
+* `varname` - string name of the global ptr variable to register.
+* `ptr` - ptr value to register.
 
 ### Return Value
 true or false if the operation was successful or not.
@@ -224,8 +225,8 @@ Returns a pointer to a script-defined global variable.
 If the global variable is defined as a pointer in the script, then the returning pointer will be a pointer to that pointer.
 
 ### Parameters
-`module` - pointer to a `struct TaghaModule` instance.
-`name` - string name of the global variable to retrieve.
+* `module` - pointer to a `struct TaghaModule` instance.
+* `name` - string name of the global variable to retrieve.
 
 ### Return Value
 pointer to the global variable, `NULL` if the variable doesn't exist, the module doesn't have script data/memory, or module instance was `NULL`.
@@ -240,14 +241,14 @@ int32_t tagha_module_call(struct TaghaModule *module, const char funcname[], siz
 Manually calls a script function from C.
 
 ### Parameters
-`module` - pointer to a `struct TaghaModule` instance.
-`name` - name of script function to invoke.
-`args` - amount of arguments to pass.
-`params` - function params to be passed, as an array of `union TaghaVal`.
-`return_val` - pointer to `union TaghaVal` for use as a return value buffer.
+* `module` - pointer to a `struct TaghaModule` instance.
+* `name` - name of script function to invoke.
+* `args` - amount of arguments to pass.
+* `params` - function params to be passed, as an array of `union TaghaVal`.
+* `return_val` - pointer to `union TaghaVal` for use as a return value buffer.
 
 ### Return Value
-returns a status int32 value, returns `-1` if an error occurred. Use `return_val` to get a proper return value.
+returns a status `int32_t` value, returns `-1` if an error occurred. Use `return_val` to get a proper return value.
 
 
 ## tagha_module_run
@@ -259,12 +260,12 @@ int32_t tagha_module_run(struct TaghaModule *module, int32_t argc, char *argv[])
 Executes a script by calling its main function.
 
 ### Parameters
-`module` - pointer to a `struct TaghaModule` instance.
-`argc` - amount of strings given.
-`argv` - array of C string ptrs to give to the script, the C string MUST be modifiable as per the C language standard.
+* `module` - pointer to a `struct TaghaModule` instance.
+* `argc` - amount of strings given.
+* `argv` - array of C string ptrs to give to the script, the C string MUST be modifiable as per the C language standard.
 
 ### Return Value
-returns a status int32_t value, returns `-1` if an error occurred.
+returns a status `int32_t` value, returns `-1` if an error occurred.
 
 
 ## tagha_module_throw_error
@@ -273,11 +274,11 @@ void tagha_module_throw_error(struct TaghaModule *module, int32_t err);
 ```
 
 ### Description
-Allows a developer to manually throw a VM runtime exception. Only use within a native C or C++ function call and the script needs to stop running.
+Allows a developer to manually throw a VM runtime exception. Only use within a native C or C++ function call and that the script needs to stop running.
 
 ### Parameters
-`module` - pointer to a `struct TaghaModule` instance.
-`err` - value that's higher or lower than 0, can be either a user defined error or a TaghaErrCode enum value.
+* `module` - pointer to a `struct TaghaModule` instance.
+* `err` - value that's higher or lower than 0, can be either a user defined error or an `enum TaghaErrCode` value.
 
 ### Return Value
 None.
@@ -292,7 +293,7 @@ void tagha_module_force_safemode(struct TaghaModule *module);
 Forces a module to run in safemode.
 
 ### Parameters
-`module` - pointer to a `struct TaghaModule` instance.
+* `module` - pointer to a `struct TaghaModule` instance.
 
 ### Return Value
 None.

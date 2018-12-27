@@ -8,20 +8,19 @@
 ### Features
 
 * Object-oriented style Data Structures.
-* Tagged union (variant type) to support any type of values and their tags.
+* Tagged union (Variant Type) to support any type of values and their type IDs.
 * Convertible Data structures (data can be converted between applicable types).
-* C++ style automated strings.
+* C++ style String.
 * Vector / Dynamic Array.
 * Hashmap.
 * Singly Linked List.
 * Doubly Linked List.
 * Byte Buffer.
 * Tuple type. (convertible to structs, can also be packed).
-* Memory Pool.
+* Memory Pool - returns any size and can defrag itself.
 * "general purpose" Graph. (edges support weight data)
-* General Tree.
+* General Tree - each node supports an 'n' number of children nodes.
 * Linked Hashmap (preserves insertion order).
-* Variant Type.
 * JSON-like Key-Value Configuration File Parser (allows retrieving data from keys through python-style pathing).
 
 

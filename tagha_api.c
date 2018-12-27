@@ -17,7 +17,7 @@ static void _safe_free(void *p)
 
 static uint8_t *_make_buffer_from_file(const char filename[restrict])
 {
-	FILE *script = fopen(filename, "rb");
+	FILE *restrict script = fopen(filename, "rb");
 	if( !script ) {
 		fprintf(stderr, "buffer from file Error :: **** file '%s' doesn't exist. ****\n", filename);
 		return NULL;
@@ -49,34 +49,35 @@ static bool _read_module_data(struct TaghaModule *const restrict module, uint8_t
 	iter.PtrUInt16++;
 	
 	const uint32_t stacksize = *iter.PtrUInt32++;
+	const size_t allocnode_size = sizeof(struct HarbolAllocNode);
 	size_t total_memory_needed = 0;
-	total_memory_needed += (stacksize+1) * sizeof(union TaghaVal) + sizeof(struct HarbolAllocNode); // get stack size.
+	total_memory_needed += (stacksize+1) * sizeof(union TaghaVal) + allocnode_size; // get stack size.
 	//printf("stacksize == %zu\n", total_memory_needed);
 	module->SafeMode = *iter.PtrUInt8++; // read flag byte.
 	
 	// iterate function table and get bytecode sizes.
 	const uint32_t func_table_size = *iter.PtrUInt32++;
-	total_memory_needed += (sizeof(struct TaghaItem) + sizeof(struct HarbolAllocNode)) * func_table_size;
+	total_memory_needed += (sizeof(struct TaghaItem) + allocnode_size) * func_table_size;
 	for( uint32_t i=0 ; i<func_table_size ; i++ ) {
 		const uint8_t flag = *iter.PtrUInt8++;
 		const uint64_t sizes = *iter.PtrUInt64++;
 		const uint32_t cstrlen = sizes & 0xffFFffFF;
 		const uint32_t datalen = sizes >> 32;
 		if( !flag )
-			total_memory_needed += datalen + sizeof(struct HarbolAllocNode);
+			total_memory_needed += datalen + allocnode_size;
 		iter.PtrUInt8 += (cstrlen + datalen);
 	}
 	//printf("after func table == %zu\n", total_memory_needed);
 	
 	// iterate global var table
 	const uint32_t var_table_size = *iter.PtrUInt32++;
-	total_memory_needed += (sizeof(struct TaghaItem) + sizeof(struct HarbolAllocNode)) * var_table_size;
+	total_memory_needed += (sizeof(struct TaghaItem) + allocnode_size) * var_table_size;
 	for( uint32_t i=0 ; i<var_table_size ; i++ ) {
 		iter.PtrUInt8++;
 		const uint64_t sizes = *iter.PtrUInt64++;
 		const uint32_t cstrlen = sizes & 0xffFFffFF;
 		const uint32_t datalen = sizes >> 32;
-		total_memory_needed += datalen + sizeof(struct HarbolAllocNode);
+		total_memory_needed += datalen + allocnode_size;
 		iter.PtrUInt8 += (cstrlen + datalen);
 	}
 	//printf("after var table == %zu\n", total_memory_needed);
@@ -270,7 +271,7 @@ TAGHA_EXPORT const char *tagha_module_get_error(const struct TaghaModule *const 
 		case ErrStackSize: return "Bad Stack Size";
 		case ErrMissingNative: return "Missing Native";
 		case ErrStackOver: return "Stack Overflow";
-		default: return "Unknown Error";
+		default: return "User-Defined Error";
 	}
 }
 
@@ -314,7 +315,7 @@ TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module
 	if( !module || !func_name )
 		return -1;
 	
-	struct TaghaItem *restrict item = harbol_linkmap_get(&module->FuncMap, func_name).Ptr;
+	struct TaghaItem *const restrict item = harbol_linkmap_get(&module->FuncMap, func_name).Ptr;
 	/* null item? we're missing a function then. */
 	if( !item ) {
 		module->Error = ErrMissingFunc;
@@ -762,7 +763,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 		*--vm->regStk.PtrSelf = vm->regBase;	/* push rbp */
 		vm->regBase = vm->regStk;	/* mov rbp, rsp */
 		struct TaghaItem *const func = vm->FuncMap.Order.Table[index - 1].KvPairPtr->Data.Ptr;
-		pc.PtrUInt8 = func->RawPtr;
+		pc.PtrUInt8 = func->Data;
 		DISPATCH();
 	}
 	exec_callr: { /* char: opcode | char: regid */
@@ -771,7 +772,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 		*--vm->regStk.PtrSelf = vm->regBase;	/* push rbp */
 		vm->regBase = vm->regStk;	/* mov rbp, rsp */
 		struct TaghaItem *const func = vm->FuncMap.Order.Table[(vm->Regs[regid].Int64 - 1)].KvPairPtr->Data.Ptr;
-		pc.PtrUInt8 = func->RawPtr;
+		pc.PtrUInt8 = func->Data;
 		DISPATCH();
 	}
 	exec_ret: { /* char: opcode */
@@ -995,3 +996,4 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	//tagha_module_print_vm_state(vm);
 	return vm->regAlaf.Int32;
 }
+

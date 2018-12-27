@@ -60,8 +60,9 @@ static void SkipMultiLineComment(const char **strRef)
 		else if( **strRef=='\n' )
 			__LineNo++;
 		(*strRef)++;
-	} while( **strRef!='*' && (*strRef)[1]!='/' );
-	*strRef += 2;
+	} while( !(**strRef=='*' && (*strRef)[1]=='/') );
+	if( **strRef && (*strRef)[1] )
+		*strRef += 2;
 }
 
 static bool SkipWhiteSpace(const char **strRef)
@@ -103,12 +104,13 @@ static bool LexString(const char **restrict strRef, struct HarbolString *const r
 {
 	if( !*strRef || !**strRef || !str )
 		return false;
-	
-	else if( **strRef != '"' && **strRef != '\'' )
+	else if( !(**strRef == '"' || **strRef == '\'') )
 		return false;
+	
 	const char quote = *(*strRef)++;
 	while( **strRef && **strRef != quote ) {
-		if( **strRef=='\\' ) {
+		const char chrval = *(*strRef)++;
+		if( chrval=='\\' ) {
 			const char chr = *(*strRef)++;
 			switch( chr ) {
 				case 'a': harbol_string_add_char(str, '\a'); break;
@@ -117,10 +119,20 @@ static bool LexString(const char **restrict strRef, struct HarbolString *const r
 				case 'v': harbol_string_add_char(str, '\v'); break;
 				case 'n': harbol_string_add_char(str, '\n'); break;
 				case 'f': harbol_string_add_char(str, '\f'); break;
+				case 's': harbol_string_add_char(str, ' '); break;
+				case 'x': {
+					char escapex_val = 0;
+					while( IsHex(**strRef) ) {
+						escapex_val = escapex_val * 16 + (**strRef & 15) + (**strRef >= 'A' ? 9 : 0);
+						(*strRef)++;
+					}
+					harbol_string_add_char(str, escapex_val); 
+					break;
+				}
 				default: harbol_string_add_char(str, chr);
 			}
 		}
-		else harbol_string_add_char(str, *(*strRef)++);
+		else harbol_string_add_char(str, chrval);
 	}
 	if( **strRef==quote )
 		(*strRef)++;

@@ -2,7 +2,7 @@
 
 ## Introduction
 
-**TaghaVM** is a minimal, fast, memory-safe, self-contained register-based virtual machine && runtime environment designed as an alternative to a C dynamic loading plugin systems with intent to giving binary portability to C code!
+**Tagha** is a minimal, fast, memory-safe, self-contained register-based virtual machine && runtime environment designed as an alternative to a C dynamic loading plugin systems with intent to giving binary portability to C code!
 
 ### Rationale:
 
@@ -33,7 +33,7 @@
 * Integer & float arithmetic, (un)conditional jumps, comparison operations, and stack and memory manipulations.
 * Function call and return opcodes automatically execute function prologues and epilogues.
 * Little-endian format (only).
-* Small. The runtime environment static library is <50kb.
+* Small. The runtime environment static library is <100kb.
 * Tagha's entire code is **less than 1k lines of code**!
 * Speed, tagha is very fast for a virtual machine that does not use a JIT.
 * Memory safe, tagha can sandbox scripts that have safemode enabled.
