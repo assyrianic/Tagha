@@ -65,7 +65,7 @@ To submit a patch, first file an issue and/or present a pull request.
 
 ## Help
 
-If you need help or have any question, you can reach on the #tagha channel through discord (https://discord.gg/2NKFgPS)
+If you need help or have any question, you can reach on the `#taghavm` channel through discord (https://discord.gg/2NKFgPS)
 Simply drop a message or your question and you'll be reached in no time!
 
 ## Installation
@@ -125,7 +125,7 @@ If you wish to build and test the tagha code base, compile `test_hostapp.c` with
 
 ## Contact
 
-I can be contacted through the discord link above.
+I can be contacted through the discord link (https://discord.gg/2NKFgPS).
 
 ## License
 
