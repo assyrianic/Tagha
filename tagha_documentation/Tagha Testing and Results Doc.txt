@@ -38,5 +38,5 @@ test_selfcall.tbc - purpose: test having the invoking API call a function within
 test_argv.tbc - purpose: testing argv pointer vector passed to main.
 	accurate resut:
 		example1 <-- correct output
-		example2 <-- correct output, printed twice
-		example2
+		example2 <-- correct output
+		exafple1 <-- correct output, modified first string to test mutability of string.

@@ -16,7 +16,7 @@ $native %add_one    ; int add_one(const int n);
 .loop:
 	mov		rsemkath, ralaf
 	movi	ralaf, 1
-	syscall	%add_one
+	call	%add_one
 	dec		rbeth
 	cmp		rbeth, rgamal
 	jz		.loop

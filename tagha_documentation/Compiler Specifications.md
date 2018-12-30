@@ -15,7 +15,7 @@ To be a worthy abstracted C runtime environment, giving Tagha runtime speed is a
 * for C++, the `this` pointer will be placed in `rsemkath`.
 * Function return values always return in the `ralaf` register (`ralaf` is the accumulator though it's general purpose). This includes return values for natives. If the return data is larger than 64-bits, then optimize the function to take a hidden pointer obviously.
 * For consistency with natives, all native functions returning a struct scalar must be optimized to pass a hidden pointer instead if the struct scalar is not small enough to fit in a register.
-* In order to accommodate for natives, Tagha requires, if possible, that explicitly `extern`'d functions must emit native-oriented syscall opcodes.
+* In order to accommodate for natives, Tagha requires, if possible, that explicitly `extern`'d functions must be compiled as a native declared function.
 Example:
 ```c
 extern int puts(const char *);
@@ -24,6 +24,23 @@ extern int puts(const char *);
 * Calling convention for exported C natives requires that if a native takes 8 or less parameters, then registers `semkath` to `taw` will contain the first 8 arguments.
 * If the exported native requires more than 8 parameters, then ALL parameters must be dumped to the stack with the arguments pushed from right to left (cdecl convention).
 * `argc` and `argv` are implemented in scripts but `env` variable is not implemented (I see no reason to implement as of currently).
+* `main` MAY be able to allowed to give whatever parameters the developers embedding tagha want to give to script devs.
+
+```c
+/* main could be its usual form */
+int main(int argc, char *argv[])
+{
+	...
+}
+
+/* or custom format */
+int main(struct AppWindow *const window, const size_t numbuttons, GtkWidget *buttons[static numbuttons])
+{
+	...
+}
+```
+* To see how to give `main` custom parameters, please read the C tutorial in the documentation.
+
 
 # Tagha Script File Format
 

@@ -39,18 +39,18 @@ static inline bool is_octal(const char c)
 static inline bool is_possible_ident(const char c)
 {
 	return( (c >= 'a' && c <= 'z')
-		or (c >= 'A' && c <= 'Z')
-		or c == '_'
-		or (c >= '0' && c <= '9')
-		or c < -1 );
+		|| (c >= 'A' && c <= 'Z')
+		|| c == '_'
+		|| (c >= '0' && c <= '9')
+		|| c < -1 );
 }
 
 static inline bool is_alphabetic(const char c)
 {
 	return( (c >= 'a' && c <= 'z')
-		or (c >= 'A' && c <= 'Z')
-		or c == '_'
-		or c < -1 );
+		|| (c >= 'A' && c <= 'Z')
+		|| c == '_'
+		|| c < -1 );
 }
 
 static bool skip_whitespace(char **restrict strRef)
@@ -375,7 +375,7 @@ int64_t lex_label_value(struct TaghaAsmbler *const restrict tasm, const bool fir
 		struct LabelInfo *label = harbol_linkmap_get(isfunclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr).Ptr;
 		if( !isfunclbl ) {
 		#ifdef TASM_DEBUG
-			printf("label->Addr (%llu) - tasm->ProgramCounter (%zu) == '%lli'\n", label->Addr, tasm->ProgramCounter, label->Addr - tasm->ProgramCounter);
+			printf("label->Addr (%" PRIu64 ") - tasm->ProgramCounter (%zu) == '%" PRIi64 "'\n", label->Addr, tasm->ProgramCounter, label->Addr - tasm->ProgramCounter);
 		#endif
 			return label->Addr - tasm->ProgramCounter;
 		}
@@ -696,7 +696,32 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 	
 	harbol_linkmap_insert(tasm->Registers, "RBP", (union HarbolValue){.UInt64 = regBase});
 	harbol_linkmap_insert(tasm->Registers, "rbp", (union HarbolValue){.UInt64 = regBase});
-	
+	/*
+	harbol_linkmap_insert(tasm->Registers, "ܐܠܦ", (union HarbolValue){.UInt64 = regAlaf});
+	harbol_linkmap_insert(tasm->Registers, "ܒܝܬ", (union HarbolValue){.UInt64 = regBeth});
+	harbol_linkmap_insert(tasm->Registers, "ܓܡܠ", (union HarbolValue){.UInt64 = regGamal});
+	harbol_linkmap_insert(tasm->Registers, "ܕܠܬ", (union HarbolValue){.UInt64 = regDalath});
+	harbol_linkmap_insert(tasm->Registers, "ܗܐ", (union HarbolValue){.UInt64 = regHeh});
+	harbol_linkmap_insert(tasm->Registers, "ܘܘ", (union HarbolValue){.UInt64 = regWaw});
+	harbol_linkmap_insert(tasm->Registers, "ܙܝܢ", (union HarbolValue){.UInt64 = regZain});
+	harbol_linkmap_insert(tasm->Registers, "ܚܝܬ", (union HarbolValue){.UInt64 = regHeth});
+	harbol_linkmap_insert(tasm->Registers, "ܛܝܬ", (union HarbolValue){.UInt64 = regTeth});
+	harbol_linkmap_insert(tasm->Registers, "ܝܘܕ", (union HarbolValue){.UInt64 = regYodh});
+	harbol_linkmap_insert(tasm->Registers, "ܟܦ", (union HarbolValue){.UInt64 = regKaf});
+	harbol_linkmap_insert(tasm->Registers, "ܠܡܕ", (union HarbolValue){.UInt64 = regLamadh});
+	harbol_linkmap_insert(tasm->Registers, "ܡܝܡ", (union HarbolValue){.UInt64 = regMeem});
+	harbol_linkmap_insert(tasm->Registers, "ܢܘܢ", (union HarbolValue){.UInt64 = regNoon});
+	harbol_linkmap_insert(tasm->Registers, "ܣܡܟܬ", (union HarbolValue){.UInt64 = regSemkath});
+	harbol_linkmap_insert(tasm->Registers, "ܥܐ", (union HarbolValue){.UInt64 = reg_Eh});
+	harbol_linkmap_insert(tasm->Registers, "ܦܐ", (union HarbolValue){.UInt64 = regPeh});
+	harbol_linkmap_insert(tasm->Registers, "ܨܕܐ", (union HarbolValue){.UInt64 = regSadhe});
+	harbol_linkmap_insert(tasm->Registers, "ܩܘܦ", (union HarbolValue){.UInt64 = regQof});
+	harbol_linkmap_insert(tasm->Registers, "ܪܝܫ", (union HarbolValue){.UInt64 = regReesh});
+	harbol_linkmap_insert(tasm->Registers, "ܫܝܢ", (union HarbolValue){.UInt64 = regSheen});
+	harbol_linkmap_insert(tasm->Registers, "ܬܘ", (union HarbolValue){.UInt64 = regTaw});
+	harbol_linkmap_insert(tasm->Registers, "ܪܝܫ_ܟܫܐ", (union HarbolValue){.UInt64 = regStk});
+	harbol_linkmap_insert(tasm->Registers, "ܐܫܬ_ܟܫܐ", (union HarbolValue){.UInt64 = regBase});
+	*/
 	// set up our instruction set!
 	#define X(x) harbol_linkmap_insert(tasm->Opcodes, #x, (union HarbolValue){.UInt64 = x});
 		TAGHA_INSTR_SET;
@@ -707,6 +732,10 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 	harbol_linkmap_insert(tasm->Opcodes, "xor", (union HarbolValue){.UInt64 = bit_xor});
 	harbol_linkmap_insert(tasm->Opcodes, "not", (union HarbolValue){.UInt64 = bit_not});
 	harbol_linkmap_insert(tasm->Opcodes, "loadvar", (union HarbolValue){.UInt64 = loadglobal});
+	/*
+	harbol_linkmap_insert(tasm->Opcodes, "ܟܠܐ", (union HarbolValue){.UInt64 = halt});
+	harbol_linkmap_insert(tasm->Opcodes, "ܨܘܝ.ܡ", (union HarbolValue){.UInt64 = pushi});
+	*/
 	
 	/* FIRST PASS. Collect labels + their PC relative addresses */
 	#define MAX_LINE_CHARS 2048
@@ -812,13 +841,13 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 					
 					// opcodes that only take an imm operand.
 					case pushi: case jmp: case jz: case jnz:
-					case call: case syscall:
+					case call: //case syscall:
 						tagha_asm_parse_OneImmInstr(tasm, true); break;
 					
 					// opcodes that only take a register operand.
 					case push: case pop: case bit_not:
 					case inc: case dec: case neg:
-					case callr: case syscallr:
+					case callr: //case syscallr:
 				#ifdef TAGHA_FLOATING_POINT_OPS
 					case flt2dbl: case dbl2flt: case int2dbl: case int2flt:
 					case incf: case decf: case negf:
@@ -914,13 +943,13 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 					
 					// opcodes that only take an imm operand.
 					case pushi: case jmp: case jz: case jnz:
-					case call: case syscall:
+					case call: //case syscall:
 						tagha_asm_parse_OneImmInstr(tasm, false); break;
 					
 					// opcodes that only take a register operand.
 					case push: case pop: case bit_not:
 					case inc: case dec: case neg:
-					case callr: case syscallr:
+					case callr: //case syscallr:
 				#ifdef TAGHA_FLOATING_POINT_OPS
 					case flt2dbl: case dbl2flt: case int2dbl: case int2flt:
 					case incf: case decf: case negf:

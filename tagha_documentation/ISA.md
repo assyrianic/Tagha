@@ -321,6 +321,12 @@ NOT-EQUAL comparison between two registers.
 local instruction jump using a signed 8 byte immediate value.
 
 
+## JMPR
+
+### Description
+local instruction jump using a register, integer value.
+
+
 ## JZ
 
 ### Description
@@ -337,6 +343,7 @@ local instruction jump using a signed 8 byte immediate value.
 
 ### Description
 jumps to a function using an unsigned 8 byte immediate value as an index.
+can also call a native function.
 automatically performs a function prologue.
 
 
@@ -344,18 +351,8 @@ automatically performs a function prologue.
 
 ### Description
 jumps to a function using a register as an index.
-
-
-## SYSCALL
-
-### Description
-Invokes a C (or C++) function using a signed 8 byte immediate value.
-
-
-## SYSCALLR
-
-### Description
-Invokes a C (or C++) function using a register value.
+can also call a native function.
+automatically performs a function prologue.
 
 
 ## RET
@@ -368,7 +365,7 @@ automatically performs function epilogue.
 ## NOP
 
 ### Description
-Does Jack and Shit.
+Does Jack and Sh!%.
 
 
 ## FLT2DBL

@@ -1,3 +1,10 @@
+ # Contents:
+ * [Baby Steps](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#baby-steps)
+ * [Exporting Host Functionality](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#exporting-host-functionality-to-scripts)
+ * [Script - Native Communication](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#script--native-communication)
+ * [Script - Host Sharing](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#script--host-sharing)
+ * [Custom Main Arguments](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#giving-main-custom-arguments)
+
 # Intro
 Thank you for choosing Tagha as your runtime environment/scripting engine! Tagha has a wide range of API functions to help you get as much control as possible to data to and from scripts. Let's get started!
 
@@ -243,5 +250,43 @@ int main(int argc, char *argv[])
 {
 	/* prints '--force'. */
 	puts(argv[1]);
+}
+```
+
+### Giving 'main' custom arguments
+Being able to pass strings to a string is fine and all but some devs would disagree and would rather pass something more useful to their scripts devs. Not a problem, `main` itself can be given custom arguments!
+
+To give `main` custom arguments, we need to use `tagha_module_call` and manually call `main` while giving our own arguments.
+
+Let's say we have a small GTK-based application and we want the end user to be able to modify the window and button actions (within reason of course). Our `main` function would probably look like this:
+```c
+int main(GtkWindow *w, const size_t numbuttons, GtkWidget *buttons[static numbuttons])
+{
+	...
+}
+```
+
+Achieving this is no different than simply calling another function by name. We make an array of `union TaghaVal` and fill it with our arguments.
+**NOTE: If an argument you want to pass is an array of pointers and the pointer size on your system is less than 64-bit, you MUST use another array of `union TaghaVal` to store those pointers or else the array indexing will be corrupted.**
+
+Here's a full example of how to create our custom main with the arguments above on our host side.
+```c
+int32_t run_custom_main(struct TaghaModule *ctxt, GtkWindow *w, const size_t numbuttons, GtkWidget *buttons[static numbuttons])
+{
+	union TaghaVal main_args[3] = { {0},{0},{0} };
+	main_args[0].Ptr = w;
+	main_args[1].SizeInt = numbuttons;
+	if( sizeof(intptr_t)<sizeof(int64_t) ) {
+		/* if pointer sizes are less than 64-bit, we pad out the ptr array with 'union TaghaVal'.
+		 */
+		union TaghaVal ptr_padder[numbuttons]; memset(ptr_padder, 0, sizeof(union TaghVal) * numbuttons);
+		for( size_t i=0 ; i<numbuttons ; i++ )
+			ptr_padder[i].Ptr = buttons[i];
+		main_args[2].Ptr = ptr_padder;
+		return tagha_module_call(ctxt, "main", 3, main_args, NULL);
+	} else {
+		main_args[2].Ptr = buttons;
+		return tagha_module_call(ctxt, "main", 3, main_args, NULL);
+	}
 }
 ```

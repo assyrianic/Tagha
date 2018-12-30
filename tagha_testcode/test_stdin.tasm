@@ -14,17 +14,17 @@ $native %fgets  # char *fgets(char *, int, FILE *);
 # puts("Please enter a long string: ");
 	loadvar		rsemkath, string
 	movi		ralaf, 1
-	syscall		%puts
+	call		%puts
 	
 # fgets(string, 256, stdin);
-	loadglobal	rpeh, stdin # loading a global only loads its address, we need the actual ptr value of stdin.
+	loadglobal	rpeh, stdin # loading a global var only loads its address, we need the actual ptr value of stdin.
 	ld8			rpeh, [rpeh]
 	movi		r_eh, 256
 	loadaddr	rsemkath, [rbp-256]
 	movi		ralaf, 3
-	syscall		%fgets
+	call		%fgets
 	
 	movi		ralaf, 1
-	syscall		%puts
+	call		%puts
 	ret
 }

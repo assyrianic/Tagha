@@ -19,7 +19,7 @@ $safe
 	movi		rbeth, 10000000 #1000000000 / 1000000 / 10000000
 	loadvar		rsemkath, module_str
 	movi		ralaf, 1
-	syscall		%tagha_module_new_from_file ; TaghaModule *temp = tagha_module_new_from_file("test_factorial.tbc");
+	call		%tagha_module_new_from_file ; TaghaModule *temp = tagha_module_new_from_file("test_factorial.tbc");
 	st8			[rbp-24], ralaf ; module ptr is in ralaf, copy it to stack
 	
 	; load return TaghaVal ptr.
@@ -42,14 +42,14 @@ $safe
 	; test dynamic loading function invocation overhead
 .loop:
 	movi		ralaf, 5
-	syscall		%tagha_module_call ; tagha_module_call(module, "factorial", 1, &(union TaghaVal){5}, &val);
+	call		%tagha_module_call ; tagha_module_call(module, "factorial", 1, &(union TaghaVal){5}, &val);
 	dec			rbeth
 	cmp			rbeth, rheh
 	jz			.loop
 	
 	loadaddr	rsemkath, [rbp-24]
 	movi		ralaf, 1
-	syscall		%tagha_module_free ; tagha_module_free(&module);
+	call		%tagha_module_free ; tagha_module_free(&module);
 	ld8			ralaf, [rbp-8]
 	ret
 }

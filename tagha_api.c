@@ -382,21 +382,27 @@ TAGHA_EXPORT int32_t tagha_module_run(struct TaghaModule *const restrict module,
 	if( !module )
 		return -1;
 	
-	union TaghaVal argv[argc+1];
-	memset(argv, 0, sizeof(union TaghaVal) * argc+1);
-	
-	if( sargv )
-		for( int32_t i=0 ; i<argc ; i++ )
-			argv[i].Ptr = sargv[i];
-	
 	union TaghaVal
 		retval = {0},
 		main_params[2] = {{0} , {0}} /* hey, it's an owl lmao */
 	;
 	main_params[0].Int32 = argc;
-	main_params[1].PtrSelf = argv;
+	int32_t result = 0;
 	
-	const int32_t result = tagha_module_call(module, "main", 2, main_params, &retval);
+	if( sizeof(intptr_t) < sizeof(int64_t) ) {
+		union TaghaVal argv[argc+1];
+		memset(argv, 0, sizeof(union TaghaVal) * argc+1);
+		
+		if( sargv )
+			for( int32_t i=0 ; i<argc ; i++ )
+				argv[i].Ptr = sargv[i];
+		main_params[1].PtrSelf = argv;
+		result = tagha_module_call(module, "main", 2, main_params, &retval);
+	}
+	else {
+		main_params[1].Ptr = sargv;
+		result = tagha_module_call(module, "main", 2, main_params, &retval);
+	}
 	return !result ? retval.Int32 : result;
 }
 
@@ -423,8 +429,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	
 	union TaghaPtr pc = {vm->regInstr.PtrUInt8};
 	const uint8_t
-		*const mem_start = vm->Heap.HeapMem,
-		*const mem_end = vm->Heap.HeapMem + vm->Heap.HeapSize + 1
+		*restrict const mem_start = vm->Heap.HeapMem,
+		*restrict const mem_end = vm->Heap.HeapMem + vm->Heap.HeapSize + 1
 	;
 	
 #define X(x) #x ,
@@ -752,28 +758,75 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 		DISPATCH();
 	}
 	exec_call: { /* char: opcode | i64: offset */
-		/* The restrict type qualifier is an indication to the compiler that,
-		 * if the memory addressed by the restrict-qualified pointer is modified,
-		 * no other pointer will access that same memory.
-		 * Since we're pushing the restrict-qualified pointer's memory that it points to,
-		 * This is NOT undefined behavior because it's not aliasing access of the instruction stream.
-		 */
 		const int64_t index = *pc.PtrInt64++;
-		(--vm->regStk.PtrSelf)->Ptr = pc.Ptr;	/* push rip */
-		*--vm->regStk.PtrSelf = vm->regBase;	/* push rbp */
-		vm->regBase = vm->regStk;	/* mov rbp, rsp */
-		struct TaghaItem *const func = vm->FuncMap.Order.Table[index - 1].KvPairPtr->Data.Ptr;
-		pc.PtrUInt8 = func->Data;
-		DISPATCH();
+		const struct TaghaItem *const func = vm->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
+		if( func->Flags & TAGHA_FLAG_NATIVE ) {
+			if( func->Flags < TAGHA_FLAG_LINKED ) {
+				vm->Error = ErrMissingNative;
+				goto *dispatch[halt];
+			} else {
+				const uint8_t reg_param_initial = regSemkath;
+				const uint8_t reg_params = regTaw - regSemkath + 1;
+				union TaghaVal retval = (union TaghaVal){0};
+				const size_t args = vm->regAlaf.SizeInt;
+				
+				/* save stack space by using the registers for passing arguments.
+					the other registers can then be used for other data operations. */
+				( args <= reg_params ) ?
+					(*func->NativeFunc)(vm, &retval, args, vm->Regs+reg_param_initial) :
+					/* if the native call has more than a certain num of params, get all params from stack. */
+					((*func->NativeFunc)(vm, &retval, args, vm->regStk.PtrSelf), vm->regStk.PtrSelf += args);
+				memcpy(&vm->regAlaf, &retval, sizeof retval);
+				
+				if( vm->Error != ErrNone ) {
+					return vm->Error;
+				} else {
+					DISPATCH();
+				}
+			}
+		} else {
+			(--vm->regStk.PtrSelf)->Ptr = pc.Ptr;	/* push rip */
+			*--vm->regStk.PtrSelf = vm->regBase;	/* push rbp */
+			vm->regBase = vm->regStk;	/* mov rbp, rsp */
+			pc.PtrUInt8 = func->Data;
+			DISPATCH();
+		}
 	}
 	exec_callr: { /* char: opcode | char: regid */
 		const uint8_t regid = *pc.PtrUInt8++;
-		(--vm->regStk.PtrSelf)->Ptr = pc.Ptr;	/* push rip */
-		*--vm->regStk.PtrSelf = vm->regBase;	/* push rbp */
-		vm->regBase = vm->regStk;	/* mov rbp, rsp */
-		struct TaghaItem *const func = vm->FuncMap.Order.Table[(vm->Regs[regid].Int64 - 1)].KvPairPtr->Data.Ptr;
-		pc.PtrUInt8 = func->Data;
-		DISPATCH();
+		const int64_t index = vm->Regs[regid].Int64;
+		const struct TaghaItem *const func = vm->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
+		if( func->Flags & TAGHA_FLAG_NATIVE ) {
+			if( func->Flags < TAGHA_FLAG_LINKED ) {
+				vm->Error = ErrMissingNative;
+				goto *dispatch[halt];
+			} else {
+				const uint8_t reg_param_initial = regSemkath;
+				const uint8_t reg_params = regTaw - regSemkath + 1;
+				union TaghaVal retval = (union TaghaVal){0};
+				const size_t args = vm->regAlaf.SizeInt;
+				
+				/* save stack space by using the registers for passing arguments.
+					the other registers can then be used for other data operations. */
+				( args <= reg_params ) ?
+					(*func->NativeFunc)(vm, &retval, args, vm->Regs+reg_param_initial) :
+					/* if the native call has more than a certain num of params, get all params from stack. */
+					((*func->NativeFunc)(vm, &retval, args, vm->regStk.PtrSelf), vm->regStk.PtrSelf += args);
+				memcpy(&vm->regAlaf, &retval, sizeof retval);
+				
+				if( vm->Error != ErrNone ) {
+					return vm->Error;
+				} else {
+					DISPATCH();
+				}
+			}
+		} else {
+			(--vm->regStk.PtrSelf)->Ptr = pc.Ptr;	/* push rip */
+			*--vm->regStk.PtrSelf = vm->regBase;	/* push rbp */
+			vm->regBase = vm->regStk;	/* mov rbp, rsp */
+			pc.PtrUInt8 = func->Data;
+			DISPATCH();
+		}
 	}
 	exec_ret: { /* char: opcode */
 		vm->regStk = vm->regBase; /* mov rsp, rbp */
@@ -782,56 +835,6 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 		if( !pc.Ptr )
 			return vm->regAlaf.Int32;
 		else { DISPATCH(); }
-	}
-	
-	exec_syscall: { /* char: opcode | i64: index */
-		struct TaghaItem *const native = vm->FuncMap.Order.Table[(-1 - *pc.PtrInt64++)].KvPairPtr->Data.Ptr;
-		if( native->Flags != (TAGHA_FLAG_NATIVE + TAGHA_FLAG_LINKED) ) {
-			vm->Error = ErrMissingNative;
-			goto *dispatch[halt];
-		} else {
-			const uint8_t reg_param_initial = regSemkath;
-			const uint8_t reg_params = regTaw - regSemkath + 1;
-			union TaghaVal retval = (union TaghaVal){0};
-			const size_t args = vm->regAlaf.SizeInt;
-			
-			/* save stack space by using the registers for passing arguments. */
-			/* the other registers can then be used for other data operations. */
-			( args <= reg_params ) ?
-				(*native->NativeFunc)(vm, &retval, args, vm->Regs+reg_param_initial) :
-				/* if the native call has more than a certain num of params, get all params from stack. */
-				((*native->NativeFunc)(vm, &retval, args, vm->regStk.PtrSelf), vm->regStk.PtrSelf += args);
-			memcpy(&vm->regAlaf, &retval, sizeof retval);
-			
-			if( vm->Error != ErrNone )
-				return vm->Error;
-			else { DISPATCH(); }
-		}
-	}
-	exec_syscallr: { /* char: opcode | char: reg id */
-		const uint8_t regid = *pc.PtrUInt8++;
-		struct TaghaItem *const restrict native = vm->FuncMap.Order.Table[(-1 - vm->Regs[regid].Int64)].KvPairPtr->Data.Ptr;
-		if( native->Flags != (TAGHA_FLAG_NATIVE + TAGHA_FLAG_LINKED) ) {
-			vm->Error = ErrMissingNative;
-			goto *dispatch[halt];
-		} else {
-			const uint8_t reg_param_initial = regSemkath;
-			const uint8_t reg_params = regTaw - regSemkath + 1;
-			union TaghaVal retval = (union TaghaVal){0};
-			const size_t args = vm->regAlaf.SizeInt;
-			
-			/* save stack space by using the registers for passing arguments. */
-			/* the other registers can then be used for other data operations. */
-			( args <= reg_params ) ?
-				(*native->NativeFunc)(vm, &retval, args, vm->Regs+reg_param_initial) :
-				/* if the native call has more than a certain num of params, get all params from stack. */
-				((*native->NativeFunc)(vm, &retval, args, vm->regStk.PtrSelf), vm->regStk.PtrSelf += args);
-			memcpy(&vm->regAlaf, &retval, sizeof retval);
-			
-			if( vm->Error != ErrNone )
-				return vm->Error;
-			else { DISPATCH(); }
-		}
 	}
 	
 #ifdef TAGHA_FLOATING_POINT_OPS

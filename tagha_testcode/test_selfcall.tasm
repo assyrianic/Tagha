@@ -20,7 +20,7 @@ $safe
 	sub			rsp, rgamal
 	loadglobal	rsemkath, flwr_str
 	movi		ralaf, 1
-	syscall		%puts
+	call		%puts
 	ret
 }
 
@@ -29,7 +29,7 @@ $safe
 	sub			rsp, rgamal
 	loadglobal	rsemkath, nude_str
 	movi		ralaf, 1
-	syscall		%puts
+	call		%puts
 	call		%prior_func
 	ret
 }
@@ -39,7 +39,7 @@ $safe
 	sub			rsp, rgamal
 	loadglobal	rsemkath, kek_str
 	movi		ralaf, 1
-	syscall		%puts
+	call		%puts
 	ret
 }
 
@@ -63,7 +63,7 @@ $safe
 	ld8			rsemkath, [rsemkath]
 	
 	movi		ralaf, 5
-	syscall		%tagha_module_call ; tagha_module_call(self, "func", 0, NULL, &val);
+	call		%tagha_module_call ; tagha_module_call(self, "func", 0, NULL, &val);
 	call		%another_func
 	
 	ld8			ralaf, [rbp-8]

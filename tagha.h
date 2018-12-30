@@ -245,7 +245,7 @@ TAGHA_EXPORT bool tagha_system_add_natives(struct TaghaSystem *sys, const struct
 		X(cmp) X(neq) \
 		\
 		X(jmp) X(jz) X(jnz) \
-		X(call) X(callr) X(syscall) X(syscallr) X(ret) \
+		X(call) X(callr) X(ret) \
 		X(nop) \
 		\
 		X(flt2dbl) X(dbl2flt) X(int2dbl) X(int2flt) \
@@ -272,9 +272,10 @@ TAGHA_EXPORT bool tagha_system_add_natives(struct TaghaSystem *sys, const struct
 		X(cmp) X(neq) \
 		\
 		X(jmp) X(jz) X(jnz) \
-		X(call) X(callr) X(syscall) X(syscallr) X(ret) \
+		X(call) X(callr) X(ret) \
 		X(nop)
 #endif
+//X(syscall) X(syscallr)
 
 #define X(x) x,
 typedef enum TaghaInstrSet { TAGHA_INSTR_SET } TaghaInstrSet;

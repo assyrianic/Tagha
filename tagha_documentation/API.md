@@ -76,10 +76,10 @@ pointer to unsigned long long value.
 pointer to size_t value.
 
 ### PtrFloat
-pointer to 32-bit float value. exists only if *__TAGHA_FLOAT32_DEFINED* is defined.
+pointer to 32-bit float value. exists only if `__TAGHA_FLOAT32_DEFINED` is defined.
 
 ### PtrDouble
-pointer to 64-bit float value. exists only if *__TAGHA_FLOAT64_DEFINED* is defined.
+pointer to 64-bit float value. exists only if `__TAGHA_FLOAT64_DEFINED` is defined.
 
 ### Ptr
 pointer to void type value.

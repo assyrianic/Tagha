@@ -18,7 +18,7 @@ $native %strlen    ; size_t strlen(const char *);
 .L3:
 	loadglobal	rsemkath, test_str
 	movi		ralaf, 1
-	syscall		%strlen
+	call		%strlen
 	st4			[rbp-4], ralaf
 	ld4			rdalath, [rbp-8]
 	inc			rdalath
