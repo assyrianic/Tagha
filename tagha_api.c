@@ -424,9 +424,6 @@ TAGHA_EXPORT void tagha_module_force_safemode(struct TaghaModule *const module)
 
 static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 {
-	if( !vm )
-		return -1;
-	
 	union TaghaPtr pc = {vm->regInstr.PtrUInt8};
 	const uint8_t
 		*restrict const mem_start = vm->Heap.HeapMem,
