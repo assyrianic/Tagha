@@ -761,7 +761,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 		const int64_t index = *pc.PtrInt64++;
 		const struct TaghaItem *const func = vm->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
 		if( func->Flags & TAGHA_FLAG_NATIVE ) {
-			if( func->Flags < TAGHA_FLAG_LINKED ) {
+			if( !(func->Flags & TAGHA_FLAG_LINKED) ) {
 				vm->Error = ErrMissingNative;
 				goto *dispatch[halt];
 			} else {
@@ -797,7 +797,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 		const int64_t index = vm->Regs[regid].Int64;
 		const struct TaghaItem *const func = vm->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
 		if( func->Flags & TAGHA_FLAG_NATIVE ) {
-			if( func->Flags < TAGHA_FLAG_LINKED ) {
+			if( !(func->Flags & TAGHA_FLAG_LINKED) ) {
 				vm->Error = ErrMissingNative;
 				goto *dispatch[halt];
 			} else {
