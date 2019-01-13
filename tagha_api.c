@@ -426,8 +426,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 {
 	union TaghaPtr pc = {vm->regInstr.PtrUInt8};
 	const uint8_t
-		*restrict const mem_start = vm->Heap.HeapMem,
-		*restrict const mem_end = vm->Heap.HeapMem + vm->Heap.HeapSize + 1
+		*const restrict mem_start = vm->Heap.HeapMem,
+		*const restrict mem_end = vm->Heap.HeapMem + vm->Heap.HeapSize + 1
 	;
 	
 #define X(x) #x ,
