@@ -67,45 +67,71 @@ static void native_freopen(struct TaghaModule *const restrict module, union Tagh
 {
 	const char *filename = params[0].Ptr;
 	const char *mode = params[1].Ptr;
-	FILE *pStream = params[2].Ptr;
+	FILE *stream = params[2].Ptr;
 	
-	if( !filename or !mode or !pStream ) {
+	if( !filename || !mode || !stream ) {
 		return; // retval data is already zeroed out.
 	}
-	retval->Ptr = freopen(filename, mode, pStream);
+	else retval->Ptr = freopen(filename, mode, stream);
 }
 
 /* void setbuf(FILE *stream, char *buffer); */
 static void native_setbuf(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	FILE *pStream = params[0].Ptr;
-	if( !pStream ) {
+	FILE *stream = params[0].Ptr;
+	if( !stream ) {
 		return;
-	}
-	setbuf(pStream, params[1].Ptr);
+	} else setbuf(stream, params[1].Ptr);
 }
 
 
-/*
- * File Access
- */
+#define TAGHA_PRINTF_BUFFER_SIZE    1024
+static char _tagha_printf_buffer[TAGHA_PRINTF_BUFFER_SIZE];
+static char *_tagha_buffer_iter = &_tagha_printf_buffer[TAGHA_PRINTF_BUFFER_SIZE-1];
+
+void _int_to_str_convert(uint64_t num, const size_t base)
+{
+	const char *numerals = "0123456789ABCDEF";
+	char *restrict iter = _tagha_buffer_iter;
+	*iter = 0;
+	do {
+		*--iter = numerals[num % base];
+		num /= base;
+	} while( num != 0 );
+}
 
 /* int fprintf(FILE *stream, const char *format, ...); */
 static void native_fprintf(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	FILE *stream = params[0].Ptr;
+	FILE *const restrict stream = params[0].Ptr;
 	if( !stream ) {
 		retval->Int32 = -1;
 		return;
 	}
 	
-	const char *format = params[1].Ptr;
-	if( !format ) {
+	const char *restrict fmt = params[1].Ptr;
+	if( !fmt ) {
 		retval->Int32 = -1;
 		return;
 	}
 	
-	retval->Int32 = 0;
+	size_t param = 1;
+	int32_t chars_written = 0;
+	for( ; *fmt ; fmt++ ) {
+		if( *fmt!='%' ) {
+			continue;
+		} else {
+			fmt++;
+			const char spec = *fmt++;
+			switch( *fmt ) {
+				case 'i': case 'd': {
+					fprintf(stream, "%i", );
+					break;
+				}
+			}
+		}
+	}
+	retval->Int32 = fprintf(stream, "%s", _tagha_printf_buffer);
 }
 
 /* int fscanf(FILE *stream, const char *format, ...); */
@@ -139,10 +165,10 @@ static void native_fscanf(struct TaghaModule *const restrict module, union Tagha
 			while( *fmt>='0' and *fmt<='9' )
 				width = width * 10 + *fmt++ - '0';
 		
-		if( *fmt=='d' or *fmt=='i' ) {
+		if( *fmt=='d' || *fmt=='i' ) {
 			
 		}
-		else if( *fmt=='u' or *fmt=='x' or *fmt=='o' ) {
+		else if( *fmt=='u' || *fmt=='x' || *fmt=='o' ) {
 			
 		}
 	}
