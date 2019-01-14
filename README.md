@@ -1,5 +1,7 @@
 # Tagha VM
 
+![Tagha Logo by Noxabellus and modified by Khanno](https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/intermediary/f/efc8ece3-f4a3-4477-8ebb-cb9595fb9e58/dcx0vh7-7c8a2027-14e9-48a9-a0e9-638260f44433.png)
+
 ## Introduction
 
 **Tagha** is a minimal, fast, memory-safe, self-contained register-based virtual machine && runtime environment designed as an alternative to a C dynamic loading plugin systems with intent to giving binary portability to C code!
@@ -120,7 +122,7 @@ If you wish to build and test the tagha code base, compile `test_hostapp.c` with
 
 * Khanno Hanna - main developer of Tagha.
 * Id Software - developers of Quake 3 Virtual Machine, which inspired Tagha's creation.
-* Noxabellus - helping out with development, design, & accidentally giving me ideas.
+* Noxabellus - helping out with development, design, logo designer, & accidentally giving me ideas.
 * Animu/Megumazing - helping out with development & design.
 
 ## Contact
