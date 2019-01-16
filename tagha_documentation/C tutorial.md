@@ -62,7 +62,7 @@ Of course, how could any script use your natives if Tagha's runtime system doesn
 
 /* float give_hundred(void); */
 static void
-native_give_hundred(struct TaghaModule *ctxt, union TaghaVal *restrict retval, const size_t args, union TaghaVal params[static args])
+native_give_hundred(struct TaghaModule *const ctxt, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
 {
 	retval->Float = 100.f;
 }
@@ -100,7 +100,7 @@ struct Player {
 	uint32_t ammo;
 };
 /* void f(struct player *p); */
-static void native_print_player_info(struct TaghaModule *ctxt, union TaghaVal *restrict retval, const size_t args, union TaghaVal params[restrict static args])
+static void native_print_player_info(struct TaghaModule *const ctxt, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
 {
 	/* get first arg which is the address to our data.
 	 * cast the void * to a struct Player *, done implicitly in C.
@@ -125,7 +125,7 @@ struct Player {
 };
 /* int *ip(struct player *p); */
 static void native_ip
-(struct TaghaModule *ctxt, union TaghaVal *restrict retval, const size_t args, union TaghaVal params[restrict static args])
+(struct TaghaModule *const ctxt, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
 {
 	struct Player *player = params[0].Ptr;
 	if( !player )
@@ -143,7 +143,7 @@ By using `malloc` and making a native around it, I can demonstrate to you how to
 ```c
 /* void *malloc(size_t size); */
 static void native_malloc
-(struct TaghaModule *ctxt, union TaghaVal *restrict retval, const size_t args, union TaghaVal params[restrict static args])
+(struct TaghaModule *const ctxt, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
 {
 	/* size_t is 8 bytes on 64-bit systems */
 	retval->Ptr = malloc(params[0].UInt64);
@@ -157,7 +157,7 @@ A good and last example would be `free` implemented as a native which takes a po
 ```c
 /* void free(void *ptr); */
 static void native_print_player_inforee
-(struct TaghaModule *ctxt, union TaghaVal *restrict retval, const size_t args, union TaghaVal params[restrict static args])
+(struct TaghaModule *const ctxt, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
 {
 	void *ptr = params[0].Ptr;
 	free(ptr), ptr=NULL;
@@ -173,7 +173,7 @@ Sometimes, there are cases when your host application needs to call a script def
 
 Calling a function by name uses a simple API method, here's the example:
 ```c
-void CallScriptEvent(struct TaghaModule *ctxt)
+void CallScriptEvent(struct TaghaModule *const ctxt)
 {
 	tagha_module_call(ctxt, "MyFunction", 0, NULL, NULL);
 }
@@ -182,7 +182,7 @@ In the example above, "MyFunction" is assumed to take no arguments.
 
 Here's an example showing WITH passing arguments AND retrieving a return value. First thing required is that we push the values we want to pass to the function. Always push the last argument first and the first argument last:
 ```c
-uint32_t factorialOfTen(struct TaghaModule *ctxt)
+uint32_t factorialOfTen(struct TaghaModule *const ctxt)
 {
 	/* factorial takes a single, unsigned 4-byte int.
 	 * push a single argument (hence first arg is 1).
@@ -202,7 +202,7 @@ Calling a script function is a relatively cheap process **BUT, you (the programm
 ### Retrieving a Script-side Global Variable
 There are certain cases where we have data that needs to be tracked globally, especially data that is tracked globally in our tagha scripts. For retrieving a script-side global variable, we require one more API method:
 ```c
-void reset_script_globals(struct TaghaModule *ctxt)
+void reset_script_globals(struct TaghaModule *const ctxt)
 {
 	int *restrict windows_open = tagha_module_get_globalvar_by_name(ctxt, "g_pwindows_open");
 	if( !windows_open )
@@ -227,7 +227,7 @@ int main()
 {
 	/* make our script instance. */
 	struct TaghaModule *script = tagha_module_new_from_file("script.tbc");
-
+	
 	/* Execute our script! */
 	char force[] = "--force";
 	char *args[] = {
@@ -271,7 +271,7 @@ Achieving this is no different than simply calling another function by name. We 
 
 Here's a full example of how to create our custom main with the arguments above on our host side.
 ```c
-int32_t run_custom_main(struct TaghaModule *ctxt, GtkWindow *w, const size_t numbuttons, GtkWidget *buttons[static numbuttons])
+int32_t run_custom_main(struct TaghaModule *const ctxt, GtkWindow *const w, const size_t numbuttons, GtkWidget *const buttons[static numbuttons])
 {
 	union TaghaVal main_args[3] = { {0},{0},{0} };
 	main_args[0].Ptr = w;

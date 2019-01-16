@@ -127,7 +127,7 @@ void tagha_asm_err_out(struct TaghaAsmbler *const restrict tasm, const char err[
 }
 
 // $stacksize <number>
-bool tagha_asm_parse_StackDirective(struct TaghaAsmbler *const restrict tasm)
+bool tagha_asm_parse_stack_directive(struct TaghaAsmbler *const restrict tasm)
 {
 	if( !tasm || !tasm->Src || !tasm->Iter )
 		return false;
@@ -143,7 +143,7 @@ bool tagha_asm_parse_StackDirective(struct TaghaAsmbler *const restrict tasm)
 }
 
 // $global varname bytes ...
-bool tagha_asm_parse_GlobalVarDirective(struct TaghaAsmbler *const restrict tasm)
+bool tagha_asm_parse_globalvar_directive(struct TaghaAsmbler *const restrict tasm)
 {
 	if( !tasm || !tasm->Src || !tasm->Iter )
 		return false;
@@ -188,26 +188,17 @@ bool tagha_asm_parse_GlobalVarDirective(struct TaghaAsmbler *const restrict tasm
 				if( charval=='\\' ) {
 					const char escape = *tasm->Iter++;
 					switch( escape ) {
-						case 'a':
-							harbol_string_add_char(tasm->Lexeme, '\a'); break;
-						case 'n':
-							harbol_string_add_char(tasm->Lexeme, '\n'); break;
-						case 'r':
-							harbol_string_add_char(tasm->Lexeme, '\r'); break;
-						case 't':
-							harbol_string_add_char(tasm->Lexeme, '\t'); break;
-						case 'v':
-							harbol_string_add_char(tasm->Lexeme, '\v'); break;
-						case 'f':
-							harbol_string_add_char(tasm->Lexeme, '\f'); break;
-						case '\'':
-							harbol_string_add_char(tasm->Lexeme, '\''); break;
-						case '"':
-							harbol_string_add_char(tasm->Lexeme, '"'); break;
-						case '\\':
-							harbol_string_add_char(tasm->Lexeme, '\\'); break;
-						case '0':
-							harbol_string_add_char(tasm->Lexeme, '\0'); break;
+						case 'a': harbol_string_add_char(tasm->Lexeme, '\a'); break;
+						case 'b': harbol_string_add_char(tasm->Lexeme, '\b'); break;
+						case 'n': harbol_string_add_char(tasm->Lexeme, '\n'); break;
+						case 'r': harbol_string_add_char(tasm->Lexeme, '\r'); break;
+						case 't': harbol_string_add_char(tasm->Lexeme, '\t'); break;
+						case 'v': harbol_string_add_char(tasm->Lexeme, '\v'); break;
+						case 'f': harbol_string_add_char(tasm->Lexeme, '\f'); break;
+						case '\'': harbol_string_add_char(tasm->Lexeme, '\''); break;
+						case '"': harbol_string_add_char(tasm->Lexeme, '"'); break;
+						case '\\': harbol_string_add_char(tasm->Lexeme, '\\'); break;
+						case '0': harbol_string_add_char(tasm->Lexeme, '\0'); break;
 					}
 				}
 				else harbol_string_add_char(tasm->Lexeme, charval);
@@ -771,13 +762,13 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 			else if( *tasm->Iter=='$' ) {
 				lex_identifier(&tasm->Iter, tasm->Lexeme);
 				if( !harbol_string_ncmpcstr(tasm->Lexeme, "$stacksize", sizeof "$stacksize") ) {
-					tagha_asm_parse_StackDirective(tasm);
+					tagha_asm_parse_stack_directive(tasm);
 				#ifdef TASM_DEBUG
 					printf("tasm: Stack size set to: %u\n", tasm->Stacksize);
 				#endif
 				}
 				else if( !harbol_string_ncmpcstr(tasm->Lexeme, "$global", sizeof "$global") )
-					tagha_asm_parse_GlobalVarDirective(tasm);
+					tagha_asm_parse_globalvar_directive(tasm);
 				else if( !harbol_string_ncmpcstr(tasm->Lexeme, "$native", sizeof "$native") )
 					tagha_asm_parse_NativeDirective(tasm);
 				else if( !harbol_string_ncmpcstr(tasm->Lexeme, "$safemode", sizeof "$safemode") || !harbol_string_ncmpcstr(tasm->Lexeme, "$safe", sizeof "$safe")  )

@@ -321,7 +321,7 @@ HARBOL_EXPORT bool harbol_unilist_del_node_by_ref(struct HarbolUniList *const li
 				else travnode->Next = node->Next;
 				break;
 			}
-			travnode = travnode->Next;
+			else travnode = travnode->Next;
 		}
 	}
 	

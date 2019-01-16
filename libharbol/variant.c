@@ -40,12 +40,12 @@ HARBOL_EXPORT void harbol_variant_del(struct HarbolVariant *const variant, fnDes
 	memset(variant, 0, sizeof *variant);
 }
 
-HARBOL_EXPORT union HarbolValue harbol_linkmap_get_val(const struct HarbolVariant *const variant)
+HARBOL_EXPORT union HarbolValue harbol_variant_get_val(const struct HarbolVariant *const variant)
 {
 	return variant ? variant->Val : (union HarbolValue){0};
 }
 
-HARBOL_EXPORT void harbol_linkmap_set_val(struct HarbolVariant *const variant, const union HarbolValue val)
+HARBOL_EXPORT void harbol_variant_set_val(struct HarbolVariant *const variant, const union HarbolValue val)
 {
 	if( !variant )
 		return;
@@ -53,12 +53,12 @@ HARBOL_EXPORT void harbol_linkmap_set_val(struct HarbolVariant *const variant, c
 	variant->Val = val;
 }
 
-HARBOL_EXPORT int32_t harbol_linkmap_get_type(const struct HarbolVariant *const variant)
+HARBOL_EXPORT int32_t harbol_variant_get_type(const struct HarbolVariant *const variant)
 {
 	return variant ? variant->TypeTag : 0;
 }
 
-HARBOL_EXPORT void harbol_linkmap_set_type(struct HarbolVariant *const variant, const int32_t tagtype)
+HARBOL_EXPORT void harbol_variant_set_type(struct HarbolVariant *const variant, const int32_t tagtype)
 {
 	if( !variant )
 		return;

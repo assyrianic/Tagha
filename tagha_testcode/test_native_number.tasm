@@ -12,7 +12,6 @@ $native %add_one    ; int add_one(const int n);
 	movi	rbeth, 1000000000
 	movi	ralaf, 0
 	movi	rgamal, 0
-	
 .loop:
 	mov		rsemkath, ralaf
 	movi	ralaf, 1

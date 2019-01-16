@@ -92,7 +92,7 @@ HARBOL_EXPORT void harbol_bytebuffer_insert_cstr(struct HarbolByteBuffer *const 
 	
 	memcpy(p->Buffer+p->Count, str, strsize);
 	p->Count += strsize;
-	p->Buffer[p->Count++] = 0;	// add null terminat||.
+	p->Buffer[p->Count++] = 0;	// add null terminator.
 }
 
 HARBOL_EXPORT void harbol_bytebuffer_insert_obj(struct HarbolByteBuffer *const restrict p, const void *restrict o, const size_t size)

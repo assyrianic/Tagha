@@ -74,7 +74,7 @@ int main(const int argc, char *argv[restrict static argc+1])
 		printf("[TaghaVM Usage]: './%s' '.tbc filepath' \n", argv[0]);
 		return 1;
 	}
-	struct TaghaModule *module = tagha_module_new_from_file(argv[1]);
+	struct TaghaModule *restrict module = tagha_module_new_from_file(argv[1]);
 	puts(module ? "module is Valid." : "module is NULL.");
 	if( module ) {
 		/*
@@ -139,5 +139,6 @@ int main(const int argc, char *argv[restrict static argc+1])
 		printf("player.speed: '%f' | player.health: '%u' | player.ammo: '%u'\n", player.speed, player.health, player.ammo);
 		printf("running module... result?: '%i'\nerror?: '%s'\nprofiling time: '%f'\n", result, tagha_module_get_error(module), (end-start)/(double)CLOCKS_PER_SEC);
 	}
-	printf("freeing module... result?: '%u'\n", tagha_module_free(&module));
+	printf("freeing module... result?: '%u'\n", tagha_module_del(module));
+	free(module), module=NULL;
 }

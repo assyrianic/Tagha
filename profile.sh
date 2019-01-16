@@ -1,24 +1,24 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
-# -fsanitize=address -fsanitize=undefined -fstrict-aliasing
+# -fsanitize=address -fsanitize=undefined -lubsan -fstrict-aliasing
 # -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations
 
 
-gcc		-Wextra -Wall -std=c99 -s -O2 -c	libharbol/stringobj.c libharbol/vector.c libharbol/hashmap.c libharbol/mempool.c libharbol/linkmap.c tagha_api.c  #-fno-guess-branch-probability -fomit-frame-pointer
+gcc		-Wextra -Wall -s -O2 -c	libharbol/stringobj.c libharbol/vector.c libharbol/hashmap.c libharbol/mempool.c libharbol/linkmap.c tagha_api.c  #-fno-guess-branch-probability -fomit-frame-pointer
 #gcc		-Wextra -Wall -std=c99 -s -O2 -S -masm=intel tagha_api.c
 
 ar			cr libtagha.a	stringobj.o vector.o hashmap.o mempool.o linkmap.o tagha_api.o
 
-gcc -Wextra -Wall -std=c99 -s -O2 test_hostapp.c -L. -ltagha -o taghavmgcc_hosttest
+gcc -Wextra -Wall -s -O2 test_hostapp.c -L. -ltagha -o taghavmgcc_hosttest
 
 
 
-clang-6.0		-Wextra -Wall -std=c99 -s -O3 -c	libharbol/stringobj.c libharbol/vector.c libharbol/hashmap.c libharbol/mempool.c libharbol/linkmap.c tagha_api.c #-fno-guess-branch-probability -fomit-frame-pointer -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations
+clang-6.0		-Wextra -Wall -s -O3 -c	libharbol/stringobj.c libharbol/vector.c libharbol/hashmap.c libharbol/mempool.c libharbol/linkmap.c tagha_api.c #-fno-guess-branch-probability -fomit-frame-pointer -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations
 
 ar			cr libtagha.a	stringobj.o vector.o hashmap.o mempool.o linkmap.o tagha_api.o
 
-clang-6.0 -Wextra -Wall -std=c99 -s -O3 test_hostapp.c -L. -ltagha -o taghavmclang_hosttest
+clang-6.0 -Wextra -Wall -s -O3 test_hostapp.c -L. -ltagha -o taghavmclang_hosttest
 
 #gcc		-Wextra -Wall -std=c99 -s -O2 -funroll-loops -finline-functions -ffast-math -fexpensive-optimizations -S -masm=intel tagha_api.c
 

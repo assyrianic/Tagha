@@ -1,19 +1,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 #ifdef OS_WINDOWS
-	#define TAGHA_LIB
+#	define TAGHA_LIB
 #endif
 #include "tagha.h"
 
-static int32_t _tagha_module_exec(struct TaghaModule *module);
+static int32_t _tagha_module_exec(struct TaghaModule *module)
+#if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
+	__attribute__ ((hot))
+#endif
+;
 
-static void _safe_free(void *p)
-{
-	void **restrict pref = p;
-	if( !pref || !*pref )
-		return;
-	free(*pref), *pref=NULL;
-}
+
+#define CLEANUP(ptr)	free((ptr)), (ptr)=NULL
 
 static uint8_t *_make_buffer_from_file(const char filename[restrict])
 {
@@ -23,7 +22,7 @@ static uint8_t *_make_buffer_from_file(const char filename[restrict])
 		return NULL;
 	}
 	fseek(script, 0, SEEK_END);
-	const long int filesize = ftell(script);
+	const long filesize = ftell(script);
 	if( filesize <= -1 ) {
 		fclose(script);
 		fprintf(stderr, "buffer from file Error :: **** filesize (%li) is less than 0. ****\n", filesize);
@@ -31,19 +30,19 @@ static uint8_t *_make_buffer_from_file(const char filename[restrict])
 	}
 	rewind(script);
 	
-	uint8_t *restrict process = calloc(filesize, sizeof *process);
-	const size_t readval = fread(process, sizeof *process, filesize, script);
+	uint8_t *restrict bytecode = calloc(filesize, sizeof *bytecode);
+	const size_t readval = fread(bytecode, sizeof *bytecode, filesize, script);
 	fclose(script), script=NULL;
 	
 	if( readval != (size_t)filesize ) {
-		free(process), process=NULL;
+		CLEANUP(bytecode);
 		fprintf(stderr, "buffer from file Error :: **** fread value (%zu) is not same as filesize (%zu). ****\n", readval, (size_t)filesize);
 		return NULL;
 	}
-	else return process;
+	else return bytecode;
 }
 
-static bool _read_module_data(struct TaghaModule *const restrict module, uint8_t *filedata)
+static bool _read_module_data(struct TaghaModule *const restrict module, uint8_t filedata[])
 {
 	union TaghaPtr iter = {filedata};
 	iter.PtrUInt16++;
@@ -160,32 +159,29 @@ TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_file(const char filename[
 	if( !filename )
 		return NULL;
 	
-	uint8_t *raw_module_data = _make_buffer_from_file(filename);
-	if( !raw_module_data ) {
+	uint8_t *restrict bytecode = _make_buffer_from_file(filename);
+	if( !bytecode ) {
 		fprintf(stderr, "tagha module from file Error :: **** failed to create file data buffer. ****\n");
 		return NULL;
-	}
-	
-	union TaghaPtr iter = {raw_module_data};
-	if( *iter.PtrUInt16 != 0xC0DE ) {
+	} else if( *(uint16_t *)bytecode != 0xC0DE ) {
 		fprintf(stderr, "Tagha Module Error :: **** invalid tagha module: '%s' ****\n", filename);
-		_safe_free(&raw_module_data);
+		CLEANUP(bytecode);
 		return NULL;
 	}
 	
-	iter.PtrUInt16++;
-	struct TaghaModule *module = calloc(1, sizeof *module);
+	struct TaghaModule *restrict module = calloc(1, sizeof *module);
 	if( !module ) {
 		fprintf(stderr, "Tagha Module Error :: **** unable to allocate module ptr for file: '%s' ****\n", filename);
-		_safe_free(&raw_module_data);
+		CLEANUP(bytecode);
 		return NULL;
 	}
 	
-	const bool read_result = _read_module_data(module, raw_module_data);
-	_safe_free(&raw_module_data);
+	const bool read_result = _read_module_data(module, bytecode);
+	CLEANUP(bytecode);
 	if( !read_result ) {
 		fprintf(stderr, "Tagha Module Error :: **** couldn't allocate tables for file: '%s' ****\n", filename);
-		tagha_module_free(&module);
+		tagha_module_del(module);
+		CLEANUP(module);
 		return NULL;
 	}
 	return module;
@@ -196,7 +192,12 @@ TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_buffer(uint8_t buffer[res
 	if( !buffer )
 		return NULL;
 	
-	struct TaghaModule *module = calloc(1, sizeof *module);
+	else if( *(const uint16_t *)buffer != 0xC0DE ) {
+		fprintf(stderr, "Tagha Module Error :: **** invalid module buffer '%p' ****\n", buffer);
+		return NULL;
+	}
+	
+	struct TaghaModule *restrict module = calloc(1, sizeof *module);
 	if( !module ) {
 		fprintf(stderr, "Tagha Module Error :: **** unable to allocate module ptr from buffer ****\n");
 		return NULL;
@@ -205,24 +206,79 @@ TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_buffer(uint8_t buffer[res
 	const bool read_result = _read_module_data(module, buffer);
 	if( !read_result ) {
 		fprintf(stderr, "Tagha Module Error :: **** couldn't allocate tables from buffer ****\n");
-		tagha_module_free(&module);
+		tagha_module_del(module);
+		CLEANUP(module);
 		return NULL;
 	}
 	else return module;
 }
 
-TAGHA_EXPORT bool tagha_module_free(struct TaghaModule **modref)
+TAGHA_EXPORT bool tagha_module_free(struct TaghaModule **const modref)
 {
 	if( !modref || !*modref )
 		return false;
-	struct TaghaModule *mod = *modref;
-	harbol_linkmap_del(&mod->FuncMap, NULL);
-	harbol_linkmap_del(&mod->VarMap, NULL);
-	harbol_mempool_del(&mod->Heap);
-	memset(mod, 0, sizeof *mod);
-	_safe_free(modref);
+	tagha_module_del(*modref);
+	CLEANUP(*modref);
 	return true;
 }
+
+
+TAGHA_EXPORT bool tagha_module_from_file(struct TaghaModule *const restrict module, const char filename[restrict])
+{
+	if( !module || !filename )
+		return false;
+	
+	uint8_t *restrict bytecode = _make_buffer_from_file(filename);
+	if( !bytecode ) {
+		fprintf(stderr, "tagha module from file Error :: **** failed to create file data buffer. ****\n");
+		return false;
+	} else if( *(uint16_t *)bytecode != 0xC0DE ) {
+		fprintf(stderr, "Tagha Module Error :: **** invalid tagha module: '%s' ****\n", filename);
+		CLEANUP(bytecode);
+		return false;
+	}
+	
+	const bool read_result = _read_module_data(module, bytecode);
+	CLEANUP(bytecode);
+	if( !read_result ) {
+		fprintf(stderr, "Tagha Module Error :: **** couldn't allocate tables for file: '%s' ****\n", filename);
+		tagha_module_del(module);
+		return read_result;
+	} else {
+		return read_result;
+	}
+}
+
+TAGHA_EXPORT bool tagha_module_from_buffer(struct TaghaModule *const restrict module, uint8_t buffer[restrict])
+{
+	if( !module || !buffer )
+		return false;
+	else if( *(uint16_t *)buffer != 0xC0DE ) {
+		fprintf(stderr, "Tagha Module Error :: **** invalid module buffer '%p' ****\n", buffer);
+		return false;
+	}
+	
+	const bool read_result = _read_module_data(module, buffer);
+	if( !read_result ) {
+		fprintf(stderr, "Tagha Module Error :: **** couldn't allocate tables from buffer ****\n");
+		tagha_module_del(module);
+		return read_result;
+	} else {
+		return read_result;
+	}
+}
+
+TAGHA_EXPORT bool tagha_module_del(struct TaghaModule *const module)
+{
+	if( !module )
+		return false;
+	harbol_linkmap_del(&module->FuncMap, NULL);
+	harbol_linkmap_del(&module->VarMap, NULL);
+	harbol_mempool_del(&module->Heap);
+	memset(module, 0, sizeof *module);
+	return true;
+}
+
 
 TAGHA_EXPORT void tagha_module_print_vm_state(const struct TaghaModule *const module)
 {
@@ -478,15 +534,15 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	
 	exec_loadglobal: { /* char: opcode | char: regid | u64: index */
 		const uint8_t regid = *pc.PtrUInt8++;
-		struct TaghaItem *const global = vm->VarMap.Order.Table[*pc.PtrUInt64++].KvPairPtr->Data.Ptr;
+		const struct TaghaItem *const restrict global = vm->VarMap.Order.Table[*pc.PtrUInt64++].KvPairPtr->Data.Ptr;
 		vm->Regs[regid].Ptr = global->RawPtr;
 		DISPATCH();
 	}
 	/* loads a function index which could be a native */
 	exec_loadfunc: { /* char: opcode | char: regid | i64: index */
 		const uint8_t regid = *pc.PtrUInt8++;
-		//vm->Regs[regid].Int64 = *pc.PtrInt64++;
-		memcpy(&vm->Regs[regid].Int64, pc.PtrInt64++, sizeof(int64_t));
+		//vm->Regs[regid] = *pc.PtrVal++;
+		memcpy(&vm->Regs[regid], pc.PtrVal++, sizeof(int64_t));
 		DISPATCH();
 	}
 	exec_loadaddr: { /* char: opcode | char: regid1 | char: regid2 | i32: offset */
@@ -742,23 +798,27 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	}
 	exec_jz: { /* char: opcode | i64: offset */
 		const int64_t offset = *pc.PtrInt64++;
-		//if( !vm->CondFlag )
-		//	pc.PtrUInt8 += offset;
-		pc.PtrUInt8 += ( !vm->CondFlag ) ? offset : 0;
-		DISPATCH();
+		if( !vm->CondFlag ) {
+			pc.PtrUInt8 += offset;
+			DISPATCH();
+		} else {
+			DISPATCH();
+		}
 	}
 	exec_jnz: { /* char: opcode | i64: offset */
 		const int64_t offset = *pc.PtrInt64++;
-		//if( vm->CondFlag )
-		//	pc.PtrUInt8 += offset;
-		pc.PtrUInt8 += ( vm->CondFlag ) ? offset : 0;
-		DISPATCH();
+		if( vm->CondFlag ) {
+			pc.PtrUInt8 += offset;
+			DISPATCH();
+		} else {
+			DISPATCH();
+		}
 	}
 	exec_call: { /* char: opcode | i64: offset */
 		const int64_t index = *pc.PtrInt64++;
-		const struct TaghaItem *const func = vm->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
+		const struct TaghaItem *const restrict func = vm->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
 		if( func->Flags & TAGHA_FLAG_NATIVE ) {
-			if( !(func->Flags & TAGHA_FLAG_LINKED) ) {
+			if( func->Flags != TAGHA_FLAG_NATIVE+TAGHA_FLAG_LINKED ) {
 				vm->Error = ErrMissingNative;
 				goto *dispatch[halt];
 			} else {
@@ -769,10 +829,13 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 				
 				/* save stack space by using the registers for passing arguments.
 					the other registers can then be used for other data operations. */
-				( args <= reg_params ) ?
-					(*func->NativeFunc)(vm, &retval, args, vm->Regs+reg_param_initial) :
+				if( args <= reg_params ) {
+					(*func->NativeFunc)(vm, &retval, args, vm->Regs+reg_param_initial);
+				} else {
 					/* if the native call has more than a certain num of params, get all params from stack. */
-					((*func->NativeFunc)(vm, &retval, args, vm->regStk.PtrSelf), vm->regStk.PtrSelf += args);
+					(*func->NativeFunc)(vm, &retval, args, vm->regStk.PtrSelf);
+					vm->regStk.PtrSelf += args;
+				}
 				memcpy(&vm->regAlaf, &retval, sizeof retval);
 				
 				if( vm->Error != ErrNone ) {
@@ -792,9 +855,9 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	exec_callr: { /* char: opcode | char: regid */
 		const uint8_t regid = *pc.PtrUInt8++;
 		const int64_t index = vm->Regs[regid].Int64;
-		const struct TaghaItem *const func = vm->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
+		const struct TaghaItem *const restrict func = vm->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
 		if( func->Flags & TAGHA_FLAG_NATIVE ) {
-			if( !(func->Flags & TAGHA_FLAG_LINKED) ) {
+			if( func->Flags != TAGHA_FLAG_NATIVE+TAGHA_FLAG_LINKED ) {
 				vm->Error = ErrMissingNative;
 				goto *dispatch[halt];
 			} else {
@@ -805,10 +868,13 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 				
 				/* save stack space by using the registers for passing arguments.
 					the other registers can then be used for other data operations. */
-				( args <= reg_params ) ?
-					(*func->NativeFunc)(vm, &retval, args, vm->Regs+reg_param_initial) :
+				if( args <= reg_params ) {
+					(*func->NativeFunc)(vm, &retval, args, vm->Regs+reg_param_initial);
+				} else {
 					/* if the native call has more than a certain num of params, get all params from stack. */
-					((*func->NativeFunc)(vm, &retval, args, vm->regStk.PtrSelf), vm->regStk.PtrSelf += args);
+					(*func->NativeFunc)(vm, &retval, args, vm->regStk.PtrSelf);
+					vm->regStk.PtrSelf += args;
+				}
 				memcpy(&vm->regAlaf, &retval, sizeof retval);
 				
 				if( vm->Error != ErrNone ) {
@@ -829,9 +895,11 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 		vm->regStk = vm->regBase; /* mov rsp, rbp */
 		vm->regBase = *vm->regStk.PtrSelf++; /* pop rbp */
 		pc.Ptr = (*vm->regStk.PtrSelf++).Ptr; /* pop rip */
-		if( !pc.Ptr )
+		if( !pc.Ptr ) {
 			return vm->regAlaf.Int32;
-		else { DISPATCH(); }
+		} else {
+			DISPATCH();
+		}
 	}
 	
 #ifdef TAGHA_FLOATING_POINT_OPS
@@ -996,4 +1064,3 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	//tagha_module_print_vm_state(vm);
 	return vm->regAlaf.Int32;
 }
-

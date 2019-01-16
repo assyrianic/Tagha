@@ -112,7 +112,7 @@ struct TaghaModule *tagha_module_new_from_file(const char filename[]);
 Allocates a `struct TaghaModule` pointer from a script file.
 
 ### Parameters
-* `filename` - filename of the script to load.
+* `filename` - filename string of the script to load.
 
 ### Return Value
 pointer to a newly allocated `struct TaghaModule` pointer, returns `NULL` if an error occured or problems reading the script.
@@ -135,14 +135,61 @@ pointer to a newly allocated `struct TaghaModule` pointer, return `NULL` if an e
 
 ## tagha_module_free
 ```c
-bool tagha_module_free(struct TaghaModule **modref);
+bool tagha_module_free(struct TaghaModule **module_ref);
 ```
 
 ### Description
-Deallocates a `struct TaghaModule` pointer's data, deallocates itself, and then sets the pointer to `NULL`.
+Deallocates a `struct TaghaModule` pointer's data, deallocates the pointer itself, and then sets the pointer to `NULL`.
 
 ### Parameters
-* `modref` - reference to a `struct TaghaModule` pointer.
+* `module_ref` - reference to a `struct TaghaModule` pointer.
+
+### Return Value
+boolean value whether the deallocation was successful or not.
+
+
+## tagha_module_from_file
+```c
+bool tagha_module_from_file(struct TaghaModule *module, const char filename[]);
+```
+
+### Description
+builds a module, from an existing pointer, from a file.
+
+### Parameters
+* `module` - pointer to a `struct TaghaModule` instance.
+* `filename` - filename string of the script to load.
+
+### Return Value
+True if building the module from the file was a success, false otherwise.
+
+
+## tagha_module_from_buffer
+```c
+bool tagha_module_from_buffer(struct TaghaModule *module, uint8_t buffer[]);
+```
+
+### Description
+builds a module, from an existing pointer, from an existing data buffer.
+
+### Parameters
+* `module` - pointer to a `struct TaghaModule` instance.
+* `buffer` - pointer to raw script data.
+
+### Return Value
+True if building the module from buffer was a success, false otherwise.
+
+
+## tagha_module_del
+```c
+bool tagha_module_del(struct TaghaModule *module);
+```
+
+### Description
+Deallocates a `struct TaghaModule` pointer's data and zeroes the data. The module pointer itself is NOT freed.
+
+### Parameters
+* `module` - pointer to a `struct TaghaModule` instance.
 
 ### Return Value
 boolean value whether the deallocation was successful or not.

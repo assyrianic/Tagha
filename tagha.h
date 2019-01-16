@@ -2,7 +2,7 @@
 
 #ifdef __cplusplus
 extern "C" {
-#define restrict __restrict
+#	define restrict __restrict
 #endif
 
 #include <stdbool.h>
@@ -14,19 +14,19 @@ extern "C" {
 #define __TAGHA_FLOAT64_DEFINED // allow tagha to use 64-bit floats
 
 #if defined(__TAGHA_FLOAT32_DEFINED) || defined(__TAGHA_FLOAT64_DEFINED)
-	#ifndef TAGHA_FLOATING_POINT_OPS
-		#define TAGHA_FLOATING_POINT_OPS
-	#endif
+#	ifndef TAGHA_FLOATING_POINT_OPS
+#		define TAGHA_FLOATING_POINT_OPS
+#	endif
 #endif
 
 #ifdef TAGHA_DLL
-	#ifndef TAGHA_LIB
-		#define TAGHA_EXPORT __declspec(dllimport)
-	#else
-		#define TAGHA_EXPORT __declspec(dllexport)
-	#endif
+#	ifndef TAGHA_LIB
+#		define TAGHA_EXPORT __declspec(dllimport)
+#	else
+#		define TAGHA_EXPORT __declspec(dllexport)
+#	endif
 #else
-	#define TAGHA_EXPORT 
+#	define TAGHA_EXPORT 
 #endif
 
 
@@ -44,12 +44,12 @@ typedef union TaghaVal {
 	size_t SizeInt, *PtrSizeInt;
 	uintptr_t UIntPtr;
 	intptr_t IntPtr;
- #ifdef __TAGHA_FLOAT32_DEFINED
+#ifdef __TAGHA_FLOAT32_DEFINED
 	float Float, *PtrFloat;
- #endif
- #ifdef __TAGHA_FLOAT64_DEFINED
+#endif
+#ifdef __TAGHA_FLOAT64_DEFINED
 	double Double, *PtrDouble;
- #endif
+#endif
 	void *Ptr;
 	const char *PtrCStr;
 	union TaghaVal *PtrSelf;
@@ -66,12 +66,12 @@ typedef union TaghaPtr {
 	int32_t *restrict PtrInt32;
 	int64_t *restrict PtrInt64;
 	size_t *restrict PtrSizeInt;
- #ifdef __TAGHA_FLOAT32_DEFINED
+#ifdef __TAGHA_FLOAT32_DEFINED
 	float *restrict PtrFloat;
- #endif
- #ifdef __TAGHA_FLOAT64_DEFINED
+#endif
+#ifdef __TAGHA_FLOAT64_DEFINED
 	double *restrict PtrDouble;
- #endif
+#endif
 	const char *restrict PtrCStr;
 	
 	union TaghaVal *restrict PtrVal;
@@ -140,8 +140,8 @@ typedef enum TaghaErrCode {
 /* Tagha Item
  * represents either a function or global variable.
  */
-#define TAGHA_FLAG_NATIVE	1
-#define TAGHA_FLAG_LINKED	2
+#define TAGHA_FLAG_NATIVE	1 /* if is a native C or JIT compiled function. */
+#define TAGHA_FLAG_LINKED	2 /* ptr to native/jit function is linked and verified. */
 typedef struct TaghaItem {
 	union {
 		uint8_t *Data;
@@ -165,10 +165,10 @@ typedef struct TaghaModule {
 	struct /* TaghaCPU */ { // 208 bytes on 64-bit systems
 		union {
 			struct {
-				#define Y(y) union TaghaVal y;
+#				define Y(y) union TaghaVal y;
 				TAGHA_REGISTER_FILE
-				#undef Y
-				#undef TAGHA_REGISTER_FILE
+#				undef Y
+#				undef TAGHA_REGISTER_FILE
 			};
 			union TaghaVal Regs[MaxRegisters];
 		};
@@ -190,7 +190,11 @@ typedef struct TaghaModule {
 
 TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_file(const char filename[]);
 TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_buffer(uint8_t buffer[]);
-TAGHA_EXPORT bool tagha_module_free(struct TaghaModule **modref);
+TAGHA_EXPORT bool tagha_module_free(struct TaghaModule **moduleref);
+
+TAGHA_EXPORT bool tagha_module_from_file(struct TaghaModule *module, const char filename[]);
+TAGHA_EXPORT bool tagha_module_from_buffer(struct TaghaModule *module, uint8_t buffer[]);
+TAGHA_EXPORT bool tagha_module_del(struct TaghaModule *module);
 
 TAGHA_EXPORT void tagha_module_print_vm_state(const struct TaghaModule *module);
 TAGHA_EXPORT const char *tagha_module_get_error(const struct TaghaModule *module);
@@ -226,7 +230,7 @@ TAGHA_EXPORT bool tagha_system_add_natives(struct TaghaSystem *sys, const struct
 */
 
 #ifdef TAGHA_FLOATING_POINT_OPS
-	#define TAGHA_INSTR_SET	\
+#	define TAGHA_INSTR_SET	\
 		X(halt) \
 		X(pushi) X(push) X(pop) \
 		\
@@ -253,7 +257,7 @@ TAGHA_EXPORT bool tagha_system_add_natives(struct TaghaSystem *sys, const struct
 		X(incf) X(decf) X(negf) \
 		X(ltf) X(lef) X(gtf) X(gef) X(cmpf) X(neqf)
 #else
-	#define TAGHA_INSTR_SET	\
+#	define TAGHA_INSTR_SET	\
 		X(halt) \
 		X(pushi) X(push) X(pop) \
 		\
