@@ -1,7 +1,6 @@
 # manually set stack size
 # directives start with $
-# if stacksize isn't set, the default stacksize is 255 which will end up as
-# 255 * 8 == 2040 bytes of stack size.
+# if stacksize isn't set, the default stacksize is 255 bytes
 $stacksize 0xff
 
 # global var named 'i' which is 12 bytes (struct) and is assigned the values after the bytesize.
@@ -30,6 +29,8 @@ $safemode
 }
 
 %factorial: {
+	movi	rdalath, 32
+	sub	rsp, rdalath
 	movi	rbeth, 1 ; 10 bytes
 	st4		[rbp-4], rsemkath ; 7 bytes
 	
