@@ -16,7 +16,7 @@ goto %ACTION%
 
 :tagha
        %CC% %CFLAGS% -c libharbol/stringobj.c libharbol/vector.c libharbol/hashmap.c libharbol/mempool.c libharbol/linkmap.c %SRCS%
-       llvm-ar cr %LIBNAME%.a stringobj.o vector.o hashmap.o mempool.o linkmap.o %OBJS%
+       llvm-ar cr %LIBNAME%.lib stringobj.o vector.o hashmap.o mempool.o linkmap.o %OBJS%
        %CC% -shared stringobj.o vector.o hashmap.o mempool.o linkmap.o %OBJS% -o %LIBNAME%.dll
        goto END
 
