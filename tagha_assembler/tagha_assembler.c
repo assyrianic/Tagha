@@ -798,8 +798,6 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 				if( !is_alphabetic(tasm->Lexeme->CStr[1]) ) {
 					tagha_asm_err_out(tasm, "%s labels must have alphabetic names!", funclbl ? "function" : "jump");
 				}
-				// Prevents redefinition of local labels because they have the function appended to them
-				printf("Processing '%s'\n", tasm->Lexeme->CStr);
 				if( harbol_linkmap_has_key(funclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr) ) {
 					tagha_asm_err_out(tasm, "redefinition of label '%s'.", tasm->Lexeme->CStr);
 				}
