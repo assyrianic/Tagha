@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <errno.h>
 #include "tagha_assembler.h"
 
 
@@ -359,6 +360,7 @@ int64_t lex_label_value(struct TaghaAsmbler *const restrict tasm, const bool fir
 	const bool isfunclbl = *tasm->Iter=='%';
 	lex_identifier(&tasm->Iter, tasm->Lexeme);
 	tasm->ProgramCounter += 8;
+	if( !isfunclbl ) harbol_string_add_str(tasm->Lexeme, tasm->ActiveFuncLabel);
 	if( !firstpass && !harbol_linkmap_has_key(isfunclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr) ) {
 		tagha_asm_err_out(tasm, "undefined label '%s'", tasm->Lexeme->CStr);
 	}
@@ -796,7 +798,9 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 				if( !is_alphabetic(tasm->Lexeme->CStr[1]) ) {
 					tagha_asm_err_out(tasm, "%s labels must have alphabetic names!", funclbl ? "function" : "jump");
 				}
-				else if( harbol_linkmap_has_key(funclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr) ) {
+				// Prevents redefinition of local labels because they have the function appended to them
+				printf("Processing '%s'\n", tasm->Lexeme->CStr);
+				if( harbol_linkmap_has_key(funclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr) ) {
 					tagha_asm_err_out(tasm, "redefinition of label '%s'.", tasm->Lexeme->CStr);
 				}
 				
@@ -807,6 +811,13 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 				if( funclbl ) {
 					tasm->ActiveFuncLabel = &(struct HarbolString){0};
 					harbol_string_copy_str(tasm->ActiveFuncLabel, tasm->Lexeme);
+				} else {
+					if(tasm->ActiveFuncLabel) {
+						fprintf(stdout, "Making local label '%s' for function '%s'\n", tasm->Lexeme->CStr, tasm->ActiveFuncLabel->CStr);
+						harbol_string_add_str(tasm->Lexeme, tasm->ActiveFuncLabel);
+					} else {
+						fprintf(stdout, "Cannot create a local label outside of a function");
+					}
 				}
 				label->Addr = tasm->ProgramCounter;
 				label->IsFunc = funclbl;
@@ -1134,14 +1145,17 @@ int main(int argc, char *argv[restrict static argc+1])
 	else {
 		for( int i=1 ; i<argc ; i++ ) {
 			FILE *tasmfile = fopen(argv[i], "r");
-			if( !tasmfile )
+			if( !tasmfile ) {
+				fprintf(stdout, "Couldn't load %s, %s", argv[i], strerror(errno));
 				continue;
+			}
 			
 			struct TaghaAsmbler *const tasm = &(struct TaghaAsmbler){0};
 			tasm->Src = tasmfile;
 			tasm->SrcSize = get_filesize(tasmfile);
 			harbol_string_init_cstr(&tasm->OutputName, argv[i]);
 			tagha_asm_assemble(tasm);
+			fprintf(stdout, "Wrote binary to %s", tasm->OutputName.CStr);
 		}
 	}
 }

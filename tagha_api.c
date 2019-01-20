@@ -158,10 +158,14 @@ TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_file(const char filename[
 {
 	if( !filename )
 		return NULL;
+	if( strcmp(filename+strlen(filename)-4, ".tbc") ) {
+		fprintf(stderr, "Tagha module from file Error :: *** file needs to be a .tbc ***\n");
+		return NULL;
+	}
 	
 	uint8_t *restrict bytecode = _make_buffer_from_file(filename);
 	if( !bytecode ) {
-		fprintf(stderr, "tagha module from file Error :: **** failed to create file data buffer. ****\n");
+		fprintf(stderr, "Tagha module from file Error :: **** failed to create file data buffer. ****\n");
 		return NULL;
 	} else if( *(uint16_t *)bytecode != 0xC0DE ) {
 		fprintf(stderr, "Tagha Module Error :: **** invalid tagha module: '%s' ****\n", filename);

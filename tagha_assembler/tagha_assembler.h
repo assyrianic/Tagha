@@ -8,7 +8,7 @@ extern "C" {
 #include "../libharbol/harbol.h"
 #include "../tagha.h"
 
-//#define TASM_DEBUG
+#define TASM_DEBUG
 
 struct LabelInfo {
 	struct HarbolByteBuffer Bytecode;
