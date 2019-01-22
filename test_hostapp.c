@@ -3,26 +3,9 @@
 #include <stdlib.h>
 #include <time.h>
 #include "tagha.h"
+#include "tagha_libc/tagha_libc.h"
 
-/* int puts(const char *str); */
-void Native_puts(struct TaghaModule *const restrict sys, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
-{
-	(void)sys;
-	const char *restrict p = params[0].Ptr;
-	retval->Int32 = p != NULL ? puts(p) : -1;
-}
 
-/* char *fgets(char *buffer, int num, FILE *stream); */
-void Native_fgets(struct TaghaModule *const restrict sys, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
-{
-	(void)sys;
-	char *restrict buf = params[0].Ptr;
-	FILE *restrict stream = params[2].Ptr;
-	if( !buf || !stream ) {
-		return;
-	}
-	retval->Ptr = fgets(buf, params[1].Int32, stream);
-}
 
 /* size_t strlen(const char *s); */
 void Native_strlen(struct TaghaModule *const restrict sys, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
@@ -107,6 +90,7 @@ int main(const int argc, char *argv[restrict static argc+1])
 		tagha_module_register_ptr(module, "stdout", stdout);
 		tagha_module_register_ptr(module, "stderr", stderr);
 		tagha_module_register_ptr(module, "self", module);
+		tagha_module_load_stdio_natives(module);
 		
 		struct Player {
 			float speed;
@@ -117,8 +101,6 @@ int main(const int argc, char *argv[restrict static argc+1])
 		tagha_module_register_ptr(module, "g_pPlayer", &player);
 		
 		const struct TaghaNative host_natives[] = {
-			{"puts", Native_puts},
-			{"fgets", Native_fgets},
 			{"strlen", Native_strlen},
 			{"add_one", Native_add_one},
 			{"tagha_module_new_from_file", native_tagha_module_new_from_file},

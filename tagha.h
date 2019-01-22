@@ -128,13 +128,28 @@ typedef struct TaghaNative {
 typedef enum TaghaRegID { TAGHA_REGISTER_FILE MaxRegisters } TaghaRegID;
 #undef Y
 
+#ifndef TAGHA_FIRST_PARAM_REG
+#	define TAGHA_FIRST_PARAM_REG	regSemkath
+#endif
+
+#ifndef TAGHA_LAST_PARAM_REG
+#	define TAGHA_LAST_PARAM_REG		regTaw
+#endif
+
+#ifndef TAGHA_REG_PARAMS_MAX
+#	define	TAGHA_REG_PARAMS_MAX	(TAGHA_LAST_PARAM_REG - TAGHA_FIRST_PARAM_REG + 1)
+#endif
+
+
 typedef enum TaghaErrCode {
 	ErrInstrBounds = -1,
 	ErrNone=0,
 	ErrBadPtr,
-	ErrMissingFunc, ErrMissingNative,
+	ErrMissingFunc,
+	ErrMissingNative,
 	ErrInvalidScript,
-	ErrStackSize, ErrStackOver,
+	ErrStackSize,
+	ErrStackOver,
 } TaghaErrCode;
 
 /* Tagha Item
@@ -151,6 +166,19 @@ typedef struct TaghaItem {
 	size_t Bytes;
 	uint8_t Flags; // 0-bytecode based, 1-native based, 2-resolved
 } TaghaItem;
+
+
+/* Tagha 'va_list' implementation
+ * Needed to help with va_list implementations that cross over from bytecode funcs to native funcs.
+ * If a variadic argument bytecode function has more than 8 params, then the first 8 values are placed in the registers and the remaining are in the stack.
+ * We fix this issue by using two members of union TaghaVal so the data is padded to 8 bytes, regardless of system width!
+ */
+struct Tagha_va_list {
+	union TaghaVal
+		Area,	/* stack area. */
+		Args	/* amount of args in the stack area. */
+	;
+};
 
 
 /* Script/Module Structure.

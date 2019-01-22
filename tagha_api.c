@@ -112,8 +112,7 @@ static bool _read_module_data(struct TaghaModule *const restrict module, uint8_t
 			memcpy(funcitem->Data, iter.Ptr, datalen);
 			//printf("allocating new func data == %zu\n", harbol_mempool_get_remaining(&module->Heap));
 		}
-		union HarbolValue value = {0}; value.Ptr = funcitem;
-		harbol_linkmap_insert(&module->FuncMap, cstr, value);
+		harbol_linkmap_insert(&module->FuncMap, cstr, (const union HarbolValue){ .Ptr=funcitem });
 		iter.PtrUInt8 += datalen;
 	}
 	//printf("remaining after func table == %zu\n", harbol_mempool_get_remaining(&module->Heap));
@@ -134,8 +133,7 @@ static bool _read_module_data(struct TaghaModule *const restrict module, uint8_t
 		varitem->Data = harbol_mempool_alloc(&module->Heap, datalen);
 		//printf("allocating new var data == %zu\n", harbol_mempool_get_remaining(&module->Heap));
 		memcpy(varitem->Data, iter.Ptr, datalen);
-		union HarbolValue value = {0}; value.Ptr = varitem;
-		harbol_linkmap_insert(&module->VarMap, cstr, value);
+		harbol_linkmap_insert(&module->VarMap, cstr, (const union HarbolValue){ .Ptr=varitem });
 		iter.PtrUInt8 += datalen;
 	}
 	//printf("remaining heap pool after var table == %zu\n", harbol_mempool_get_remaining(&module->Heap));
@@ -161,7 +159,7 @@ TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_file(const char filename[
 	
 	uint8_t *restrict bytecode = _make_buffer_from_file(filename);
 	if( !bytecode ) {
-		fprintf(stderr, "tagha module from file Error :: **** failed to create file data buffer. ****\n");
+		fprintf(stderr, "Tagha Module Error :: **** failed to create file data buffer. ****\n");
 		return NULL;
 	} else if( *(uint16_t *)bytecode != 0xC0DE ) {
 		fprintf(stderr, "Tagha Module Error :: **** invalid tagha module: '%s' ****\n", filename);
@@ -191,7 +189,6 @@ TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_buffer(uint8_t buffer[res
 {
 	if( !buffer )
 		return NULL;
-	
 	else if( *(const uint16_t *)buffer != 0xC0DE ) {
 		fprintf(stderr, "Tagha Module Error :: **** invalid module buffer '%p' ****\n", buffer);
 		return NULL;
@@ -230,7 +227,7 @@ TAGHA_EXPORT bool tagha_module_from_file(struct TaghaModule *const restrict modu
 	
 	uint8_t *restrict bytecode = _make_buffer_from_file(filename);
 	if( !bytecode ) {
-		fprintf(stderr, "tagha module from file Error :: **** failed to create file data buffer. ****\n");
+		fprintf(stderr, "Tagha Module Error :: **** failed to create file data buffer. ****\n");
 		return false;
 	} else if( *(uint16_t *)bytecode != 0xC0DE ) {
 		fprintf(stderr, "Tagha Module Error :: **** invalid tagha module: '%s' ****\n", filename);
@@ -319,15 +316,15 @@ TAGHA_EXPORT const char *tagha_module_get_error(const struct TaghaModule *const 
 		return "Null VM Pointer";
 	
 	switch( module->Error ) {
-		case ErrInstrBounds: return "Out of Bound Instruction";
-		case ErrNone: return "None";
-		case ErrBadPtr: return "Null/Invalid Pointer";
-		case ErrMissingFunc: return "Missing Function";
-		case ErrInvalidScript: return "Null/Invalid Script";
-		case ErrStackSize: return "Bad Stack Size";
-		case ErrMissingNative: return "Missing Native";
-		case ErrStackOver: return "Stack Overflow";
-		default: return "User-Defined Error";
+		case ErrInstrBounds:	return "Out of Bound Instruction";
+		case ErrNone:			return "None";
+		case ErrBadPtr:			return "Null/Invalid Pointer";
+		case ErrMissingFunc:	return "Missing Function";
+		case ErrInvalidScript:	return "Null/Invalid Script";
+		case ErrStackSize:		return "Bad Stack Size";
+		case ErrMissingNative:	return "Missing Native";
+		case ErrStackOver:		return "Stack Overflow";
+		default:				return "User-Defined Error";
 	}
 }
 
@@ -361,9 +358,10 @@ TAGHA_EXPORT void *tagha_module_get_globalvar_by_name(struct TaghaModule *const 
 {
 	if( !module || !varname )
 		return NULL;
-	
-	const struct TaghaItem *const restrict item = harbol_linkmap_get(&module->VarMap, varname).Ptr;
-	return item ? item->RawPtr : NULL;
+	else {
+		const struct TaghaItem *const restrict item = harbol_linkmap_get(&module->VarMap, varname).Ptr;
+		return item ? item->RawPtr : NULL;
+	}
 }
 
 TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module, const char func_name[restrict], const size_t args, union TaghaVal params[restrict static args], union TaghaVal *const restrict retval)
@@ -388,8 +386,8 @@ TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module
 	} else {
 		/* remember that arguments must be passed right to left.
 			we have enough args to fit in registers. */
-		const uint8_t reg_param_initial = regSemkath;
-		const uint8_t reg_params = regTaw - regSemkath + 1;
+		const uint8_t reg_param_initial = TAGHA_FIRST_PARAM_REG;
+		const uint8_t reg_params = TAGHA_REG_PARAMS_MAX;
 		const size_t bytecount = sizeof(union TaghaVal) * args;
 		
 		/* save stack space by using the registers for passing arguments.
@@ -403,12 +401,12 @@ TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module
 			if( module->regStk.PtrSelf - (args-reg_params) < module->Stack ) {
 				module->Error = ErrStackOver;
 				return -1;
+			} else {
+				memcpy(module->Regs+reg_param_initial, params, sizeof(union TaghaVal) * reg_params);
+				memcpy(module->regStk.PtrSelf, params+reg_params, sizeof(union TaghaVal) * (args-reg_params));
+				module->regStk.PtrSelf -= (args-reg_params);
 			}
-			memcpy(module->Regs+reg_param_initial, params, sizeof(union TaghaVal) * reg_params);
-			memcpy(module->regStk.PtrSelf, params+reg_params, sizeof(union TaghaVal) * (args-reg_params));
-			module->regStk.PtrSelf -= (args-reg_params);
 		}
-		
 		(--module->regStk.PtrSelf)->Int64 = 0; /* push NULL return address. */
 		*--module->regStk.PtrSelf = module->regBase; /* push rbp */
 		module->regBase = module->regStk; /* mov rbp, rsp */
@@ -418,14 +416,14 @@ TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module
 			module->regInstr.Int64 = 0;
 			if( retval )
 				memcpy(retval, &module->regAlaf, sizeof *retval);
-			if( args > reg_params )
+			if( args>reg_params )
 				module->regStk.PtrSelf += (args-reg_params);
 			return result;
 		} else {
 			module->regStk = module->regBase; /* unwind stack */
 			module->regStk.PtrSelf += 2;
 			/* pop off our params. */
-			if( args > reg_params )
+			if( args>reg_params )
 				module->regStk.PtrSelf += (args-reg_params);
 			module->Error = ErrMissingFunc;
 			return -1;
@@ -445,12 +443,14 @@ TAGHA_EXPORT int32_t tagha_module_run(struct TaghaModule *const restrict module,
 	main_params[0].Int32 = argc;
 	int32_t result = 0;
 	
-	if( sizeof(intptr_t) < sizeof(int64_t) ) {
-		union TaghaVal argv[argc+1];
-		memset(argv, 0, sizeof(union TaghaVal) * argc+1);
-		
+	if( sizeof(intptr_t)<sizeof(union TaghaVal) ) {
+	/* for 32-bit systems, gotta pad out the pointer values to 64-bit using TaghaVal array.
+	 * Also for 32-bit systems, cap out the maximum arguments to 32 pointers.
+	 */
+#define MAX_ARGS_32BIT    32
+		union TaghaVal argv[MAX_ARGS_32BIT+1] = {0};
 		if( sargv )
-			for( int32_t i=0 ; i<argc ; i++ )
+			for( int32_t i=0 ; i<argc && i<MAX_ARGS_32BIT ; i++ )
 				argv[i].Ptr = sargv[i];
 		main_params[1].PtrSelf = argv;
 		result = tagha_module_call(module, "main", 2, main_params, &retval);
@@ -525,7 +525,14 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 		*--vm->regStk.PtrSelf = vm->Regs[*pc.PtrUInt8++];
 		DISPATCH();
 	}
-	
+	/* pushargs: pushes the function argument registers to the stack */
+	/*
+	exec_pushargs: {
+		vm->regStk.PtrSelf -= TAGHA_REG_PARAMS_MAX;
+		memcpy(vm->regStk.PtrSelf, &vm->TAGHA_FIRST_PARAM_REG, TAGHA_REG_PARAMS_MAX);
+		DISPATCH();
+	}
+	*/
 	/* pops a value from the stack into a register then reduces stack by 8 bytes. */
 	exec_pop: { /* char: opcode | char: regid */
 		vm->Regs[*pc.PtrUInt8++] = *vm->regStk.PtrSelf++;
@@ -822,8 +829,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 				vm->Error = ErrMissingNative;
 				goto *dispatch[halt];
 			} else {
-				const uint8_t reg_param_initial = regSemkath;
-				const uint8_t reg_params = regTaw - regSemkath + 1;
+				const uint8_t reg_param_initial = TAGHA_FIRST_PARAM_REG;
+				const uint8_t reg_params = TAGHA_REG_PARAMS_MAX;
 				union TaghaVal retval = (union TaghaVal){0};
 				const size_t args = vm->regAlaf.SizeInt;
 				
@@ -861,8 +868,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 				vm->Error = ErrMissingNative;
 				goto *dispatch[halt];
 			} else {
-				const uint8_t reg_param_initial = regSemkath;
-				const uint8_t reg_params = regTaw - regSemkath + 1;
+				const uint8_t reg_param_initial = TAGHA_FIRST_PARAM_REG;
+				const uint8_t reg_params = TAGHA_REG_PARAMS_MAX;
 				union TaghaVal retval = (union TaghaVal){0};
 				const size_t args = vm->regAlaf.SizeInt;
 				

@@ -116,7 +116,7 @@ If you need to re-enable floating point support for all types, simply uncomment 
 Changing the header file requires that you recompile tagha for the change to take effect.
 
 ### Testing
-If you wish to build and test the tagha code base, compile `test_hostapp.c` with either the shared or static tagha library, compile the tagha assembler and compile the testing .tasm scripts in `tagha_testcode`, and then run the .tbc scripts.
+If you wish to build and test the tagha code base, compile `test_hostapp.c` with either the shared or static tagha library, link with tagha's libc implementation, compile the tagha assembler and compile the testing .tasm scripts in `tagha_testcode`, and then run the .tbc scripts.
 
 ## Credits
 
@@ -136,13 +136,19 @@ This project is licensed under MIT License.
 
 ## FAQ
 * Q: _**why not just pick a scripting language?**_
-* A: You're right. Any developer could simply choose an existing scripting language and its implementation, but not all developers want to use a scripting language and they could have various reasons like performance, syntax, maybe the runtime is too bloated. Secondly, not all developers might know the language or are comfortable with it. Perhaps for the sake of consistency with the code base, they want the entire code to be in one language. After all, to be able to utilize the scripting language, you'd need to learn it as well as learning the API of the host app.
+* A: You're right. Any developer could simply choose an existing scripting language and its implementation, but not all developers want to use a scripting language and they could have various reasons like performance, syntax, maybe the runtime is too bloated. Secondly, not all developers might know the language or are comfortable with it. Perhaps for the sake of consistency with the code base, they want the entire code to be in one language. After all, to be able to utilize the scripting language, you'd need to learn it as well as learning the exposed API of the host app. My point is, there's a myriad of reasons to choose (or not to choose) a scripting language.
+
+* Q: _**ok, then why not use a dynamic linking/shared library module plugin system?**_
+* A: Pretty much same answer, any developer could choose to use such a system over a scripting language as well. The benefits of this is having the native speed of the application's implementation language while still being extendable/modifiable. However the drawbacks to a shared library plugin system is that you need to accommodate every architecture and OS for the shared plugins to run properly. On Windows OS', this isn't such a big deal but Linux ABIs also use the OS as a factor. Thus, having portable programs isn't easy to implement with this system.
+
+* Q: _**then why use Tagha at all?**_
+* A: You should use Tagha if you want a VM Runtime environment that is fast, has a very small memory footprint, powerfully flexible embedding API, completely self-contained within a single static or shared library, open source, and permissive in licensing to be allowed in proprietary and non-proprietary software alike.
 
 * Q: _**Why implement TaghaVM in C and not C++?**_
 * A: The design choices I gave to TaghaVM was to be minimal, fast, and with little-to-no dependencies except for a few C standard library functions. To achieve this, I needed to use C which allowed me to manipulate memory as fast and seamless as possible. I'm aware C++ allows me to manipulate memory but it's not without trouble.
 
 * Q: _**Can TaghaVM be used to implement any language?**_
-* A: Yes but not perfectly. If we take Lua's example, Lua values are entirely pointers to a tagged union type in which the types are either a float value, string, or table/hashmap. Since most of TaghaVMs registers are general-purpose (can hold/use memory locations), they can hold/use the Lua values themselves but Lua's high level opcodes would have to be broken up into lower level operations since Tagha is a low-level VM that operates upon the byte sizes of the data, regardless of their actual types. This may possibly result in worse performance than just running Lua's code on its respective VM.
+* A: Yes but not perfectly. If we take Lua's example, Lua values are entirely pointers to a tagged union type in which the types are either a float value, string, or table/hashmap. Since most of TaghaVMs registers are general-purpose (can manipulate integers, floating point, and memory addresses alike), they can hold/use the Lua values themselves but Lua's high level opcodes would have to be broken up into lower level operations since Tagha is a low-level VM that operates upon the byte sizes of the data, regardless of their actual types. This may possibly result in worse OR better performance than just running Lua's code on its respective VM.
 
 * Q: _**Will you implement a JIT in the future?**_
-* A: Maybe.
+* A: Maybe. I will likely not implement a JIT but I could make a compromise by adding JIT compiling support.

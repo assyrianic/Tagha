@@ -11,7 +11,7 @@ To be a worthy abstracted C runtime environment, giving Tagha runtime speed is a
 * Local function data should be aligned by a 16 byte boundary.
 * `long`, `size_t`, and `long long` should be 8 bytes in data size.
 * all binary math operations assume both operands are the same size.
-* Bytecode Function calling convention is through the registers first and then stack, calling convention uses registers `rsemkath` to `rtaw` for the first 8 arguments. `semkath` will contain the 1st argument up to `rtaw` which will contain the 8th argument, remaining params will be dumped to the stack.
+* Bytecode Function calling convention is through the registers first and then stack, calling convention uses registers `rsemkath` to `rtaw` for the first 8 arguments. `semkath` will contain the 1st argument up to `rtaw` which will contain the 8th argument, remaining params will need to be passed to the stack.
 * for C++, the `this` pointer will be placed in `rsemkath`.
 * Function return values always return in the `ralaf` register (`ralaf` is the accumulator though it's general purpose). This includes return values for natives. If the return data is larger than 64-bits, then optimize the function to take a hidden pointer obviously.
 * For consistency with natives, all native functions returning a struct scalar must be optimized to pass a hidden pointer instead if the struct scalar is not small enough to fit in a register.
@@ -25,6 +25,16 @@ extern int puts(const char *);
 * If the exported native requires more than 8 parameters, then ALL parameters must be dumped to the stack with the arguments pushed from right to left (cdecl convention).
 * `argc` and `argv` are implemented in scripts but `env` variable is not implemented (I see no reason to implement as of currently).
 * `main` MAY be able to allowed to give whatever parameters the developers embedding tagha want to give to script devs.
+* Natives that require a `va_list` as an argument will need to use the `struct Tagha_va_list` datatype. This is **REQUIRED** in order to bridge variadic arguments from bytecode to the native functions.
+
+```c
+struct Tagha_va_list {
+	union TaghaVal
+		Area,	/* stack area. */
+		Args	/* amount of args in the stack area. */
+	;
+};
+```
 
 ```c
 /* main could be its usual form */

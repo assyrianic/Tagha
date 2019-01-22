@@ -321,12 +321,6 @@ NOT-EQUAL comparison between two registers.
 local instruction jump using a signed 8 byte immediate value.
 
 
-## JMPR
-
-### Description
-local instruction jump using a register, integer value.
-
-
 ## JZ
 
 ### Description

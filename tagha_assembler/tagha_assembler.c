@@ -163,6 +163,7 @@ bool tagha_asm_parse_globalvar_directive(struct TaghaAsmbler *const restrict tas
 	if( !is_decimal(*tasm->Iter) ) {
 		tagha_asm_err_out(tasm, "missing byte size number in global directive");
 	}
+	
 	lex_number(&tasm->Iter, tasm->Lexeme);
 	const bool is_binary = !harbol_string_ncmpcstr(tasm->Lexeme, "0b", 2) || !harbol_string_ncmpcstr(tasm->Lexeme, "0B", 2) ? true : false;
 	size_t bytes = strtoull(is_binary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, is_binary ? 2 : 0);
@@ -182,7 +183,7 @@ bool tagha_asm_parse_globalvar_directive(struct TaghaAsmbler *const restrict tas
 			while( *tasm->Iter && *tasm->Iter != quote ) {
 				const char charval = *tasm->Iter++;
 				if( !charval ) { // sudden EOF?
-					tagha_asm_err_out(tasm, "sudden EOF in global directive string copying!");
+					tagha_asm_err_out(tasm, "sudden EOF while reading global directive string!");
 				}
 				// handle escape chars
 				if( charval=='\\' ) {
@@ -195,13 +196,12 @@ bool tagha_asm_parse_globalvar_directive(struct TaghaAsmbler *const restrict tas
 						case 't': harbol_string_add_char(tasm->Lexeme, '\t'); break;
 						case 'v': harbol_string_add_char(tasm->Lexeme, '\v'); break;
 						case 'f': harbol_string_add_char(tasm->Lexeme, '\f'); break;
-						case '\'': harbol_string_add_char(tasm->Lexeme, '\''); break;
-						case '"': harbol_string_add_char(tasm->Lexeme, '"'); break;
-						case '\\': harbol_string_add_char(tasm->Lexeme, '\\'); break;
 						case '0': harbol_string_add_char(tasm->Lexeme, '\0'); break;
+						default: harbol_string_add_char(tasm->Lexeme, escape);
 					}
+				} else {
+					harbol_string_add_char(tasm->Lexeme, charval);
 				}
-				else harbol_string_add_char(tasm->Lexeme, charval);
 			}
 			harbol_bytebuffer_insert_cstr(vardata, tasm->Lexeme->CStr, tasm->Lexeme->Len);
 			bytes = 0;
@@ -272,7 +272,7 @@ bool tagha_asm_parse_globalvar_directive(struct TaghaAsmbler *const restrict tas
 }
 
 // $native %name
-bool tagha_asm_parse_NativeDirective(struct TaghaAsmbler *const restrict tasm)
+bool tagha_asm_parse_native_directive(struct TaghaAsmbler *const restrict tasm)
 {
 	if( !tasm || !tasm->Src || !tasm->Iter )
 		return false;
@@ -315,7 +315,7 @@ uint8_t lex_reg_id(struct TaghaAsmbler *const restrict tasm)
 	return harbol_linkmap_get(tasm->Registers, tasm->Lexeme->CStr).UInt64;
 }
 
-void LexRegDeref(struct TaghaAsmbler *const restrict tasm, uint8_t *restrict idref, int32_t *offsetref)
+void lex_register_deref(struct TaghaAsmbler *const restrict tasm, uint8_t *restrict idref, int32_t *restrict offsetref)
 {
 	tasm->Iter++; // iterate past '['
 	tasm->ProgramCounter += 5; // 1 for byte as register id + 4 byte offset.
@@ -499,7 +499,7 @@ bool tagha_asm_parse_RegMemInstr(struct TaghaAsmbler *const restrict tasm, const
 	}
 	uint8_t srcreg;
 	int32_t offset;
-	LexRegDeref(tasm, &srcreg, &offset);
+	lex_register_deref(tasm, &srcreg, &offset);
 	
 	if( !firstpass ) {
 		struct LabelInfo *label = harbol_linkmap_get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
@@ -525,7 +525,7 @@ bool tagha_asm_parse_MemRegInstr(struct TaghaAsmbler *const restrict tasm, const
 	}
 	uint8_t destreg;
 	int32_t offset;
-	LexRegDeref(tasm, &destreg, &offset);
+	lex_register_deref(tasm, &destreg, &offset);
 	
 	// ok, let's read the secondary operand!
 	skip_whitespace(&tasm->Iter);
@@ -770,7 +770,7 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 				else if( !harbol_string_ncmpcstr(tasm->Lexeme, "$global", sizeof "$global") )
 					tagha_asm_parse_globalvar_directive(tasm);
 				else if( !harbol_string_ncmpcstr(tasm->Lexeme, "$native", sizeof "$native") )
-					tagha_asm_parse_NativeDirective(tasm);
+					tagha_asm_parse_native_directive(tasm);
 				else if( !harbol_string_ncmpcstr(tasm->Lexeme, "$safemode", sizeof "$safemode") || !harbol_string_ncmpcstr(tasm->Lexeme, "$safe", sizeof "$safe")  )
 					tasm->Safemode = 1;
 				break;
@@ -1108,7 +1108,7 @@ bool label_free(void *p)
 
 static size_t get_filesize(FILE *const restrict file)
 {
-	int64_t size = 0L;
+	long size = 0L;
 	if( !file )
 		return size;
 	
@@ -1129,7 +1129,7 @@ int main(int argc, char *argv[restrict static argc+1])
 		puts("Tagha Assembler. Part of the Tagha Runtime Environment Toolkit\nTo compile a tasm script to tbc, supply a script name as a command-line argument to the program.\nExample: './tagha_asm script.tasm'");
 	}
 	else if( !strcmp(argv[1], "--version") ) {
-		puts("Tagha Assembler Version 1.0.0");
+		puts("Tagha Assembler Version 1.0.2");
 	}
 	else {
 		for( int i=1 ; i<argc ; i++ ) {
@@ -1137,7 +1137,7 @@ int main(int argc, char *argv[restrict static argc+1])
 			if( !tasmfile )
 				continue;
 			
-			struct TaghaAsmbler *const tasm = &(struct TaghaAsmbler){0};
+			struct TaghaAsmbler *const restrict tasm = &(struct TaghaAsmbler){0};
 			tasm->Src = tasmfile;
 			tasm->SrcSize = get_filesize(tasmfile);
 			harbol_string_init_cstr(&tasm->OutputName, argv[i]);

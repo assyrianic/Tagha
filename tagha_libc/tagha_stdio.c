@@ -1,35 +1,44 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "tagha_libc.h"
+
+
+int32_t _tagha_gen_printf(const char *fmt, struct HarbolString *buffer, size_t currarg, union TaghaVal params[], size_t paramsize);
 
 /*
  * File Ops
  */
 
 /* int remove(const char *filename); */
-static void native_remove(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_remove(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = remove(params[0].Ptr);
 }
 
 /* int rename(const char *oldname, const char *newname); */
-static void native_rename(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_rename(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = rename(params[0].Ptr, params[1].Ptr);
 }
 
 /* FILE *tmpfile(void); */
-static void native_tmpfile(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_tmpfile(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc; (void)params;
 	retval->Ptr = tmpfile();
 }
 
 /* char *tmpnam(char *str); */
-static void native_tmpnam(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+/* tmpnam is dangerous to use.
+static void native_tmpnam(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Ptr = tmpnam(params[0].Ptr);
 }
+*/
 
 
 /*
@@ -37,47 +46,49 @@ static void native_tmpnam(struct TaghaModule *const restrict module, union Tagha
  */
 
 /* int fclose(FILE *stream); */
-static void native_fclose(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fclose(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	if( params[0].Ptr ) {
-		retval->Int32 = fclose(params[0].Ptr);
-		return;
-	}
-	retval->Int32 = -1;
+	(void)module; (void)argc;
+	FILE *const restrict f = params[0].Ptr;
+	retval->Int32 = f ? fclose(f) : -1;
 }
 
 /* int fflush(FILE *stream); */
-static void native_fflush(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fflush(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = fflush(params[0].Ptr);
 }
 
 /* FILE *fopen(const char *filename, const char *modes); */
 static void native_fopen(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	const char *mode = params[1].Ptr;
+	(void)module; (void)argc;
+	const char *restrict mode = params[1].Ptr;
 	if( !mode ) {
 		return;
 	}
-	retval->Ptr = fopen(params[0].Ptr, mode);
+	else retval->Ptr = fopen(params[0].Ptr, mode);
 }
 
 /* FILE *freopen(const char *filename, const char *mode, FILE *stream); */
 static void native_freopen(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	const char *filename = params[0].Ptr;
-	const char *mode = params[1].Ptr;
-	FILE *stream = params[2].Ptr;
+	(void)module; (void)argc;
+	const char *restrict filename = params[0].Ptr;
+	const char *restrict mode = params[1].Ptr;
+	FILE *restrict stream = params[2].Ptr;
 	
 	if( !filename || !mode || !stream ) {
-		return; // retval data is already zeroed out.
+		return; /* retval data is already zeroed out. */
 	}
 	else retval->Ptr = freopen(filename, mode, stream);
 }
 
 /* void setbuf(FILE *stream, char *buffer); */
-static void native_setbuf(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_setbuf(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc; (void)retval;
 	FILE *stream = params[0].Ptr;
 	if( !stream ) {
 		return;
@@ -85,253 +96,237 @@ static void native_setbuf(struct TaghaModule *const restrict module, union Tagha
 }
 
 
-#define TAGHA_PRINTF_BUFFER_SIZE    1024
-static char _tagha_printf_buffer[TAGHA_PRINTF_BUFFER_SIZE];
-static char *_tagha_buffer_iter = &_tagha_printf_buffer[TAGHA_PRINTF_BUFFER_SIZE-1];
-
-void _int_to_str_convert(uint64_t num, const size_t base)
-{
-	const char *numerals = "0123456789ABCDEF";
-	char *restrict iter = _tagha_buffer_iter;
-	*iter = 0;
-	do {
-		*--iter = numerals[num % base];
-		num /= base;
-	} while( num != 0 );
-}
 
 /* int fprintf(FILE *stream, const char *format, ...); */
 static void native_fprintf(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	FILE *const restrict stream = params[0].Ptr;
-	if( !stream ) {
-		retval->Int32 = -1;
-		return;
-	}
-	
 	const char *restrict fmt = params[1].Ptr;
-	if( !fmt ) {
+	if( !stream || !fmt ) {
 		retval->Int32 = -1;
 		return;
+	} else {
+		struct HarbolString buf = {NULL,0};
+		_tagha_gen_printf(fmt, &buf, 2, params, argc-2);
+		retval->Int32 = fprintf(stream, "%s", buf.CStr);
+		harbol_string_del(&buf);
 	}
-	
-	size_t param = 1;
-	int32_t chars_written = 0;
-	for( ; *fmt ; fmt++ ) {
-		if( *fmt!='%' ) {
-			continue;
-		} else {
-			fmt++;
-			const char spec = *fmt++;
-			switch( *fmt ) {
-				case 'i': case 'd': {
-					fprintf(stream, "%i", );
-					break;
-				}
-			}
-		}
-	}
-	retval->Int32 = fprintf(stream, "%s", _tagha_printf_buffer);
-}
-
-/* int fscanf(FILE *stream, const char *format, ...); */
-static void native_fscanf(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
-{
-	FILE *stream = params[0].Ptr;
-	if( !stream ) {
-		retval->Int32 = -1;
-		return;
-	}
-	
-	const char *fmt = params[1].Ptr;
-	if( !fmt ) {
-		retval->Int32 = -1;
-		return;
-	}
-	// flags
-#define LONGADJ  0x00000001  /* adjust for longer values like "lli" */
-#define LONGDBLADJ  0x00000002  /* adjust for long double like "Lf" */
-#define HALFADJ  0x00000004  /* adjust for long double like "Lf" */
-#define HALFHALFADJ  0x00000008  /* adjust for long double like "Lf" */
-	
-	// %[*][width][length]specifier
-	size_t width=0;
-	
-	for( ; *fmt ; fmt++ ) {
-		if( *fmt != '%' )
-			continue;
-		// found a width, parse its number.
-		if( *fmt>='0' and *fmt<='9' )
-			while( *fmt>='0' and *fmt<='9' )
-				width = width * 10 + *fmt++ - '0';
-		
-		if( *fmt=='d' || *fmt=='i' ) {
-			
-		}
-		else if( *fmt=='u' || *fmt=='x' || *fmt=='o' ) {
-			
-		}
-	}
-	
-	retval->Int32 = -1;
-	// Need some help with this one...
 }
 
 /* int printf(const char *fmt, ...); */
 static void native_printf(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	const char *str = params[0].Ptr;
-	if( !str ) {
+	(void)module; (void)argc;
+	const char *restrict fmt = params[0].Ptr;
+	if( !fmt ) {
 		retval->Int32 = -1;
 		return;
+	} else {
+		struct HarbolString buf = {NULL,0};
+		_tagha_gen_printf(fmt, &buf, 1, params, argc-1);
+		retval->Int32 = printf("%s", buf.CStr);
+		harbol_string_del(&buf);
 	}
-	retval->Int32 = 0;
 }
 
+
+/* int vprintf(const char *fmt, va_list arg); */
+static void native_vprintf(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+{
+	(void)module; (void)argc;
+	const char *restrict fmt = params[0].Ptr;
+	if( !fmt ) {
+		retval->Int32 = -1;
+		return;
+	} else {
+		const struct Tagha_va_list *const valist = params[1].Ptr;
+		struct HarbolString buf = {NULL,0};
+		_tagha_gen_printf(fmt, &buf, 0, valist->Area.PtrSelf, valist->Args.SizeInt);
+		retval->Int32 = printf("%s", buf.CStr);
+		harbol_string_del(&buf);
+	}
+}
+
+
+/* int fscanf(FILE *stream, const char *format, ...); */
+/*
+static void native_fscanf(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+{
+	(void)module; (void)argc;
+	FILE *const restrict stream = params[0].Ptr;
+	const char *restrict fmt = params[1].Ptr;
+	if( !stream || !fmt ) {
+		retval->Int32 = -1;
+		return;
+	} else {
+		retval->Int32 = -1;
+	}
+}
+*/
 /* int puts(const char *s); */
 static void native_puts(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	const char *str = params[0].Ptr;
-	if( !str ) {
+	(void)module; (void)argc;
+	const char *restrict s = params[0].Ptr;
+	if( !s ) {
 		retval->Int32 = -1;
 		return;
 	}
 	// push back the value of the return val of puts.
-	retval->Int32 = puts(str);
+	retval->Int32 = puts(s);
 }
 
 /* int setvbuf(FILE *stream, char *buffer, int mode, size_t size); */
 static void native_setvbuf(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	FILE *stream = params[0].Ptr;
-	char *buffer = params[1].Ptr;
-	if( !stream ) {
+	(void)module; (void)argc;
+	FILE *const restrict stream = params[0].Ptr;
+	char *restrict buffer = params[1].Ptr;
+	if( !stream || !buffer ) {
 		retval->Int32 = -1;
 		return;
 	}
-	else if( !buffer ) {
-		retval->Int32 = -1;
-		return;
-	}
-	retval->Int32 = setvbuf(stream, buffer, params[2].Int32, params[3].UInt64);
+	else retval->Int32 = setvbuf(stream, buffer, params[2].Int32, params[3].UInt64);
 }
 
 /* int fgetc(FILE *stream); */
-static void native_fgetc(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fgetc(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = fgetc(params[0].Ptr);
 }
 
 /* char *fgets(char *str, int num, FILE *stream); */
-static void native_fgets(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fgets(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Ptr = fgets(params[0].Ptr, params[1].Int32, params[2].Ptr);
 }
 
 /* int fputc(int character, FILE *stream); */
-static void native_fputc(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fputc(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = fputc(params[0].Int32, params[1].Ptr);
 }
 
 /* int fputs(const char *str, FILE *stream); */
-static void native_fputs(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fputs(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = fputs(params[0].Ptr, params[1].Ptr);
 }
 
 /* int getc(FILE *stream); */
-static void native_getc(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_getc(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = getc(params[0].Ptr);
 }
 
 /* int getchar(void); */
-static void native_getchar(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_getchar(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc; (void)params;
 	retval->Int32 = getchar();
 }
 
 /* int putc(int character, FILE *stream); */
-static void native_putc(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_putc(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = putc(params[0].Int32, params[1].Ptr);
 }
 
 /* int putchar(int character); */
-static void native_putchar(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_putchar(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = putchar(params[0].Int32);
 }
 
 /* int ungetc(int character, FILE *stream); */
-static void native_ungetc(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_ungetc(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = ungetc(params[0].Int32, params[1].Ptr);
 }
 
 /* size_t fread(void *ptr, size_t size, size_t count, FILE *stream); */
-static void native_fread(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fread(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->UInt64 = fread(params[0].Ptr, params[1].UInt64, params[2].UInt64, params[3].Ptr);
 }
 
 /* size_t fwrite(const void *ptr, size_t size, size_t count, FILE *stream); */
-static void native_fwrite(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fwrite(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->UInt64 = fwrite(params[0].Ptr, params[1].UInt64, params[2].UInt64, params[3].Ptr);
 }
 
 /* int fseek(FILE *stream, long int offset, int origin); */
-static void native_fseek(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_fseek(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	retval->Int32 = fseek(params[0].Ptr, params[1].UInt64, params[2].Int32);
+	(void)module; (void)argc;
+	retval->Int32 = fseek(params[0].Ptr, params[1].Int64, params[2].Int32);
 }
 
 /* long int ftell(FILE *stream); */
-static void native_ftell(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_ftell(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int64 = ftell(params[0].Ptr);
 }
 
 /* void rewind(FILE *stream); */
-static void native_rewind(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_rewind(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc; (void)retval;
 	rewind(params[0].Ptr);
 }
 
 /* void clearerr(FILE *stream); */
-static void native_clearerr(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_clearerr(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc; (void)retval;
 	clearerr(params[0].Ptr);
 }
 
 /* int feof(FILE *stream); */
-static void native_feof(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_feof(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = feof(params[0].Ptr);
 }
 
 /* int ferror(FILE *stream); */
-static void native_ferror(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_ferror(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = ferror(params[0].Ptr);
 }
 
 /* void perror(const char *str); */
-static void native_perror(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_perror(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc; (void)retval;
 	perror(params[0].Ptr);
 }
 
 
-bool tagha_module_load_stdio_natives(struct TaghaModule *const restrict module)
+bool tagha_module_load_stdio_natives(struct TaghaModule *const module)
 {
 	const struct TaghaNative libc_stdio_natives[] = {
 		{"remove", native_remove},
 		{"rename", native_rename},
 		{"tmpfile", native_tmpfile},
+		/*{"tmpnam", native_tmpnam},*/
 		{"printf", native_printf},
+		{"fprintf", native_fprintf},
+		{"vprintf", native_vprintf},
 		{"puts", native_puts},
 		{"fopen", native_fopen},
 		{"fclose", native_fclose},
@@ -360,4 +355,131 @@ bool tagha_module_load_stdio_natives(struct TaghaModule *const restrict module)
 		{NULL, NULL}
 	};
 	return module ? tagha_module_register_natives(module, libc_stdio_natives) : false;
+}
+
+
+int32_t _tagha_printf_write_decimal_int(struct HarbolString *const buffer, const union TaghaVal value, const bool is64bit)
+{
+	char buf[30u]={0};
+	const int32_t chars_written = is64bit ? sprintf(buf, "%" PRIi64 "", value.Int64) : sprintf(buf, "%" PRIi32 "", value.Int32);
+	buf[29]=0;
+	harbol_string_add_cstr(buffer, buf);
+	return chars_written;
+}
+
+int32_t _tagha_printf_write_decimal_uint(struct HarbolString *const buffer, const union TaghaVal value, const bool is64bit)
+{
+	char buf[30u]={0};
+	const int32_t chars_written = is64bit ? sprintf(buf, "%" PRIu64 "", value.UInt64) : sprintf(buf, "%" PRIu32 "", value.UInt32);
+	buf[29]=0;
+	harbol_string_add_cstr(buffer, buf);
+	return chars_written;
+}
+
+int32_t _tagha_printf_write_hex(struct HarbolString *const buffer, const union TaghaVal value, const bool is64bit, const bool capital_letters)
+{
+	char buf[30u]={0};
+	const int32_t chars_written = is64bit
+		? sprintf(buf, capital_letters ? "%" PRIX64 "" : "%" PRIx64 "", value.UInt64)
+		: sprintf(buf, capital_letters ? "%" PRIX32 "" : "%" PRIx32 "", value.UInt32);
+	buf[29]=0;
+	harbol_string_add_cstr(buffer, buf);
+	return chars_written;
+}
+
+int32_t _tagha_printf_write_octal(struct HarbolString *const buffer, const union TaghaVal value, const bool is64bit)
+{
+	char buf[30u]={0};
+	const int32_t chars_written = is64bit
+		? sprintf(buf, "%" PRIo64 "", value.UInt64)
+		: sprintf(buf, "%" PRIo32 "", value.UInt32);
+	buf[29]=0;
+	harbol_string_add_cstr(buffer, buf);
+	return chars_written;
+}
+
+int32_t _tagha_printf_write_float(struct HarbolString *const buffer, const union TaghaVal value, const bool is64bit)
+{
+	char buf[30u]={0};
+	const int32_t chars_written = is64bit ? sprintf(buf, "%f", value.Double) : sprintf(buf, "%f", value.Float);
+	buf[29]=0;
+	harbol_string_add_cstr(buffer, buf);
+	return chars_written;
+}
+
+
+int32_t _tagha_gen_printf(const char *restrict fmt, struct HarbolString *const restrict buffer, size_t currarg, union TaghaVal params[restrict], const size_t paramsize)
+{
+#	define FLAG_LONG	1
+#	define FLAG_FLTLONG	2
+	int32_t chars_written = 0;
+	for( ; *fmt ; fmt++ ) {
+		if( currarg>=paramsize )
+			break;
+		uint_least8_t flags = 0;
+		if( *fmt=='%' ) {
+printf_loop_restart:
+			fmt++;
+			switch( *fmt ) {
+				case 'l':
+					flags |= FLAG_LONG;
+					/* jumping from here so we can increment the char ptr for additional reading. */
+					goto printf_loop_restart;
+				case 'L':
+					flags |= FLAG_FLTLONG;
+					goto printf_loop_restart;
+				/* print int */
+				case 'i': case 'd':
+					chars_written += _tagha_printf_write_decimal_int(buffer, params[currarg++], flags & FLAG_LONG);
+					break;
+				/* print uint */
+				case 'u':
+					chars_written += _tagha_printf_write_decimal_uint(buffer, params[currarg++], flags & FLAG_LONG);
+					break;
+				/* print hex */
+				case 'x': case 'X':
+					chars_written += _tagha_printf_write_hex(buffer, params[currarg++], flags & FLAG_LONG, *fmt=='X');
+					break;
+				/* print octal */
+				case 'o':
+					chars_written += _tagha_printf_write_octal(buffer, params[currarg++], flags & FLAG_LONG);
+					break;
+				/* print ptr */
+				case 'p': case 'P':
+					chars_written += _tagha_printf_write_hex(buffer, params[currarg++], true, *fmt=='P');
+					break;
+				/* print double */
+				case 'f': case 'F':
+					chars_written += _tagha_printf_write_float(buffer, params[currarg++], true);
+					break;
+				case 's': {
+					const char *restrict s = params[currarg++].Ptr;
+					const size_t slen = strlen(s);
+					harbol_string_add_cstr(buffer, s);
+					chars_written += slen;
+					break;
+				}
+				case '%':
+					chars_written++;
+					harbol_string_add_char(buffer, *fmt);
+					break;
+			}
+		} else if( *fmt=='\\' ) {
+			fmt++;
+			switch( *fmt ) {
+				case 'a': harbol_string_add_char(buffer, '\a'); break;
+				case 'r': harbol_string_add_char(buffer, '\r'); break;
+				case 'b': harbol_string_add_char(buffer, '\b'); break;
+				case 't': harbol_string_add_char(buffer, '\t'); break;
+				case 'v': harbol_string_add_char(buffer, '\v'); break;
+				case 'n': harbol_string_add_char(buffer, '\n'); break;
+				case 'f': harbol_string_add_char(buffer, '\f'); break;
+			}
+			chars_written++;
+		} else {
+			chars_written++;
+			harbol_string_add_char(buffer, *fmt);
+		}
+	}
+	return chars_written;
 }

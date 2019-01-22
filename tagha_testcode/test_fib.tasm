@@ -4,6 +4,7 @@ $safe
 %main: {
 	movi	rsemkath, 34
 	call	%fib
+;.exit:
 	ret
 }
 

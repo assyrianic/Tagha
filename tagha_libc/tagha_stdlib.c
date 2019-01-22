@@ -1,80 +1,94 @@
-
 #include <stdlib.h>
+#include "tagha_libc.h"
 
 /* void *malloc(size_t size); */
-static void native_malloc(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_malloc(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	// size_t is 8 bytes on 64-bit moduletems
+	(void)module; (void)argc;
+	/* size_t is 8 bytes on 64-bit systems */
 	retval->Ptr = calloc(1, params[0].UInt64);
 }
 
 /* void free(void *ptr); */
-static void native_free(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_free(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc; (void)retval;
 	free(params[0].Ptr);
 }
 
-/* non-standard addition. */
-/* void safe_free(void *ptrref); */
+/* non-standard addition.
+	bool safe_free(void *ptrref);
+*/
 static void native_safe_free(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	void **restrict ptrref = params[0].Ptr;
 	if( *ptrref ) {
 		free(*ptrref), *ptrref=NULL;
+		retval->Bool = true;
 	}
 }
 
 /* void *calloc(size_t num, size_t size); */
-static void native_calloc(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_calloc(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Ptr = calloc(params[0].UInt64, params[1].UInt64);
 }
 
 /* void *realloc(void *ptr, size_t size); */
-static void native_realloc(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_realloc(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Ptr = realloc(params[0].Ptr, params[1].UInt64);
 }
 
 /* void srand(unsigned int seed); */
-static void native_srand(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_srand(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc; (void)retval;
 	srand(params[0].UInt32);
 }
 
 /* int rand(void); */
-static void native_rand(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_rand(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc; (void)params;
 	retval->Int32 = rand();
 }
 
 /* double atof(const char *str); */
-static void native_atof(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_atof(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Double = atof(params[0].Ptr);
 }
 
 /* int atoi(const char *str); */
-static void native_atoi(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_atoi(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = atoi(params[0].Ptr);
 }
 
 /* long int atol(const char *str); */
-static void native_atol(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_atol(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int64 = atol(params[0].Ptr);
 }
 
 /* long long int atoll(const char *str); */
-static void native_atoll(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+static void native_atoll(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int64 = atoll(params[0].Ptr);
 }
 
 /* double strtod(const char *str, char **endptr); */
 static void native_strtod(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	const char *restrict str = params[0].Ptr;
 	if( !str )
 		return;
@@ -84,6 +98,7 @@ static void native_strtod(struct TaghaModule *const restrict module, union Tagha
 /* float strtof(const char *str, char **endptr); */
 static void native_strtof(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	const char *restrict str = params[0].Ptr;
 	if( !str )
 		return;
@@ -93,6 +108,7 @@ static void native_strtof(struct TaghaModule *const restrict module, union Tagha
 /* long int strtol(const char *str, char **endptr, int base); */
 static void native_strtol(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	const char *restrict str = params[0].Ptr;
 	if( !str )
 		return;
@@ -102,6 +118,7 @@ static void native_strtol(struct TaghaModule *const restrict module, union Tagha
 /* long long int strtoll(const char *str, char **endptr, int base); */
 static void native_strtoll(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	const char *restrict str = params[0].Ptr;
 	if( !str )
 		return;
@@ -111,6 +128,7 @@ static void native_strtoll(struct TaghaModule *const restrict module, union Tagh
 /* unsigned long int strtoul(const char *str, char **endptr, int base); */
 static void native_strtoul(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	const char *restrict str = params[0].Ptr;
 	if( !str )
 		return;
@@ -120,6 +138,7 @@ static void native_strtoul(struct TaghaModule *const restrict module, union Tagh
 /* unsigned long long int strtoull(const char *str, char **endptr, int base); */
 static void native_strtoull(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	const char *restrict str = params[0].Ptr;
 	if( !str )
 		return;
@@ -129,41 +148,47 @@ static void native_strtoull(struct TaghaModule *const restrict module, union Tag
 /* void abort(void); */
 static void native_abort(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc; (void)params; (void)retval;
 	abort();
 }
 
 /* void exit(int status); */
 static void native_exit(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc; (void)params; (void)retval;
 	exit(params[0].Int32);
 }
 
-/* int moduletem(const char *command); */
-static void native_moduletem(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
+/* int system(const char *command); */
+static void native_system(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	const char *restrict command = params[0].Ptr;
 	if( !command ) {
 		retval->Int32 = -1;
 		return;
 	}
-	retval->Int32 = moduletem(command);
+	retval->Int32 = system(command);
 }
 
 /* int abs(int n); */
 static void native_abs(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = abs(params[0].Int32);
 }
 
 /* long int labs(long int n); */
 static void native_labs(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int64 = labs(params[0].Int64);
 }
 
 /* long long int llabs(long long int n); */
 static void native_llabs(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int64 = llabs(params[0].Int64);
 }
 
@@ -179,6 +204,7 @@ One wrong move could render this native function as undefined behavior.
 */
 static void native_div(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	const div_t divres = div(params[1].Int32, params[2].Int32);
 	memcpy(retval, &divres, sizeof divres);
 }
@@ -207,42 +233,48 @@ void lldiv(lldiv_t *res, long long int numer, long long int denom);
 */
 static void native_lldiv(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
-	lldiv_t *res = params[0].Ptr;
+	(void)module; (void)argc; (void)retval;
+	lldiv_t *const res = params[0].Ptr;
 	*res = lldiv(params[1].Int64, params[2].Int64);
 }
 
 /* int mblen(const char *pmb, size_t max); */
 static void native_mblen(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = mblen(params[0].Ptr, params[1].UInt64);
 }
 
 /* int mbtowc(wchar_t *pwc, const char *pmb, size_t max); */
 static void native_mbtowc(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = mbtowc(params[0].Ptr, params[1].Ptr, params[2].UInt64);
 }
 
 /* int wctomb(char *pmb, wchar_t wc); */
 static void native_wctomb(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->Int32 = wctomb(params[0].Ptr, sizeof(wchar_t)==2 ? params[1].UInt16 : params[1].UInt32);
 }
 
 /* size_t mbstowcs(wchar_t *dest, const char *src, size_t max); */
 static void native_mbstowcs(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->UInt64 = mbstowcs(params[0].Ptr, params[1].Ptr, params[2].UInt64);
 }
 
 /* size_t wcstombs(char *dest, const wchar_t *src, size_t max); */
 static void native_wcstombs(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t argc, union TaghaVal params[restrict static argc])
 {
+	(void)module; (void)argc;
 	retval->UInt64 = wcstombs(params[0].Ptr, params[1].Ptr, params[2].UInt64);
 }
 
 
-bool tagha_module_load_stdlib_natives(struct TaghaModule *const restrict module)
+bool tagha_module_load_stdlib_natives(struct TaghaModule *const module)
 {
 	const struct TaghaNative libc_stdlib_natives[] = {
 		{"malloc", native_malloc},
@@ -264,7 +296,7 @@ bool tagha_module_load_stdlib_natives(struct TaghaModule *const restrict module)
 		{"strtoull", native_strtoull},
 		{"abort", native_abort},
 		{"exit", native_exit},
-		{"moduletem", native_moduletem},
+		{"system", native_system},
 		{"abs", native_abs},
 		{"labs", native_labs},
 		{"llabs", native_llabs},
