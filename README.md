@@ -2,6 +2,9 @@
 
 ![Tagha Logo by Noxabellus and modified by Khanno](https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/intermediary/f/efc8ece3-f4a3-4477-8ebb-cb9595fb9e58/dcx0vh7-7c8a2027-14e9-48a9-a0e9-638260f44433.png/v1/fill/w_400,h_462,strp/tagha_virtual_machine_logo_by_assyrianic_dcx0vh7-fullview.png)
 
+[![star this repo](http://githubbadges.com/star.svg?user=assyrianic&repo=tagha&style=plastic)](https://github.com/assyrianic/tagha)
+[![forks repo](http://githubbadges.com/fork.svg?user=assyrianic&repo=tagha&style=plastic)](https://github.com/assyrianic/tagha)
+
 ## Introduction
 
 **Tagha** is a minimal, fast, memory-safe, self-contained register-based virtual machine && runtime environment designed as an alternative to a C dynamic loading plugin systems with intent to giving binary portability to C code!
@@ -13,7 +16,7 @@
 + 3. be open-source.
 + 4. have a runtime environment without dependencies (beyond libc of course)
 + 5. be portable and embeddable for any program and platform.
-+ 6. be small and minimal.
++ 6. be small and minimal. ![file size](https://img.shields.io/github/repo-size/assyrianic/tagha.svg?style=plastic)
 + 7. be memory safe.
 
 
@@ -130,6 +133,7 @@ If you wish to build and test the tagha code base, compile `test_hostapp.c` with
 I can be contacted through the discord link (https://discord.gg/2NKFgPS).
 
 ## License
+![License](https://img.shields.io/github/license/assyrianic/tagha.svg?label=License&style=plastic)
 
 This project is licensed under MIT License.
 
