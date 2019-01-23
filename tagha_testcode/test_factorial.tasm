@@ -9,7 +9,7 @@ $global i, 12,	0
 $global n, 4, byte 0, byte 0, byte 0, byte 0x40 # alternative: long 0x40000000 or 1073741824
 
 # global var for strings, number is string length WITH null terminator.
-$global str, 30,	"bytecode says you suck hahaah"
+$global str, 30,	"bytecode says you suck hahaah \u0710"
 $native %puts
 
 ; $safe and $safemode (same thing) added memory bounds checking

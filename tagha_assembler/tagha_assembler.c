@@ -170,6 +170,7 @@ bool tagha_asm_parse_stack_directive(struct TaghaAsmbler *const restrict tasm)
 	skip_whitespace(&tasm->Iter);
 	if( !is_decimal(*tasm->Iter) ) {
 		tagha_asm_err_out(tasm, "stack size directive requires a valid number!");
+		return false;
 	}
 	lex_number(&tasm->Iter, tasm->Lexeme);
 	const bool is_binary = !harbol_string_ncmpcstr(tasm->Lexeme, "0b", 2) || !harbol_string_ncmpcstr(tasm->Lexeme, "0B", 2) ? true : false;
@@ -186,6 +187,7 @@ bool tagha_asm_parse_globalvar_directive(struct TaghaAsmbler *const restrict tas
 	skip_whitespace(&tasm->Iter);
 	if( !is_alphabetic(*tasm->Iter) ) {
 		tagha_asm_err_out(tasm, "global directive requires the 1st argument to be a variable name!");
+		return false;
 	}
 	
 	struct HarbolString *varname = &(struct HarbolString){0};
@@ -197,6 +199,7 @@ bool tagha_asm_parse_globalvar_directive(struct TaghaAsmbler *const restrict tas
 	
 	if( !is_decimal(*tasm->Iter) ) {
 		tagha_asm_err_out(tasm, "missing byte size number in global directive");
+		return false;
 	}
 	
 	lex_number(&tasm->Iter, tasm->Lexeme);
@@ -205,6 +208,7 @@ bool tagha_asm_parse_globalvar_directive(struct TaghaAsmbler *const restrict tas
 	struct HarbolByteBuffer *vardata = harbol_bytebuffer_new();
 	if( !vardata ) {
 		tagha_asm_err_out(tasm, "out of memory trying to allocate bytebuffer for global var data!");
+		return false;
 	}
 	skip_whitespace(&tasm->Iter);
 	if( *tasm->Iter==',' )
@@ -212,13 +216,14 @@ bool tagha_asm_parse_globalvar_directive(struct TaghaAsmbler *const restrict tas
 	
 	while( bytes ) {
 		skip_whitespace(&tasm->Iter);
-		if( *tasm->Iter=='"'||*tasm->Iter=='\'' ) { // string
+		if( *tasm->Iter=='"' ) { // string
 			harbol_string_del(tasm->Lexeme);
 			const char quote = *tasm->Iter++;
 			while( *tasm->Iter && *tasm->Iter != quote ) {
 				const char charval = *tasm->Iter++;
 				if( !charval ) { // sudden EOF?
 					tagha_asm_err_out(tasm, "sudden EOF while reading global directive string!");
+					return false;
 				}
 				// handle escape chars
 				if( charval=='\\' ) {
@@ -238,15 +243,21 @@ bool tagha_asm_parse_globalvar_directive(struct TaghaAsmbler *const restrict tas
 							for( size_t i=0 ; i<encoding*2 ; i++ ) {
 								const int32_t c = *tasm->Iter++;
 								switch( c ) {
-									case '0' ... '9': r = (r << 4) | (c - '0'); break;
-									case 'a' ... 'f': r = (r << 4) | (c - 'a' + 10); break;
-									case 'A' ... 'F': r = (r << 4) | (c - 'A' + 10); break;
-									default: tagha_asm_err_out(tasm, "invalid unicode character: '%c'", c);
+									case '0' ... '9':
+										r = (r << 4) | (c - '0'); break;
+									case 'a' ... 'f':
+										r = (r << 4) | (c - 'a' + 10); break;
+									case 'A' ... 'F':
+										r = (r << 4) | (c - 'A' + 10); break;
+									default:
+										tagha_asm_err_out(tasm, "invalid unicode character: '%c'", c);
+										return false;
 								}
 							}
-							if( !is_valid_ucn(r) )
+							if( !is_valid_ucn(r) ) {
 								tagha_asm_err_out(tasm, "invalid universal character: '\\U%0*x'", encoding, r);
-							else write_utf8(tasm, r);
+								return false;
+							} else write_utf8(tasm, r);
 							break;
 						}
 						case 'u': {
@@ -255,15 +266,21 @@ bool tagha_asm_parse_globalvar_directive(struct TaghaAsmbler *const restrict tas
 							for( size_t i=0 ; i<encoding*2 ; i++ ) {
 								const int32_t c = *tasm->Iter++;
 								switch( c ) {
-									case '0' ... '9': r = (r << 4) | (c - '0'); break;
-									case 'a' ... 'f': r = (r << 4) | (c - 'a' + 10); break;
-									case 'A' ... 'F': r = (r << 4) | (c - 'A' + 10); break;
-									default: tagha_asm_err_out(tasm, "invalid unicode character: '%c'", c);
+									case '0' ... '9':
+										r = (r << 4) | (c - '0'); break;
+									case 'a' ... 'f':
+										r = (r << 4) | (c - 'a' + 10); break;
+									case 'A' ... 'F':
+										r = (r << 4) | (c - 'A' + 10); break;
+									default:
+										tagha_asm_err_out(tasm, "invalid unicode character: '%c'", c);
+										return false;
 								}
 							}
-							if( !is_valid_ucn(r) )
+							if( !is_valid_ucn(r) ) {
 								tagha_asm_err_out(tasm, "invalid universal character: '\\u%0*x'", encoding, r);
-							else write_utf8(tasm, r);
+								return false;
+							} else write_utf8(tasm, r);
 							break;
 						}
 						default: harbol_string_add_char(tasm->Lexeme, escape);
@@ -286,6 +303,7 @@ bool tagha_asm_parse_globalvar_directive(struct TaghaAsmbler *const restrict tas
 			const uint64_t data = strtoull(is_binary ? tasm->Lexeme->CStr+2 : tasm->Lexeme->CStr, NULL, is_binary ? 2 : 0);
 			if( data ) {
 				tagha_asm_err_out(tasm, "single numeric arguments for global vars must be 0!");
+				return false;
 			}
 			while( bytes-- )
 				harbol_bytebuffer_insert_byte(vardata, 0);
@@ -328,6 +346,7 @@ bool tagha_asm_parse_globalvar_directive(struct TaghaAsmbler *const restrict tas
 		}
 		else {
 			tagha_asm_err_out(tasm, "global var directive data set is incomplete, must be equal to bytesize given.");
+			return false;
 		}
 	}
 #ifdef TASM_DEBUG
@@ -352,12 +371,14 @@ bool tagha_asm_parse_native_directive(struct TaghaAsmbler *const restrict tasm)
 	skip_whitespace(&tasm->Iter);
 	if( *tasm->Iter != '%' ) {
 		tagha_asm_err_out(tasm, "missing %% for native name declaration!");
+		return false;
 	}
 	lex_identifier(&tasm->Iter, tasm->Lexeme);
 	
 	struct LabelInfo *label = calloc(1, sizeof *label);
 	if( !label ) {
 		tagha_asm_err_out(tasm, "out of memory trying to allocate label!");
+		return false;
 	}
 	label->Addr = 0;
 	label->IsFunc = label->IsNativeFunc = true;
@@ -382,6 +403,7 @@ uint8_t lex_reg_id(struct TaghaAsmbler *const restrict tasm)
 	lex_identifier(&tasm->Iter, tasm->Lexeme);
 	if( !harbol_linkmap_has_key(tasm->Registers, tasm->Lexeme->CStr) ) {
 		tagha_asm_err_out(tasm, "invalid register name '%s'", tasm->Lexeme->CStr);
+		return 0;
 	}
 	tasm->ProgramCounter++;
 	return harbol_linkmap_get(tasm->Registers, tasm->Lexeme->CStr).UInt64;
@@ -395,6 +417,7 @@ void lex_register_deref(struct TaghaAsmbler *const restrict tasm, uint8_t *restr
 	lex_identifier(&tasm->Iter, tasm->Lexeme);
 	if( !harbol_linkmap_has_key(tasm->Registers, tasm->Lexeme->CStr) ) {
 		tagha_asm_err_out(tasm, "invalid register name '%s' in register indirection", tasm->Lexeme->CStr);
+		return;
 	}
 	*idref = harbol_linkmap_get(tasm->Registers, tasm->Lexeme->CStr).UInt64;
 	*offsetref = 0;
@@ -405,12 +428,14 @@ void lex_register_deref(struct TaghaAsmbler *const restrict tasm, uint8_t *restr
 	const char closer = *tasm->Iter;
 	if( closer != '-' && closer != '+' && closer != ']' ) {
 		tagha_asm_err_out(tasm, "invalid offset math operator '%c' in register indirection", closer);
+		return;
 	}
 	else if( closer=='-' || closer=='+' ) {
 		tasm->Iter++;
 		skip_whitespace(&tasm->Iter);
 		if( !is_decimal(*tasm->Iter) ) {
 			tagha_asm_err_out(tasm, "invalid offset '%s' in register indirection", tasm->Lexeme->CStr);
+			return;
 		}
 		lex_number(&tasm->Iter, tasm->Lexeme);
 		skip_whitespace(&tasm->Iter);
@@ -422,6 +447,7 @@ void lex_register_deref(struct TaghaAsmbler *const restrict tasm, uint8_t *restr
 	}
 	if( *tasm->Iter != ']' ) {
 		tagha_asm_err_out(tasm, "missing closing ']' bracket in register indirection");
+		return;
 	}
 	tasm->Iter++;
 }
@@ -436,6 +462,7 @@ int64_t lex_label_value(struct TaghaAsmbler *const restrict tasm, const bool fir
 	
 	if( !firstpass && !harbol_linkmap_has_key(isfunclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr) ) {
 		tagha_asm_err_out(tasm, "undefined label '%s'", tasm->Lexeme->CStr);
+		return 0;
 	}
 	if( !firstpass ) {
 		struct LabelInfo *label = harbol_linkmap_get(isfunclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr).Ptr;
@@ -464,6 +491,7 @@ bool tagha_asm_parse_RegRegInstr(struct TaghaAsmbler *const restrict tasm, const
 	
 	if( *tasm->Iter != 'r' ) {
 		tagha_asm_err_out(tasm, "opcode requires a register as 1st operand.");
+		return false;
 	}
 	const uint8_t destreg = lex_reg_id(tasm);
 	
@@ -476,6 +504,7 @@ bool tagha_asm_parse_RegRegInstr(struct TaghaAsmbler *const restrict tasm, const
 	
 	if( *tasm->Iter != 'r' ) {
 		tagha_asm_err_out(tasm, "opcode requires a register as 2nd operand.");
+		return false;
 	}
 	const uint8_t srcreg = lex_reg_id(tasm);
 	
@@ -483,6 +512,7 @@ bool tagha_asm_parse_RegRegInstr(struct TaghaAsmbler *const restrict tasm, const
 		struct LabelInfo *label = harbol_linkmap_get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
 		if( !label ) {
 			tagha_asm_err_out(tasm, "undefined label '%s'.", tasm->ActiveFuncLabel->CStr);
+			return false;
 		}
 		harbol_bytebuffer_insert_byte(&label->Bytecode, destreg);
 		harbol_bytebuffer_insert_byte(&label->Bytecode, srcreg);
@@ -498,12 +528,14 @@ bool tagha_asm_parse_OneRegInstr(struct TaghaAsmbler *const restrict tasm, const
 	skip_whitespace(&tasm->Iter);
 	if( *tasm->Iter != 'r' ) {
 		tagha_asm_err_out(tasm, "opcode requires a register as 1st operand.");
+		return false;
 	}
 	const uint8_t regid = lex_reg_id(tasm);
 	if( !firstpass ) {
 		struct LabelInfo *label = harbol_linkmap_get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
 		if( !label ) {
 			tagha_asm_err_out(tasm, "undefined label '%s'.", tasm->ActiveFuncLabel->CStr);
+			return false;
 		}
 		harbol_bytebuffer_insert_byte(&label->Bytecode, regid);
 	}
@@ -529,6 +561,7 @@ bool tagha_asm_parse_OneImmInstr(struct TaghaAsmbler *const restrict tasm, const
 		lex_identifier(&tasm->Iter, tasm->Lexeme);
 		if( !harbol_linkmap_has_key(tasm->VarTable, tasm->Lexeme->CStr) ) {
 			tagha_asm_err_out(tasm, "undefined global var '%s' in opcode.", tasm->Lexeme->CStr);
+			return false;
 		}
 		tasm->ProgramCounter += 8;
 		immval = harbol_linkmap_get_index_by_name(tasm->VarTable, tasm->Lexeme->CStr);
@@ -538,12 +571,14 @@ bool tagha_asm_parse_OneImmInstr(struct TaghaAsmbler *const restrict tasm, const
 	}
 	else {
 		tagha_asm_err_out(tasm, "opcode requires an immediate or label value as 1st operand.");
+		return false;
 	}
 	
 	if( !firstpass ) {
 		struct LabelInfo *label = harbol_linkmap_get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
 		if( !label ) {
 			tagha_asm_err_out(tasm, "undefined label '%s'.", tasm->ActiveFuncLabel->CStr);
+			return false;
 		}
 		harbol_bytebuffer_insert_integer(&label->Bytecode, immval, sizeof immval);
 	}
@@ -559,6 +594,7 @@ bool tagha_asm_parse_RegMemInstr(struct TaghaAsmbler *const restrict tasm, const
 	
 	if( *tasm->Iter != 'r' ) {
 		tagha_asm_err_out(tasm, "opcode requires a register as 1st operand.");
+		return false;
 	}
 	const uint8_t destreg = lex_reg_id(tasm);
 	
@@ -571,6 +607,7 @@ bool tagha_asm_parse_RegMemInstr(struct TaghaAsmbler *const restrict tasm, const
 	
 	if( *tasm->Iter != '[' ) {
 		tagha_asm_err_out(tasm, "opcode requires a memory dereference as 1st operand.");
+		return false;
 	}
 	uint8_t srcreg;
 	int32_t offset;
@@ -580,6 +617,7 @@ bool tagha_asm_parse_RegMemInstr(struct TaghaAsmbler *const restrict tasm, const
 		struct LabelInfo *label = harbol_linkmap_get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
 		if( !label ) {
 			tagha_asm_err_out(tasm, "undefined label '%s'.", tasm->ActiveFuncLabel->CStr);
+			return false;
 		}
 		harbol_bytebuffer_insert_byte(&label->Bytecode, destreg);
 		harbol_bytebuffer_insert_byte(&label->Bytecode, srcreg);
@@ -597,6 +635,7 @@ bool tagha_asm_parse_MemRegInstr(struct TaghaAsmbler *const restrict tasm, const
 	
 	if( *tasm->Iter != '[' ) {
 		tagha_asm_err_out(tasm, "opcode requires a memory dereference as 1st operand.");
+		return false;
 	}
 	uint8_t destreg;
 	int32_t offset;
@@ -610,6 +649,7 @@ bool tagha_asm_parse_MemRegInstr(struct TaghaAsmbler *const restrict tasm, const
 	skip_whitespace(&tasm->Iter);
 	if( *tasm->Iter != 'r' ) {
 		tagha_asm_err_out(tasm, "opcode requires a register as 2nd operand.");
+		return false;
 	}
 	const uint8_t srcreg = lex_reg_id(tasm);
 	
@@ -617,6 +657,7 @@ bool tagha_asm_parse_MemRegInstr(struct TaghaAsmbler *const restrict tasm, const
 		struct LabelInfo *label = harbol_linkmap_get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
 		if( !label ) {
 			tagha_asm_err_out(tasm, "undefined label '%s'.", tasm->ActiveFuncLabel->CStr);
+			return false;
 		}
 		harbol_bytebuffer_insert_byte(&label->Bytecode, destreg);
 		harbol_bytebuffer_insert_byte(&label->Bytecode, srcreg);
@@ -633,6 +674,7 @@ bool tagha_asm_parse_RegImmInstr(struct TaghaAsmbler *const restrict tasm, const
 	skip_whitespace(&tasm->Iter);
 	if( *tasm->Iter != 'r' ) {
 		tagha_asm_err_out(tasm, "opcode requires a register as 1st operand.");
+		return false;
 	}
 	const uint8_t regid = lex_reg_id(tasm);
 	
@@ -655,6 +697,7 @@ bool tagha_asm_parse_RegImmInstr(struct TaghaAsmbler *const restrict tasm, const
 		lex_identifier(&tasm->Iter, tasm->Lexeme);
 		if( !harbol_linkmap_has_key(tasm->VarTable, tasm->Lexeme->CStr) ) {
 			tagha_asm_err_out(tasm, "undefined global var '%s' in opcode.", tasm->Lexeme->CStr);
+			return false;
 		}
 		tasm->ProgramCounter += 8;
 		immval = harbol_linkmap_get_index_by_name(tasm->VarTable, tasm->Lexeme->CStr);
@@ -664,12 +707,14 @@ bool tagha_asm_parse_RegImmInstr(struct TaghaAsmbler *const restrict tasm, const
 	}
 	else {
 		tagha_asm_err_out(tasm, "opcode requires an immediate or label value as 2nd operand.");
+		return false;
 	}
 	
 	if( !firstpass ) {
 		struct LabelInfo *label = harbol_linkmap_get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
 		if( !label ) {
 			tagha_asm_err_out(tasm, "undefined label '%s'.", tasm->ActiveFuncLabel->CStr);
+			return false;
 		}
 		harbol_bytebuffer_insert_byte(&label->Bytecode, regid);
 		harbol_bytebuffer_insert_integer(&label->Bytecode, immval, sizeof immval);
@@ -1171,6 +1216,7 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 	FILE *tbcscript = fopen(line_buffer, "w+");
 	if( !tbcscript ) {
 		tagha_asm_err_out(tasm, "unable to create output file!");
+		goto assembling_err_exit;
 	}
 	//for( size_t n=0 ; n<(tasm->Stacksize*8) ; n++ )
 	//	harbol_bytebuffer_insert_byte(&tbcfile, 0);

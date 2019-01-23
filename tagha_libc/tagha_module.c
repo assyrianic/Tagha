@@ -22,10 +22,10 @@ static void native_tagha_module_get_globalvar_by_name(struct TaghaModule *const 
 }
 
 /* bool tagha_module_free(struct TaghaModule **modref); */
-static void native_tagha_module_free(struct TaghaModule *const module, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
+static void native_tagha_module_free(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
 {
 	(void)module; (void)args;
-	struct TaghaModule **modref = params[0].Ptr;
+	struct TaghaModule **restrict modref = params[0].Ptr;
 	retval->Bool = tagha_module_free(modref);
 }
 

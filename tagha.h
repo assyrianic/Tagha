@@ -51,7 +51,7 @@ typedef union TaghaVal {
 	double Double, *PtrDouble;
 #endif
 	void *Ptr;
-	const char *PtrCStr;
+	const char *PtrConstChar;
 	union TaghaVal *PtrSelf;
 } TaghaVal;
 
@@ -72,7 +72,7 @@ typedef union TaghaPtr {
 #ifdef __TAGHA_FLOAT64_DEFINED
 	double *restrict PtrDouble;
 #endif
-	const char *restrict PtrCStr;
+	const char *restrict PtrConstChar;
 	
 	union TaghaVal *restrict PtrVal;
 	union TaghaPtr *restrict PtrSelf;
@@ -211,6 +211,7 @@ typedef struct TaghaModule {
 		union TaghaVal *Stack;
 		size_t StackSize;
 	};
+	size_t FuncBound;
 	enum TaghaErrCode Error : 8;
 	bool SafeMode : 1;
 } TaghaModule; // 416 bytes

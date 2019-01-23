@@ -115,6 +115,7 @@ static bool _read_module_data(struct TaghaModule *const restrict module, uint8_t
 		harbol_linkmap_insert(&module->FuncMap, cstr, (const union HarbolValue){ .Ptr=funcitem });
 		iter.PtrUInt8 += datalen;
 	}
+	module->FuncBound = module->Heap.HeapBottom - module->Heap.HeapMem;
 	//printf("remaining after func table == %zu\n", harbol_mempool_get_remaining(&module->Heap));
 	
 	//printf("var_table_size == '%u'\n", var_table_size);
@@ -337,16 +338,22 @@ TAGHA_EXPORT bool tagha_module_register_natives(struct TaghaModule *const module
 		struct TaghaItem *const item = harbol_linkmap_get(&module->FuncMap, n->Name).Ptr;
 		if( !item || item->Flags != 1 )
 			continue;
-		item->NativeFunc = n->NativeCFunc;
-		item->Flags = 3;
+		else {
+			item->NativeFunc = n->NativeCFunc;
+			item->Flags = 3;
+		}
 	}
 	return true;
 }
 
-TAGHA_EXPORT bool tagha_module_register_ptr(struct TaghaModule *const restrict module, const char varname[restrict], void *ptr)
+TAGHA_EXPORT bool tagha_module_register_ptr(struct TaghaModule *const module, const char varname[restrict], void *ptr)
 {
-	void **restrict p = tagha_module_get_globalvar_by_name(module, varname);
-	if( !p )
+	const uintptr_t
+		mem_start = (uintptr_t)module->Heap.HeapMem,
+		mem_end = (uintptr_t)(module->Heap.HeapMem + module->FuncBound)
+	;
+	void **p = tagha_module_get_globalvar_by_name(module, varname);
+	if( !p || (uintptr_t)p<mem_start || (uintptr_t)p>=mem_end )
 		return false;
 	else {
 		*p = ptr;
@@ -354,12 +361,12 @@ TAGHA_EXPORT bool tagha_module_register_ptr(struct TaghaModule *const restrict m
 	}
 }
 
-TAGHA_EXPORT void *tagha_module_get_globalvar_by_name(struct TaghaModule *const restrict module, const char varname[restrict])
+TAGHA_EXPORT void *tagha_module_get_globalvar_by_name(struct TaghaModule *const module, const char varname[restrict])
 {
 	if( !module || !varname )
 		return NULL;
 	else {
-		const struct TaghaItem *const restrict item = harbol_linkmap_get(&module->VarMap, varname).Ptr;
+		const struct TaghaItem *const item = harbol_linkmap_get(&module->VarMap, varname).Ptr;
 		return item ? item->RawPtr : NULL;
 	}
 }
@@ -369,7 +376,7 @@ TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module
 	if( !module || !func_name )
 		return -1;
 	
-	struct TaghaItem *const restrict item = harbol_linkmap_get(&module->FuncMap, func_name).Ptr;
+	struct TaghaItem *const item = harbol_linkmap_get(&module->FuncMap, func_name).Ptr;
 	/* null item? we're missing a function then. */
 	if( !item ) {
 		module->Error = ErrMissingFunc;
@@ -393,7 +400,7 @@ TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module
 		/* save stack space by using the registers for passing arguments.
 			the other registers can be used for different operations. */
 		if( args <= reg_params ) {
-			memcpy(module->Regs+reg_param_initial, params, bytecount);
+			memcpy(&module->Regs[reg_param_initial], params, bytecount);
 		}
 		/* if the function has more than a certain num of params, push from both registers and stack. */
 		else {
@@ -402,8 +409,8 @@ TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module
 				module->Error = ErrStackOver;
 				return -1;
 			} else {
-				memcpy(module->Regs+reg_param_initial, params, sizeof(union TaghaVal) * reg_params);
-				memcpy(module->regStk.PtrSelf, params+reg_params, sizeof(union TaghaVal) * (args-reg_params));
+				memcpy(&module->Regs[reg_param_initial], params, sizeof(union TaghaVal) * reg_params);
+				memcpy(module->regStk.PtrSelf, &params[reg_params], sizeof(union TaghaVal) * (args-reg_params));
 				module->regStk.PtrSelf -= (args-reg_params);
 			}
 		}
@@ -448,7 +455,7 @@ TAGHA_EXPORT int32_t tagha_module_run(struct TaghaModule *const restrict module,
 	 * Also for 32-bit systems, cap out the maximum arguments to 32 pointers.
 	 */
 #define MAX_ARGS_32BIT    32
-		union TaghaVal argv[MAX_ARGS_32BIT+1] = {0};
+		union TaghaVal argv[MAX_ARGS_32BIT+1] = {{0x0}};
 		if( sargv )
 			for( int32_t i=0 ; i<argc && i<MAX_ARGS_32BIT ; i++ )
 				argv[i].Ptr = sargv[i];
@@ -476,14 +483,16 @@ TAGHA_EXPORT void tagha_module_force_safemode(struct TaghaModule *const module)
 	module->SafeMode = true;
 }
 
-//#include <unistd.h>	// sleep() func
+//#include <unistd.h>	/* sleep() func */
 
-static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
+static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 {
+	/* pc is restricted and must not access beyond the function table! */
 	union TaghaPtr pc = {vm->regInstr.PtrUInt8};
+	
 	const uint8_t
-		*const restrict mem_start = vm->Heap.HeapMem,
-		*const restrict mem_end = vm->Heap.HeapMem + vm->Heap.HeapSize + 1
+		*const mem_start = vm->Heap.HeapMem,
+		*const mem_end = vm->Heap.HeapMem + vm->FuncBound
 	;
 	
 #define X(x) #x ,
@@ -541,15 +550,14 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	
 	exec_loadglobal: { /* char: opcode | char: regid | u64: index */
 		const uint8_t regid = *pc.PtrUInt8++;
-		const struct TaghaItem *const restrict global = vm->VarMap.Order.Table[*pc.PtrUInt64++].KvPairPtr->Data.Ptr;
+		const struct TaghaItem *const global = vm->VarMap.Order.Table[*pc.PtrUInt64++].KvPairPtr->Data.Ptr;
 		vm->Regs[regid].Ptr = global->RawPtr;
 		DISPATCH();
 	}
 	/* loads a function index which could be a native */
 	exec_loadfunc: { /* char: opcode | char: regid | i64: index */
 		const uint8_t regid = *pc.PtrUInt8++;
-		//vm->Regs[regid] = *pc.PtrVal++;
-		memcpy(&vm->Regs[regid], pc.PtrVal++, sizeof(int64_t));
+		vm->Regs[regid] = *pc.PtrVal++;
 		DISPATCH();
 	}
 	exec_loadaddr: { /* char: opcode | char: regid1 | char: regid2 | i32: offset */
@@ -560,21 +568,18 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	
 	exec_movi: { /* char: opcode | char: regid | i64: imm */
 		const uint8_t regid = *pc.PtrUInt8++;
-		//vm->Regs[regid] = *pc.PtrVal++;
-		memcpy(&vm->Regs[regid], pc.PtrVal++, sizeof(union TaghaVal));
+		vm->Regs[regid] = *pc.PtrVal++;
 		DISPATCH();
 	}
 	exec_mov: { /* char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.PtrUInt16++;
-		//vm->Regs[regids & 0xff] = vm->Regs[regids >> 8];
-		memcpy(&vm->Regs[regids & 0xff], &vm->Regs[regids >> 8], sizeof(union TaghaVal));
+		vm->Regs[regids & 0xff] = vm->Regs[regids >> 8];
 		DISPATCH();
 	}
 	
 	exec_ld1: { /* char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids >> 8].PtrUInt8 + *pc.PtrInt32++};
-		// do a memcheck here.
 		if( vm->SafeMode && (mem.PtrUInt8 < mem_start || mem.PtrUInt8 >= mem_end) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
@@ -586,7 +591,6 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	exec_ld2: { /* char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids >> 8].PtrUInt8 + *pc.PtrInt32++};
-		// do a memcheck here.
 		if( vm->SafeMode && (mem.PtrUInt8 < mem_start || mem.PtrUInt8+1 >= mem_end) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
@@ -598,7 +602,6 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	exec_ld4: { /* char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids >> 8].PtrUInt8 + *pc.PtrInt32++};
-		// do a memcheck here.
 		if( vm->SafeMode && (mem.PtrUInt8 < mem_start || mem.PtrUInt8+3 >= mem_end) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
@@ -610,7 +613,6 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	exec_ld8: { /* char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids >> 8].PtrUInt8 + *pc.PtrInt32++};
-		// do a memcheck here.
 		if( vm->SafeMode && (mem.PtrUInt8 < mem_start || mem.PtrUInt8+7 >= mem_end) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
@@ -623,12 +625,10 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	exec_st1: { /* char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids & 0xff].PtrUInt8 + *pc.PtrInt32++};
-		// do a memcheck here.
 		if( vm->SafeMode && (mem.PtrUInt8 < mem_start || mem.PtrUInt8 >= mem_end) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		} else {
-			//memcpy(mem.Ptr, &vm->Regs[regids >> 8], sizeof(uint8_t));
 			*mem.PtrUInt8 = vm->Regs[regids >> 8].UInt8;
 			DISPATCH();
 		}
@@ -636,12 +636,10 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	exec_st2: { /* char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids & 0xff].PtrUInt8 + *pc.PtrInt32++};
-		// do a memcheck here.
 		if( vm->SafeMode && (mem.PtrUInt8 < mem_start || mem.PtrUInt8+1 >= mem_end) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		} else {
-			//memcpy(mem.Ptr, &vm->Regs[regids >> 8], sizeof(uint16_t));
 			*mem.PtrUInt16 = vm->Regs[regids >> 8].UInt16;
 			DISPATCH();
 		}
@@ -649,12 +647,10 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	exec_st4: { /* char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids & 0xff].PtrUInt8 + *pc.PtrInt32++};
-		// do a memcheck here.
 		if( vm->SafeMode && (mem.PtrUInt8 < mem_start || mem.PtrUInt8+3 >= mem_end) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		} else {
-			//memcpy(mem.Ptr, &vm->Regs[regids >> 8], sizeof(uint32_t));
 			*mem.PtrUInt32 = vm->Regs[regids >> 8].UInt32;
 			DISPATCH();
 		}
@@ -662,13 +658,11 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	exec_st8: { /* char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.PtrUInt16++;
 		const union TaghaPtr mem = {vm->Regs[regids & 0xff].PtrUInt8 + *pc.PtrInt32++};
-		// do a memcheck here.
 		if( vm->SafeMode && (mem.PtrUInt8 < mem_start || mem.PtrUInt8+7 >= mem_end) ) {
 			vm->Error = ErrBadPtr;
 			return -1;
 		} else {
-			memcpy(mem.Ptr, &vm->Regs[regids >> 8], sizeof(uint64_t));
-			//*mem.PtrUInt64 = vm->Regs[regids >> 8].UInt64;
+			*mem.PtrUInt64 = vm->Regs[regids >> 8].UInt64;
 			DISPATCH();
 		}
 	}
@@ -823,7 +817,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	}
 	exec_call: { /* char: opcode | i64: offset */
 		const int64_t index = *pc.PtrInt64++;
-		const struct TaghaItem *const restrict func = vm->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
+		const struct TaghaItem *const func = vm->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
 		if( func->Flags & TAGHA_FLAG_NATIVE ) {
 			if( func->Flags != TAGHA_FLAG_NATIVE+TAGHA_FLAG_LINKED ) {
 				vm->Error = ErrMissingNative;
@@ -862,7 +856,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const restrict vm)
 	exec_callr: { /* char: opcode | char: regid */
 		const uint8_t regid = *pc.PtrUInt8++;
 		const int64_t index = vm->Regs[regid].Int64;
-		const struct TaghaItem *const restrict func = vm->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
+		const struct TaghaItem *const func = vm->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
 		if( func->Flags & TAGHA_FLAG_NATIVE ) {
 			if( func->Flags != TAGHA_FLAG_NATIVE+TAGHA_FLAG_LINKED ) {
 				vm->Error = ErrMissingNative;
