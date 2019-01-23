@@ -40,7 +40,7 @@ static inline bool is_possible_ident(const char c)
 {
 	return( (c >= 'a' && c <= 'z')
 		|| (c >= 'A' && c <= 'Z')
-		|| c == '_'
+		|| c=='_' || c=='@' || c=='$'
 		|| (c >= '0' && c <= '9')
 		|| c < -1 );
 }
@@ -49,9 +49,16 @@ static inline bool is_alphabetic(const char c)
 {
 	return( (c >= 'a' && c <= 'z')
 		|| (c >= 'A' && c <= 'Z')
-		|| c == '_'
+		|| c=='_' || c=='@' || c=='$'
 		|| c < -1 );
 }
+
+inline bool is_valid_ucn(const int32_t c) {
+	if( 0xD800<=c && c<=0xDFFF )
+		return false;
+	else return( 0xA0<=c||c=='$'||c=='@'||c=='`' );
+}
+
 
 static bool skip_whitespace(char **restrict strRef)
 {
@@ -123,7 +130,35 @@ void tagha_asm_err_out(struct TaghaAsmbler *const restrict tasm, const char err[
 	vprintf(err, args);
 	printf(" **** | line %zu in file '%s'\n", tasm->CurrLine, tasm->OutputName.CStr);
 	va_end(args);
-	exit(1);
+	tasm->Error = true;
+}
+
+void write_utf8(struct TaghaAsmbler *const tasm, const int32_t chr)
+{
+	const uint32_t rune = (uint32_t)chr;
+	if (rune < 0x80) {
+		harbol_string_add_char(tasm->Lexeme, rune);
+		return;
+	}
+	if (rune < 0x800) {
+		harbol_string_add_char(tasm->Lexeme, 0xC0 | (rune >> 6));
+		harbol_string_add_char(tasm->Lexeme, 0x80 | (rune & 0x3F));
+		return;
+	}
+	if (rune < 0x10000) {
+		harbol_string_add_char(tasm->Lexeme, 0xE0 | (rune >> 12));
+		harbol_string_add_char(tasm->Lexeme, 0x80 | ((rune >> 6) & 0x3F));
+		harbol_string_add_char(tasm->Lexeme, 0x80 | (rune & 0x3F));
+		return;
+	}
+	if (rune < 0x200000) {
+		harbol_string_add_char(tasm->Lexeme, 0xF0 | (rune >> 18));
+		harbol_string_add_char(tasm->Lexeme, 0x80 | ((rune >> 12) & 0x3F));
+		harbol_string_add_char(tasm->Lexeme, 0x80 | ((rune >> 6) & 0x3F));
+		harbol_string_add_char(tasm->Lexeme, 0x80 | (rune & 0x3F));
+		return;
+	}
+	tagha_asm_err_out(tasm, "invalid unicode character: \\U%08x", rune);
 }
 
 // $stacksize <number>
@@ -177,7 +212,7 @@ bool tagha_asm_parse_globalvar_directive(struct TaghaAsmbler *const restrict tas
 	
 	while( bytes ) {
 		skip_whitespace(&tasm->Iter);
-		if( *tasm->Iter=='"' ) { // HarbolString
+		if( *tasm->Iter=='"'||*tasm->Iter=='\'' ) { // string
 			harbol_string_del(tasm->Lexeme);
 			const char quote = *tasm->Iter++;
 			while( *tasm->Iter && *tasm->Iter != quote ) {
@@ -197,12 +232,49 @@ bool tagha_asm_parse_globalvar_directive(struct TaghaAsmbler *const restrict tas
 						case 'v': harbol_string_add_char(tasm->Lexeme, '\v'); break;
 						case 'f': harbol_string_add_char(tasm->Lexeme, '\f'); break;
 						case '0': harbol_string_add_char(tasm->Lexeme, '\0'); break;
+						case 'U': {
+							int32_t r = 0;
+							const size_t encoding = 4;
+							for( size_t i=0 ; i<encoding*2 ; i++ ) {
+								const int32_t c = *tasm->Iter++;
+								switch( c ) {
+									case '0' ... '9': r = (r << 4) | (c - '0'); break;
+									case 'a' ... 'f': r = (r << 4) | (c - 'a' + 10); break;
+									case 'A' ... 'F': r = (r << 4) | (c - 'A' + 10); break;
+									default: tagha_asm_err_out(tasm, "invalid unicode character: '%c'", c);
+								}
+							}
+							if( !is_valid_ucn(r) )
+								tagha_asm_err_out(tasm, "invalid universal character: '\\U%0*x'", encoding, r);
+							else write_utf8(tasm, r);
+							break;
+						}
+						case 'u': {
+							int32_t r = 0;
+							const size_t encoding = 2;
+							for( size_t i=0 ; i<encoding*2 ; i++ ) {
+								const int32_t c = *tasm->Iter++;
+								switch( c ) {
+									case '0' ... '9': r = (r << 4) | (c - '0'); break;
+									case 'a' ... 'f': r = (r << 4) | (c - 'a' + 10); break;
+									case 'A' ... 'F': r = (r << 4) | (c - 'A' + 10); break;
+									default: tagha_asm_err_out(tasm, "invalid unicode character: '%c'", c);
+								}
+							}
+							if( !is_valid_ucn(r) )
+								tagha_asm_err_out(tasm, "invalid universal character: '\\u%0*x'", encoding, r);
+							else write_utf8(tasm, r);
+							break;
+						}
 						default: harbol_string_add_char(tasm->Lexeme, escape);
 					}
 				} else {
 					harbol_string_add_char(tasm->Lexeme, charval);
 				}
 			}
+#ifdef TASM_DEBUG
+			printf("tasm: global string '%s'\n", tasm->Lexeme->CStr);
+#endif
 			harbol_bytebuffer_insert_cstr(vardata, tasm->Lexeme->CStr, tasm->Lexeme->Len);
 			bytes = 0;
 		}
@@ -359,6 +431,9 @@ int64_t lex_label_value(struct TaghaAsmbler *const restrict tasm, const bool fir
 	const bool isfunclbl = *tasm->Iter=='%';
 	lex_identifier(&tasm->Iter, tasm->Lexeme);
 	tasm->ProgramCounter += 8;
+	if( !isfunclbl )
+		harbol_string_add_str(tasm->Lexeme, tasm->ActiveFuncLabel);
+	
 	if( !firstpass && !harbol_linkmap_has_key(isfunclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr) ) {
 		tagha_asm_err_out(tasm, "undefined label '%s'", tasm->Lexeme->CStr);
 	}
@@ -743,6 +818,8 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 		//printf("tasm debug: printing line:: '%s'\n", tasm->Iter);
 	#endif
 		while( *tasm->Iter ) {
+			if( tasm->Error )
+				break;
 			harbol_string_del(tasm->Lexeme);
 			// skip whitespace.
 			skip_whitespace(&tasm->Iter);
@@ -789,24 +866,34 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 				if( funclbl ) {
 					if( *tasm->Iter != '{' ) {
 						tagha_asm_err_out(tasm, "missing curly '{' bracket! Curly bracket must be on the same line as label.");
+						continue;
 					}
-					tasm->Iter++;
+					else tasm->Iter++;
 				}
 				
 				if( !is_alphabetic(tasm->Lexeme->CStr[1]) ) {
 					tagha_asm_err_out(tasm, "%s labels must have alphabetic names!", funclbl ? "function" : "jump");
-				}
-				else if( harbol_linkmap_has_key(funclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr) ) {
+					continue;
+				} else if( harbol_linkmap_has_key(funclbl ? tasm->FuncTable : tasm->LabelTable, tasm->Lexeme->CStr) ) {
 					tagha_asm_err_out(tasm, "redefinition of label '%s'.", tasm->Lexeme->CStr);
+					continue;
 				}
 				
 				struct LabelInfo *label = calloc(1, sizeof *label);
 				if( !label ) {
 					tagha_asm_err_out(tasm, "out of memory trying to allocate a new label!");
+					continue;
 				}
 				if( funclbl ) {
 					tasm->ActiveFuncLabel = &(struct HarbolString){0};
 					harbol_string_copy_str(tasm->ActiveFuncLabel, tasm->Lexeme);
+				} else {
+					if( !tasm->ActiveFuncLabel ) {
+						tagha_asm_err_out(tasm, "jump label outside of function block!");
+						break;
+					} else {
+						harbol_string_add_str(tasm->Lexeme, tasm->ActiveFuncLabel);
+					}
 				}
 				label->Addr = tasm->ProgramCounter;
 				label->IsFunc = funclbl;
@@ -819,10 +906,12 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 			else if( is_alphabetic(*tasm->Iter) ) {
 				if( !tasm->ActiveFuncLabel ) {
 					tagha_asm_err_out(tasm, "opcode outside of function block!");
+					continue;
 				}
 				lex_identifier(&tasm->Iter, tasm->Lexeme);
 				if( !harbol_linkmap_has_key(tasm->Opcodes, tasm->Lexeme->CStr) ) {
 					tagha_asm_err_out(tasm, "unknown opcode '%s'!", tasm->Lexeme->CStr);
+					continue;
 				}
 				uint8_t opcode = harbol_linkmap_get(tasm->Opcodes, tasm->Lexeme->CStr).UInt64;
 				switch( opcode ) {
@@ -874,6 +963,8 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 			}
 		}
 	}
+	if( tasm->Error )
+		goto assembling_err_exit;
 #ifdef TASM_DEBUG
 	puts("\ntasm: FIRST PASS End!\n");
 #endif
@@ -891,6 +982,8 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 		//printf("tasm debug: printing line:: '%s'\n", tasm->Iter);
 	#endif
 		while( *tasm->Iter ) {
+			if( tasm->Error )
+				break;
 			harbol_string_del(tasm->Lexeme);
 			// skip whitespace.
 			skip_whitespace(&tasm->Iter);
@@ -923,6 +1016,7 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 				lex_identifier(&tasm->Iter, tasm->Lexeme);
 				if( !harbol_linkmap_has_key(tasm->Opcodes, tasm->Lexeme->CStr) ) {
 					tagha_asm_err_out(tasm, "unknown opcode '%s'!", tasm->Lexeme->CStr);
+					continue;
 				}
 				uint8_t opcode = harbol_linkmap_get(tasm->Opcodes, tasm->Lexeme->CStr).UInt64;
 				struct LabelInfo *label = harbol_linkmap_get(tasm->FuncTable, tasm->ActiveFuncLabel->CStr).Ptr;
@@ -977,6 +1071,8 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 		}
 	}
 	
+	if( tasm->Error )
+		goto assembling_err_exit;
 #ifdef TASM_DEBUG
 	puts("\ntasm: SECOND PASS End!\n");
 #endif
@@ -1080,8 +1176,9 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 	//	harbol_bytebuffer_insert_byte(&tbcfile, 0);
 	harbol_bytebuffer_to_file(&tbcfile, tbcscript);
 	fclose(tbcscript); tbcscript=NULL;
-	
 	harbol_bytebuffer_del(&tbcfile);
+
+assembling_err_exit:
 	harbol_string_del(&tasm->OutputName);
 	harbol_string_del(tasm->Lexeme);
 	harbol_string_del(tasm->ActiveFuncLabel);
@@ -1092,6 +1189,7 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 	harbol_linkmap_del(tasm->Opcodes, NULL);
 	harbol_linkmap_del(tasm->Registers, NULL);
 	fclose(tasm->Src); tasm->Src=NULL;
+	memset(tasm, 0, sizeof *tasm);
 	return true;
 }
 

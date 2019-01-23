@@ -30,6 +30,7 @@ struct TaghaAsmbler {
 	size_t SrcSize, ProgramCounter, CurrLine;
 	uint32_t Stacksize;
 	uint8_t Safemode : 1;
+	bool Error : 1;
 };
 
 

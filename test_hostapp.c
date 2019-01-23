@@ -7,47 +7,11 @@
 
 
 
-/* size_t strlen(const char *s); */
-void Native_strlen(struct TaghaModule *const restrict sys, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
-{
-	(void)sys; (void)args;
-	const char *restrict s = params[0].Ptr;
-	for( ; *s ; s++ );
-	retval->UInt64 = (s - (const char *)params[0].Ptr);
-}
-
 /* int add_one(int i); */
-void Native_add_one(struct TaghaModule *const sys, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
+void native_add_one(struct TaghaModule *const mod, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
 {
-	(void)sys; (void)args;
+	(void)mod; (void)args;
 	retval->Int32 = params[0].Int32 + 1;
-}
-
-/* struct TaghaModule *tagha_module_new_from_file(const char filename[]); */
-void native_tagha_module_new_from_file(struct TaghaModule *const restrict sys, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
-{
-	(void)sys; (void)args;
-	//puts("called tagha_module_new_from_file native.");
-	retval->Ptr = tagha_module_new_from_file(params[0].Ptr);
-	//printf("tagha_module_new_from_file return value: %p.\n", retval->Ptr);
-}
-
-/* int32_t tagha_module_call(struct TaghaModule *module, const char funcname[], size_t args, union TaghaVal params[], union TaghaVal *return_val); */
-void native_tagha_module_call(struct TaghaModule *const restrict sys, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
-{
-	(void)sys; (void)args;
-	//puts("\ncalling tagha_module_call...");
-	retval->Int32 = tagha_module_call(params[0].Ptr, params[1].PtrCStr, params[2].UInt64, params[3].PtrSelf, params[4].PtrSelf);
-	//printf("tagha_module_call return value: %i.\n", retval->Int32);
-}
-
-/* bool tagha_module_free(struct TaghaModule **modref); */
-void native_tagha_module_free(struct TaghaModule *const restrict sys, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
-{
-	(void)sys; (void)args;
-	struct TaghaModule **modref = params[0].Ptr;
-	//printf("tagha_module_free modref: %p.\n", modref);
-	retval->Bool = tagha_module_free(modref);
 }
 
 
@@ -86,11 +50,16 @@ int main(const int argc, char *argv[restrict static argc+1])
 			}
 		}
 		*/
+		/* make our global pointers available, if the module has them defined and uses them. */
 		tagha_module_register_ptr(module, "stdin", stdin);
 		tagha_module_register_ptr(module, "stdout", stdout);
 		tagha_module_register_ptr(module, "stderr", stderr);
 		tagha_module_register_ptr(module, "self", module);
+		
+		/* load tagha library natives! */
 		tagha_module_load_stdio_natives(module);
+		tagha_module_load_string_natives(module);
+		tagha_module_load_module_natives(module);
 		
 		struct Player {
 			float speed;
@@ -101,11 +70,7 @@ int main(const int argc, char *argv[restrict static argc+1])
 		tagha_module_register_ptr(module, "g_pPlayer", &player);
 		
 		const struct TaghaNative host_natives[] = {
-			{"strlen", Native_strlen},
-			{"add_one", Native_add_one},
-			{"tagha_module_new_from_file", native_tagha_module_new_from_file},
-			{"tagha_module_call", native_tagha_module_call},
-			{"tagha_module_free", native_tagha_module_free},
+			{"add_one", native_add_one},
 			{NULL, NULL}
 		};
 		tagha_module_register_natives(module, host_natives);
@@ -117,9 +82,8 @@ int main(const int argc, char *argv[restrict static argc+1])
 		const int32_t result = tagha_module_run(module, 2, module_args);
 		const clock_t end = clock();
 		tagha_module_print_vm_state(module);
-		//if( pp )
-		printf("player.speed: '%f' | player.health: '%u' | player.ammo: '%u'\n", player.speed, player.health, player.ammo);
-		printf("running module... result?: '%i'\nerror?: '%s'\nprofiling time: '%f'\n", result, tagha_module_get_error(module), (end-start)/(double)CLOCKS_PER_SEC);
+		
+		printf("player.speed: '%f' | player.health: '%u' | player.ammo: '%u'\nrunning module... result?: '%i'\nerror?: '%s'\nprofiling time: '%f'\n", player.speed, player.health, player.ammo, result, tagha_module_get_error(module), (end-start)/(double)CLOCKS_PER_SEC);
 	}
 	printf("freeing module... result?: '%u'\n", tagha_module_del(module));
 	free(module), module=NULL;

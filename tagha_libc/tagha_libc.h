@@ -13,6 +13,7 @@ bool tagha_module_load_ctype_natives(struct TaghaModule *module);
 bool tagha_module_load_stdlib_natives(struct TaghaModule *module);
 bool tagha_module_load_string_natives(struct TaghaModule *module);
 bool tagha_module_load_time_natives(struct TaghaModule *module);
+bool tagha_module_load_module_natives(struct TaghaModule *module);
 #endif
 
 #ifdef __cplusplus
