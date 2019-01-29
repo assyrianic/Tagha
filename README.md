@@ -78,7 +78,8 @@ Simply drop a message or your question and you'll be reached in no time!
 
 ### Requirements
 
-C99 compiler and libc implementation with stdlib.h, stdio.h, and stddef.h. Everything the code base requires is there.
+C11 compliant compiler and libc implementation with stdlib.h, stdio.h, and stddef.h. Everything the code base requires is there.
+It is preferable that you compile using GCC or Clang/LLVM.
 
 ### Installation
 

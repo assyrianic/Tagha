@@ -21,18 +21,18 @@ HARBOL_EXPORT void harbol_linkmap_init(struct HarbolLinkMap *const map)
 
 HARBOL_EXPORT void harbol_linkmap_del(struct HarbolLinkMap *const map, fnDestructor *const dtor)
 {
-	if( !map || !map->Table )
+	if( !map || !map->Map.Table )
 		return;
 	
-	for( size_t i=0 ; i<map->Len ; i++ ) {
-		struct HarbolVector *vec = map->Table+i;
+	for( size_t i=0 ; i<map->Map.Len ; i++ ) {
+		struct HarbolVector *vec = map->Map.Table+i;
 		for( size_t i=0 ; i<vec->Len ; i++ ) {
 			struct HarbolKeyValPair *kv = vec->Table[i].Ptr;
 			harbol_kvpair_free(&kv, dtor);
 		}
 		harbol_vector_del(vec, NULL);
 	}
-	free(map->Table), map->Table=NULL;
+	free(map->Map.Table), map->Map.Table=NULL;
 	harbol_vector_del(&map->Order, NULL);
 	memset(map, 0, sizeof *map);
 }
@@ -48,17 +48,17 @@ HARBOL_EXPORT void harbol_linkmap_free(struct HarbolLinkMap **linkmapref, fnDest
 
 HARBOL_EXPORT size_t harbol_linkmap_get_count(const struct HarbolLinkMap *const map)
 {
-	return map ? map->Count : 0;
+	return map ? map->Map.Count : 0;
 }
 
 HARBOL_EXPORT size_t harbol_linkmap_get_len(const struct HarbolLinkMap *const map)
 {
-	return map ? map->Len : 0;
+	return map ? map->Map.Len : 0;
 }
 
 HARBOL_EXPORT bool harbol_linkmap_rehash(struct HarbolLinkMap *const map)
 {
-	return ( !map || !map->Table ) ? false : harbol_hashmap_rehash(&map->Map);
+	return ( !map || !map->Map.Table ) ? false : harbol_hashmap_rehash(&map->Map);
 }
 
 HARBOL_EXPORT bool harbol_linkmap_insert_node(struct HarbolLinkMap *const map, struct HarbolKeyValPair *node)
@@ -66,24 +66,24 @@ HARBOL_EXPORT bool harbol_linkmap_insert_node(struct HarbolLinkMap *const map, s
 	if( !map || !node || !node->KeyName.CStr )
 		return false;
 	
-	else if( !map->Len ) {
-		map->Len = 8;
-		map->Table = calloc(map->Len, sizeof *map->Table);
-		if( !map->Table ) {
-			//puts("**** Memory Allocation Error **** harbol_hashmap_insert_node::map->Table is NULL\n");
-			map->Len = 0;
+	else if( !map->Map.Len ) {
+		map->Map.Len = 8;
+		map->Map.Table = calloc(map->Map.Len, sizeof *map->Map.Table);
+		if( !map->Map.Table ) {
+			//puts("**** Memory Allocation Error **** harbol_hashmap_insert_node::map->Map.Table is NULL\n");
+			map->Map.Len = 0;
 			return false;
 		}
 	}
-	else if( map->Count >= map->Len )
+	else if( map->Map.Count >= map->Map.Len )
 		harbol_linkmap_rehash(map);
 	else if( harbol_linkmap_has_key(map, node->KeyName.CStr) )
 		return false;
 	
-	const size_t hash = GenHash(node->KeyName.CStr) % map->Len;
-	harbol_vector_insert(map->Table + hash, (union HarbolValue){.Ptr=node});
+	const size_t hash = GenHash(node->KeyName.CStr) % map->Map.Len;
+	harbol_vector_insert(map->Map.Table + hash, (union HarbolValue){.Ptr=node});
 	harbol_vector_insert(&map->Order, (union HarbolValue){.Ptr=node});
-	++map->Count;
+	++map->Map.Count;
 	return true;
 }
 
@@ -101,7 +101,7 @@ HARBOL_EXPORT bool harbol_linkmap_insert(struct HarbolLinkMap *const restrict ma
 
 HARBOL_EXPORT struct HarbolKeyValPair *harbol_linkmap_get_node_by_index(const struct HarbolLinkMap *const map, const size_t index)
 {
-	return ( !map || !map->Table || !map->Order.Table ) ? NULL : map->Order.Table[index].Ptr;
+	return ( !map || !map->Map.Table || !map->Order.Table ) ? NULL : map->Order.Table[index].Ptr;
 }
 
 HARBOL_EXPORT union HarbolValue harbol_linkmap_get(const struct HarbolLinkMap *const restrict map, const char strkey[restrict])
@@ -119,7 +119,7 @@ HARBOL_EXPORT void harbol_linkmap_set(struct HarbolLinkMap *const restrict map, 
 
 HARBOL_EXPORT union HarbolValue harbol_linkmap_get_by_index(const struct HarbolLinkMap *const map, const size_t index)
 {
-	if( !map || !map->Table )
+	if( !map || !map->Map.Table )
 		return (union HarbolValue){0};
 	
 	struct HarbolKeyValPair *node = harbol_linkmap_get_node_by_index(map, index);
@@ -128,7 +128,7 @@ HARBOL_EXPORT union HarbolValue harbol_linkmap_get_by_index(const struct HarbolL
 
 HARBOL_EXPORT void harbol_linkmap_set_by_index(struct HarbolLinkMap *const map, const size_t index, const union HarbolValue val)
 {
-	if( !map || !map->Table )
+	if( !map || !map->Map.Table )
 		return;
 	
 	struct HarbolKeyValPair *node = harbol_linkmap_get_node_by_index(map, index);
@@ -138,7 +138,7 @@ HARBOL_EXPORT void harbol_linkmap_set_by_index(struct HarbolLinkMap *const map, 
 
 HARBOL_EXPORT void harbol_linkmap_delete(struct HarbolLinkMap *const restrict map, const char strkey[restrict], fnDestructor *const dtor)
 {
-	if( !map || !map->Table || !harbol_linkmap_has_key(map, strkey) )
+	if( !map || !map->Map.Table || !harbol_linkmap_has_key(map, strkey) )
 		return;
 	
 	const size_t index = harbol_linkmap_get_index_by_name(map, strkey);
@@ -148,7 +148,7 @@ HARBOL_EXPORT void harbol_linkmap_delete(struct HarbolLinkMap *const restrict ma
 
 HARBOL_EXPORT void harbol_linkmap_delete_by_index(struct HarbolLinkMap *const map, const size_t index, fnDestructor *const dtor)
 {
-	if( !map || !map->Table )
+	if( !map || !map->Map.Table )
 		return;
 	
 	struct HarbolKeyValPair *kv = harbol_linkmap_get_node_by_index(map, index);
@@ -161,12 +161,12 @@ HARBOL_EXPORT void harbol_linkmap_delete_by_index(struct HarbolLinkMap *const ma
 
 HARBOL_EXPORT bool harbol_linkmap_has_key(const struct HarbolLinkMap *const restrict map, const char strkey[restrict])
 {
-	return !map || !map->Table ? false : harbol_hashmap_has_key(&map->Map, strkey);
+	return !map || !map->Map.Table ? false : harbol_hashmap_has_key(&map->Map, strkey);
 }
 
 HARBOL_EXPORT struct HarbolKeyValPair *harbol_linkmap_get_node_by_key(const struct HarbolLinkMap *const restrict map, const char strkey[restrict])
 {
-	if( !map || !map->Table )
+	if( !map || !map->Map.Table )
 		return NULL;
 	
 	return harbol_hashmap_get_node(&map->Map, strkey);
@@ -174,7 +174,7 @@ HARBOL_EXPORT struct HarbolKeyValPair *harbol_linkmap_get_node_by_key(const stru
 
 HARBOL_EXPORT struct HarbolVector *harbol_linkmap_get_buckets(const struct HarbolLinkMap *const map)
 {
-	return map ? map->Table : NULL;
+	return map ? map->Map.Table : NULL;
 }
 
 HARBOL_EXPORT union HarbolValue *harbol_linkmap_get_iter(const struct HarbolLinkMap *const map)
@@ -198,8 +198,7 @@ HARBOL_EXPORT size_t harbol_linkmap_get_index_by_name(const struct HarbolLinkMap
 		return SIZE_MAX;
 	
 	for( size_t i=0 ; i<map->Order.Count ; i++ ) {
-		struct HarbolKeyValPair *kv = map->Order.Table[i].Ptr;
-		if( !harbol_string_cmpcstr(&kv->KeyName, strkey) )
+		if( !harbol_string_cmpcstr(&map->Order.Table[i].KvPairPtr->KeyName, strkey) )
 			return i;
 	}
 	return SIZE_MAX;
@@ -223,8 +222,7 @@ HARBOL_EXPORT size_t harbol_linkmap_get_index_by_val(const struct HarbolLinkMap 
 		return SIZE_MAX;
 	
 	for( size_t i=0 ; i<map->Order.Count ; i++ ) {
-		struct HarbolKeyValPair *n = map->Order.Table[i].Ptr;
-		if( n->Data.UInt64 == val.UInt64 )
+		if( map->Order.Table[i].KvPairPtr->Data.UInt64 == val.UInt64 )
 			return i;
 	}
 	return SIZE_MAX;

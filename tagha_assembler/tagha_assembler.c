@@ -1128,7 +1128,7 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 	struct HarbolByteBuffer functable; harbol_bytebuffer_init(&functable);
 	struct HarbolByteBuffer datatable; harbol_bytebuffer_init(&datatable);
 	
-	for( size_t i=0 ; i<tasm->FuncTable->Count ; i++ ) {
+	for( size_t i=0 ; i<tasm->FuncTable->Map.Count ; i++ ) {
 		struct HarbolKeyValPair *node = harbol_linkmap_get_node_by_index(tasm->FuncTable, i);
 		struct LabelInfo *label = node->Data.Ptr;
 		if( !label )
@@ -1157,7 +1157,7 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 	#endif
 	}
 	
-	for( size_t i=0 ; i<tasm->VarTable->Count ; i++ ) {
+	for( size_t i=0 ; i<tasm->VarTable->Map.Count ; i++ ) {
 		struct HarbolKeyValPair *node = harbol_linkmap_get_node_by_index(tasm->VarTable, i);
 		struct HarbolByteBuffer *bytedata = node->Data.Ptr;
 		if( !bytedata )
@@ -1190,12 +1190,12 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 	harbol_bytebuffer_insert_byte(&tbcfile, tasm->Safemode | 0);
 	
 	// now build function table.
-	harbol_bytebuffer_insert_integer(&tbcfile, tasm->FuncTable->Count, sizeof(uint32_t));
+	harbol_bytebuffer_insert_integer(&tbcfile, tasm->FuncTable->Map.Count, sizeof(uint32_t));
 	harbol_bytebuffer_append(&tbcfile, &functable);
 	harbol_bytebuffer_del(&functable);
 	
 	// now build global variable table.
-	harbol_bytebuffer_insert_integer(&tbcfile, tasm->VarTable->Count, sizeof(uint32_t));
+	harbol_bytebuffer_insert_integer(&tbcfile, tasm->VarTable->Map.Count, sizeof(uint32_t));
 	harbol_bytebuffer_append(&tbcfile, &datatable);
 	harbol_bytebuffer_del(&datatable);
 	

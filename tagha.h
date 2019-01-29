@@ -171,6 +171,7 @@ typedef struct TaghaItem {
 /* Tagha 'va_list' implementation
  * Needed to help with va_list implementations that cross over from bytecode funcs to native funcs.
  * If a variadic argument bytecode function has more than 8 params, then the first 8 values are placed in the registers and the remaining are in the stack.
+ * but natives with more than 8 params have ALL params dumped to the stack while 8 or less params go to registers.
  * We fix this issue by using two members of union TaghaVal so the data is padded to 8 bytes, regardless of system width!
  */
 struct Tagha_va_list {
@@ -236,6 +237,8 @@ TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *module, const char fu
 TAGHA_EXPORT int32_t tagha_module_run(struct TaghaModule *module, int32_t iargc, char *strargv[]);
 TAGHA_EXPORT void tagha_module_throw_error(struct TaghaModule *module, int32_t err);
 TAGHA_EXPORT void tagha_module_force_safemode(struct TaghaModule *module);
+
+//TAGHA_EXPORT void tagha_module_jit_compile(struct TaghaModule *module, void *(*jitfunc)(const uint8_t *bytecode, size_t len));
 
 
 /*

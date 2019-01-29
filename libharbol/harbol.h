@@ -168,21 +168,21 @@ typedef union HarbolValue {
 #	ifndef harbol_value_set_val
 #		define harbol_value_set_val(val, data) \
 			_Generic((data), \
-				bool: val.Bool=data, bool[8]: memcpy(val.BoolArray, data, sizeof(bool[8])), bool*: val.BoolPtr=data, \
-				int8_t: val.Int8=data, int8_t[8]: memcpy(val.Int8Ptr, data, sizeof(int8_t[8])), int8_t*: val.Int8Ptr=data, \
-				int16_t: val.Int16=data, int16_t[4]: memcpy(val.Int16Array, data, sizeof(int16_t[4])), int16_t*: val.Int16Ptr=data, \
-				int32_t: val.Int32=data, int32_t[2]: memcpy(val.Int32Array, data, sizeof(int32_t[2])), int32_t*: val.Int32Ptr=data, \
+				bool: val.Bool=data, bool*: val.BoolPtr=data, \
+				int8_t: val.Int8=data, int8_t*: val.Int8Ptr=data, \
+				int16_t: val.Int16=data, int16_t*: val.Int16Ptr=data, \
+				int32_t: val.Int32=data, int32_t*: val.Int32Ptr=data, \
 				int64_t: val.Int64=data, int64_t*: val.Int64Ptr=data, \
 				\
-				uint8_t: val.UInt8=data, uint8_t[8]: memcpy(val.UInt8Ptr, data, sizeof(uint8_t[8])), int8_t*: val.UInt8Ptr=data, \
-				uint16_t: val.UInt16=data, uint16_t[4]: memcpy(val.UInt16Array, data, sizeof(uint16_t[4])), int16_t*: val.UInt16Ptr=data, \
-				uint32_t: val.UInt32=data, uint32_t[2]: memcpy(val.UInt32Array, data, sizeof(uint32_t[2])), int32_t*: val.UInt32Ptr=data, \
+				uint8_t: val.UInt8=data, int8_t*: val.UInt8Ptr=data, \
+				uint16_t: val.UInt16=data, int16_t*: val.UInt16Ptr=data, \
+				uint32_t: val.UInt32=data, int32_t*: val.UInt32Ptr=data, \
 				uint64_t: val.UInt64=data, uint64_t*: val.UInt64Ptr=data, \
 				\
 				size_t: val.IntSize=data, size_t*: val.IntSizePtr=data, \
 				intptr_t: val.IntNative=data, uintptr_t: val.UIntNative=data, \
 				\
-				float: val.Float=data, float[2]: memcpy(val.FloatArray, data, sizeof(float[2])), float*: val.FloatPtr=data, \
+				float: val.Float=data, float*: val.FloatPtr=data, \
 				double: val.Double=data, double*: val.DoublePtr=data, \
 				\
 				void*: val.Ptr=data, \
@@ -206,7 +206,7 @@ typedef union HarbolValue {
 #	endif
 #	ifndef harbol_value_get_val
 #		define harbol_value_get_val(val, var) \
-			var = _Generic(var, \
+			var = _Generic((var), \
 				bool: val.Bool, bool*: val.BoolPtr, \
 				int8_t: val.Int8, int8_t*: val.Int8Ptr, \
 				int16_t: val.Int16, int16_t*: val.Int16Ptr, \
@@ -332,7 +332,7 @@ HARBOL_EXPORT void harbol_kvpair_free(struct HarbolKeyValPair **kvref, fnDestruc
 
 
 typedef struct HarbolHashmap {
-	struct HarbolVector *Table; // a vector of vectors!
+	struct HarbolVector *Table; /* a vector of vectors! */
 	size_t Len, Count;
 } HarbolHashmap;
 
@@ -514,7 +514,7 @@ HARBOL_EXPORT void harbol_bytebuffer_append(struct HarbolByteBuffer *bufA, struc
 /************* Memory-aligned, Packed Data Structure (tuple.c) *************/
 /* Tuples act like constant structs but use indexes instead of named fields. */
 typedef struct HarbolTuple {
-	struct HarbolVector Fields; // contains the offsets of each member
+	struct HarbolVector Fields; /* contains the offsets of each member */
 	uint8_t *Datum;
 	size_t Len;
 	bool Packed : 1;
@@ -607,13 +607,7 @@ HARBOL_EXPORT void harbol_edge_set_vertex(struct HarbolGraphEdge *edge, struct H
 
 
 typedef struct HarbolGraphVertex {
-	union {
-		struct {
-			union HarbolValue *Table;
-			size_t Len, Count;
-		};
-		struct HarbolVector Edges;
-	};
+	struct HarbolVector Edges;
 	union HarbolValue Data;
 } HarbolGraphVertex;
 
@@ -628,13 +622,7 @@ HARBOL_EXPORT void harbol_vertex_set_val(struct HarbolGraphVertex *vert, union H
 
 
 typedef struct HarbolGraph {
-	union {
-		struct {
-			union HarbolValue *Table;
-			size_t Len, Count;
-		};
-		struct HarbolVector Vertices;
-	};
+	struct HarbolVector Vertices;
 } HarbolGraph;
 
 HARBOL_EXPORT struct HarbolGraph *harbol_graph_new(void);
@@ -708,13 +696,7 @@ HARBOL_EXPORT size_t harbol_tree_get_children_count(const struct HarbolTree *tre
 
 /************* Ordered Hash Map (preserves insertion order) (linkmap.c) *************/
 typedef struct HarbolLinkMap {
-	union {
-		struct {
-			struct HarbolVector *Table;
-			size_t Len, Count;
-		};
-		struct HarbolHashmap Map;
-	};
+	struct HarbolHashmap Map;
 	struct HarbolVector Order;
 } HarbolLinkMap;
 
@@ -797,12 +779,12 @@ typedef enum HarbolCfgType {
 
 typedef union HarbolColor {
 	uint32_t UIntColor;
-	struct{ uint8_t R,G,B,A; };
+	struct{ uint8_t R,G,B,A; } Struc;
 	uint8_t RGBA[4];
 } HarbolColor;
 
 typedef union HarbolVec4D {
-	struct{ float X,Y,Z,W; };
+	struct{ float X,Y,Z,W; } Struc;
 	float XYZW[4];
 } HarbolVec4D;
 

@@ -152,8 +152,8 @@ HARBOL_EXPORT void harbol_graph_del(struct HarbolGraph *const graph, fnDestructo
 	if( !graph )
 		return;
 	
-	for( size_t i=0 ; i<graph->Count ; i++ ) {
-		struct HarbolGraphVertex *vertex = graph->Table[i].Ptr;
+	for( size_t i=0 ; i<graph->Vertices.Count ; i++ ) {
+		struct HarbolGraphVertex *vertex = graph->Vertices.Table[i].Ptr;
 		harbol_vertex_free(&vertex, edge_dtor, vert_dtor);
 	}
 	harbol_vector_del(&graph->Vertices, NULL);
@@ -184,8 +184,8 @@ HARBOL_EXPORT bool harbol_graph_delete_val(struct HarbolGraph *const graph, cons
 	
 	size_t index=0;
 	struct HarbolGraphVertex *vert = NULL;
-	while( !vert && index<graph->Count ) {
-		struct HarbolGraphVertex *iter = graph->Table[index].Ptr;
+	while( !vert && index<graph->Vertices.Count ) {
+		struct HarbolGraphVertex *iter = graph->Vertices.Table[index].Ptr;
 		if( iter->Data.UInt64==val.UInt64 ) {
 			vert = iter;
 			break;
@@ -197,8 +197,8 @@ HARBOL_EXPORT bool harbol_graph_delete_val(struct HarbolGraph *const graph, cons
 		return true;
 	
 	// value exists, cut its links with other vertices.
-	for( size_t i=0 ; i<graph->Count ; i++ ) {
-		struct HarbolGraphVertex *iter = graph->Table[i].Ptr;
+	for( size_t i=0 ; i<graph->Vertices.Count ; i++ ) {
+		struct HarbolGraphVertex *iter = graph->Vertices.Table[i].Ptr;
 		if( iter==vert )
 			continue;
 		
@@ -223,16 +223,16 @@ HARBOL_EXPORT bool harbol_graph_delete_val_by_index(struct HarbolGraph *const gr
 		return false;
 	
 	// cut its links with other vertices.
-	for( size_t i=0 ; i<graph->Count ; i++ ) {
+	for( size_t i=0 ; i<graph->Vertices.Count ; i++ ) {
 		if( i==index )
 			continue;
 		
-		struct HarbolGraphVertex *restrict iter = graph->Table[i].Ptr;
+		struct HarbolGraphVertex *restrict iter = graph->Vertices.Table[i].Ptr;
 		if( !iter )
 			continue;
 		
-		for( size_t n=0 ; n<iter->Count ; n++ ) {
-			struct HarbolGraphEdge *edge = iter->Table[n].Ptr;
+		for( size_t n=0 ; n<iter->Edges.Count ; n++ ) {
+			struct HarbolGraphEdge *edge = iter->Edges.Table[n].Ptr;
 			if( edge->VertexSocket==vert ) {
 				edge->VertexSocket = NULL;
 				harbol_edge_free(&edge, edge_dtor);
@@ -290,7 +290,7 @@ HARBOL_EXPORT bool harbol_graph_delete_edge(struct HarbolGraph *const graph, con
 
 HARBOL_EXPORT struct HarbolGraphVertex *harbol_graph_get_vertex_by_index(struct HarbolGraph *const graph, const size_t index)
 {
-	return !graph || index >= graph->Count ? NULL : graph->Table[index].Ptr;
+	return !graph || index >= graph->Vertices.Count ? NULL : graph->Vertices.Table[index].Ptr;
 }
 
 HARBOL_EXPORT union HarbolValue harbol_graph_get_val_by_index(struct HarbolGraph *const graph, const size_t index)
@@ -304,10 +304,10 @@ HARBOL_EXPORT union HarbolValue harbol_graph_get_val_by_index(struct HarbolGraph
 
 HARBOL_EXPORT void harbol_graph_set_val_by_index(struct HarbolGraph *const graph, const size_t index, const union HarbolValue val)
 {
-	if( !graph || !graph->Table )
+	if( !graph || !graph->Vertices.Table )
 		return;
 	
-	struct HarbolGraphVertex *vertex = graph->Table[index].Ptr;
+	struct HarbolGraphVertex *vertex = graph->Vertices.Table[index].Ptr;
 	if( vertex )
 		vertex->Data = val;
 }
@@ -350,7 +350,7 @@ HARBOL_EXPORT bool harbol_graph_is_vertex_adjacent_by_index(struct HarbolGraph *
 
 HARBOL_EXPORT struct HarbolVector *harbol_graph_get_vertex_neighbors(struct HarbolGraph *const graph, const size_t index)
 {
-	return !graph || index >= graph->Count ? NULL : harbol_vertex_get_edges(graph->Table[index].Ptr);
+	return !graph || index >= graph->Vertices.Count ? NULL : harbol_vertex_get_edges(graph->Vertices.Table[index].Ptr);
 }
 
 HARBOL_EXPORT struct HarbolVector *harbol_graph_get_vertex_vector(struct HarbolGraph *const graph)
@@ -360,7 +360,7 @@ HARBOL_EXPORT struct HarbolVector *harbol_graph_get_vertex_vector(struct HarbolG
 
 HARBOL_EXPORT size_t harbol_graph_get_vertex_count(const struct HarbolGraph *const graph)
 {
-	return graph ? graph->Count : 0;
+	return graph ? graph->Vertices.Count : 0;
 }
 
 HARBOL_EXPORT size_t harbol_graph_get_edge_count(const struct HarbolGraph *const graph)
@@ -369,8 +369,8 @@ HARBOL_EXPORT size_t harbol_graph_get_edge_count(const struct HarbolGraph *const
 		return 0;
 	
 	size_t totaledges = 0;
-	for( size_t i=0 ; i<graph->Count ; i++ ) {
-		struct HarbolGraphVertex *vert = graph->Table[i].Ptr;
+	for( size_t i=0 ; i<graph->Vertices.Count ; i++ ) {
+		struct HarbolGraphVertex *vert = graph->Vertices.Table[i].Ptr;
 		totaledges += vert->Edges.Count;
 	}
 	return totaledges;

@@ -258,8 +258,8 @@ HARBOL_EXPORT void harbol_vector_from_linkmap(struct HarbolVector *const v, cons
 {
 	if( !v || !map )
 		return;
-	else if( !v->Table || v->Count+map->Count >= v->Len )
-		while( v->Count+map->Count >= v->Len )
+	else if( !v->Table || v->Count+map->Map.Count >= v->Len )
+		while( v->Count+map->Map.Count >= v->Len )
 			harbol_vector_resize(v);
 	
 	for( size_t i=0 ; i<map->Order.Count ; i++ ) {

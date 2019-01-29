@@ -135,14 +135,14 @@ HARBOL_EXPORT void *harbol_mempool_realloc(struct HarbolMemoryPool *const restri
 	else if( (uintptr_t)ptr <= (uintptr_t)mempool->HeapMem )
 		return NULL;
 	
-	struct HarbolAllocNode *ptr_node = (ptr - sizeof *ptr_node);
+	struct HarbolAllocNode *ptr_node = (struct HarbolAllocNode *) ((char *)ptr - sizeof *ptr_node);
 	const size_t node_size = sizeof *ptr_node;
 	
 	void *resized_block = harbol_mempool_alloc(mempool, newsize);
 	if( !resized_block )
 		return NULL;
 	
-	struct HarbolAllocNode *resized_node = (resized_block - sizeof *resized_node);
+	struct HarbolAllocNode *resized_node = (struct HarbolAllocNode *) ((char *)resized_block - sizeof *resized_node);
 	memmove(resized_block, ptr, ptr_node->Size > resized_node->Size ? (resized_node->Size - node_size) : (ptr_node->Size - node_size));
 	harbol_mempool_dealloc(mempool, ptr);
 	return resized_block;
@@ -154,7 +154,7 @@ HARBOL_EXPORT void harbol_mempool_dealloc(struct HarbolMemoryPool *const restric
 		return;
 	
 	// behind the actual pointer data is the allocation info.
-	struct HarbolAllocNode *restrict MemNode = (ptr - sizeof *MemNode);
+	struct HarbolAllocNode *restrict MemNode = (struct HarbolAllocNode *) ((char *)ptr - sizeof *MemNode);
 	if( !MemNode->Size || (MemNode->Size > mempool->HeapSize) || (((uintptr_t)ptr - (uintptr_t)mempool->HeapMem) > mempool->HeapSize) )
 		return;
 	

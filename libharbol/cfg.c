@@ -108,13 +108,13 @@ int32_t _lex_hex_escape_char(const char **restrict strRef)
 	} else {
 		for( ; **strRef ; (*strRef)++ ) {
 			const char c = **strRef;
-			switch( c ) {
-				case '0' ... '9': r = (r << 4) | (c - '0'); break;
-				case 'a' ... 'f': r = (r << 4) | (c - 'a' + 10); break;
-				case 'A' ... 'F': r = (r << 4) | (c - 'A' + 10); break;
-				default:
-					return r;
-			}
+			if( c>='0' && c<='9' )
+				r = (r << 4) | (c - '0');
+			else if( c>='a' && c<='f' )
+				r = (r << 4) | (c - 'a' + 10);
+			else if( c>='A' && c<='F' )
+				r = (r << 4) | (c - 'A' + 10);
+			else return r;
 		}
 	}
 	return r;

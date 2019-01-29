@@ -9,7 +9,7 @@
 typedef uint32_t tuple_size_t;
 typedef union {
 	uint64_t PackedInt64;
-	struct { tuple_size_t Offset, Size; };
+	struct { tuple_size_t Offset, Size; } Struc;
 	union HarbolValue Val;
 } TupleElement;
 
@@ -80,8 +80,8 @@ HARBOL_EXPORT void harbol_tuple_init(struct HarbolTuple *const tup, const size_t
 	tuple_size_t offset = 0;
 	for( size_t i=0 ; i<array_len ; i++ ) {
 		TupleElement field = {0};
-		field.Size = datasizes[i];
-		field.Offset = offset;
+		field.Struc.Size = datasizes[i];
+		field.Struc.Offset = offset;
 		
 		harbol_vector_insert(&tup->Fields, field.Val);
 		offset += datasizes[i];
@@ -112,7 +112,7 @@ HARBOL_EXPORT void *harbol_tuple_get_field(const struct HarbolTuple *const tup, 
 	if( !tup || !tup->Datum || index>=tup->Fields.Count )
 		return NULL;
 	const TupleElement field = {harbol_vector_get(&tup->Fields, index).UInt64};
-	return ( field.Offset >= tup->Len ) ? NULL : tup->Datum + field.Offset;
+	return ( field.Struc.Offset >= tup->Len ) ? NULL : tup->Datum + field.Struc.Offset;
 }
 
 HARBOL_EXPORT void *harbol_tuple_set_field(const struct HarbolTuple *const restrict tup, const size_t index, void *restrict ptrvalue)
@@ -120,10 +120,10 @@ HARBOL_EXPORT void *harbol_tuple_set_field(const struct HarbolTuple *const restr
 	if( !tup || !tup->Datum || !ptrvalue )
 		return NULL;
 	const TupleElement field = {harbol_vector_get(&tup->Fields, index).UInt64};
-	if( field.Offset >= tup->Len )
+	if( field.Struc.Offset >= tup->Len )
 		return NULL;
-	void *restrict ptr_field = tup->Datum + field.Offset;
-	memcpy(ptr_field, ptrvalue, field.Size);
+	void *restrict ptr_field = tup->Datum + field.Struc.Offset;
+	memcpy(ptr_field, ptrvalue, field.Struc.Size);
 	return ptr_field;
 }
 
@@ -132,7 +132,7 @@ HARBOL_EXPORT size_t harbol_tuple_get_field_size(const struct HarbolTuple *const
 	if( !tup || !tup->Datum || index>=tup->Fields.Count )
 		return 0;
 	const TupleElement field = {harbol_vector_get(&tup->Fields, index).UInt64};
-	return field.Size;
+	return field.Struc.Size;
 }
 
 HARBOL_EXPORT bool harbol_tuple_is_packed(const struct HarbolTuple *const tup)

@@ -147,10 +147,11 @@ static bool _read_module_data(struct TaghaModule *const restrict module, uint8_t
 		harbol_linkmap_del(&module->VarMap, NULL);
 		harbol_mempool_del(&module->Heap);
 		return false;
+	} else {
+		module->regStk.PtrSelf = module->regBase.PtrSelf = module->Stack + stacksize;
+		//printf("module->regStk.PtrSelf == '%p'\n", module->regStk.PtrSelf);
+		return true;
 	}
-	module->regStk.PtrSelf = module->regBase.PtrSelf = module->Stack + stacksize;
-	//printf("module->regStk.PtrSelf == '%p'\n", module->regStk.PtrSelf);
-	return true;
 }
 
 TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_file(const char filename[restrict])
@@ -336,28 +337,32 @@ TAGHA_EXPORT bool tagha_module_register_natives(struct TaghaModule *const module
 	
 	for( const struct TaghaNative *restrict n=natives ; n->NativeCFunc && n->Name ; n++ ) {
 		struct TaghaItem *const item = harbol_linkmap_get(&module->FuncMap, n->Name).Ptr;
-		if( !item || item->Flags != 1 )
+		if( !item || item->Flags != TAGHA_FLAG_NATIVE )
 			continue;
 		else {
 			item->NativeFunc = n->NativeCFunc;
-			item->Flags = 3;
+			item->Flags = TAGHA_FLAG_NATIVE + TAGHA_FLAG_LINKED;
 		}
 	}
 	return true;
 }
 
-TAGHA_EXPORT bool tagha_module_register_ptr(struct TaghaModule *const module, const char varname[restrict], void *ptr)
+TAGHA_EXPORT bool tagha_module_register_ptr(struct TaghaModule *const module, const char varname[restrict], void *pvar)
 {
-	const uintptr_t
-		mem_start = (uintptr_t)module->Heap.HeapMem,
-		mem_end = (uintptr_t)(module->Heap.HeapMem + module->FuncBound)
-	;
-	void **p = tagha_module_get_globalvar_by_name(module, varname);
-	if( !p || (uintptr_t)p<mem_start || (uintptr_t)p>=mem_end )
+	if( !module )
 		return false;
 	else {
-		*p = ptr;
-		return true;
+		const uintptr_t
+			mem_start = (uintptr_t)module->Heap.HeapMem,
+			mem_end = (uintptr_t)(module->Heap.HeapMem + module->FuncBound)
+		;
+		void **pp_global = tagha_module_get_globalvar_by_name(module, varname);
+		if( !pp_global || (uintptr_t)pp_global<mem_start || (uintptr_t)pp_global>=mem_end )
+			return false;
+		else {
+			*pp_global = pvar;
+			return true;
+		}
 	}
 }
 
@@ -375,65 +380,69 @@ TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module
 {
 	if( !module || !func_name )
 		return -1;
-	
-	struct TaghaItem *const item = harbol_linkmap_get(&module->FuncMap, func_name).Ptr;
-	/* null item? we're missing a function then. */
-	if( !item ) {
-		module->Error = ErrMissingFunc;
-		return -1;
-	} else if( item->Flags >= TAGHA_FLAG_NATIVE ) {
-		/* make sure our native function was registered first or else we crash ;) */
-		if( item->Flags >= TAGHA_FLAG_LINKED ) {
-			(*item->NativeFunc)(module, retval, args, params);
-			return module->Error == ErrNone ? 0 : module->Error;
-		} else {
-			module->Error = ErrMissingNative;
-			return -1;
-		}
-	} else {
-		/* remember that arguments must be passed right to left.
-			we have enough args to fit in registers. */
-		const uint8_t reg_param_initial = TAGHA_FIRST_PARAM_REG;
-		const uint8_t reg_params = TAGHA_REG_PARAMS_MAX;
-		const size_t bytecount = sizeof(union TaghaVal) * args;
-		
-		/* save stack space by using the registers for passing arguments.
-			the other registers can be used for different operations. */
-		if( args <= reg_params ) {
-			memcpy(&module->Regs[reg_param_initial], params, bytecount);
-		}
-		/* if the function has more than a certain num of params, push from both registers and stack. */
-		else {
-			/* make sure we have the stack space to acommodate the amount of args. */
-			if( module->regStk.PtrSelf - (args-reg_params) < module->Stack ) {
-				module->Error = ErrStackOver;
-				return -1;
-			} else {
-				memcpy(&module->Regs[reg_param_initial], params, sizeof(union TaghaVal) * reg_params);
-				memcpy(module->regStk.PtrSelf, &params[reg_params], sizeof(union TaghaVal) * (args-reg_params));
-				module->regStk.PtrSelf -= (args-reg_params);
-			}
-		}
-		(--module->regStk.PtrSelf)->Int64 = 0; /* push NULL return address. */
-		*--module->regStk.PtrSelf = module->regBase; /* push rbp */
-		module->regBase = module->regStk; /* mov rbp, rsp */
-		module->regInstr.Ptr = item->RawPtr;
-		if( module->regInstr.Ptr ) {
-			const int32_t result = _tagha_module_exec(module);
-			module->regInstr.Int64 = 0;
-			if( retval )
-				memcpy(retval, &module->regAlaf, sizeof *retval);
-			if( args>reg_params )
-				module->regStk.PtrSelf += (args-reg_params);
-			return result;
-		} else {
-			module->regStk = module->regBase; /* unwind stack */
-			module->regStk.PtrSelf += 2;
-			/* pop off our params. */
-			if( args>reg_params )
-				module->regStk.PtrSelf += (args-reg_params);
+	else {
+		struct TaghaItem *const item = harbol_linkmap_get(&module->FuncMap, func_name).Ptr;
+		/* null item? we're missing a function then. */
+		if( !item ) {
 			module->Error = ErrMissingFunc;
 			return -1;
+		} else if( item->Flags >= TAGHA_FLAG_NATIVE ) {
+			/* make sure our native function was registered first or else we crash ;) */
+			if( item->Flags >= TAGHA_FLAG_LINKED ) {
+				union TaghaVal ret = (union TaghaVal){0};
+				(*item->NativeFunc)(module, &ret, args, params);
+				if( retval )
+					*retval = ret;
+				return module->Error == ErrNone ? 0 : module->Error;
+			} else {
+				module->Error = ErrMissingNative;
+				return -1;
+			}
+		} else {
+			/* remember that arguments must be passed right to left.
+				we have enough args to fit in registers. */
+			const uint8_t reg_param_initial = TAGHA_FIRST_PARAM_REG;
+			const uint8_t reg_params = TAGHA_REG_PARAMS_MAX;
+			const size_t bytecount = sizeof(union TaghaVal) * args;
+		
+			/* save stack space by using the registers for passing arguments.
+				the other registers can be used for different operations. */
+			if( args <= reg_params ) {
+				memcpy(&module->Regs[reg_param_initial], params, bytecount);
+			}
+			/* if the function has more than a certain num of params, push from both registers and stack. */
+			else {
+				/* make sure we have the stack space to acommodate the amount of args. */
+				if( module->regStk.PtrSelf - (args-reg_params) < module->Stack ) {
+					module->Error = ErrStackOver;
+					return -1;
+				} else {
+					memcpy(&module->Regs[reg_param_initial], params, sizeof(union TaghaVal) * reg_params);
+					memcpy(module->regStk.PtrSelf, &params[reg_params], sizeof(union TaghaVal) * (args-reg_params));
+					module->regStk.PtrSelf -= (args-reg_params);
+				}
+			}
+			(--module->regStk.PtrSelf)->Int64 = 0; /* push NULL return address. */
+			*--module->regStk.PtrSelf = module->regBase; /* push rbp */
+			module->regBase = module->regStk; /* mov rbp, rsp */
+			module->regInstr.Ptr = item->RawPtr;
+			if( module->regInstr.Ptr ) {
+				const int32_t result = _tagha_module_exec(module);
+				module->regInstr.Int64 = 0;
+				if( retval )
+					memcpy(retval, &module->regAlaf, sizeof *retval);
+				if( args>reg_params )
+					module->regStk.PtrSelf += (args-reg_params);
+				return result;
+			} else {
+				module->regStk = module->regBase; /* unwind stack */
+				module->regStk.PtrSelf += 2;
+				/* pop off our params. */
+				if( args>reg_params )
+					module->regStk.PtrSelf += (args-reg_params);
+				module->Error = ErrMissingFunc;
+				return -1;
+			}
 		}
 	}
 }
@@ -442,31 +451,34 @@ TAGHA_EXPORT int32_t tagha_module_run(struct TaghaModule *const restrict module,
 {
 	if( !module )
 		return -1;
-	
-	union TaghaVal
-		retval = {0},
-		main_params[2] = {{0} , {0}} /* hey, it's an owl lmao */
-	;
-	main_params[0].Int32 = argc;
-	int32_t result = 0;
-	
-	if( sizeof(intptr_t)<sizeof(union TaghaVal) ) {
-	/* for 32-bit systems, gotta pad out the pointer values to 64-bit using TaghaVal array.
-	 * Also for 32-bit systems, cap out the maximum arguments to 32 pointers.
-	 */
-#define MAX_ARGS_32BIT    32
-		union TaghaVal argv[MAX_ARGS_32BIT+1] = {{0x0}};
-		if( sargv )
-			for( int32_t i=0 ; i<argc && i<MAX_ARGS_32BIT ; i++ )
-				argv[i].Ptr = sargv[i];
-		main_params[1].PtrSelf = argv;
-		result = tagha_module_call(module, "main", 2, main_params, &retval);
-	}
 	else {
-		main_params[1].Ptr = sargv;
-		result = tagha_module_call(module, "main", 2, main_params, &retval);
+		union TaghaVal
+			retval = {0},
+			main_params[2] = {{0} , {0}} /* hey, it's an owl lmao */
+		;
+		main_params[0].Int32 = argc;
+		int32_t result = 0;
+		
+		if( sizeof(intptr_t)<sizeof(union TaghaVal) ) {
+		/* for 32-bit systems, gotta pad out the pointer values to 64-bit using TaghaVal array.
+		 * Also for 32-bit systems, cap out the maximum arguments to 32 pointers.
+		 */
+#ifndef TAGHA_MAX_MAIN_ARGS_32BIT
+#	define TAGHA_MAX_MAIN_ARGS_32BIT    32
+#endif
+			union TaghaVal argv[TAGHA_MAX_MAIN_ARGS_32BIT+1] = {{0x0}};
+			if( sargv )
+				for( int32_t i=0 ; i<argc && i<TAGHA_MAX_MAIN_ARGS_32BIT ; i++ )
+					argv[i].Ptr = sargv[i];
+			main_params[1].PtrSelf = argv;
+			result = tagha_module_call(module, "main", 2, main_params, &retval);
+		}
+		else {
+			main_params[1].Ptr = sargv;
+			result = tagha_module_call(module, "main", 2, main_params, &retval);
+		}
+		return !result ? retval.Int32 : result;
 	}
-	return !result ? retval.Int32 : result;
 }
 
 TAGHA_EXPORT void tagha_module_throw_error(struct TaghaModule *const module, const int32_t err)
@@ -483,6 +495,36 @@ TAGHA_EXPORT void tagha_module_force_safemode(struct TaghaModule *const module)
 	module->SafeMode = true;
 }
 
+/*
+TAGHA_EXPORT void tagha_module_jit_compile(struct TaghaModule *const module, void *(*const jitfunc)(const uint8_t *, size_t))
+{
+	if( !module || !jitfunc )
+		return;
+	else {
+		const union HarbolValue *const end = harbol_linkmap_get_iter_end_count(&module->FuncMap);
+		for( const union HarbolValue *iter=harbol_linkmap_get_iter(&module->FuncMap) ; iter && iter<end ; iter++ ) {
+			struct TaghaItem *const i = iter->KvPairPtr->Data.Ptr;
+			// trying to JIT something that's already compiled? lol.
+			if( i->Flags & TAGHA_FLAG_NATIVE )
+				continue;
+			else {
+				uint8_t *bytecode = i->Data;
+				i->Data = NULL;
+				void *func = (*jitfunc)(bytecode, i->Bytes);
+				if( func ) {
+					// return the memory back to the pool since it's useless now.
+					harbol_mempool_dealloc(&module->Heap, bytecode);
+					i->Flags = TAGHA_FLAG_NATIVE | TAGHA_FLAG_LINKED;
+					i->Bytes = 8;
+					i->RawPtr = func;
+				} else {
+					i->Data = bytecode;
+				}
+			}
+		}
+	}
+}
+*/
 //#include <unistd.h>	/* sleep() func */
 
 static int32_t _tagha_module_exec(struct TaghaModule *const vm)
@@ -506,7 +548,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 #undef X
 #undef TAGHA_INSTR_SET
 	
-	#define OLDDISPATCH() \
+#	define OLDDISPATCH() \
 		const uint8_t instr = *pc.PtrUInt8++; \
 		\
 		if( instr>nop ) { \
@@ -519,7 +561,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		/*tagha_module_print_vm_state(vm);*/ \
 		goto *dispatch[instr]
 	
-	#define DISPATCH() goto *dispatch[*pc.PtrUInt8++]
+#	define DISPATCH() goto *dispatch[*pc.PtrUInt8++]
 	
 	exec_nop: {
 		DISPATCH();
@@ -817,79 +859,89 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	}
 	exec_call: { /* char: opcode | i64: offset */
 		const int64_t index = *pc.PtrInt64++;
-		const struct TaghaItem *const func = vm->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
-		if( func->Flags & TAGHA_FLAG_NATIVE ) {
-			if( func->Flags != TAGHA_FLAG_NATIVE+TAGHA_FLAG_LINKED ) {
-				vm->Error = ErrMissingNative;
-				goto *dispatch[halt];
-			} else {
-				const uint8_t reg_param_initial = TAGHA_FIRST_PARAM_REG;
-				const uint8_t reg_params = TAGHA_REG_PARAMS_MAX;
-				union TaghaVal retval = (union TaghaVal){0};
-				const size_t args = vm->regAlaf.SizeInt;
-				
-				/* save stack space by using the registers for passing arguments.
-					the other registers can then be used for other data operations. */
-				if( args <= reg_params ) {
-					(*func->NativeFunc)(vm, &retval, args, vm->Regs+reg_param_initial);
-				} else {
-					/* if the native call has more than a certain num of params, get all params from stack. */
-					(*func->NativeFunc)(vm, &retval, args, vm->regStk.PtrSelf);
-					vm->regStk.PtrSelf += args;
-				}
-				memcpy(&vm->regAlaf, &retval, sizeof retval);
-				
-				if( vm->Error != ErrNone ) {
-					return vm->Error;
-				} else {
-					DISPATCH();
-				}
-			}
+		if( !index ) {
+			vm->Error = ErrMissingFunc;
+			goto *dispatch[halt];
 		} else {
-			(--vm->regStk.PtrSelf)->Ptr = pc.Ptr;	/* push rip */
-			*--vm->regStk.PtrSelf = vm->regBase;	/* push rbp */
-			vm->regBase = vm->regStk;	/* mov rbp, rsp */
-			pc.PtrUInt8 = func->Data;
-			DISPATCH();
+			const struct TaghaItem *const func = vm->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
+			if( func->Flags & TAGHA_FLAG_NATIVE ) {
+				if( func->Flags != TAGHA_FLAG_NATIVE+TAGHA_FLAG_LINKED ) {
+					vm->Error = ErrMissingNative;
+					goto *dispatch[halt];
+				} else {
+					const uint8_t reg_param_initial = TAGHA_FIRST_PARAM_REG;
+					const uint8_t reg_params = TAGHA_REG_PARAMS_MAX;
+					union TaghaVal retval = (union TaghaVal){0};
+					const size_t args = vm->regAlaf.SizeInt;
+					
+					/* save stack space by using the registers for passing arguments.
+						the other registers can then be used for other data operations. */
+					if( args <= reg_params ) {
+						(*func->NativeFunc)(vm, &retval, args, vm->Regs+reg_param_initial);
+					} else {
+						/* if the native call has more than a certain num of params, get all params from stack. */
+						(*func->NativeFunc)(vm, &retval, args, vm->regStk.PtrSelf);
+						vm->regStk.PtrSelf += args;
+					}
+					memcpy(&vm->regAlaf, &retval, sizeof retval);
+					
+					if( vm->Error != ErrNone ) {
+						return vm->Error;
+					} else {
+						DISPATCH();
+					}
+				}
+			} else {
+				(--vm->regStk.PtrSelf)->Ptr = pc.Ptr;	/* push rip */
+				*--vm->regStk.PtrSelf = vm->regBase;	/* push rbp */
+				vm->regBase = vm->regStk;	/* mov rbp, rsp */
+				pc.PtrUInt8 = func->Data;
+				DISPATCH();
+			}
 		}
 	}
 	exec_callr: { /* char: opcode | char: regid */
 		const uint8_t regid = *pc.PtrUInt8++;
 		const int64_t index = vm->Regs[regid].Int64;
-		const struct TaghaItem *const func = vm->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
-		if( func->Flags & TAGHA_FLAG_NATIVE ) {
-			if( func->Flags != TAGHA_FLAG_NATIVE+TAGHA_FLAG_LINKED ) {
-				vm->Error = ErrMissingNative;
-				goto *dispatch[halt];
-			} else {
-				const uint8_t reg_param_initial = TAGHA_FIRST_PARAM_REG;
-				const uint8_t reg_params = TAGHA_REG_PARAMS_MAX;
-				union TaghaVal retval = (union TaghaVal){0};
-				const size_t args = vm->regAlaf.SizeInt;
-				
-				/* save stack space by using the registers for passing arguments.
-					the other registers can then be used for other data operations. */
-				if( args <= reg_params ) {
-					(*func->NativeFunc)(vm, &retval, args, vm->Regs+reg_param_initial);
-				} else {
-					/* if the native call has more than a certain num of params, get all params from stack. */
-					(*func->NativeFunc)(vm, &retval, args, vm->regStk.PtrSelf);
-					vm->regStk.PtrSelf += args;
-				}
-				memcpy(&vm->regAlaf, &retval, sizeof retval);
-				
-				if( vm->Error != ErrNone ) {
-					return vm->Error;
-				} else {
-					DISPATCH();
-				}
-			}
+		if( !index ) {
+			vm->Error = ErrMissingFunc;
+			goto *dispatch[halt];
 		} else {
-			(--vm->regStk.PtrSelf)->Ptr = pc.Ptr;	/* push rip */
-			*--vm->regStk.PtrSelf = vm->regBase;	/* push rbp */
-			vm->regBase = vm->regStk;	/* mov rbp, rsp */
-			pc.PtrUInt8 = func->Data;
-			DISPATCH();
+			const struct TaghaItem *const func = vm->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
+			if( func->Flags & TAGHA_FLAG_NATIVE ) {
+				if( func->Flags != TAGHA_FLAG_NATIVE+TAGHA_FLAG_LINKED ) {
+					vm->Error = ErrMissingNative;
+					goto *dispatch[halt];
+				} else {
+					const uint8_t reg_param_initial = TAGHA_FIRST_PARAM_REG;
+					const uint8_t reg_params = TAGHA_REG_PARAMS_MAX;
+					union TaghaVal retval = (union TaghaVal){0};
+					const size_t args = vm->regAlaf.SizeInt;
+					
+					/* save stack space by using the registers for passing arguments.
+						the other registers can then be used for other data operations. */
+					if( args <= reg_params ) {
+						(*func->NativeFunc)(vm, &retval, args, vm->Regs+reg_param_initial);
+					} else {
+						/* if the native call has more than a certain num of params, get all params from stack. */
+						(*func->NativeFunc)(vm, &retval, args, vm->regStk.PtrSelf);
+						vm->regStk.PtrSelf += args;
+					}
+					memcpy(&vm->regAlaf, &retval, sizeof retval);
+					
+					if( vm->Error != ErrNone ) {
+						return vm->Error;
+					} else {
+						DISPATCH();
+					}
+				}
+			} else {
+				(--vm->regStk.PtrSelf)->Ptr = pc.Ptr;	/* push rip */
+				*--vm->regStk.PtrSelf = vm->regBase;	/* push rbp */
+				vm->regBase = vm->regStk;	/* mov rbp, rsp */
+				pc.PtrUInt8 = func->Data;
+				DISPATCH();
+			}
 		}
 	}
 	exec_ret: { /* char: opcode */
@@ -907,157 +959,157 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	exec_flt2dbl: { /* treat as no op if one float is defined but not the other. */
 	 /* char: opcode | char: reg id */
 		const uint8_t regid = *pc.PtrUInt8++;
-	#if defined(__TAGHA_FLOAT32_DEFINED) && defined(__TAGHA_FLOAT64_DEFINED)
+#	if defined(__TAGHA_FLOAT32_DEFINED) && defined(__TAGHA_FLOAT64_DEFINED)
 		const float f = vm->Regs[regid].Float;
 		vm->Regs[regid].Double = (double)f;
-	#endif
+#	endif
 		DISPATCH();
 	}
 	exec_dbl2flt: { /* char: opcode | char: reg id */
 		const uint8_t regid = *pc.PtrUInt8++;
-	#if defined(__TAGHA_FLOAT32_DEFINED) && defined(__TAGHA_FLOAT64_DEFINED)
+#	if defined(__TAGHA_FLOAT32_DEFINED) && defined(__TAGHA_FLOAT64_DEFINED)
 		const double d = vm->Regs[regid].Double;
 		vm->Regs[regid].Int64 = 0;
 		vm->Regs[regid].Float = (float)d;
-	#endif
+#	endif
 		DISPATCH();
 	}
 	exec_int2dbl: { /* char: opcode | char: reg id */
 		const uint8_t regid = *pc.PtrUInt8++;
-	#ifdef __TAGHA_FLOAT64_DEFINED
+#	ifdef __TAGHA_FLOAT64_DEFINED
 		const int64_t i = vm->Regs[regid].Int64;
 		vm->Regs[regid].Double = (double)i;
-	#endif
+#	endif
 		DISPATCH();
 	}
 	exec_int2flt: { /* char: opcode | char: reg id */
 		const uint8_t regid = *pc.PtrUInt8++;
-	#ifdef __TAGHA_FLOAT32_DEFINED
+#	ifdef __TAGHA_FLOAT32_DEFINED
 		const int64_t i = vm->Regs[regid].Int64;
 		vm->Regs[regid].Int64 = 0;
 		vm->Regs[regid].Float = (float)i;
-	#endif
+#	endif
 		DISPATCH();
 	}
 	
 	exec_addf: { /* char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.PtrUInt16++;
-	#if defined(__TAGHA_FLOAT64_DEFINED) /* if doubles are defined, regardless whether float is or not */
+#	if defined(__TAGHA_FLOAT64_DEFINED) /* if doubles are defined, regardless whether float is or not */
 		vm->Regs[regids & 0xff].Double += vm->Regs[regids >> 8].Double;
-	#elif defined(__TAGHA_FLOAT32_DEFINED)
+#	elif defined(__TAGHA_FLOAT32_DEFINED)
 		vm->Regs[regids & 0xff].Float += vm->Regs[regids >> 8].Float;
-	#endif
+#	endif
 		DISPATCH();
 	}
 	exec_subf: { /* char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.PtrUInt16++;
-	#if defined(__TAGHA_FLOAT64_DEFINED)
+#	if defined(__TAGHA_FLOAT64_DEFINED)
 		vm->Regs[regids & 0xff].Double -= vm->Regs[regids >> 8].Double;
-	#elif defined(__TAGHA_FLOAT32_DEFINED)
+#	elif defined(__TAGHA_FLOAT32_DEFINED)
 		vm->Regs[regids & 0xff].Float -= vm->Regs[regids >> 8].Float;
-	#endif
+#	endif
 		DISPATCH();
 	}
 	exec_mulf: { /* char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.PtrUInt16++;
-	#if defined(__TAGHA_FLOAT64_DEFINED)
+#	if defined(__TAGHA_FLOAT64_DEFINED)
 		vm->Regs[regids & 0xff].Double *= vm->Regs[regids >> 8].Double;
-	#elif defined(__TAGHA_FLOAT32_DEFINED)
+#	elif defined(__TAGHA_FLOAT32_DEFINED)
 		vm->Regs[regids & 0xff].Float *= vm->Regs[regids >> 8].Float;
-	#endif
+#	endif
 		DISPATCH();
 	}
 	exec_divf: { /* char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.PtrUInt16++;
-	#if defined(__TAGHA_FLOAT64_DEFINED)
+#	if defined(__TAGHA_FLOAT64_DEFINED)
 		vm->Regs[regids & 0xff].Double /= vm->Regs[regids >> 8].Double;
-	#elif defined(__TAGHA_FLOAT32_DEFINED)
+#	elif defined(__TAGHA_FLOAT32_DEFINED)
 		vm->Regs[regids & 0xff].Float /= vm->Regs[regids >> 8].Float;
-	#endif
+#	endif
 		DISPATCH();
 	}
 	
 	exec_ltf: { /* char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.PtrUInt16++;
-	#if defined(__TAGHA_FLOAT64_DEFINED)
+#	if defined(__TAGHA_FLOAT64_DEFINED)
 		vm->CondFlag = vm->Regs[regids & 0xff].Double < vm->Regs[regids >> 8].Double;
-	#elif defined(__TAGHA_FLOAT32_DEFINED)
+#	elif defined(__TAGHA_FLOAT32_DEFINED)
 		vm->CondFlag = vm->Regs[regids & 0xff].Float < vm->Regs[regids >> 8].Float;
-	#endif
+#	endif
 		DISPATCH();
 	}
 	exec_lef: { /* char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.PtrUInt16++;
-	#if defined(__TAGHA_FLOAT64_DEFINED)
+#	if defined(__TAGHA_FLOAT64_DEFINED)
 		vm->CondFlag = vm->Regs[regids & 0xff].Double <= vm->Regs[regids >> 8].Double;
-	#elif defined(__TAGHA_FLOAT32_DEFINED)
+#	elif defined(__TAGHA_FLOAT32_DEFINED)
 		vm->CondFlag = vm->Regs[regids & 0xff].Float <= vm->Regs[regids >> 8].Float;
-	#endif
+#	endif
 		DISPATCH();
 	}
 	
 	exec_gtf: { /* char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.PtrUInt16++;
-	#if defined(__TAGHA_FLOAT64_DEFINED)
+#	if defined(__TAGHA_FLOAT64_DEFINED)
 		vm->CondFlag = vm->Regs[regids & 0xff].Double > vm->Regs[regids >> 8].Double;
-	#elif defined(__TAGHA_FLOAT32_DEFINED)
+#	elif defined(__TAGHA_FLOAT32_DEFINED)
 		vm->CondFlag = vm->Regs[regids & 0xff].Float > vm->Regs[regids >> 8].Float;
-	#endif
+#	endif
 		DISPATCH();
 	}
 	exec_gef: { /* char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.PtrUInt16++;
-	#if defined(__TAGHA_FLOAT64_DEFINED)
+#	if defined(__TAGHA_FLOAT64_DEFINED)
 		vm->CondFlag = vm->Regs[regids & 0xff].Double >= vm->Regs[regids >> 8].Double;
-	#elif defined(__TAGHA_FLOAT32_DEFINED)
+#	elif defined(__TAGHA_FLOAT32_DEFINED)
 		vm->CondFlag = vm->Regs[regids & 0xff].Float >= vm->Regs[regids >> 8].Float;
-	#endif
+#	endif
 		DISPATCH();
 	}
 	
 	exec_cmpf: { /* char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.PtrUInt16++;
-	#if defined(__TAGHA_FLOAT64_DEFINED)
+#	if defined(__TAGHA_FLOAT64_DEFINED)
 		vm->CondFlag = vm->Regs[regids & 0xff].Double == vm->Regs[regids >> 8].Double;
-	#elif defined(__TAGHA_FLOAT32_DEFINED)
+#	elif defined(__TAGHA_FLOAT32_DEFINED)
 		vm->CondFlag = vm->Regs[regids & 0xff].Float == vm->Regs[regids >> 8].Float;
-	#endif
+#	endif
 		DISPATCH();
 	}
 	exec_neqf: { /* char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.PtrUInt16++;
-	#if defined(__TAGHA_FLOAT64_DEFINED)
+#	if defined(__TAGHA_FLOAT64_DEFINED)
 		vm->CondFlag = vm->Regs[regids & 0xff].Double != vm->Regs[regids >> 8].Double;
-	#elif defined(__TAGHA_FLOAT32_DEFINED)
+#	elif defined(__TAGHA_FLOAT32_DEFINED)
 		vm->CondFlag = vm->Regs[regids & 0xff].Float != vm->Regs[regids >> 8].Float;
-	#endif
+#	endif
 		DISPATCH();
 	}
 	exec_incf: { /* char: opcode | char: regid */
 		const uint8_t regid = *pc.PtrUInt8++;
-	#if defined(__TAGHA_FLOAT64_DEFINED)
+#	if defined(__TAGHA_FLOAT64_DEFINED)
 		++vm->Regs[regid].Double;
-	#elif defined(__TAGHA_FLOAT32_DEFINED)
+#	elif defined(__TAGHA_FLOAT32_DEFINED)
 		++vm->Regs[regid].Float;
-	#endif
+#	endif
 		DISPATCH();
 	}
 	exec_decf: { /* char: opcode | char: regid */
 		const uint8_t regid = *pc.PtrUInt8++;
-	#if defined(__TAGHA_FLOAT64_DEFINED)
+#	if defined(__TAGHA_FLOAT64_DEFINED)
 		--vm->Regs[regid].Double;
-	#elif defined(__TAGHA_FLOAT32_DEFINED)
+#	elif defined(__TAGHA_FLOAT32_DEFINED)
 		--vm->Regs[regid].Float;
-	#endif
+#	endif
 		DISPATCH();
 	}
 	exec_negf: { /* char: opcode | char: regid */
 		const uint8_t regid = *pc.PtrUInt8++;
-	#if defined(__TAGHA_FLOAT64_DEFINED)
+#	if defined(__TAGHA_FLOAT64_DEFINED)
 		vm->Regs[regid].Double = -vm->Regs[regid].Double;
-	#elif defined(__TAGHA_FLOAT32_DEFINED)
+#	elif defined(__TAGHA_FLOAT32_DEFINED)
 		vm->Regs[regid].Float = -vm->Regs[regid].Float;
-	#endif
+#	endif
 		DISPATCH();
 	}
 #endif

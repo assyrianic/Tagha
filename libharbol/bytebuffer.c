@@ -191,7 +191,7 @@ HARBOL_EXPORT size_t harbol_bytebuffer_read_from_file(struct HarbolByteBuffer *c
 	
 	// get the total file size.
 	fseek(file, 0, SEEK_END);
-	const long filesize = ftell(file);
+	const int64_t filesize = ftell(file);
 	if( filesize <= -1 )
 		return 0;
 	
