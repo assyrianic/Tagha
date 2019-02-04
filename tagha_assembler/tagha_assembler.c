@@ -869,7 +869,7 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 			// skip whitespace.
 			skip_whitespace(&tasm->Iter);
 			
-			// skip to next line if comment or directive.
+			// skip to next line if comment.
 			if( *tasm->Iter=='\n' || *tasm->Iter==';' || *tasm->Iter=='#' )
 				break;
 			
@@ -1139,13 +1139,14 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 		// write strlen
 		harbol_bytebuffer_insert_integer(&functable, node->KeyName.Len, sizeof(uint32_t));
 		
-		// write HarbolString
+		// write instrlen
 		label->IsNativeFunc ? 
 			harbol_bytebuffer_insert_integer(&functable, 8, sizeof(uint32_t))
 				: harbol_bytebuffer_insert_integer(&functable, label->Bytecode.Count, sizeof(uint32_t));
 		
-		// write instrlen.
+		// write string of func.
 		harbol_bytebuffer_insert_cstr(&functable, node->KeyName.CStr+1, node->KeyName.Len-1);
+		// write bytecode.
 		label->IsNativeFunc ?
 			harbol_bytebuffer_insert_integer(&functable, 0, sizeof(uint64_t))
 				: harbol_bytebuffer_append(&functable, &label->Bytecode) ;
@@ -1169,7 +1170,7 @@ bool tagha_asm_assemble(struct TaghaAsmbler *const restrict tasm)
 		harbol_bytebuffer_insert_integer(&datatable, node->KeyName.Len+1, sizeof(uint32_t));
 		// write byte count.
 		harbol_bytebuffer_insert_integer(&datatable, bytedata->Count, sizeof(uint32_t));
-		// write HarbolString.
+		// write string of var.
 		harbol_bytebuffer_insert_cstr(&datatable, node->KeyName.CStr, node->KeyName.Len);
 		// write byte data.
 		harbol_bytebuffer_append(&datatable, bytedata);
