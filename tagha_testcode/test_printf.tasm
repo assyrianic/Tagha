@@ -36,11 +36,11 @@ $native %vprintf
 	call		%printf
 	
 	; my_printer("vprintf\: '%f', '%f'\n", 200.f, 2.f);
-	; 200.0
+	; 2.0
 	movi		rgamal, 0x4000000000000000
 	st8			[rbp-8], rgamal
 	
-	; 2.0
+	; 200.0
 	movi		rgamal, 0x4069000000000000
 	st8			[rbp-16], rgamal
 	

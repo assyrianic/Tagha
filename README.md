@@ -24,23 +24,24 @@
 ### Features
 
 * Self-contained, meaning that everything the code base needs is packaged together and there's no dependencies except for C standard lib obviously.
-* Has its own, open source implementation of libc.
+* Has its own, open source implementation of libc for scripts to use.
 * Register-based virtual machine that handles immediate values, register, and memory operations.
 * Supports 1, 2, 4, and 8 byte operations.
 * 22 **general purpose registers** + 3 reserved-use (stack pointers and instruction pointer) registers.
-* Floats and doubles are supported (can be compiled without).
-* Uses computed gotos (the ones that use a void\*) which is 20%-25% faster than a switch {[citation](http://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables)}.
-* Tagha is 64-bit as the registers and memory addresses are 64-bit. (will run slower on 32-bit OSes and significantly slower on 32-bit systems.)
-* Embeddable.
-* Tagha allocates what is needed and does no garbage collecting.
+* Floats and doubles are supported (can be compiled without and also can be compiled with only one or the other).
+* Uses computed gotos (the ones that use a void\*) which is 20%-25% faster than using a switch & loop construct {[citation](http://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables)}.
+* Tagha is 64-bit as the registers and memory addresses are 64-bit. (will run significantly slower on 32-bit OS's and drastically slower on 32-bit systems.)
+* Embeddable and easy to embed.
+* Tagha allocates what is needed and does no garbage collection during runtime.
 * Scripts can call host-defined functions (Native Interface).
-* Host can give arguments and call script functions and retrieve return values.
+* Host can call script functions and retrieve return values from the script function invocation.
 * Host can bind its own global variables to script-side global variables by name (the script-side global variable must be a pointer).
+* Scripts (using tagha's libc module library) can manually load other scripts as libraries.
 * Integer & float arithmetic, (un)conditional jumps, comparison operations, and stack and memory manipulations.
 * Function call and return opcodes automatically execute function prologues and epilogues.
 * Little-endian format (only).
-* Small. The runtime environment static library is <100kb.
-* Tagha's entire code is **less than 1k lines of code**!
+* Small. The entire static library is <100kb.
+* Tagha's entire code is **about 1k lines of code**!
 * Speed, tagha is very fast for a virtual machine that does not use a JIT.
 * Memory safe, tagha can sandbox scripts that have safemode enabled.
 
@@ -71,8 +72,10 @@ To submit a patch, first file an issue and/or present a pull request.
 
 ## Help
 
-If you need help or have any question, you can reach on the `#taghavm` channel through discord (https://discord.gg/2NKFgPS)
+If you need help or have any question, you can reach me on the `#taghavm` channel through Discord (https://discord.gg/2NKFgPS)
 Simply drop a message or your question and you'll be reached in no time!
+
+You can also privately message me at **Khanno Hanna#1704** on Discord. Random messages that are not about Tagha will be ignored/deleted.
 
 ## Installation
 
@@ -132,7 +135,7 @@ If you wish to build and test the tagha code base, compile `test_hostapp.c` with
 
 ## Contact
 
-I can be contacted through the discord link (https://discord.gg/2NKFgPS).
+I can be contacted through the Discord link (https://discord.gg/2NKFgPS) or PM me @ **Khanno Hanna#1704**.
 
 ## License
 ![License](https://img.shields.io/github/license/assyrianic/tagha.svg?label=License&style=plastic)
