@@ -4,6 +4,7 @@
  * [Script - Native Communication](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#script--native-communication)
  * [Script - Host Sharing](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#script--host-sharing)
  * [Custom Main Arguments](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#giving-main-custom-arguments)
+ * [Natives that take a 'va_list' argument](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#va_list-arguments)
 
 # Intro
 Thank you for choosing Tagha as your runtime environment/scripting engine! Tagha has a wide range of API functions to help you get as much control as possible to data to and from scripts. Let's get started!
@@ -92,14 +93,14 @@ As you can see in the example, to properly register your host application's nati
 In the last segment, we had a single native return a 4-byte float value of '100.f' but realistic natives from a host application wouldn't always be that simple. Many natives would probably return different values or pointers, some will even take arguments whether copy by value or by reference.
 
 ### Passing Structs by Reference
-Let's create a native that returns nothing but takes a specific struct pointer! For example, assume the function prototype `void f(struct Player *);`
+Let's create a native that returns nothing but takes a specific struct pointer! For example, assume the function prototype `void print_player_info(struct Player *);`
 ```c
 struct Player {
 	float	speed;
 	uint32_t health;
 	uint32_t ammo;
 };
-/* void f(struct player *p); */
+/* void native_print_player_info(struct player *p); */
 static void native_print_player_info(struct TaghaModule *const ctxt, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
 {
 	/* get first arg which is the address to our data.
@@ -156,7 +157,7 @@ Unfortunately, script's cannot use it directly in a clean way because the pointe
 A good and last example would be `free` implemented as a native which takes a pointer to de-allocate:
 ```c
 /* void free(void *ptr); */
-static void native_print_player_inforee
+static void native_free
 (struct TaghaModule *const ctxt, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
 {
 	void *ptr = params[0].Ptr;
@@ -290,3 +291,31 @@ int32_t run_custom_main(struct TaghaModule *const ctxt, GtkWindow *const w, cons
 	}
 }
 ```
+
+### va_list Arguments
+
+Bytecode compiled functions do not have the same calling convention as natives, the reasons for this limitation are purely for performance reasons but the Tagha API also has a way of resolving this. Tagha's API has an implementation of `va_list` that natives can directly use when dealing with bytecode calling convention.
+
+For our example function that uses a va_list from bytecode as an argument, we will make a native that calculates the average of a variadic amount of integer numbers given!
+
+```c
+/* int32_t va_int32_averages(va_list args); */
+void native_va_int32_averages
+(struct TaghaModule *const ctxt, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
+{
+	const struct Tagha_va_list *const restrict valist = params[0].Ptr;
+	int32_t res = 0;
+	for( size_t i=0 ; i<valist->Args ; i++ )
+		res += valist->Area.PtrSelf[i].Int32;
+	retval->Int32 = res / valist->Args;
+}
+```
+
+Here's the example step by step:
+The first param will contain a pointer to Tagha's implementation of a `va_list` struct.
+the struct has two fields: `Args` & `Area`.
+`Area` is a pointer-array (as type `union TaghaVal`) that stores the arguments of the `va_list`.
+`Args` is an integer (of type `uint64_t`) that stores the size of the pointer-array of `Area`.
+
+With the Area, we dereference and retrieve `int32_t` values from it and add it with our `res` variable.
+Finally we get the average calculation by dividing `res` with the `Args` member of our `va_list` struct implementation.

@@ -101,6 +101,42 @@ pointer to native C function (C++ interface has it's own implementation).
 The native must have the signature: `void (*)(struct TaghaModule *ctxt, union TaghaVal *ret, size_t args, union TaghaVal params[]);`
 
 
+## enum TaghaErrCode
+
+### ErrInstrBounds
+integer code that defines an out of bounds error. Value of `-1`.
+
+### ErrNone
+integer code that defines execution was successful. Value of `0`.
+
+### ErrBadPtr
+integer code that defines either a `NULL` or invalid pointer dereference attempt. Value of `1`.
+
+### ErrMissingFunc
+integer code that defines a missing/NULL bytecode function. Value of `2`.
+
+### ErrMissingNative
+integer code that defines a missing/unresolved/NULL native function. Value of `3`.
+
+### ErrInvalidScript
+integer code that defines an invalid script during loading. Value of `4`.
+
+### ErrStackSize
+integer code that defines an invalid stack size given. Value of `5`.
+
+### ErrStackOver
+integer code that defines a stack overflow. Value of `6`.
+
+
+## struct Tagha_va_list
+
+### Area
+member of `union TaghaVal` that is given a pointer of `union TaghaVal` to an array of arguments.
+
+### Args
+member of `uint64_t`, stores the size of the array that is referenced by `Area`.
+
+
 # Functions/Methods
 
 ## tagha_module_new_from_file

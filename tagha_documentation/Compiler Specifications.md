@@ -25,15 +25,13 @@ extern int puts(const char *);
 * If the exported native requires more than 8 parameters, then ALL parameters must be dumped to the stack with the arguments pushed from right to left (cdecl convention).
 * `argc` and `argv` are implemented in scripts but `env` variable is not implemented (I see no reason to implement as of currently).
 * `main` MAY be able to allowed to give whatever parameters the developers embedding tagha want to give to script devs.
-* Natives that require a `va_list` as an argument will need to use the `struct Tagha_va_list` datatype. This is **REQUIRED** in order to bridge variadic arguments from bytecode to the native functions.
+* Natives that require a `va_list` as an argument will need to use the `struct Tagha_va_list` datatype. This is **REQUIRED** in order to bridge variadic arguments from bytecode to the native functions. See the embedding Tagha C tutorial for more information on using this or check out the API documentation.
 
 ```c
-struct Tagha_va_list {
-	union TaghaVal
-		Area,	/* stack area. */
-		Args	/* amount of args in the stack area. */
-	;
-};
+typedef struct Tagha_va_list {
+	union TaghaVal Area; /* stack area. */
+	uint64_t Args; /* amount of args in the stack area. */
+} Tagha_va_list;
 ```
 
 ```c

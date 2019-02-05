@@ -172,7 +172,7 @@ static void native_vprintf(struct TaghaModule *const module, union TaghaVal *con
 	} else {
 		const struct Tagha_va_list *const restrict valist = params[1].Ptr;
 		struct HarbolString buf = {NULL,0};
-		_tagha_gen_printf(fmt, &buf, 0, valist->Area.PtrSelf, valist->Args.SizeInt);
+		_tagha_gen_printf(fmt, &buf, 0, valist->Area.PtrSelf, valist->Args);
 		retval->Int32 = printf("%s", buf.CStr);
 		harbol_string_del(&buf);
 	}
@@ -190,7 +190,7 @@ static void native_vfprintf(struct TaghaModule *const module, union TaghaVal *co
 	} else {
 		const struct Tagha_va_list *const valist = params[2].Ptr;
 		struct HarbolString buf = {NULL,0};
-		_tagha_gen_printf(fmt, &buf, 0, valist->Area.PtrSelf, valist->Args.SizeInt);
+		_tagha_gen_printf(fmt, &buf, 0, valist->Area.PtrSelf, valist->Args);
 		retval->Int32 = fprintf(stream, "%s", buf.CStr);
 		harbol_string_del(&buf);
 	}
@@ -208,7 +208,7 @@ static void native_vsprintf(struct TaghaModule *const module, union TaghaVal *co
 	} else {
 		const struct Tagha_va_list *const valist = params[2].Ptr;
 		struct HarbolString buf = {NULL,0};
-		_tagha_gen_printf(fmt, &buf, 0, valist->Area.PtrSelf, valist->Args.SizeInt);
+		_tagha_gen_printf(fmt, &buf, 0, valist->Area.PtrSelf, valist->Args);
 		retval->Int32 = sprintf(str, "%s", buf.CStr);
 		harbol_string_del(&buf);
 	}
@@ -226,7 +226,7 @@ static void native_vsnprintf(struct TaghaModule *const module, union TaghaVal *c
 	} else {
 		const struct Tagha_va_list *const restrict valist = params[3].Ptr;
 		struct HarbolString buf = {NULL,0};
-		_tagha_gen_printf(fmt, &buf, 0, valist->Area.PtrSelf, valist->Args.SizeInt);
+		_tagha_gen_printf(fmt, &buf, 0, valist->Area.PtrSelf, valist->Args);
 		retval->Int32 = snprintf(str, params[1].UInt64, "%s", buf.CStr);
 		harbol_string_del(&buf);
 	}

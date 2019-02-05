@@ -175,10 +175,8 @@ typedef struct TaghaItem {
  * We fix this issue by using two members of union TaghaVal so the data is padded to 8 bytes, regardless of system width!
  */
 typedef struct Tagha_va_list {
-	union TaghaVal
-		Area,	/* stack area. */
-		Args	/* amount of args in the stack area. */
-	;
+	union TaghaVal Area; /* stack area. */
+	uint64_t Args; /* amount of args in the stack area. */
 } Tagha_va_list;
 
 
