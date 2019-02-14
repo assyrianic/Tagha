@@ -232,6 +232,7 @@ TAGHA_EXPORT bool tagha_module_register_ptr(struct TaghaModule *module, const ch
 TAGHA_EXPORT void *tagha_module_get_globalvar_by_name(struct TaghaModule *module, const char varname[]);
 
 TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *module, const char funcname[], size_t args, union TaghaVal params[], union TaghaVal *return_val);
+TAGHA_EXPORT int32_t tagha_module_invoke(struct TaghaModule *module, int64_t func_index, size_t args, union TaghaVal params[], union TaghaVal *return_val);
 TAGHA_EXPORT int32_t tagha_module_run(struct TaghaModule *module, int32_t iargc, char *strargv[]);
 TAGHA_EXPORT void tagha_module_throw_error(struct TaghaModule *module, int32_t err);
 TAGHA_EXPORT void tagha_module_force_safemode(struct TaghaModule *module);
@@ -309,7 +310,6 @@ TAGHA_EXPORT bool tagha_system_add_natives(struct TaghaSystem *sys, const struct
 		X(call) X(callr) X(ret) \
 		X(nop)
 #endif
-//X(syscall) X(syscallr)
 
 #define X(x) x,
 typedef enum TaghaInstrSet { TAGHA_INSTR_SET } TaghaInstrSet;

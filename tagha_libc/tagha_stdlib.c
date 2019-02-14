@@ -274,6 +274,45 @@ static void native_wcstombs(struct TaghaModule *const module, union TaghaVal *co
 }
 
 
+// TODO:
+/* void qsort(void *base, size_t num, size_t size, int (*cmp)(const void *, const void *)); */
+static void native_qsort(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
+{
+	(void)module; (void)args; (void)retval; (void)params;
+	/*
+	void *const restrict array_base = params[0].Ptr;
+	const size_t num_elements = params[1].SizeInt;
+	const size_t element_bytes = params[2].SizeInt;
+	const int64_t func_ptr = params[3].Int64;
+	const struct TaghaItem *const func = module->FuncMap.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->Data.Ptr;
+	tagha_module_invoke(module, func, args, params, retval);
+	*/
+}
+
+/* int atexit(void (*func)(void)); */
+static void native_atexit(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
+{
+	(void)module; (void)args; (void)params;
+	retval->Int32 = -1LL;
+}
+
+/* void *bsearch(const void *key, const void *base, size_t num, size_t size, int (*cmp)(const void *,const void *)); */
+
+/* int at_quick_exit(void (*func)(void)); */
+static void native_at_quick_exit(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
+{
+	(void)module; (void)args; (void)params;
+	retval->Int32 = -1LL;
+}
+
+/* char *getenv(const char *name); */
+static void native_getenv(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
+{
+	(void)module; (void)args;
+	retval->Ptr = getenv(params[0].PtrConstChar);
+}
+
+
 bool tagha_module_load_stdlib_natives(struct TaghaModule *const module)
 {
 	const struct TaghaNative libc_stdlib_natives[] = {
@@ -308,6 +347,9 @@ bool tagha_module_load_stdlib_natives(struct TaghaModule *const module)
 		{"wctomb", native_wctomb},
 		{"mbstowcs", native_mbstowcs},
 		{"wcstombs", native_wcstombs},
+		{"atexit", native_atexit},
+		{"at_quick_exit", native_at_quick_exit},
+		{"getenv", native_getenv},
 		{NULL, NULL}
 	};
 	return module ? tagha_module_register_natives(module, libc_stdlib_natives) : false;

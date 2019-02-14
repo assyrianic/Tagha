@@ -74,12 +74,9 @@ int main(const int argc, char *argv[restrict static argc+1])
 			{NULL, NULL}
 		};
 		tagha_module_register_natives(module, host_natives);
-		char argv1[] = {"example1"};
-		char argv2[] = {"example2"};
-		char *module_args[] = { argv1,argv2,NULL };
 		
 		const clock_t start = clock();
-		const int32_t result = tagha_module_run(module, 2, module_args);
+		const int32_t result = tagha_module_run(module, 2, (char *[]){ (char[]){"example1"}, (char[]){"example2"}, NULL });
 		const clock_t end = clock();
 		tagha_module_print_vm_state(module);
 		

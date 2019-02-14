@@ -1,0 +1,31 @@
+$stacksize 64
+
+$global stdin, 8, word 0
+$global string, 29, "Please enter a long string: "
+
+$native %puts  # int puts(const char *);
+$native %fgets  # char *fgets(char *, int, FILE *);
+
+%main: {
+# char string[256];
+	movi		rgamal, 256
+	sub			rsp, rgamal
+	
+# puts("Please enter a long string: ");
+	loadvar		rsemkath, string
+	movi		ralaf, 1
+	call		%puts
+	
+# fgets(string, 256, stdin);
+	loadglobal	rpeh, stdin # loading a global var only loads its address, we need the actual ptr value of stdin.
+	ld8			rpeh, [rpeh]
+	movi		r_eh, 256
+	loadaddr	rsemkath, [rbp-256]
+	movi		ralaf, 3
+	loadfunc	rgamal, %fgets
+	callr		rgamal
+	
+	movi		ralaf, 1
+	call		%puts
+	ret
+}

@@ -10,6 +10,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *module)
 	__attribute__ ((hot))
 #endif
 ;
+static int32_t _tagha_module_invoke_func(struct TaghaModule *module, const struct TaghaItem *func, size_t args, union TaghaVal params[], union TaghaVal *return_val);
 
 
 #define CLEANUP(ptr)	free((ptr)), (ptr)=NULL
@@ -376,17 +377,76 @@ TAGHA_EXPORT void *tagha_module_get_globalvar_by_name(struct TaghaModule *const 
 	}
 }
 
-TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module, const char func_name[restrict], const size_t args, union TaghaVal params[restrict static args], union TaghaVal *const restrict retval)
+TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module, const char func_name[restrict], const size_t args, union TaghaVal params[restrict], union TaghaVal *const restrict retval)
 {
 	if( !module || !func_name )
 		return -1;
 	else {
-		struct TaghaItem *const item = harbol_linkmap_get(&module->FuncMap, func_name).Ptr;
-		/* null item? we're missing a function then. */
+		const struct TaghaItem *const item = harbol_linkmap_get(&module->FuncMap, func_name).Ptr;
 		if( !item ) {
 			module->Error = ErrMissingFunc;
 			return -1;
-		} else if( item->Flags >= TAGHA_FLAG_NATIVE ) {
+		} else {
+			return _tagha_module_invoke_func(module, item, args, params, retval);
+		}
+	}
+}
+
+TAGHA_EXPORT int32_t tagha_module_invoke(struct TaghaModule *const module, const int64_t func_index, const size_t args, union TaghaVal params[restrict], union TaghaVal *const restrict retval)
+{
+	if( !module || !func_index ) {
+		return -1;
+	} else {
+		const struct TaghaItem *const item = module->FuncMap.Order.Table[func_index>0 ? (func_index - 1) : (-1 - func_index)].KvPairPtr->Data.Ptr;
+		if( !item ) {
+			module->Error = ErrMissingFunc;
+			return -1;
+		} else {
+			return _tagha_module_invoke_func(module, item, args, params, retval);
+		}
+	}
+}
+
+TAGHA_EXPORT int32_t tagha_module_run(struct TaghaModule *const restrict module, const int32_t argc, char *sargv[restrict static argc+1])
+{
+	if( !module )
+		return -1;
+	else {
+		union TaghaVal
+			retval = {0},
+			main_params[2] = {{0} , {0}} /* hey, it's an owl lmao */
+		;
+		main_params[0].Int32 = argc;
+		int32_t result = 0;
+		
+		if( sizeof(intptr_t)<sizeof(union TaghaVal) ) {
+		/* for 32-bit systems, gotta pad out the pointer values to 64-bit using TaghaVal array.
+		 * Also for 32-bit systems, cap out the maximum arguments to 32 pointers.
+		 */
+#ifndef TAGHA_MAX_MAIN_ARGS_32BIT
+#	define TAGHA_MAX_MAIN_ARGS_32BIT    32
+#endif
+			union TaghaVal argv[TAGHA_MAX_MAIN_ARGS_32BIT+1] = {{0x0}};
+			if( sargv )
+				for( int32_t i=0 ; i<argc && i<TAGHA_MAX_MAIN_ARGS_32BIT ; i++ )
+					argv[i].Ptr = sargv[i];
+			main_params[1].PtrSelf = argv;
+			result = tagha_module_call(module, "main", 2, main_params, &retval);
+		}
+		else {
+			main_params[1].Ptr = sargv;
+			result = tagha_module_call(module, "main", 2, main_params, &retval);
+		}
+		return !result ? retval.Int32 : result;
+	}
+}
+
+static int32_t _tagha_module_invoke_func(struct TaghaModule *const module, const struct TaghaItem *const item, const size_t args, union TaghaVal params[restrict], union TaghaVal *const restrict retval)
+{
+	if( !module ) {
+		return -1;
+	} else {
+		if( item->Flags >= TAGHA_FLAG_NATIVE ) {
 			/* make sure our native function was registered first or else we crash ;) */
 			if( item->Flags >= TAGHA_FLAG_LINKED ) {
 				union TaghaVal ret = (union TaghaVal){0};
@@ -447,40 +507,6 @@ TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module
 	}
 }
 
-TAGHA_EXPORT int32_t tagha_module_run(struct TaghaModule *const restrict module, const int32_t argc, char *sargv[restrict static argc+1])
-{
-	if( !module )
-		return -1;
-	else {
-		union TaghaVal
-			retval = {0},
-			main_params[2] = {{0} , {0}} /* hey, it's an owl lmao */
-		;
-		main_params[0].Int32 = argc;
-		int32_t result = 0;
-		
-		if( sizeof(intptr_t)<sizeof(union TaghaVal) ) {
-		/* for 32-bit systems, gotta pad out the pointer values to 64-bit using TaghaVal array.
-		 * Also for 32-bit systems, cap out the maximum arguments to 32 pointers.
-		 */
-#ifndef TAGHA_MAX_MAIN_ARGS_32BIT
-#	define TAGHA_MAX_MAIN_ARGS_32BIT    32
-#endif
-			union TaghaVal argv[TAGHA_MAX_MAIN_ARGS_32BIT+1] = {{0x0}};
-			if( sargv )
-				for( int32_t i=0 ; i<argc && i<TAGHA_MAX_MAIN_ARGS_32BIT ; i++ )
-					argv[i].Ptr = sargv[i];
-			main_params[1].PtrSelf = argv;
-			result = tagha_module_call(module, "main", 2, main_params, &retval);
-		}
-		else {
-			main_params[1].Ptr = sargv;
-			result = tagha_module_call(module, "main", 2, main_params, &retval);
-		}
-		return !result ? retval.Int32 : result;
-	}
-}
-
 TAGHA_EXPORT void tagha_module_throw_error(struct TaghaModule *const module, const int32_t err)
 {
 	if( !module || !err )
@@ -525,6 +551,7 @@ TAGHA_EXPORT void tagha_module_jit_compile(struct TaghaModule *const module, voi
 	}
 }
 */
+
 //#include <unistd.h>	/* sleep() func */
 
 static int32_t _tagha_module_exec(struct TaghaModule *const vm)

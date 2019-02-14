@@ -321,11 +321,30 @@ int32_t tagha_module_call(struct TaghaModule *module, const char funcname[], siz
 ```
 
 ### Description
-Manually calls a script function from C.
+Manually calls a script function from C by name.
 
 ### Parameters
 * `module` - pointer to a `struct TaghaModule` instance.
 * `name` - name of script function to invoke.
+* `args` - amount of arguments to pass.
+* `params` - function params to be passed, as an array of `union TaghaVal`.
+* `return_val` - pointer to `union TaghaVal` for use as a return value buffer.
+
+### Return Value
+returns a status `int32_t` value, returns `-1` if an error occurred. Use `return_val` to get a proper return value.
+
+
+## tagha_module_invoke
+```c
+int32_t tagha_module_invoke(struct TaghaModule *module, int64_t func_index, size_t args, union TaghaVal params[], union TaghaVal *return_val);
+```
+
+### Description
+Manually calls a script function from C by function index. Designed to be used for natives that take a function pointer from bytecode.
+
+### Parameters
+* `module` - pointer to a `struct TaghaModule` instance.
+* `func_index` - index of script function to invoke.
 * `args` - amount of arguments to pass.
 * `params` - function params to be passed, as an array of `union TaghaVal`.
 * `return_val` - pointer to `union TaghaVal` for use as a return value buffer.
