@@ -15,16 +15,16 @@ goto %ACTION%
 
 :tagha
        %CC% %CFLAGS% -c libharbol/stringobj.c libharbol/vector.c libharbol/hashmap.c libharbol/mempool.c libharbol/linkmap.c %SRCS%
+
        llvm-ar cr %LIBNAME%.lib stringobj.obj vector.obj hashmap.obj mempool.obj linkmap.obj %OBJS%
+
        %CC% %CFLAGS% /LD stringobj.obj vector.obj hashmap.obj mempool.obj linkmap.obj %OBJS% -o%LIBNAME%
+
        goto END
 
 :tagha_asm
-       %CC% %CFLAGS% libharbol/stringobj.c libharbol/vector.c libharbol/hashmap.c libharbol/bytebuffer.c libharbol/linkmap.c tagha_assembler/tagha_assembler.c -o tagha_asm.exe
-       goto END
+       %CC% %CFLAGS% libharbol/stringobj.c libharbol/vector.c libharbol/hashmap.c libharbol/bytebuffer.c libharbol/linkmap.c tagha_assembler/tagha_assembler.c -otagha_asm
 
-:clean
-       del *.obj
        goto END
 
 :tagha_libc
@@ -36,8 +36,17 @@ goto %ACTION%
 	
 	%CC% %CFLAGS% /LD stringobj.obj vector.obj hashmap.obj mempool.obj linkmap.obj tagha_ctype.obj tagha_stdio.obj tagha_stdlib.obj tagha_string.obj tagha_time.obj tagha_module.obj %LIBNAME%.lib -o%LIBNAME%_libc
 
+       goto END
+
 :testapp
 	%CC% %CFLAGS% test_hostapp.c %LIBNAME%.lib %LIBNAME%_libc.lib -otagha_testapp
 
+       goto END
+
+:clean
+       del *.obj
+
+       goto END
+
 :END
-echo %ACTION% is done
+       echo %ACTION% is done
