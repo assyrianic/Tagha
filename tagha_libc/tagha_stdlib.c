@@ -297,6 +297,11 @@ static void native_atexit(struct TaghaModule *const restrict module, union Tagha
 }
 
 /* void *bsearch(const void *key, const void *base, size_t num, size_t size, int (*cmp)(const void *,const void *)); */
+static void native_bsearch(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
+{
+	(void)module; (void)args; (void)params;
+	retval->Ptr = NULL;
+}
 
 /* int at_quick_exit(void (*func)(void)); */
 static void native_at_quick_exit(struct TaghaModule *const restrict module, union TaghaVal *const restrict retval, const size_t args, union TaghaVal params[restrict static args])
