@@ -135,7 +135,7 @@ If you wish to build and test the tagha code base, compile `test_hostapp.c` with
 
 ## Contact
 
-I can be contacted through the Discord link (https://discord.gg/2NKFgPS) or PM me @ **Khanno Hanna#1704**.
+I can be contacted through the Discord link (https://discord.gg/2qrn64B) or PM me @ **Khanno Hanna#1704**.
 
 ## License
 ![License](https://img.shields.io/github/license/assyrianic/tagha.svg?label=License&style=plastic)
