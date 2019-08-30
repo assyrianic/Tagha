@@ -1,0 +1,78 @@
+$stacksize 2048
+
+$global fmt_str1, 4, "%s\n"
+$global str1, 31, "printf test string formatting."
+$global fmt_str2, 13, "200 == '%f'\n"
+$global fmt_str3, 23, "vprintf\: '%f', '%f'\n"
+
+##############################
+# tahga va_list structure.
+# struct TaghaVAList {
+#     union TaghaVal area;
+#     uint64_t args;
+# };
+##############################
+
+; int printf(const char *fmt, ...);
+$native %printf
+
+; int vprintf(const char *fmt, va_list args);
+$native %vprintf
+
+; int main(int argc, char *argv[static args+1])
+%main: {
+    movi        rgamal, 80
+    sub         rsp, rgamal
+    
+    ; printf("%s\n", "printf test string formatting.");
+    loadglobal  rsemkath, fmt_str1
+    loadglobal  r_eh, str1
+    movi        ralaf, 2
+    call        %printf
+    
+    ; printf("100 == %x\n", 100);
+    loadglobal  rsemkath, fmt_str2
+    movi        r_eh, 0x4069000000000000
+    movi        ralaf, 2
+    call        %printf
+    
+    ; my_printer("vprintf\: '%f', '%f'\n", 200.f, 2.f);
+    ; 2.0
+    movi        rgamal, 0x4000000000000000
+    st8         [rbp-8], rgamal
+    
+    ; 200.0
+    movi        rgamal, 0x4069000000000000
+    st8         [rbp-16], rgamal
+    
+    ; load va_list
+    loadaddr    r_eh, [rbp-16]
+    loadglobal  rsemkath, fmt_str3
+    call        %my_printer
+    ret
+}
+
+; void my_printer(const char *fmt, ...);
+; when it comes to the va_list...
+; va_list is compiled into a large array of any kind of data that has the CPU register data dumped to it.
+; once the large array is filled, it's passed to the function.
+; in this case, va_list is just an array of union TaghaVal that tracks the size of said array.
+%my_printer: {
+    movi        rgamal, 32
+    sub         rsp, rgamal
+    
+    ; set up the va_list
+    ; va.args = 2;
+    movi        rgamal, 2
+    st8         [rbp-8], rgamal
+    
+    ; va.area = __r_eh.ptr
+    st8         [rbp-16], r_eh
+    
+    ; vprintf(fmt, &va);
+    loadaddr    r_eh, [rbp-16]
+    ; register semkath still contains the string pointer.
+    movi        ralaf, 2
+    call        %vprintf
+    ret
+}
