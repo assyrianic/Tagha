@@ -80,7 +80,7 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 	module->heap.freelist.max_nodes = 0;
 	const size_t given_heapsize = harbol_mempool_mem_remaining(&module->heap);
 	if( !given_heapsize || given_heapsize != memsize ) {
-		fprintf(stderr, "Tagha Module File Error :: **** given heapsize (%zu) is not same as required memory size! (%zu). ****\n", given_heapsize, memsize);
+		fprintf(stderr, "Tagha Module File Error :: **** given heapsize (%zu) is not same as required memory size! (%u). ****\n", given_heapsize, memsize);
 		return false;
 	}
 	
