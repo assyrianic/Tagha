@@ -4,6 +4,7 @@
 
 #include "libharbol/harbol.h"
 #include "../tagha/tagha.h"
+#include "tagha_script_builder.h"
 
 //#define TASM_DEBUG
 
@@ -1110,10 +1111,11 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 	
 	uint32_t mem_region_size = tasm->stacksize * sizeof(union TaghaVal) + memnode_size;
 	
-	// build our func table & global var table
-	struct HarbolByteBuf functable = harbol_bytebuffer_create();
-	struct HarbolByteBuf datatable = harbol_bytebuffer_create();
+	// create initial script header.
+	struct TaghaScriptBuilder tbc = tagha_tbc_gen_create();
 	
+	// build our func table & global var table so that we can calculate total memory usage.
+	// first build func table.
 	mem_region_size += tagha_set_buckets_size * tasm->funcmap.map.count + memnode_size;
 	mem_region_size += tagha_set_arr_size * tasm->funcmap.map.count + memnode_size;
 	for( size_t i=0; i<tasm->funcmap.map.count; i++ ) {
@@ -1122,23 +1124,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 		if( label==NULL )
 			continue;
 		
-		// write flag
-		harbol_bytebuffer_insert_byte(&functable, label->is_native);
-		
-		// write strlen
-		harbol_bytebuffer_insert_int32(&functable, (uint32_t)node->key.len);
-		
-		// write instrlen
-		label->is_native
-			? harbol_bytebuffer_insert_int32(&functable, 8)
-			: harbol_bytebuffer_insert_int32(&functable, (uint32_t)label->bytecode.count);
-		
-		// write string of func.
-		harbol_bytebuffer_insert_cstr(&functable, node->key.cstr+1);
-		
-		// write bytecode.
-		if( !label->is_native )
-			harbol_bytebuffer_append(&functable, &label->bytecode);
+		tagha_tbc_gen_write_func(&tbc, label->is_native, node->key.cstr+1, &label->bytecode);
 		
 	#ifdef TASM_DEBUG
 		printf("func label: %s\nData:\n", node->key.cstr);
@@ -1150,6 +1136,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 		mem_region_size += tagha_kvsize + memnode_size;
 	}
 	
+	// now the global var table.
 	mem_region_size += tagha_set_buckets_size * tasm->varmap.map.count + memnode_size;
 	mem_region_size += tagha_set_arr_size * tasm->varmap.map.count + memnode_size;
 	for( size_t i=0; i<tasm->varmap.map.count; i++ ) {
@@ -1158,20 +1145,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 		if( bytedata==NULL )
 			continue;
 		
-		// write flag.
-		harbol_bytebuffer_insert_byte(&datatable, 0);
-		
-		// write strlen.
-		harbol_bytebuffer_insert_int32(&datatable, (uint32_t)(node->key.len+1));
-		
-		// write byte count.
-		harbol_bytebuffer_insert_int32(&datatable, (uint32_t)bytedata->count);
-		
-		// write string of var.
-		harbol_bytebuffer_insert_cstr(&datatable, node->key.cstr);
-		
-		// write byte data.
-		harbol_bytebuffer_append(&datatable, bytedata);
+		tagha_tbc_gen_write_var(&tbc, 0, node->key.cstr, bytedata);
 		
 	#ifdef TASM_DEBUG
 		printf("global var: %s\nData:\n", node->key.cstr);
@@ -1183,27 +1157,8 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 	}
 	mem_region_size += tasm->heapsize;
 	
-	// build the header.
-	struct HarbolByteBuf tbcfile = harbol_bytebuffer_create();
-	harbol_bytebuffer_insert_int16(&tbcfile, TAGHA_MAGIC_VERIFIER);
-	harbol_bytebuffer_insert_int32(&tbcfile, tasm->stacksize);
-	harbol_bytebuffer_insert_int32(&tbcfile, harbol_align_size(mem_region_size, 8));
-	
-	// write flags.
-	harbol_bytebuffer_insert_byte(&tbcfile, 0);
-	
-	// build function table.
-	harbol_bytebuffer_insert_int32(&tbcfile, (uint32_t)tasm->funcmap.map.count);
-	harbol_bytebuffer_append(&tbcfile, &functable);
-	harbol_bytebuffer_clear(&functable);
-	
-	// build global variable table.
-	harbol_bytebuffer_insert_int32(&tbcfile, (uint32_t)tasm->varmap.map.count);
-	harbol_bytebuffer_append(&tbcfile, &datatable);
-	harbol_bytebuffer_clear(&datatable);
-	
-	// build memory region.
-	harbol_bytebuffer_insert_zeros(&tbcfile, harbol_align_size(mem_region_size, 8));
+	// now that we've made the tables and calculated how much memory we need, we finally initialize our header.
+	tagha_tbc_gen_write_header(&tbc, tasm->stacksize, (uint32_t)harbol_align_size(mem_region_size, 8), 0);
 	
 	{
 		char *iter = tasm->outname.cstr;
@@ -1219,14 +1174,10 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 	memset(line_buffer, 0, sizeof line_buffer);
 	sprintf(line_buffer, "%.2000s.tbc", tasm->outname.cstr);
 	
-	FILE *tbcscript = fopen(line_buffer, "w+");
-	if( tbcscript==NULL ) {
-		tagha_asm_err_out(tasm, "unable to create output file!");
-		goto assembling_err_exit;
-	}
-	harbol_bytebuffer_to_file(&tbcfile, tbcscript);
-	fclose(tbcscript); tbcscript=NULL;
-	harbol_bytebuffer_clear(&tbcfile);
+	/* tagha_tbc_create_file will write in the final data needed to make the tbc.
+	 * Will also free the TaghaScriptBuilder data.
+	 */
+	tagha_tbc_gen_create_file(&tbc, line_buffer);
 	
 assembling_err_exit:
 	harbol_string_clear(&tasm->outname);
