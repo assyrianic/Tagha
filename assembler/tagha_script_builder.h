@@ -6,7 +6,7 @@
 typedef struct TaghaScriptBuilder {
 	struct HarbolByteBuf header, datatbl, functbl;
 	uint32_t funcs, vars, memsize;
-} STaghaScript;
+} STaghaScriptBuilder;
 
 static inline struct TaghaScriptBuilder tagha_tbc_gen_create(void)
 {
