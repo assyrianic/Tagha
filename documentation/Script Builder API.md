@@ -101,6 +101,7 @@ bool tagha_tbc_gen_create_file(struct TaghaScriptBuilder *const restrict tbc, co
 
 ### Description
 creates a Tagha Bytecode Script out of a `struct TaghaScriptBuilder` object.
+This **WILL** clear the script builder data.
 
 ### Parameters
 * `tbc` - pointer to a `struct TaghaScriptBuilder` object.
@@ -117,6 +118,7 @@ struct HarbolByteBuf tagha_tbc_gen_to_buffer(struct TaghaScriptBuilder *const tb
 
 ### Description
 creates a direct byte buffer out of a `struct TaghaScriptBuilder` object.
+This **WILL** clear the script builder data.
 
 ### Parameters
 * `tbc` - pointer to a `struct TaghaScriptBuilder` object.
