@@ -2,7 +2,7 @@
  * [Baby Steps](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#baby-steps)
  * [Exporting Host Functionality](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#exporting-host-functionality-to-scripts)
  * [Script - Native Communication](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#script--native-communication)
- * [Script - Host Messaging](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#script--host-sharing)
+ * [Script - Host Messaging](https://github.com/assyrianic/Tagha/wiki/Embedding-Tagha-to-your-Application!-(C)#script--host-messaging)
  * ['va_list' Natives](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#va_list-arguments)
 
 # Intro

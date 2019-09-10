@@ -26,15 +26,13 @@ To be a worthy C runtime environment, giving Tagha runtime speed is a hard requi
 
 * `argc` and `argv` are implemented in scripts but `env` variable is not implemented (I see no reason to implement as of current).
 
-* `main` MAY be able to allowed to give whatever parameters the developers embedding tagha want to give to script devs.
-
-* To see how to give `main` custom parameters, please read the C tutorial in the documentation.
+* `main` MAY be able to allowed to give whatever parameters the developers embedding tagha want to give to script devs. Just not pointers.
 
 
 # Tagha Script File Format
 
  * ------------------------------ start of header ------------------------------
- * 4 bytes: magic verifier ==> 0xC0DE
+ * 2 bytes: magic verifier ==> 0xC0DE
  * 4 bytes: stack size, stack size needed for the code.
  * 4 bytes: mem region size.
  * 1 byte: flags
