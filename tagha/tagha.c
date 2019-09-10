@@ -9,7 +9,7 @@ static NO_NULL HOT int32_t _tagha_module_exec(struct TaghaModule *module);
 static NEVER_NULL(1,2) int32_t _tagha_module_start(struct TaghaModule *module,
 															const struct TaghaItem *func,
 															size_t args,
-															union TaghaVal params[],
+															const union TaghaVal params[],
 															union TaghaVal *retval);
 
 
@@ -39,7 +39,7 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 	size_t largest_funcs_hash=0, largest_vars_hash=0;
 	const uint32_t stacksize = *iter.uint32++;
 	const uint32_t memsize = *iter.uint32++;
-	iter.uint8++;
+	module->flags = *iter.uint8++;
 	
 	// iterate function table and get bytecode sizes.
 	const uint32_t func_table_size = *iter.uint32++;
@@ -331,10 +331,15 @@ TAGHA_EXPORT void *tagha_module_get_var(struct TaghaModule *const restrict modul
 	return( var != NULL ) ? var->item.datum : NULL;
 }
 
+TAGHA_EXPORT uint8_t tagha_module_get_flags(const struct TaghaModule *module)
+{
+	return module->flags;
+}
+
 TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module,
 										const char name[restrict static 1],
 										const size_t args,
-										union TaghaVal params[restrict],
+										const union TaghaVal params[restrict],
 										union TaghaVal *const restrict retval)
 {
 	const struct TaghaItem *const restrict item = _tagha_key_get_item(module->funcs, name);
@@ -348,7 +353,7 @@ TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module
 TAGHA_EXPORT int32_t tagha_module_invoke(struct TaghaModule *const module,
 											const int64_t func_index,
 											const size_t args,
-											union TaghaVal params[restrict],
+											const union TaghaVal params[restrict],
 											union TaghaVal *const restrict retval)
 {
 	if( !func_index ) {
@@ -366,7 +371,7 @@ TAGHA_EXPORT int32_t tagha_module_invoke(struct TaghaModule *const module,
 	}
 }
 
-TAGHA_EXPORT inline int32_t tagha_module_run(struct TaghaModule *const module, const size_t argc, union TaghaVal argv[const])
+TAGHA_EXPORT inline int32_t tagha_module_run(struct TaghaModule *const module, const size_t argc, const union TaghaVal argv[const])
 {
 	return tagha_module_call(module, "main", argc, argv, NULL);
 }
@@ -374,7 +379,7 @@ TAGHA_EXPORT inline int32_t tagha_module_run(struct TaghaModule *const module, c
 static int32_t _tagha_module_start(struct TaghaModule *const module,
 											const struct TaghaItem *const func,
 											const size_t args,
-											union TaghaVal params[const restrict],
+											const union TaghaVal params[const restrict],
 											union TaghaVal *const restrict retval)
 {
 	if( func->flags >= TAGHA_FLAG_NATIVE ) {
@@ -383,7 +388,7 @@ static int32_t _tagha_module_start(struct TaghaModule *const module,
 			const union TaghaVal ret = (*func->item.cfunc)(module, args, params);
 			if( retval != NULL )
 				*retval = ret;
-			return module->errcode == tagha_err_none ? 0 : module->errcode;
+			return( module->errcode == tagha_err_none ) ? 0 : module->errcode;
 		} else {
 			module->errcode = tagha_err_no_cfunc;
 			return -1;
@@ -418,7 +423,7 @@ static int32_t _tagha_module_start(struct TaghaModule *const module,
 		
 		if( module->cpu.regfile.struc.instr.ptrvoid != NULL ) {
 			const int32_t result = _tagha_module_exec(module);
-			module->cpu.regfile.struc.instr.int64 = 0;
+			module->cpu.regfile.struc.instr.ptrvoid = NULL;
 			if( retval != NULL )
 				*retval = module->cpu.regfile.struc.alaf;
 			if( args > reg_params )
@@ -498,6 +503,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	
 #	define DISPATCH()    goto *dispatch[*pc.ptruint8++]
 	
+	/* nop being first will make sure our VM starts with a dispatch! */
 	exec_nop: {
 		DISPATCH();
 	}
@@ -789,7 +795,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 			vm->errcode = tagha_err_no_func;
 			goto *dispatch[halt];
 		} else {
-			const struct TaghaItem func = vm->funcs.array[ (index>0) ? (index - 1) : (-1 - index) ];
+			const struct TaghaItem func = vm->funcs.array[(index>0) ? (index - 1) : (-1 - index)];
 			if( func.flags >= TAGHA_FLAG_NATIVE ) {
 				if( func.flags != TAGHA_FLAG_NATIVE+TAGHA_FLAG_LINKED ) {
 					vm->errcode = tagha_err_no_cfunc;
@@ -831,7 +837,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 			vm->errcode = tagha_err_no_func;
 			goto *dispatch[halt];
 		} else {
-			const struct TaghaItem func = vm->funcs.array[((index>0) ? (index - 1) : (-1 - index))];
+			const struct TaghaItem func = vm->funcs.array[(index>0) ? (index - 1) : (-1 - index)];
 			if( func.flags >= TAGHA_FLAG_NATIVE ) {
 				if( func.flags != TAGHA_FLAG_NATIVE+TAGHA_FLAG_LINKED ) {
 					vm->errcode = tagha_err_no_cfunc;
@@ -878,8 +884,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	}
 	
 #ifdef TAGHA_USE_FLOATS
-	exec_flt2dbl: { /* treat as no op if one float32_t is defined but not the other. */
-	 /* char: opcode | char: reg id */
+	/* treated as nop if float32_t is defined but not the other. */
+	exec_flt2dbl: { /* char: opcode | char: reg id */
 		const uint8_t regid = *pc.ptruint8++;
 #	if defined(TAGHA_FLOAT32_DEFINED) && defined(TAGHA_FLOAT64_DEFINED)
 		const float32_t f = vm->cpu.regfile.array[regid].float32;
@@ -901,6 +907,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 #	ifdef TAGHA_FLOAT64_DEFINED
 		const int64_t i = vm->cpu.regfile.array[regid].int64;
 		vm->cpu.regfile.array[regid].float64 = (float64_t)i;
+#	else
+		(void)regid;
 #	endif
 		DISPATCH();
 	}
@@ -910,16 +918,20 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		const int64_t i = vm->cpu.regfile.array[regid].int64;
 		vm->cpu.regfile.array[regid].int64 = 0;
 		vm->cpu.regfile.array[regid].float32 = (float32_t)i;
+#	else
+		(void)regid;
 #	endif
 		DISPATCH();
 	}
 	
 	exec_addf: { /* char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.ptruint16++;
-#	if defined(TAGHA_FLOAT64_DEFINED) /* if doubles are defined, regardless whether float32_t is or not */
+#	if defined(TAGHA_FLOAT64_DEFINED) /* if float64_t's are defined, regardless whether float32_t is or not */
 		vm->cpu.regfile.array[regids & 0xff].float64 += vm->cpu.regfile.array[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
 		vm->cpu.regfile.array[regids & 0xff].float32 += vm->cpu.regfile.array[regids >> 8].float32;
+#	else
+		(void)regids;
 #	endif
 		DISPATCH();
 	}
@@ -929,6 +941,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		vm->cpu.regfile.array[regids & 0xff].float64 -= vm->cpu.regfile.array[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
 		vm->cpu.regfile.array[regids & 0xff].float32 -= vm->cpu.regfile.array[regids >> 8].float32;
+#	else
+		(void)regids;
 #	endif
 		DISPATCH();
 	}
@@ -938,6 +952,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		vm->cpu.regfile.array[regids & 0xff].float64 *= vm->cpu.regfile.array[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
 		vm->cpu.regfile.array[regids & 0xff].float32 *= vm->cpu.regfile.array[regids >> 8].float32;
+#	else
+		(void)regids;
 #	endif
 		DISPATCH();
 	}
@@ -947,6 +963,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		vm->cpu.regfile.array[regids & 0xff].float64 /= vm->cpu.regfile.array[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
 		vm->cpu.regfile.array[regids & 0xff].float32 /= vm->cpu.regfile.array[regids >> 8].float32;
+#	else
+		(void)regids;
 #	endif
 		DISPATCH();
 	}
@@ -957,6 +975,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		vm->cpu.condflag = vm->cpu.regfile.array[regids & 0xff].float64 < vm->cpu.regfile.array[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
 		vm->cpu.condflag = vm->cpu.regfile.array[regids & 0xff].float32 < vm->cpu.regfile.array[regids >> 8].float32;
+#	else
+		(void)regids;
 #	endif
 		DISPATCH();
 	}
@@ -966,6 +986,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		vm->cpu.condflag = vm->cpu.regfile.array[regids & 0xff].float64 <= vm->cpu.regfile.array[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
 		vm->cpu.condflag = vm->cpu.regfile.array[regids & 0xff].float32 <= vm->cpu.regfile.array[regids >> 8].float32;
+#	else
+		(void)regids;
 #	endif
 		DISPATCH();
 	}
@@ -976,6 +998,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		vm->cpu.condflag = vm->cpu.regfile.array[regids & 0xff].float64 > vm->cpu.regfile.array[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
 		vm->cpu.condflag = vm->cpu.regfile.array[regids & 0xff].float32 > vm->cpu.regfile.array[regids >> 8].float32;
+#	else
+		(void)regids;
 #	endif
 		DISPATCH();
 	}
@@ -985,6 +1009,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		vm->cpu.condflag = vm->cpu.regfile.array[regids & 0xff].float64 >= vm->cpu.regfile.array[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
 		vm->cpu.condflag = vm->cpu.regfile.array[regids & 0xff].float32 >= vm->cpu.regfile.array[regids >> 8].float32;
+#	else
+		(void)regids;
 #	endif
 		DISPATCH();
 	}
@@ -995,6 +1021,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		vm->cpu.condflag = vm->cpu.regfile.array[regids & 0xff].float64 == vm->cpu.regfile.array[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
 		vm->cpu.condflag = vm->cpu.regfile.array[regids & 0xff].float32 == vm->cpu.regfile.array[regids >> 8].float32;
+#	else
+		(void)regids;
 #	endif
 		DISPATCH();
 	}
@@ -1004,6 +1032,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		vm->cpu.condflag = vm->cpu.regfile.array[regids & 0xff].float64 != vm->cpu.regfile.array[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
 		vm->cpu.condflag = vm->cpu.regfile.array[regids & 0xff].float32 != vm->cpu.regfile.array[regids >> 8].float32;
+#	else
+		(void)regids;
 #	endif
 		DISPATCH();
 	}
@@ -1013,6 +1043,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		++vm->cpu.regfile.array[regid].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
 		++vm->cpu.regfile.array[regid].float32;
+#	else
+		(void)regid;
 #	endif
 		DISPATCH();
 	}
@@ -1022,6 +1054,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		--vm->cpu.regfile.array[regid].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
 		--vm->cpu.regfile.array[regid].float32;
+#	else
+		(void)regid;
 #	endif
 		DISPATCH();
 	}
@@ -1031,6 +1065,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		vm->cpu.regfile.array[regid].float64 = -vm->cpu.regfile.array[regid].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
 		vm->cpu.regfile.array[regid].float32 = -vm->cpu.regfile.array[regid].float32;
+#	else
+		(void)regid;
 #	endif
 		DISPATCH();
 	}

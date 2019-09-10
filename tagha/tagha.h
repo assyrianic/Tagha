@@ -66,6 +66,27 @@ typedef union TaghaVal {
 	union TaghaVal *ptrself;
 } UTaghaVal;
 
+#define TAGHA_SIMD_BYTES      16
+#define TAGHA_SIMD_SIZE(T)    (TAGHA_SIMD_BYTES/sizeof(T))
+typedef union TaghaSIMDVal {
+	bool boolean[TAGHA_SIMD_SIZE(bool)];
+	uint8_t uint8[TAGHA_SIMD_SIZE(uint8_t)]; int8_t int8[TAGHA_SIMD_SIZE(int8_t)];
+	uint16_t uint16[TAGHA_SIMD_SIZE(uint16_t)]; int16_t int16[TAGHA_SIMD_SIZE(int16_t)];
+	uint32_t uint32[TAGHA_SIMD_SIZE(uint32_t)]; int32_t int32[TAGHA_SIMD_SIZE(int32_t)];
+	uint64_t uint64[TAGHA_SIMD_SIZE(uint64_t)]; int64_t int64[TAGHA_SIMD_SIZE(int64_t)];
+	
+	size_t size[TAGHA_SIMD_SIZE(size_t)]; ssize_t ssize[TAGHA_SIMD_SIZE(ssize_t)];
+	uintptr_t uintptr[TAGHA_SIMD_SIZE(uintptr_t)]; intptr_t intptr[TAGHA_SIMD_SIZE(intptr_t)];
+	
+#ifdef TAGHA_FLOAT32_DEFINED
+	float32_t float32[TAGHA_SIMD_SIZE(float32_t)];
+#endif
+#ifdef TAGHA_FLOAT64_DEFINED
+	float64_t float64[TAGHA_SIMD_SIZE(float64_t)];
+#endif
+	union TaghaVal val[TAGHA_SIMD_SIZE(union TaghaVal)];
+} UTaghaSIMDVal;
+
 typedef union TaghaPtr {
 	uint64_t *restrict ptruint64;
 	uint32_t *restrict ptruint32;
@@ -144,6 +165,14 @@ typedef struct TaghaNative {
 typedef enum TaghaRegID { TAGHA_REGISTER_FILE MaxRegisters } ETaghaRegID;
 #undef Y
 
+#define TAGHA_SIMD_REGISTER_FILE \
+	/* Syriac alphabet letter modification names. */ \
+	W(veth) W(ghamal) W(dhalath) W(khaf) W(feh) W(thaw)
+
+#define W(w)    w,
+typedef enum TaghaSIMDRegID { TAGHA_SIMD_REGISTER_FILE MaxSIMDRegs } ETaghaSIMDRegID;
+#undef W
+
 #ifndef TAGHA_FIRST_PARAM_REG
 #	define TAGHA_FIRST_PARAM_REG    semkath
 #endif
@@ -219,9 +248,18 @@ typedef struct TaghaModule {
 #				define Y(y) union TaghaVal y;
 				TAGHA_REGISTER_FILE
 #				undef Y
-#				undef TAGHA_REGISTER_FILE
 			} struc;
 		} regfile;
+		/*
+		union {
+			union TaghaVal array[MaxSIMDRegs];
+			struct {
+#				define W(w)    union TaghaSIMDVal w;
+				TAGHA_SIMD_REGISTER_FILE
+#				undef W
+			} struc;
+		} simd;
+		*/
 		bool condflag : 1;
 	} cpu;
 	struct TaghaItemMap funcs, vars;
@@ -230,9 +268,10 @@ typedef struct TaghaModule {
 	uint8_t *script;
 	const uint8_t *start_seg, *end_seg;
 	enum TaghaErrCode errcode : 8;
+	uint8_t flags;
 } STaghaModule;
 
-#define EMPTY_TAGHA_MODULE    { { {{{0}}},false }, EMPTY_TAGHA_ITEM_MAP,EMPTY_TAGHA_ITEM_MAP, EMPTY_HARBOL_MEMPOOL, {NULL,0}, NULL,NULL,NULL, 0 }
+#define EMPTY_TAGHA_MODULE    { { {{{0}}}/*,{{{0}}}*/,false }, EMPTY_TAGHA_ITEM_MAP,EMPTY_TAGHA_ITEM_MAP, EMPTY_HARBOL_MEMPOOL, {NULL,0}, NULL,NULL,NULL, 0,0 }
 
 
 TAGHA_EXPORT NO_NULL struct TaghaModule *tagha_module_new_from_file(const char filename[]);
@@ -249,10 +288,11 @@ TAGHA_EXPORT NO_NULL bool tagha_module_register_natives(struct TaghaModule *modu
 TAGHA_EXPORT NO_NULL bool tagha_module_register_ptr(struct TaghaModule *module, const char name[], void *ptr);
 
 TAGHA_EXPORT NO_NULL void *tagha_module_get_var(struct TaghaModule *module, const char name[]);
+TAGHA_EXPORT NO_NULL uint8_t tagha_module_get_flags(const struct TaghaModule *module);
 
-TAGHA_EXPORT NEVER_NULL(1,2) int32_t tagha_module_call(struct TaghaModule *module, const char name[], size_t args, union TaghaVal params[], union TaghaVal *retval);
-TAGHA_EXPORT NEVER_NULL(1) int32_t tagha_module_invoke(struct TaghaModule *module, int64_t func_index, size_t args, union TaghaVal params[], union TaghaVal *retval);
-TAGHA_EXPORT NEVER_NULL(1) int32_t tagha_module_run(struct TaghaModule *module, size_t argc, union TaghaVal argv[]);
+TAGHA_EXPORT NEVER_NULL(1,2) int32_t tagha_module_call(struct TaghaModule *module, const char name[], size_t args, const union TaghaVal params[], union TaghaVal *retval);
+TAGHA_EXPORT NEVER_NULL(1) int32_t tagha_module_invoke(struct TaghaModule *module, int64_t func_index, size_t args, const union TaghaVal params[], union TaghaVal *retval);
+TAGHA_EXPORT NEVER_NULL(1) int32_t tagha_module_run(struct TaghaModule *module, size_t argc, const union TaghaVal argv[]);
 TAGHA_EXPORT NO_NULL void tagha_module_throw_error(struct TaghaModule *module, int32_t err);
 TAGHA_EXPORT NO_NULL void tagha_module_jit_compile(struct TaghaModule *module, FnTaghaNative *jitfunc(const uint8_t*, size_t, void *), void *userdata);
 
