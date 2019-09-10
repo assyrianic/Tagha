@@ -2,13 +2,13 @@
 
 ![Tagha Logo by Noxabellus and modified by Khanno](https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/intermediary/f/efc8ece3-f4a3-4477-8ebb-cb9595fb9e58/dcx0vh7-7c8a2027-14e9-48a9-a0e9-638260f44433.png/v1/fill/w_400,h_462,strp/tagha_virtual_machine_logo_by_assyrianic_dcx0vh7-fullview.png)
 
-​
+
 [![star this repo](http://githubbadges.com/star.svg?user=assyrianic&repo=tagha&style=plastic)](https://github.com/assyrianic/tagha)
 [![forks repo](http://githubbadges.com/fork.svg?user=assyrianic&repo=tagha&style=plastic)](https://github.com/assyrianic/tagha)
 
 ## Introduction
 
-**Tagha** is a minimal, fast, memory-safe, self-contained register-based virtual machine && runtime environment designed as an alternative to a C dynamic loading plugin systems with intent to giving binary portability to C code!
+**Tagha** is a minimal, fast, memory-safe, self-contained register-based virtual machine && runtime environment designed to execute C code as bytecode scripts.
 
 ### Rationale:
 
@@ -37,10 +37,14 @@
 * Host can call script functions and retrieve return values from the script function invocation.
 * Scripts (by exporting tagha's own API) can manually load other scripts as dynamic libraries.
 * Little-endian format (only).
-* Small. The entire static library is <100kb.
+* Small. The entire static library is <50kb.
 * Tagha's entire code is **about 1k lines of code**!
 * Speed, tagha is very fast for a virtual machine that does not use a JIT.
 * Memory safe, tagha sandboxes scripts.
+* Tagha Assembler - transforms human readable bytecode into binary bytecode.
+* Tagha IR Builder - header-only, higher level constructs to manually create bytecode.
+* Tagha Bytecode Builder - header-only encoder functions to help with lower level bytecode creation.
+* Tagha Script Builder - header-only constructs that help create a full-fledged Tagha script.
 
 
 ## Usage
@@ -113,6 +117,7 @@ Scripts can be created by supplying a `.tasm` file as a command-line argument to
 If there are no errors reported, a `.tbc` binary, with the same filename as the script, will be produced. Now that you have a usable tbc script, you can run it from your C or C++ application.
 
 To execute tbc scripts, embed Tagha into your C or C++ application (or build the example host application) and direct your application to the file directly or a special directory just for tbc scripts.
+
 
 ### Configuration
 
