@@ -793,13 +793,13 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		const int64_t index = *pc.ptrint64++;
 		if( !index ) {
 			vm->errcode = tagha_err_no_func;
-			goto *dispatch[halt];
+			return -1;
 		} else {
 			const struct TaghaItem func = vm->funcs.array[(index>0) ? (index - 1) : (-1 - index)];
 			if( func.flags >= TAGHA_FLAG_NATIVE ) {
 				if( func.flags != TAGHA_FLAG_NATIVE+TAGHA_FLAG_LINKED ) {
 					vm->errcode = tagha_err_no_cfunc;
-					goto *dispatch[halt];
+					return -1;
 				} else {
 					const uint8_t reg_param_initial = TAGHA_FIRST_PARAM_REG;
 					const uint8_t reg_params = TAGHA_REG_PARAMS_MAX;
@@ -816,7 +816,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 					}
 					
 					if( vm->errcode != tagha_err_none ) {
-						goto *dispatch[halt];
+						return -1;
 					} else {
 						DISPATCH();
 					}
@@ -835,13 +835,13 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		const int64_t index = vm->cpu.regfile.array[regid].int64;
 		if( !index ) {
 			vm->errcode = tagha_err_no_func;
-			goto *dispatch[halt];
+			return -1;
 		} else {
 			const struct TaghaItem func = vm->funcs.array[(index>0) ? (index - 1) : (-1 - index)];
 			if( func.flags >= TAGHA_FLAG_NATIVE ) {
 				if( func.flags != TAGHA_FLAG_NATIVE+TAGHA_FLAG_LINKED ) {
 					vm->errcode = tagha_err_no_cfunc;
-					goto *dispatch[halt];
+					return -1;
 				} else {
 					const uint8_t reg_param_initial = TAGHA_FIRST_PARAM_REG;
 					const uint8_t reg_params = TAGHA_REG_PARAMS_MAX;
@@ -858,7 +858,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 					}
 					
 					if( vm->errcode != tagha_err_none ) {
-						goto *dispatch[halt];
+						return -1;
 					} else {
 						DISPATCH();
 					}
