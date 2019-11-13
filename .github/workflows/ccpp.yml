@@ -1,0 +1,19 @@
+name: C CI
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v1
+    - name: make tagha
+      run: make -C tagha;  mv ./tagha/libtagha.a .
+    - name: make tagha asm
+      run: make -C assembler; mv ./assembler/tagha_asm ./test_asm/
+    - name: make testprog
+      run: cd "$(dirname "$0")"; gcc -Wall -Wextra -s -O2 test_hostapp.c -L. -ltagha -o taghatest; mv taghatest ./test_asm
+    - name: make test scripts
+      run: ./test_asm/tagha_asm test_asm/*.tasm
