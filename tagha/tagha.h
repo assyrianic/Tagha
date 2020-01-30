@@ -1,7 +1,7 @@
 #pragma once
 
 #define TAGHA_VERSION_MAJOR    1
-#define TAGHA_VERSION_MINOR    0
+#define TAGHA_VERSION_MINOR    1
 #define TAGHA_VERSION_PATCH    0
 #define TAGHA_VERSION_PHASE    'beta'
 #define TAGHA_STR_HELPER(x)    #x
@@ -17,8 +17,8 @@ extern "C" {
 #include "allocators/mempool.h"
 
 
-#define TAGHA_FLOAT32_DEFINED    // allow tagha to use 32-bit floats
-#define TAGHA_FLOAT64_DEFINED    // allow tagha to use 64-bit floats
+#define TAGHA_FLOAT32_DEFINED    /// allow tagha to use 32-bit floats
+#define TAGHA_FLOAT64_DEFINED    /// allow tagha to use 64-bit floats
 
 #if defined(TAGHA_FLOAT32_DEFINED) || defined(TAGHA_FLOAT64_DEFINED)
 #	ifndef TAGHA_USE_FLOATS
@@ -115,7 +115,7 @@ typedef union TaghaPtr {
 
 
 #define TAGHA_MAGIC_VERIFIER    0xC0DE
-/* Script File/Binary Format Structure
+/** Script File/Binary Format Structure
  * ------------------------------ start of header ------------------------------
  * 2 bytes: magic verifier ==> 0xC0DE
  * 4 bytes: stack size, stack size needed for the code.
@@ -158,7 +158,7 @@ typedef struct TaghaNative {
 	Y(heh) Y(waw) Y(zain) Y(heth) Y(teth) Y(yodh) Y(kaf) \
 	Y(lamadh) Y(meem) Y(noon) Y(semkath) Y(_eh) \
 	Y(peh) Y(sadhe) Y(qof) Y(reesh) Y(sheen) Y(taw) \
-	/* Syriac alphabet makes great register names! */ \
+	/** Syriac alphabet makes great register names! */ \
 	Y(stkptr) Y(baseptr) Y(instr)
 
 #define Y(y) y,
@@ -166,7 +166,7 @@ typedef enum TaghaRegID { TAGHA_REGISTER_FILE MaxRegisters } ETaghaRegID;
 #undef Y
 
 #define TAGHA_SIMD_REGISTER_FILE \
-	/* Syriac alphabet letter modification names. */ \
+	/** Syriac alphabet letter modification names. */ \
 	W(veth) W(ghamal) W(dhalath) W(khaf) W(feh) W(thaw)
 
 #define W(w)    w,
@@ -197,11 +197,11 @@ typedef enum TaghaErrCode {
 	tagha_err_stk_overflow,
 } ETaghaErrCode;
 
-/* Tagha Item
+/** Tagha Item
  * represents either a function or global variable.
  */
-#define TAGHA_FLAG_NATIVE    1 /* if is a native C or JIT compiled function. */
-#define TAGHA_FLAG_LINKED    2 /* ptr to native/jit function is linked and verified. */
+#define TAGHA_FLAG_NATIVE    1 /** if is a native C or JIT compiled function. */
+#define TAGHA_FLAG_LINKED    2 /** ptr to native/jit function is linked and verified. */
 typedef struct TaghaItem {
 	union {
 		uint8_t *stream;
@@ -209,10 +209,10 @@ typedef struct TaghaItem {
 		FnTaghaNative *cfunc;
 	} item;
 	size_t bytes;
-	uint8_t flags; // 0-bytecode based, 1-native based, 2-resolved
+	uint8_t flags; /// 0-bytecode based, 1-native based, 2-resolved
 } STaghaItem;
 
-#define EMPTY_TAGHA_ITEM    { {NULL}, 0, 0 }
+#define EMPTY_TAGHA_ITEM    { .item={NULL}, .bytes=0, .flags=0 }
 
 
 typedef struct TaghaItemMap {
@@ -228,10 +228,10 @@ typedef struct TaghaItemMap {
 	size_t arrlen, hashlen;
 } STaghaItemMap;
 
-#define EMPTY_TAGHA_ITEM_MAP    { NULL,NULL,0,0 }
+#define EMPTY_TAGHA_ITEM_MAP    { .buckets=NULL, .array=NULL, .arrlen=0, .hashlen=0 }
 
 
-/* Script/Module Structure.
+/** Script/Module Structure.
  * Consists of:
  * A virtual machine context aka CPU.
  * An internal stack + heap controlled by a freelist allocator.
@@ -241,27 +241,14 @@ typedef struct TaghaItemMap {
  * and error code status.
  */
 typedef struct TaghaModule {
-	struct {
-		union {
-			union TaghaVal array[MaxRegisters];
-			struct {
-#				define Y(y) union TaghaVal y;
+	union {
+		union TaghaVal array[MaxRegisters];
+		struct {
+#			define Y(y) union TaghaVal y;
 				TAGHA_REGISTER_FILE
-#				undef Y
-			} struc;
-		} regfile;
-		/*
-		union {
-			union TaghaVal array[MaxSIMDRegs];
-			struct {
-#				define W(w)    union TaghaSIMDVal w;
-				TAGHA_SIMD_REGISTER_FILE
-#				undef W
-			} struc;
-		} simd;
-		*/
-		bool condflag : 1;
-	} cpu;
+#			undef Y
+		} struc;
+	} regfile;
 	struct TaghaItemMap funcs, vars;
 	struct HarbolMemPool heap;
 	struct { union TaghaVal *start; size_t size; } stack;
@@ -269,9 +256,10 @@ typedef struct TaghaModule {
 	const uint8_t *start_seg, *end_seg;
 	enum TaghaErrCode errcode : 8;
 	uint8_t flags;
+	bool condflag : 1;
 } STaghaModule;
 
-#define EMPTY_TAGHA_MODULE    { { {{{0}}}/*,{{{0}}}*/,false }, EMPTY_TAGHA_ITEM_MAP,EMPTY_TAGHA_ITEM_MAP, EMPTY_HARBOL_MEMPOOL, {NULL,0}, NULL,NULL,NULL, 0,0 }
+#define EMPTY_TAGHA_MODULE    { .regfile={{{0}}}, .funcs=EMPTY_TAGHA_ITEM_MAP, .vars=EMPTY_TAGHA_ITEM_MAP, .heap=EMPTY_HARBOL_MEMPOOL, .stack={NULL,0}, .script=NULL, .start_seg=NULL, .end_seg=NULL, .errcode=0, .flags=0, .condflag=false }
 
 
 TAGHA_EXPORT NO_NULL struct TaghaModule *tagha_module_new_from_file(const char filename[]);
