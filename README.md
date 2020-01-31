@@ -71,7 +71,7 @@ To submit a patch, first file an issue and/or present a pull request.
 
 ## Help
 
-If you need help or have any question, you can reach me on the `#taghavm` channel through Discord (https://discord.gg/2NKFgPS)
+If you need help or have any question, you can reach me on the `#tagha` channel through [Discord](https://discord.gg/UgVuqSK)
 Simply drop a message or your question and you'll be reached in no time!
 
 You can also privately message me at **Khanno Hanna#1704** on Discord. Random messages that are not about Tagha will be ignored/deleted.
@@ -145,7 +145,7 @@ If you wish to build and test the tagha code base, compile `test_hostapp.c` with
 
 ## Contact
 
-I can be contacted through the Discord link (https://discord.gg/2NKFgPS) or PM me @ **Khanno Hanna#1704**.
+I can be contacted through the [Discord link](https://discord.gg/UgVuqSK) or PM me @ **Khanno Hanna#1704**.
 
 ## License
 [![License](https://img.shields.io/github/license/assyrianic/tagha.svg?label=License&style=plastic)](https://github.com/assyrianic/tagha)
