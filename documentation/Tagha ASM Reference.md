@@ -117,7 +117,15 @@ Registers are special locations in a CPU that store data. All registers in Tagha
 * **_rqof_** - in a function/native call, holds the 5th parameter.
 * **_rreesh_** - in a function/native call, holds the 6th parameter.
 * **_rsheen_** - in a function/native call, holds the 7th parameter.
-* **_rtaw_** - in a function/native call, holds the 8th parameter. if more than 8 params, all params are dumped to the stack.
+* **_rtaw_** - in a function/native call, holds the 8th parameter.
+* **_rveth_** - in a function/native call, holds the 9th parameter.
+* **_rghamal_** - in a function/native call, holds the 10th parameter.
+* **_rdhalath_** - in a function/native call, holds the 11th parameter.
+* **_rkhaf_** - in a function/native call, holds the 12th parameter.
+* **_rfeh_** - in a function/native call, holds the 13th parameter.
+* **_rthaw_** - in a function/native call, holds the 14th parameter.
+* **_rzeth_** - in a function/native call, holds the 15th parameter.
+* **_rdadeh_** - in a function/native call, holds the 16th parameter.
 * **_rsp -_** stack pointer, it's wise **NOT** to directly change the value of this register or you'll cause crashes.
 * **_rbp_** - base pointer aka the call frame pointer. Useful for referencing local function data.
 
@@ -154,9 +162,9 @@ Now that we've gotten the 3 data operations covered, we can go back to our `main
 ```asm
 ; create "main" and its code block!
 %main: {
-    movi ralaf, 2 ; set alaf's value to 2
-    movi rbeth, 1 ; set beth's value to 1
-    add ralaf, rbeth ; add beth to alaf, modifying alaf. alaf is now "3"
+    movi ralaf, 2     ; set alaf's value to 2
+    movi rbeth, 1     ; set beth's value to 1
+    add  ralaf, rbeth ; add beth to alaf, modifying alaf. alaf is now "3"
     ret
 }
 ```
@@ -166,11 +174,11 @@ In the example above, we show how we can work directly with immediate values and
 ```asm
 ; create "main" and its code block!
 %main: {
-    movi ralaf, 2 ; set alaf's value to 2
+    movi ralaf, 2        ; set alaf's value to 2
     movi rbeth, 1
-    st1 [rbp-1], rbeth ; set a byte value within main's stack frame.
-    ld1 rgamal, [rbp-1] ; load byte to register gamal.
-    add ralaf, rgamal ; add the byte value to alaf, modifying alaf. alaf is now "3"
+    st1  [rbp-1], rbeth  ; set a byte value within main's stack frame.
+    ld1  rgamal, [rbp-1] ; load byte to register gamal.
+    add  ralaf, rgamal   ; add the byte value to alaf, modifying alaf. alaf is now "3"
     ret
 }
 ```
@@ -180,10 +188,10 @@ We could also `add` the values the other way around!
 ```asm
 ; create "main" and its code block!
 %main: {
-    movi ralaf, 2 ; set alaf's value to 2
+    movi ralaf, 2       ; set alaf's value to 2
     movi rbeth, 1
-    add ralaf, rbeth ; add alaf to the byte value, 
-    st1 [rbp-1], ralaf ; modifying the address location. the address now contains "3"
+    add  ralaf, rbeth   ; add alaf to the byte value, 
+    st1  [rbp-1], ralaf ; modifying the address location. the address now contains "3"
     ret
 }
 ```
@@ -238,24 +246,24 @@ So now let's implement that in our TASM assembly language!
 ```asm
 %factorial: {
     movi    rbeth, 1
-    st4     [rbp-4], rsemkath ; store 1st param to local frame.
+    st4     [rbp-4], rsemkath   ; store 1st param to local frame.
     
 ; if( i<=1 )
-    cmp     rsemkath, rbeth ; n==1?
-    jz      .eval           ; return 1;
+    cmp     rsemkath, rbeth     ; n==1?
+    jz      .eval            ; return 1;
     
 ; return 1;
-    mov    ralaf, rbeth     ; set return value to 1.
+    mov     ralaf, rbeth     ; set return value to 1.
     ret
     
 .eval:
 ; return i * factorial(i-1);
-    ld4    ralaf, [rbp-4]   ; load 1st param that was previously stored to frame.
-    sub    ralaf, rbeth     ; subtract by 1
-    mov    rsemkath, ralaf  ; set semkath to new value in alaf.
-    call   %factorial       ; recursive call
-    ld4    rgamal, [rbp-4]  ; load 1st param again but to gamal.
-    mul    ralaf, rgamal    ; multiply return value from recursive call with gamal.
+    ld4     ralaf, [rbp-4]   ; load 1st param that was stored to frame.
+    sub     ralaf, rbeth     ; subtract by 1
+    mov     rsemkath, ralaf  ; set semkath to new value in alaf.
+    call    %factorial       ; recursive call
+    ld4     rgamal, [rbp-4]  ; load 1st param again but to gamal.
+    mul     ralaf, rgamal    ; multiply return value from recursive call with gamal.
     ret
 }
 ```
@@ -263,12 +271,12 @@ So now let's implement that in our TASM assembly language!
 Alright, we have a defined and working function in tasm asm, how can we call it within our script's asm code?
 This is where we talk about Calling Convention.
 
-Tagha's calling convention requires that 8 or less arguments be put in registers `semkath` to `taw` with `taw` holding the 8th parameter. More than 8 parameters must be pushed to the stack. All return values that are 8 bytes or less must be returned in register `alaf`, otherwise the function must be optimized to take a hidden pointer parameter.
+Tagha's calling convention requires that 16 or less arguments be put in registers `semkath` to `dadeh` with `dadeh` holding the 16th parameter. More than 16 parameters requiring using a va_list (using the stack as an array). All return values that are 8 bytes or less must be returned in register `alaf`, otherwise the function must be optimized to take a hidden pointer parameter.
 
 To actually give `factorial` arguments and call it from tasm asm code, we must set the `semkath` register to a numeric value and then call `factorial`, here's an example.
 ```asm
 %main: {
-    movi    rsemkath, 5
+    movi    rarg0, 5   ; `rarg0` is an alias for `rsemkath`.
     call    %factorial
     ret
 }

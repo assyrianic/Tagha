@@ -86,6 +86,13 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 	
 	iter.uint8 = filedata;
 	iter.uint8 += (sizeof(uint16_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint8_t) + sizeof(uint32_t));
+	/*
+	iter.uint16++; // skip verifier
+	iter.uint32++; // skip stack size
+	iter.uint32++; // skip mem size
+	iter.uint8++; // skip module flags
+	iter.uint32++; // skip func table size.
+	*/
 	
 	module->funcs.buckets = harbol_mempool_alloc(&module->heap, sizeof *module->funcs.buckets * module->funcs.hashlen);
 	module->funcs.array = harbol_mempool_alloc(&module->heap, sizeof *module->funcs.array * module->funcs.arrlen);
@@ -97,7 +104,7 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 		const char *cstr = iter.string;
 		const size_t hash = string_hash(cstr) % module->funcs.hashlen;
 		iter.uint8 += cstrlen;
-		const struct TaghaItem funcitem = { .bytes=datalen, .flags=flag, .item.stream=(!flag) ? iter.uint8 : NULL };
+		const struct TaghaItem funcitem = { .bytes=datalen, .flags=flag, .item=(!flag) ? iter.uint8 : NULL };
 		
 		module->funcs.array[i] = funcitem;
 		module->funcs.buckets[hash].table = harbol_mempool_realloc(&module->heap, module->funcs.buckets[hash].table, sizeof *module->funcs.buckets[hash].table * (module->funcs.buckets[hash].len + 1));
@@ -127,7 +134,7 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 		const char *cstr = iter.string;
 		const size_t hash = string_hash(cstr) % module->vars.hashlen;
 		iter.uint8 += cstrlen;
-		const struct TaghaItem varitem = { .bytes=datalen, .flags=flag, .item.stream=iter.uint8 };
+		const struct TaghaItem varitem = { .bytes=datalen, .flags=flag, .item=iter.uint8 };
 		
 		module->vars.array[i] = varitem;
 		module->vars.buckets[hash].table = harbol_mempool_realloc(&module->heap, module->vars.buckets[hash].table, sizeof *module->vars.buckets[hash].table * (module->vars.buckets[hash].len + 1));
@@ -150,7 +157,7 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 		fprintf(stderr, "Tagha Module File Error :: **** couldn't allocate module stack size of %zu bytes, heap remaining: %zu | ('%zu')****\n", stacksize * sizeof *module->stack.start, harbol_mempool_mem_remaining(&module->heap), module->heap.stack.base - module->heap.stack.mem);
 		return false;
 	} else {
-		module->regfile.struc.stkptr.ptrself = module->regfile.struc.baseptr.ptrself = module->stack.start + stacksize;
+		module->regs[sp].ptrself = module->regs[bp].ptrself = module->stack.start + stacksize;
 		return true;
 	}
 }
@@ -164,7 +171,7 @@ TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_file(const char filename[
 	} else {
 		*module = tagha_module_create_from_file(filename);
 		/// check if module is completely empty.
-		if( !memcmp(module, &(struct TaghaModule)EMPTY_TAGHA_MODULE, sizeof *module) )
+		if( !memcmp(module, &(struct TaghaModule){0}, sizeof *module) )
 			free(module), module = NULL;
 	}
 	return module;
@@ -178,7 +185,7 @@ TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_buffer(uint8_t buffer[res
 		return NULL;
 	} else {
 		*module = tagha_module_create_from_buffer(buffer);
-		if( !memcmp(module, &(struct TaghaModule)EMPTY_TAGHA_MODULE, sizeof *module) )
+		if( !memcmp(module, &(struct TaghaModule){0}, sizeof *module) )
 			free(module), module = NULL;
 	}
 	return module;
@@ -198,7 +205,7 @@ TAGHA_EXPORT bool tagha_module_free(struct TaghaModule **const modref)
 
 TAGHA_EXPORT struct TaghaModule tagha_module_create_from_file(const char filename[restrict static 1])
 {
-	struct TaghaModule module = EMPTY_TAGHA_MODULE;
+	struct TaghaModule module = {0};
 	uint8_t *restrict bytecode = make_buffer_from_binary(filename);
 	if( bytecode==NULL ) {
 		fprintf(stderr, "Tagha Module Error :: **** failed to create file data buffer from '%s'. ****\n", filename);
@@ -213,14 +220,14 @@ TAGHA_EXPORT struct TaghaModule tagha_module_create_from_file(const char filenam
 	if( !read_result ) {
 		fprintf(stderr, "Tagha Module Error :: **** couldn't allocate tables for file: '%s' ****\n", filename);
 		tagha_module_clear(&module);
-		return (struct TaghaModule)EMPTY_TAGHA_MODULE;
+		return (struct TaghaModule){0};
 	}
 	else return module;
 }
 
 TAGHA_EXPORT struct TaghaModule tagha_module_create_from_buffer(uint8_t buffer[restrict static 1])
 {
-	struct TaghaModule module = EMPTY_TAGHA_MODULE;
+	struct TaghaModule module = {0};
 	if( *(uint16_t *)buffer != TAGHA_MAGIC_VERIFIER ) {
 		fprintf(stderr, "Tagha Module Error :: **** invalid module buffer '%p' ****\n", buffer);
 		return module;
@@ -230,7 +237,7 @@ TAGHA_EXPORT struct TaghaModule tagha_module_create_from_buffer(uint8_t buffer[r
 	if( !read_result ) {
 		fprintf(stderr, "Tagha Module Error :: **** couldn't allocate tables from buffer ****\n");
 		tagha_module_clear(&module);
-		return (struct TaghaModule)EMPTY_TAGHA_MODULE;
+		return (struct TaghaModule){0};
 	}
 	else return module;
 }
@@ -239,40 +246,22 @@ TAGHA_EXPORT bool tagha_module_clear(struct TaghaModule *const module)
 {
 	if( module->script != NULL )
 		free(module->script);
-	*module = (struct TaghaModule)EMPTY_TAGHA_MODULE;
+	*module = (struct TaghaModule){0};
 	return true;
 }
 
 
 TAGHA_EXPORT void tagha_module_print_vm_state(const struct TaghaModule *const module)
 {
-	printf("=== Tagha VM State Info ===\n\nPrinting regs:\nregister alaf: '%" PRIu64 "'\nregister beth: '%" PRIu64 "'\nregister gamal: '%" PRIu64 "'\nregister dalath: '%" PRIu64 "'\nregister heh: '%" PRIu64 "'\nregister waw: '%" PRIu64 "'\nregister zain: '%" PRIu64 "'\nregister heth: '%" PRIu64 "'\nregister teth: '%" PRIu64 "'\nregister yodh: '%" PRIu64 "'\nregister kaf: '%" PRIu64 "'\nregister lamadh: '%" PRIu64 "'\nregister meem: '%" PRIu64 "'\nregister noon: '%" PRIu64 "'\nregister semkath: '%" PRIu64 "'\nregister eh: '%" PRIu64 "'\nregister peh: '%" PRIu64 "'\nregister sadhe: '%" PRIu64 "'\nregister qof: '%" PRIu64 "'\nregister reesh: '%" PRIu64 "'\nregister sheen: '%" PRIu64 "'\nregister taw: '%" PRIu64 "'\nregister stack pointer: '%p'\nregister base pointer: '%p'\nregister instruction pointer: '%p'\n\nPrinting Condition Flag: %u\n=== End Tagha VM State Info ===\n",
-	module->regfile.struc.alaf.uint64,
-	module->regfile.struc.beth.uint64,
-	module->regfile.struc.gamal.uint64,
-	module->regfile.struc.dalath.uint64,
-	module->regfile.struc.heh.uint64,
-	module->regfile.struc.waw.uint64,
-	module->regfile.struc.zain.uint64,
-	module->regfile.struc.heth.uint64,
-	module->regfile.struc.teth.uint64,
-	module->regfile.struc.yodh.uint64,
-	module->regfile.struc.kaf.uint64,
-	module->regfile.struc.lamadh.uint64,
-	module->regfile.struc.meem.uint64,
-	module->regfile.struc.noon.uint64,
-	module->regfile.struc.semkath.uint64,
-	module->regfile.struc._eh.uint64,
-	module->regfile.struc.peh.uint64,
-	module->regfile.struc.sadhe.uint64,
-	module->regfile.struc.qof.uint64,
-	module->regfile.struc.reesh.uint64,
-	module->regfile.struc.sheen.uint64,
-	module->regfile.struc.taw.uint64,
-	module->regfile.struc.stkptr.ptrvoid,
-	module->regfile.struc.baseptr.ptrvoid,
-	module->regfile.struc.instr.ptrvoid,
-	module->condflag);
+	printf("=== Tagha VM State Info ===\n\nPrinting regs:\n");
+	for( size_t i=0; i<MaxRegisters; i++ ) {
+		switch( i ) {
+			case sp: printf("register stack pointer: '%p'\n",   module->regs[i].ptrvoid); break;
+			case bp: printf("register stack pointer: '%p'\n",   module->regs[i].ptrvoid); break;
+			default: printf("register %zu: '%" PRIu64 "'\n", i, module->regs[i].uint64);  break;
+		}
+	}
+	printf("register instruction pointer: '%p'\n\nPrinting Condition Flag: %u\n=== End Tagha VM State Info ===\n", module->ip, module->condflag);
 }
 
 TAGHA_EXPORT const char *tagha_module_get_error(const struct TaghaModule *const module)
@@ -298,7 +287,7 @@ TAGHA_EXPORT bool tagha_module_register_natives(struct TaghaModule *const module
 		if( func==NULL || func->flags != TAGHA_FLAG_NATIVE )
 			continue;
 		else {
-			func->item.cfunc = n->cfunc;
+			func->item = n->cfunc;
 			func->flags = TAGHA_FLAG_NATIVE + TAGHA_FLAG_LINKED;
 		}
 	}
@@ -321,7 +310,7 @@ TAGHA_EXPORT bool tagha_module_register_ptr(struct TaghaModule *const module,
 TAGHA_EXPORT void *tagha_module_get_var(struct TaghaModule *const restrict module, const char name[restrict static 1])
 {
 	const struct TaghaItem *const restrict var = _tagha_key_get_item(module->vars, name);
-	return( var != NULL ) ? var->item.datum : NULL;
+	return( var != NULL ) ? var->item : NULL;
 }
 
 TAGHA_EXPORT uint8_t tagha_module_get_flags(const struct TaghaModule *module)
@@ -375,10 +364,15 @@ static int32_t _tagha_module_start(struct TaghaModule *const module,
 											const union TaghaVal params[const restrict],
 											union TaghaVal *const restrict retval)
 {
-	if( func->flags >= TAGHA_FLAG_NATIVE ) {
-		/** make sure our native function was registered first or else we crash ;) */
+	if( args >= TAGHA_REG_PARAMS_MAX ) {
+		module->errcode = tagha_err_stk_overflow;
+		return -1;
+	} else if( func->flags >= TAGHA_FLAG_NATIVE ) {
+		/// make sure our native function was registered first or else we crash ;)
 		if( func->flags >= TAGHA_FLAG_LINKED ) {
-			const union TaghaVal ret = (*func->item.cfunc)(module, args, params);
+			TaghaCFunc *const cfunc = func->item;
+			memcpy(&module->regs[TAGHA_FIRST_PARAM_REG], &params[0], sizeof(union TaghaVal) * (args));
+			const union TaghaVal ret = (*cfunc)(module, args, &module->regs[TAGHA_FIRST_PARAM_REG]);
 			if( retval != NULL )
 				*retval = ret;
 			return( module->errcode == tagha_err_none ) ? 0 : module->errcode;
@@ -387,50 +381,24 @@ static int32_t _tagha_module_start(struct TaghaModule *const module,
 			return -1;
 		}
 	} else {
-		/** remember that arguments must be passed right to left. we have enough args to fit in registers. */
-		const uint8_t reg_param_initial = TAGHA_FIRST_PARAM_REG;
-		const uint8_t reg_params = TAGHA_REG_PARAMS_MAX;
-		const size_t bytecount = sizeof(union TaghaVal) * args;
-		
-		/** save stack space by using the registers for passing arguments.
-			the other registers can be used for different operations. */
-		if( args <= reg_params ) {
-			memcpy(&module->regfile.array[reg_param_initial], &params[0], bytecount);
-		}
-		/** if the function has more than a certain num of params, push from both registers and stack. */
-		else {
-			/** make sure we have the stack space to acommodate the amount of args. */
-			if( module->regfile.struc.stkptr.ptrself - args < module->stack.start ) {
-				module->errcode = tagha_err_stk_overflow;
-				return -1;
-			} else {
-				memcpy(module->regfile.struc.stkptr.ptrself, &params[0], bytecount);
-				module->regfile.struc.stkptr.ptrself -= args;
-			}
-		}
-		/** prep the stack frame. */
-		*(--module->regfile.struc.stkptr.ptrself) = (union TaghaVal){.ptrvoid=NULL}; /** push 0 return address. */
-		*--module->regfile.struc.stkptr.ptrself = module->regfile.struc.baseptr; /** push rbp */
-		module->regfile.struc.baseptr = module->regfile.struc.stkptr; /** mov rbp, rsp */
-		module->regfile.struc.instr.ptrvoid = func->item.datum;
-		
-		if( module->regfile.struc.instr.ptrvoid != NULL ) {
-			const int32_t result = _tagha_module_exec(module);
-			module->regfile.struc.instr.ptrvoid = NULL;
-			if( retval != NULL )
-				*retval = module->regfile.struc.alaf;
-			if( args > reg_params )
-				module->regfile.struc.stkptr.ptrself += args;
-			return result;
-		} else {
-			/** unwind stack */
-			module->regfile.struc.stkptr = module->regfile.struc.baseptr;
-			module->regfile.struc.stkptr.ptrself += 2;
-			/** pop off our params. */
-			if( args > reg_params )
-				module->regfile.struc.stkptr.ptrself += args;
+		module->ip = func->item;
+		if( module->ip==NULL ) {
 			module->errcode = tagha_err_no_func;
 			return -1;
+		} else {
+			/// make sure we have the register space to accommodate the amount of args.
+			memcpy(&module->regs[TAGHA_FIRST_PARAM_REG], &params[0], sizeof(union TaghaVal) * (args));
+			
+			/// prep the stack frame.
+			*--module->regs[sp].ptrself = (union TaghaVal){.ptrvoid=NULL}; /// push NULL return address.
+			*--module->regs[sp].ptrself = module->regs[bp];                /// push rbp
+			module->regs[bp] = module->regs[sp];                           /// mov rbp, rsp
+			
+			const int32_t result = _tagha_module_exec(module);
+			module->ip = NULL;
+			if( retval != NULL )
+				*retval = module->regs[alaf];
+			return result;
 		}
 	}
 }
@@ -442,30 +410,30 @@ TAGHA_EXPORT void tagha_module_throw_error(struct TaghaModule *const module, con
 	else module->errcode = err;
 }
 
-TAGHA_EXPORT void tagha_module_jit_compile(struct TaghaModule *const restrict module, FnTaghaNative *fn_jit_compile(const uint8_t*, size_t, void *), void *const restrict userdata)
+TAGHA_EXPORT void tagha_module_jit_compile(struct TaghaModule *const restrict module, TaghaCFunc *fn_jit_compile(const uint8_t*, size_t, void *), void *const restrict userdata)
 {
 	for( uindex_t i=0; i<module->funcs.arrlen; i++ ) {
 		/// trying to JIT compile something that's already compiled? lol.
 		if( module->funcs.array[i].flags & TAGHA_FLAG_NATIVE )
 			continue;
 		else {
-			FnTaghaNative *const func = fn_jit_compile(module->funcs.array[i].item.stream, module->funcs.array[i].bytes, userdata);
+			TaghaCFunc *const func = fn_jit_compile(module->funcs.array[i].item, module->funcs.array[i].bytes, userdata);
 			if( func != NULL ) {
 				module->funcs.array[i].flags = TAGHA_FLAG_NATIVE + TAGHA_FLAG_LINKED;
 				module->funcs.array[i].bytes = 8;
-				module->funcs.array[i].item.cfunc = func;
+				module->funcs.array[i].item  = func;
 			}
 		}
 	}
 }
 
 
-//#include <unistd.h>    /** sleep() func */
+//#include <unistd.h>    /// sleep() func
 
 static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 {
 	/** pc is restricted and must not access beyond the function table! */
-	union TaghaPtr pc = {.ptruint8 = vm->regfile.struc.instr.ptruint8};
+	union TaghaPtr pc = {.ptruint8 = vm->ip};
 	const uint8_t
 		*const mem_start = vm->start_seg,
 		*const mem_end = vm->end_seg
@@ -481,7 +449,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 #undef X
 #undef TAGHA_INSTR_SET
 	
-#	define OLDDISPATCH() \
+#	define DBG_JMP \
+    { \
 		const uint8_t instr = *pc.ptruint8++; \
 		\
 		if( instr>nop ) { \
@@ -491,272 +460,256 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		\
 		/*usleep(100);*/ \
 		printf("dispatching to '%s'\n", opcode2str[instr]); \
-		/*tagha_module_print_vm_state(vm);*/ \
-		goto *dispatch[instr]
-	
-#	define DISPATCH()    goto *dispatch[*pc.ptruint8++]
+		tagha_module_print_vm_state(vm); \
+		goto *dispatch[instr] \
+    }
+
+#	define GCC_JMP       goto *dispatch[*pc.ptruint8++]
+
+#	define DISPATCH()    GCC_JMP
 	
 	/** nop being first will make sure our VM starts with a dispatch! */
 	exec_nop: {
 		DISPATCH();
 	}
-	/** push immediate value. */
-	exec_pushi: { /** char: opcode | i64: imm */
-		*--vm->regfile.struc.stkptr.ptrself = *pc.ptrval++;
-		DISPATCH();
-	}
 	/** push a register's contents. */
 	exec_push: { /** char: opcode | char: regid */
-		*--vm->regfile.struc.stkptr.ptrself = vm->regfile.array[*pc.ptruint8++];
+		*--vm->regs[sp].ptrself = vm->regs[*pc.ptruint8++];
 		DISPATCH();
 	}
 	/** pops a value from the stack into a register then reduces stack by 8 bytes. */
 	exec_pop: { /** char: opcode | char: regid */
-		vm->regfile.array[*pc.ptruint8++] = *vm->regfile.struc.stkptr.ptrself++;
+		vm->regs[*pc.ptruint8++] = *vm->regs[sp].ptrself++;
 		DISPATCH();
 	}
-	
-	exec_loadglobal: { /** char: opcode | char: regid | u64: index */
+	exec_ldvar: { /** char: opcode | char: regid | u64: index */
 		const uint8_t regid = *pc.ptruint8++;
-		vm->regfile.array[regid].ptrvoid = vm->vars.array[ *pc.ptruint64++ ].item.datum;
+		vm->regs[regid].ptrvoid = vm->vars.array[ *pc.ptruint64++ ].item;
 		DISPATCH();
 	}
 	/** loads a function index which could be a native */
-	exec_loadfunc: { /** char: opcode | char: regid | i64: index */
+	exec_ldfunc: { /** char: opcode | char: regid | i64: index */
 		const uint8_t regid = *pc.ptruint8++;
-		vm->regfile.array[regid] = *pc.ptrval++;
+		vm->regs[regid] = *pc.ptrval++;
 		DISPATCH();
 	}
-	exec_loadaddr: { /** char: opcode | char: regid1 | char: regid2 | i32: offset */
+	exec_ldaddr: { /** char: opcode | char: regid1 | char: regid2 | i32: offset */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->regfile.array[regids & 0xff].ptruint8 = vm->regfile.array[regids >> 8].ptruint8 + *pc.ptrint32++;
+		vm->regs[regids & 0xff].ptruint8 = vm->regs[regids >> 8].ptruint8 + *pc.ptrint32++;
 		DISPATCH();
 	}
 	
 	exec_movi: { /** char: opcode | char: regid | i64: imm */
 		const uint8_t regid = *pc.ptruint8++;
-		vm->regfile.array[regid] = *pc.ptrval++;
+		vm->regs[regid] = *pc.ptrval++;
 		DISPATCH();
 	}
 	exec_mov: { /** char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->regfile.array[regids & 0xff] = vm->regfile.array[regids >> 8];
+		vm->regs[regids & 0xff] = vm->regs[regids >> 8];
 		DISPATCH();
 	}
 	
 	exec_ld1: { /** char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.ptruint16++;
-		const union TaghaPtr mem = {.ptruint8 = vm->regfile.array[regids >> 8].ptruint8 + *pc.ptrint32++};
+		const union TaghaPtr mem = {.ptruint8 = vm->regs[regids >> 8].ptruint8 + *pc.ptrint32++};
 		if( mem.ptruint8 < mem_start || mem.ptruint8 > mem_end ) {
 			vm->errcode = tagha_err_bad_ptr;
 			return -1;
 		} else {
-			vm->regfile.array[regids & 0xff].uint64 = (uint64_t) *mem.ptruint8;
+			vm->regs[regids & 0xff].uint64 = ( uint64_t ) *mem.ptruint8;
 			DISPATCH();
 		}
 	}
 	exec_ld2: { /** char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.ptruint16++;
-		const union TaghaPtr mem = {.ptruint8 = vm->regfile.array[regids >> 8].ptruint8 + *pc.ptrint32++};
+		const union TaghaPtr mem = {.ptruint8 = vm->regs[regids >> 8].ptruint8 + *pc.ptrint32++};
 		if( mem.ptruint8 < mem_start || mem.ptruint8+1 > mem_end ) {
 			vm->errcode = tagha_err_bad_ptr;
 			return -1;
 		} else {
-			vm->regfile.array[regids & 0xff].uint64 = (uint64_t) *mem.ptruint16;
+			vm->regs[regids & 0xff].uint64 = ( uint64_t ) *mem.ptruint16;
 			DISPATCH();
 		}
 	}
 	exec_ld4: { /** char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.ptruint16++;
-		const union TaghaPtr mem = {.ptruint8 = vm->regfile.array[regids >> 8].ptruint8 + *pc.ptrint32++};
+		const union TaghaPtr mem = {.ptruint8 = vm->regs[regids >> 8].ptruint8 + *pc.ptrint32++};
 		if( mem.ptruint8 < mem_start || mem.ptruint8+3 > mem_end ) {
 			vm->errcode = tagha_err_bad_ptr;
 			return -1;
 		} else {
-			vm->regfile.array[regids & 0xff].uint64 = (uint64_t) *mem.ptruint32;
+			vm->regs[regids & 0xff].uint64 = ( uint64_t ) *mem.ptruint32;
 			DISPATCH();
 		}
 	}
 	exec_ld8: { /** char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.ptruint16++;
-		const union TaghaPtr mem = {.ptruint8 = vm->regfile.array[regids >> 8].ptruint8 + *pc.ptrint32++};
+		const union TaghaPtr mem = {.ptruint8 = vm->regs[regids >> 8].ptruint8 + *pc.ptrint32++};
 		if( mem.ptruint8 < mem_start || mem.ptruint8+7 > mem_end ) {
 			vm->errcode = tagha_err_bad_ptr;
 			return -1;
 		} else {
-			vm->regfile.array[regids & 0xff].uint64 = *mem.ptruint64;
+			vm->regs[regids & 0xff].uint64 = *mem.ptruint64;
 			DISPATCH();
 		}
 	}
 	
 	exec_st1: { /** char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.ptruint16++;
-		const union TaghaPtr mem = {.ptruint8 = vm->regfile.array[regids & 0xff].ptruint8 + *pc.ptrint32++};
+		const union TaghaPtr mem = {.ptruint8 = vm->regs[regids & 0xff].ptruint8 + *pc.ptrint32++};
 		if( mem.ptruint8 < mem_start || mem.ptruint8 > mem_end ) {
 			vm->errcode = tagha_err_bad_ptr;
 			return -1;
 		} else {
-			*mem.ptruint8 = vm->regfile.array[regids >> 8].uint8;
+			*mem.ptruint8 = vm->regs[regids >> 8].uint8;
 			DISPATCH();
 		}
 	}
 	exec_st2: { /** char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.ptruint16++;
-		const union TaghaPtr mem = {.ptruint8 = vm->regfile.array[regids & 0xff].ptruint8 + *pc.ptrint32++};
+		const union TaghaPtr mem = {.ptruint8 = vm->regs[regids & 0xff].ptruint8 + *pc.ptrint32++};
 		if( mem.ptruint8 < mem_start || mem.ptruint8+1 > mem_end ) {
 			vm->errcode = tagha_err_bad_ptr;
 			return -1;
 		} else {
-			*mem.ptruint16 = vm->regfile.array[regids >> 8].uint16;
+			*mem.ptruint16 = vm->regs[regids >> 8].uint16;
 			DISPATCH();
 		}
 	}
 	exec_st4: { /** char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.ptruint16++;
-		const union TaghaPtr mem = {.ptruint8 = vm->regfile.array[regids & 0xff].ptruint8 + *pc.ptrint32++};
+		const union TaghaPtr mem = {.ptruint8 = vm->regs[regids & 0xff].ptruint8 + *pc.ptrint32++};
 		if( mem.ptruint8 < mem_start || mem.ptruint8+3 > mem_end ) {
 			vm->errcode = tagha_err_bad_ptr;
 			return -1;
 		} else {
-			*mem.ptruint32 = vm->regfile.array[regids >> 8].uint32;
+			*mem.ptruint32 = vm->regs[regids >> 8].uint32;
 			DISPATCH();
 		}
 	}
 	exec_st8: { /** char: opcode | char: dest reg | char: src reg | i32: offset */
 		const uint16_t regids = *pc.ptruint16++;
-		const union TaghaPtr mem = {.ptruint8 = vm->regfile.array[regids & 0xff].ptruint8 + *pc.ptrint32++};
+		const union TaghaPtr mem = {.ptruint8 = vm->regs[regids & 0xff].ptruint8 + *pc.ptrint32++};
 		if( mem.ptruint8 < mem_start || mem.ptruint8+7 > mem_end ) {
 			vm->errcode = tagha_err_bad_ptr;
 			return -1;
 		} else {
-			*mem.ptruint64 = vm->regfile.array[regids >> 8].uint64;
+			*mem.ptruint64 = vm->regs[regids >> 8].uint64;
 			DISPATCH();
 		}
 	}
 	
 	exec_add: { /** char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->regfile.array[regids & 0xff].int64 += vm->regfile.array[regids >> 8].int64;
+		vm->regs[regids & 0xff].int64 += vm->regs[regids >> 8].int64;
 		DISPATCH();
 	}
 	exec_sub: { /** char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->regfile.array[regids & 0xff].int64 -= vm->regfile.array[regids >> 8].int64;
+		vm->regs[regids & 0xff].int64 -= vm->regs[regids >> 8].int64;
 		DISPATCH();
 	}
 	exec_mul: { /** char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->regfile.array[regids & 0xff].int64 *= vm->regfile.array[regids >> 8].int64;
+		vm->regs[regids & 0xff].int64 *= vm->regs[regids >> 8].int64;
 		DISPATCH();
 	}
 	exec_divi: { /** char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->regfile.array[regids & 0xff].uint64 /= vm->regfile.array[regids >> 8].uint64;
+		vm->regs[regids & 0xff].uint64 /= vm->regs[regids >> 8].uint64;
 		DISPATCH();
 	}
 	exec_mod: { /** char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->regfile.array[regids & 0xff].uint64 %= vm->regfile.array[regids >> 8].uint64;
+		vm->regs[regids & 0xff].uint64 %= vm->regs[regids >> 8].uint64;
 		DISPATCH();
 	}
 	exec_bit_and: { /** char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->regfile.array[regids & 0xff].uint64 &= vm->regfile.array[regids >> 8].uint64;
+		vm->regs[regids & 0xff].uint64 &= vm->regs[regids >> 8].uint64;
 		DISPATCH();
 	}
 	exec_bit_or: { /** char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->regfile.array[regids & 0xff].uint64 |= vm->regfile.array[regids >> 8].uint64;
+		vm->regs[regids & 0xff].uint64 |= vm->regs[regids >> 8].uint64;
 		DISPATCH();
 	}
 	exec_bit_xor: { /** char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->regfile.array[regids & 0xff].uint64 ^= vm->regfile.array[regids >> 8].uint64;
+		vm->regs[regids & 0xff].uint64 ^= vm->regs[regids >> 8].uint64;
 		DISPATCH();
 	}
 	exec_shl: { /** char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->regfile.array[regids & 0xff].uint64 <<= vm->regfile.array[regids >> 8].uint64;
+		vm->regs[regids & 0xff].uint64 <<= vm->regs[regids >> 8].uint64;
 		DISPATCH();
 	}
 	exec_shr: { /** char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->regfile.array[regids & 0xff].uint64 >>= vm->regfile.array[regids >> 8].uint64;
+		vm->regs[regids & 0xff].uint64 >>= vm->regs[regids >> 8].uint64;
 		DISPATCH();
 	}
 	exec_bit_not: { /** char: opcode | char: regid */
 		const uint8_t regid = *pc.ptruint8++;
-		vm->regfile.array[regid].uint64 = ~vm->regfile.array[regid].uint64;
-		DISPATCH();
-	}
-	exec_inc: { /** char: opcode | char: regid */
-		const uint8_t regid = *pc.ptruint8++;
-		++vm->regfile.array[regid].uint64;
-		DISPATCH();
-	}
-	exec_dec: { /** char: opcode | char: regid */
-		const uint8_t regid = *pc.ptruint8++;
-		--vm->regfile.array[regid].uint64;
+		const uint64_t compl = ~vm->regs[regid].uint64;
+		vm->regs[regid].uint64 = compl;
 		DISPATCH();
 	}
 	exec_neg: { /** char: opcode | char: regid */
 		const uint8_t regid = *pc.ptruint8++;
-		vm->regfile.array[regid].int64 = -vm->regfile.array[regid].int64;
+		const int64_t n = -vm->regs[regid].int64;
+		vm->regs[regid].int64 = n;
 		DISPATCH();
 	}
 	
 	exec_ilt: { /** char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->condflag = vm->regfile.array[regids & 0xff].int64 < vm->regfile.array[regids >> 8].int64;
+		vm->condflag = vm->regs[regids & 0xff].int64 < vm->regs[regids >> 8].int64;
 		DISPATCH();
 	}
 	exec_ile: { /** char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->condflag = vm->regfile.array[regids & 0xff].int64 <= vm->regfile.array[regids >> 8].int64;
+		vm->condflag = vm->regs[regids & 0xff].int64 <= vm->regs[regids >> 8].int64;
 		DISPATCH();
 	}
 	
 	exec_igt: { /** char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->condflag = vm->regfile.array[regids & 0xff].int64 > vm->regfile.array[regids >> 8].int64;
+		vm->condflag = vm->regs[regids & 0xff].int64 > vm->regs[regids >> 8].int64;
 		DISPATCH();
 	}
 	exec_ige: { /** char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->condflag = vm->regfile.array[regids & 0xff].int64 >= vm->regfile.array[regids >> 8].int64;
+		vm->condflag = vm->regs[regids & 0xff].int64 >= vm->regs[regids >> 8].int64;
 		DISPATCH();
 	}
 	
 	exec_ult: { /** char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->condflag = vm->regfile.array[regids & 0xff].uint64 < vm->regfile.array[regids >> 8].uint64;
+		vm->condflag = vm->regs[regids & 0xff].uint64 < vm->regs[regids >> 8].uint64;
 		DISPATCH();
 	}
 	exec_ule: { /** char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->condflag = vm->regfile.array[regids & 0xff].uint64 <= vm->regfile.array[regids >> 8].uint64;
+		vm->condflag = vm->regs[regids & 0xff].uint64 <= vm->regs[regids >> 8].uint64;
 		DISPATCH();
 	}
 	
 	exec_ugt: { /** char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->condflag = vm->regfile.array[regids & 0xff].uint64 > vm->regfile.array[regids >> 8].uint64;
+		vm->condflag = vm->regs[regids & 0xff].uint64 > vm->regs[regids >> 8].uint64;
 		DISPATCH();
 	}
 	exec_uge: { /** char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->condflag = vm->regfile.array[regids & 0xff].uint64 >= vm->regfile.array[regids >> 8].uint64;
+		vm->condflag = vm->regs[regids & 0xff].uint64 >= vm->regs[regids >> 8].uint64;
 		DISPATCH();
 	}
 	
 	exec_cmp: { /** char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.ptruint16++;
-		vm->condflag = vm->regfile.array[regids & 0xff].uint64 == vm->regfile.array[regids >> 8].uint64;
-		DISPATCH();
-	}
-	exec_neq: { /** char: opcode | char: reg 1 | char: reg 2 */
-		const uint16_t regids = *pc.ptruint16++;
-		vm->condflag = vm->regfile.array[regids & 0xff].uint64 != vm->regfile.array[regids >> 8].uint64;
+		vm->condflag = vm->regs[regids & 0xff].uint64 == vm->regs[regids >> 8].uint64;
 		DISPATCH();
 	}
 	exec_jmp: { /** char: opcode | i64: offset */
@@ -794,20 +747,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 					vm->errcode = tagha_err_no_cfunc;
 					return -1;
 				} else {
-					const uint8_t reg_param_initial = TAGHA_FIRST_PARAM_REG;
-					const uint8_t reg_params = TAGHA_REG_PARAMS_MAX;
-					const size_t args = vm->regfile.struc.alaf.size;
-					
-					/** save stack space by using the registers for passing arguments.
-						the other registers can then be used for other data operations. */
-					if( args <= reg_params ) {
-						vm->regfile.struc.alaf = (*func.item.cfunc)(vm, args, &vm->regfile.array[reg_param_initial]);
-					} else {
-						/** if the native call has more than a certain num of params, get all params from stack. */
-						vm->regfile.struc.alaf = (*func.item.cfunc)(vm, args, vm->regfile.struc.stkptr.ptrself);
-						vm->regfile.struc.stkptr.ptrself += args;
-					}
-					
+					TaghaCFunc *const cfunc = func.item;
+					vm->regs[alaf] = (*cfunc)(vm, vm->regs[alaf].size, &vm->regs[TAGHA_FIRST_PARAM_REG]);
 					if( vm->errcode != tagha_err_none ) {
 						return -1;
 					} else {
@@ -815,17 +756,17 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 					}
 				}
 			} else {
-				(--vm->regfile.struc.stkptr.ptrself)->ptrvoid = pc.ptrvoid; /** push rip */
-				*--vm->regfile.struc.stkptr.ptrself = vm->regfile.struc.baseptr; /** push rbp */
-				vm->regfile.struc.baseptr = vm->regfile.struc.stkptr; /** mov rbp, rsp */
-				pc.ptruint8 = func.item.stream;
+				(--vm->regs[sp].ptrself)->ptrvoid = pc.ptrvoid; /** push pc */
+				*--vm->regs[sp].ptrself = vm->regs[bp];         /** push rbp */
+				vm->regs[bp] = vm->regs[sp];                    /** mov rbp, rsp */
+				pc.ptruint8 = func.item;
 				DISPATCH();
 			}
 		}
 	}
 	exec_callr: { /** char: opcode | char: regid */
 		const uint8_t regid = *pc.ptruint8++;
-		const int64_t index = vm->regfile.array[regid].int64;
+		const int64_t index = vm->regs[regid].int64;
 		if( !index ) {
 			vm->errcode = tagha_err_no_func;
 			return -1;
@@ -836,20 +777,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 					vm->errcode = tagha_err_no_cfunc;
 					return -1;
 				} else {
-					const uint8_t reg_param_initial = TAGHA_FIRST_PARAM_REG;
-					const uint8_t reg_params = TAGHA_REG_PARAMS_MAX;
-					const size_t args = vm->regfile.struc.alaf.size;
-					
-					/** save stack space by using the registers for passing arguments.
-						the other registers can then be used for other data operations. */
-					if( args <= reg_params ) {
-						vm->regfile.struc.alaf = (*func.item.cfunc)(vm, args, &vm->regfile.array[reg_param_initial]);
-					} else {
-						/** if the native call has more than a certain num of params, get all params from stack. */
-						vm->regfile.struc.alaf = (*func.item.cfunc)(vm, args, vm->regfile.struc.stkptr.ptrself);
-						vm->regfile.struc.stkptr.ptrself += args;
-					}
-					
+					TaghaCFunc *const cfunc = func.item;
+					vm->regs[alaf] = (*cfunc)(vm, vm->regs[alaf].size, &vm->regs[TAGHA_FIRST_PARAM_REG]);
 					if( vm->errcode != tagha_err_none ) {
 						return -1;
 					} else {
@@ -857,20 +786,20 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 					}
 				}
 			} else {
-				(--vm->regfile.struc.stkptr.ptrself)->ptrvoid = pc.ptrvoid; /** push rip */
-				*--vm->regfile.struc.stkptr.ptrself = vm->regfile.struc.baseptr; /** push rbp */
-				vm->regfile.struc.baseptr = vm->regfile.struc.stkptr; /** mov rbp, rsp */
-				pc.ptruint8 = func.item.stream;
+				(--vm->regs[sp].ptrself)->ptrvoid = pc.ptrvoid; /** push pc */
+				*--vm->regs[sp].ptrself = vm->regs[bp];         /** push rbp */
+				vm->regs[bp] = vm->regs[sp];                    /** mov rbp, rsp */
+				pc.ptruint8 = func.item;
 				DISPATCH();
 			}
 		}
 	}
 	exec_ret: { /** char: opcode */
-		vm->regfile.struc.stkptr = vm->regfile.struc.baseptr; /** mov rsp, rbp */
-		vm->regfile.struc.baseptr = *vm->regfile.struc.stkptr.ptrself++; /** pop rbp */
-		pc.ptrvoid = (*vm->regfile.struc.stkptr.ptrself++).ptrvoid; /** pop rip */
+		vm->regs[sp] = vm->regs[bp];                      /** mov rsp, rbp */
+		vm->regs[bp] = *vm->regs[sp].ptrself++;           /** pop rbp */
+		pc.ptrvoid   = (*vm->regs[sp].ptrself++).ptrvoid; /** pop pc */
 		if( pc.ptrvoid==NULL ) {
-			return vm->regfile.struc.alaf.int32;
+			return vm->regs[alaf].int32;
 		} else {
 			DISPATCH();
 		}
@@ -878,39 +807,63 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	
 #ifdef TAGHA_USE_FLOATS
 	/** treated as nop if float32_t is defined but not the other. */
-	exec_flt2dbl: { /** char: opcode | char: reg id */
+	exec_f32tof64: { /** char: opcode | char: reg id */
 		const uint8_t regid = *pc.ptruint8++;
 #	if defined(TAGHA_FLOAT32_DEFINED) && defined(TAGHA_FLOAT64_DEFINED)
-		const float32_t f = vm->regfile.array[regid].float32;
-		vm->regfile.array[regid].float64 = ( float64_t )f;
-#	endif
-		DISPATCH();
-	}
-	exec_dbl2flt: { /** char: opcode | char: reg id */
-		const uint8_t regid = *pc.ptruint8++;
-#	if defined(TAGHA_FLOAT32_DEFINED) && defined(TAGHA_FLOAT64_DEFINED)
-		const float64_t d = vm->regfile.array[regid].float64;
-		vm->regfile.array[regid].int64 = 0;
-		vm->regfile.array[regid].float32 = ( float32_t )d;
-#	endif
-		DISPATCH();
-	}
-	exec_int2dbl: { /** char: opcode | char: reg id */
-		const uint8_t regid = *pc.ptruint8++;
-#	ifdef TAGHA_FLOAT64_DEFINED
-		const int64_t i = vm->regfile.array[regid].int64;
-		vm->regfile.array[regid].float64 = ( float64_t )i;
+		const float32_t f = vm->regs[regid].float32;
+		vm->regs[regid].float64 = ( float64_t )f;
 #	else
 		(void)regid;
 #	endif
 		DISPATCH();
 	}
-	exec_int2flt: { /** char: opcode | char: reg id */
+	exec_f64tof32: { /** char: opcode | char: reg id */
+		const uint8_t regid = *pc.ptruint8++;
+#	if defined(TAGHA_FLOAT32_DEFINED) && defined(TAGHA_FLOAT64_DEFINED)
+		const float64_t d = vm->regs[regid].float64;
+		vm->regs[regid].int64 = 0;
+		vm->regs[regid].float32 = ( float32_t )d;
+#	else
+		(void)regid;
+#	endif
+		DISPATCH();
+	}
+	exec_itof64: { /** char: opcode | char: reg id */
+		const uint8_t regid = *pc.ptruint8++;
+#	ifdef TAGHA_FLOAT64_DEFINED
+		const int64_t i = vm->regs[regid].int64;
+		vm->regs[regid].float64 = ( float64_t )i;
+#	else
+		(void)regid;
+#	endif
+		DISPATCH();
+	}
+	exec_itof32: { /** char: opcode | char: reg id */
 		const uint8_t regid = *pc.ptruint8++;
 #	ifdef TAGHA_FLOAT32_DEFINED
-		const int64_t i = vm->regfile.array[regid].int64;
-		vm->regfile.array[regid].int64 = 0;
-		vm->regfile.array[regid].float32 = ( float32_t )i;
+		const int64_t i = vm->regs[regid].int64;
+		vm->regs[regid].int64 = 0;
+		vm->regs[regid].float32 = ( float32_t )i;
+#	else
+		(void)regid;
+#	endif
+		DISPATCH();
+	}
+	exec_f64toi: { /** char: opcode | char: reg id */
+		const uint8_t regid = *pc.ptruint8++;
+#	ifdef TAGHA_FLOAT32_DEFINED
+		const float64_t i = vm->regs[regid].float64;
+		vm->regs[regid].int64 = ( int64_t )i;
+#	else
+		(void)regid;
+#	endif
+		DISPATCH();
+	}
+	exec_f32toi: { /** char: opcode | char: reg id */
+		const uint8_t regid = *pc.ptruint8++;
+#	ifdef TAGHA_FLOAT32_DEFINED
+		const float32_t i = vm->regs[regid].float32;
+		vm->regs[regid].int64 = ( int64_t )i;
 #	else
 		(void)regid;
 #	endif
@@ -920,9 +873,9 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	exec_addf: { /** char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.ptruint16++;
 #	if defined(TAGHA_FLOAT64_DEFINED) /** if float64_t's are defined, regardless whether float32_t is or not */
-		vm->regfile.array[regids & 0xff].float64 += vm->regfile.array[regids >> 8].float64;
+		vm->regs[regids & 0xff].float64 += vm->regs[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
-		vm->regfile.array[regids & 0xff].float32 += vm->regfile.array[regids >> 8].float32;
+		vm->regs[regids & 0xff].float32 += vm->regs[regids >> 8].float32;
 #	else
 		(void)regids;
 #	endif
@@ -931,9 +884,9 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	exec_subf: { /** char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.ptruint16++;
 #	if defined(TAGHA_FLOAT64_DEFINED)
-		vm->regfile.array[regids & 0xff].float64 -= vm->regfile.array[regids >> 8].float64;
+		vm->regs[regids & 0xff].float64 -= vm->regs[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
-		vm->regfile.array[regids & 0xff].float32 -= vm->regfile.array[regids >> 8].float32;
+		vm->regs[regids & 0xff].float32 -= vm->regs[regids >> 8].float32;
 #	else
 		(void)regids;
 #	endif
@@ -942,9 +895,9 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	exec_mulf: { /** char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.ptruint16++;
 #	if defined(TAGHA_FLOAT64_DEFINED)
-		vm->regfile.array[regids & 0xff].float64 *= vm->regfile.array[regids >> 8].float64;
+		vm->regs[regids & 0xff].float64 *= vm->regs[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
-		vm->regfile.array[regids & 0xff].float32 *= vm->regfile.array[regids >> 8].float32;
+		vm->regs[regids & 0xff].float32 *= vm->regs[regids >> 8].float32;
 #	else
 		(void)regids;
 #	endif
@@ -953,9 +906,9 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	exec_divf: { /** char: opcode | char: dest reg | char: src reg */
 		const uint16_t regids = *pc.ptruint16++;
 #	if defined(TAGHA_FLOAT64_DEFINED)
-		vm->regfile.array[regids & 0xff].float64 /= vm->regfile.array[regids >> 8].float64;
+		vm->regs[regids & 0xff].float64 /= vm->regs[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
-		vm->regfile.array[regids & 0xff].float32 /= vm->regfile.array[regids >> 8].float32;
+		vm->regs[regids & 0xff].float32 /= vm->regs[regids >> 8].float32;
 #	else
 		(void)regids;
 #	endif
@@ -965,9 +918,9 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	exec_ltf: { /** char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.ptruint16++;
 #	if defined(TAGHA_FLOAT64_DEFINED)
-		vm->condflag = vm->regfile.array[regids & 0xff].float64 < vm->regfile.array[regids >> 8].float64;
+		vm->condflag = vm->regs[regids & 0xff].float64 < vm->regs[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
-		vm->condflag = vm->regfile.array[regids & 0xff].float32 < vm->regfile.array[regids >> 8].float32;
+		vm->condflag = vm->regs[regids & 0xff].float32 < vm->regs[regids >> 8].float32;
 #	else
 		(void)regids;
 #	endif
@@ -976,9 +929,9 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	exec_lef: { /** char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.ptruint16++;
 #	if defined(TAGHA_FLOAT64_DEFINED)
-		vm->condflag = vm->regfile.array[regids & 0xff].float64 <= vm->regfile.array[regids >> 8].float64;
+		vm->condflag = vm->regs[regids & 0xff].float64 <= vm->regs[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
-		vm->condflag = vm->regfile.array[regids & 0xff].float32 <= vm->regfile.array[regids >> 8].float32;
+		vm->condflag = vm->regs[regids & 0xff].float32 <= vm->regs[regids >> 8].float32;
 #	else
 		(void)regids;
 #	endif
@@ -988,9 +941,9 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	exec_gtf: { /** char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.ptruint16++;
 #	if defined(TAGHA_FLOAT64_DEFINED)
-		vm->condflag = vm->regfile.array[regids & 0xff].float64 > vm->regfile.array[regids >> 8].float64;
+		vm->condflag = vm->regs[regids & 0xff].float64 > vm->regs[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
-		vm->condflag = vm->regfile.array[regids & 0xff].float32 > vm->regfile.array[regids >> 8].float32;
+		vm->condflag = vm->regs[regids & 0xff].float32 > vm->regs[regids >> 8].float32;
 #	else
 		(void)regids;
 #	endif
@@ -999,65 +952,22 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	exec_gef: { /** char: opcode | char: reg 1 | char: reg 2 */
 		const uint16_t regids = *pc.ptruint16++;
 #	if defined(TAGHA_FLOAT64_DEFINED)
-		vm->condflag = vm->regfile.array[regids & 0xff].float64 >= vm->regfile.array[regids >> 8].float64;
+		vm->condflag = vm->regs[regids & 0xff].float64 >= vm->regs[regids >> 8].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
-		vm->condflag = vm->regfile.array[regids & 0xff].float32 >= vm->regfile.array[regids >> 8].float32;
+		vm->condflag = vm->regs[regids & 0xff].float32 >= vm->regs[regids >> 8].float32;
 #	else
 		(void)regids;
-#	endif
-		DISPATCH();
-	}
-	
-	exec_cmpf: { /** char: opcode | char: reg 1 | char: reg 2 */
-		const uint16_t regids = *pc.ptruint16++;
-#	if defined(TAGHA_FLOAT64_DEFINED)
-		vm->condflag = vm->regfile.array[regids & 0xff].float64 == vm->regfile.array[regids >> 8].float64;
-#	elif defined(TAGHA_FLOAT32_DEFINED)
-		vm->condflag = vm->regfile.array[regids & 0xff].float32 == vm->regfile.array[regids >> 8].float32;
-#	else
-		(void)regids;
-#	endif
-		DISPATCH();
-	}
-	exec_neqf: { /** char: opcode | char: reg 1 | char: reg 2 */
-		const uint16_t regids = *pc.ptruint16++;
-#	if defined(TAGHA_FLOAT64_DEFINED)
-		vm->condflag = vm->regfile.array[regids & 0xff].float64 != vm->regfile.array[regids >> 8].float64;
-#	elif defined(TAGHA_FLOAT32_DEFINED)
-		vm->condflag = vm->regfile.array[regids & 0xff].float32 != vm->regfile.array[regids >> 8].float32;
-#	else
-		(void)regids;
-#	endif
-		DISPATCH();
-	}
-	exec_incf: { /** char: opcode | char: regid */
-		const uint8_t regid = *pc.ptruint8++;
-#	if defined(TAGHA_FLOAT64_DEFINED)
-		++vm->regfile.array[regid].float64;
-#	elif defined(TAGHA_FLOAT32_DEFINED)
-		++vm->regfile.array[regid].float32;
-#	else
-		(void)regid;
-#	endif
-		DISPATCH();
-	}
-	exec_decf: { /** char: opcode | char: regid */
-		const uint8_t regid = *pc.ptruint8++;
-#	if defined(TAGHA_FLOAT64_DEFINED)
-		--vm->regfile.array[regid].float64;
-#	elif defined(TAGHA_FLOAT32_DEFINED)
-		--vm->regfile.array[regid].float32;
-#	else
-		(void)regid;
 #	endif
 		DISPATCH();
 	}
 	exec_negf: { /** char: opcode | char: regid */
 		const uint8_t regid = *pc.ptruint8++;
 #	if defined(TAGHA_FLOAT64_DEFINED)
-		vm->regfile.array[regid].float64 = -vm->regfile.array[regid].float64;
+		const float64_t f = -vm->regs[regid].float64;
+		vm->regs[regid].float64 = f;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
-		vm->regfile.array[regid].float32 = -vm->regfile.array[regid].float32;
+		const float32_t f = -vm->regs[regid].float32;
+		vm->regs[regid].float32 = f;
 #	else
 		(void)regid;
 #	endif
@@ -1065,5 +975,5 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	}
 #endif
 	exec_halt:
-		return vm->regfile.struc.alaf.int32;
+		return vm->regs[alaf].int32;
 }

@@ -1,7 +1,7 @@
 #pragma once
 
 #define TAGHA_VERSION_MAJOR    1
-#define TAGHA_VERSION_MINOR    1
+#define TAGHA_VERSION_MINOR    0
 #define TAGHA_VERSION_PATCH    0
 #define TAGHA_VERSION_PHASE    'beta'
 #define TAGHA_STR_HELPER(x)    #x
@@ -38,79 +38,59 @@ extern "C" {
 
 
 typedef union TaghaVal {
-	uint64_t uint64, *ptruint64;
-	int64_t int64, *ptrint64;
+	uint64_t       uint64,  *ptruint64;
+	int64_t        int64,   *ptrint64;
 	
-	size_t size, *ptrsize; ssize_t ssize, *ptrssize;
-	uintptr_t uintptr; intptr_t intptr;
+	size_t         size,    *ptrsize;
+	ssize_t        ssize,   *ptrssize;
 	
-	uint32_t uint32, *ptruint32;
-	int32_t int32, *ptrint32;
+	uint32_t       uint32,  uint32a[2], *ptruint32;
+	int32_t        int32,   int32a[2],  *ptrint32;
 	
-	uint16_t uint16, *ptruint16;
-	int16_t int16, *ptrint16;
+	uint16_t       uint16,  uint16a[4], *ptruint16;
+	int16_t        int16,   int16a[4],  *ptrint16;
 	
-	uint8_t uint8, *ptruint8;
-	int8_t int8, *ptrint8;
-	bool boolean, *ptrbool;
+	uint8_t        uint8,   uint8a[8],  *ptruint8;
+	int8_t         int8,    int8a[8],   *ptrint8;
+	bool           boolean, boola[8],   *ptrbool;
 	
 #ifdef TAGHA_FLOAT32_DEFINED
-	float32_t float32, *ptrfloat32;
+	float32_t      float32, float32a[2],*ptrfloat32;
 #endif
 #ifdef TAGHA_FLOAT64_DEFINED
-	float64_t float64, *ptrfloat64;
+	float64_t      float64, *ptrfloat64;
 #endif
 	
-	void *ptrvoid;
-	char *string;
+	void           *ptrvoid;
+	char           *string;
 	union TaghaVal *ptrself;
 } UTaghaVal;
 
-#define TAGHA_SIMD_BYTES      16
-#define TAGHA_SIMD_SIZE(T)    (TAGHA_SIMD_BYTES/sizeof(T))
-typedef union TaghaSIMDVal {
-	bool boolean[TAGHA_SIMD_SIZE(bool)];
-	uint8_t uint8[TAGHA_SIMD_SIZE(uint8_t)]; int8_t int8[TAGHA_SIMD_SIZE(int8_t)];
-	uint16_t uint16[TAGHA_SIMD_SIZE(uint16_t)]; int16_t int16[TAGHA_SIMD_SIZE(int16_t)];
-	uint32_t uint32[TAGHA_SIMD_SIZE(uint32_t)]; int32_t int32[TAGHA_SIMD_SIZE(int32_t)];
-	uint64_t uint64[TAGHA_SIMD_SIZE(uint64_t)]; int64_t int64[TAGHA_SIMD_SIZE(int64_t)];
-	
-	size_t size[TAGHA_SIMD_SIZE(size_t)]; ssize_t ssize[TAGHA_SIMD_SIZE(ssize_t)];
-	uintptr_t uintptr[TAGHA_SIMD_SIZE(uintptr_t)]; intptr_t intptr[TAGHA_SIMD_SIZE(intptr_t)];
-	
-#ifdef TAGHA_FLOAT32_DEFINED
-	float32_t float32[TAGHA_SIMD_SIZE(float32_t)];
-#endif
-#ifdef TAGHA_FLOAT64_DEFINED
-	float64_t float64[TAGHA_SIMD_SIZE(float64_t)];
-#endif
-	union TaghaVal val[TAGHA_SIMD_SIZE(union TaghaVal)];
-} UTaghaSIMDVal;
 
 typedef union TaghaPtr {
-	uint64_t *restrict ptruint64;
-	uint32_t *restrict ptruint32;
-	uint16_t *restrict ptruint16;
-	uint8_t *restrict ptruint8;
+	uint64_t       *restrict ptruint64;
+	uint32_t       *restrict ptruint32;
+	uint16_t       *restrict ptruint16;
+	uint8_t        *restrict ptruint8;
 	
-	int64_t *restrict ptrint64;
-	int32_t *restrict ptrint32;
-	int16_t *restrict ptrint16;
-	int8_t *restrict ptrint8;
+	int64_t        *restrict ptrint64;
+	int32_t        *restrict ptrint32;
+	int16_t        *restrict ptrint16;
+	int8_t         *restrict ptrint8;
 	
-	size_t *restrict ptrsize;
-	ssize_t *restrict ptrssize;
+	size_t         *restrict ptrsize;
+	ssize_t        *restrict ptrssize;
 #ifdef TAGHA_FLOAT32_DEFINED
-	float32_t *restrict ptrfloat32;
+	float32_t      *restrict ptrfloat32;
 #endif
 #ifdef TAGHA_FLOAT64_DEFINED
-	float64_t *restrict ptrfloat64;
+	float64_t      *restrict ptrfloat64;
 #endif
-	char *restrict string;
+	char           *restrict string;
 	
 	union TaghaVal *restrict ptrval;
 	union TaghaPtr *restrict ptrself;
-	void *restrict ptrvoid;
+	void           *restrict ptrvoid;
 } UTaghaPtr;
 
 
@@ -144,46 +124,41 @@ typedef union TaghaPtr {
  * .mem region - taken control by the memory pool as both a stack and heap.
  */
 
-struct TaghaModule;
-typedef union TaghaVal FnTaghaNative(struct TaghaModule *ctxt, size_t args, const union TaghaVal params[]);
 
-typedef struct TaghaNative {
-	const char *name;
-	FnTaghaNative *cfunc;
-} STaghaNative;
-
-
-#define TAGHA_REGISTER_FILE \
-	Y(alaf) Y(beth) Y(gamal) Y(dalath) \
-	Y(heh) Y(waw) Y(zain) Y(heth) Y(teth) Y(yodh) Y(kaf) \
-	Y(lamadh) Y(meem) Y(noon) Y(semkath) Y(_eh) \
-	Y(peh) Y(sadhe) Y(qof) Y(reesh) Y(sheen) Y(taw) \
-	/** Syriac alphabet makes great register names! */ \
-	Y(stkptr) Y(baseptr) Y(instr)
+#define TAGHA_REG_FILE                               \
+	Y(alaf)  Y(beth)   Y(gamal) Y(dalath) Y(heh)     \
+	Y(waw)   Y(zain)   Y(heth)  Y(teth)   Y(yodh)    \
+	Y(kaf)   Y(lamadh) Y(meem)  Y(noon)   Y(semkath) \
+	Y(_eh)   Y(peh)    Y(sadhe) Y(qof)    Y(reesh)   \
+	Y(sheen) Y(taw)    Y(veth)  Y(ghamal) Y(dhalath) \
+	Y(khaf)  Y(feh)    Y(thaw)  Y(zeth)   Y(dadeh)   \
+	Y(sp)    Y(bp)
+	/** Syriac alphabet makes great register names! */
 
 #define Y(y) y,
-typedef enum TaghaRegID { TAGHA_REGISTER_FILE MaxRegisters } ETaghaRegID;
+typedef enum TaghaRegID { TAGHA_REG_FILE MaxRegisters } ETaghaRegID;
 #undef Y
-
-#define TAGHA_SIMD_REGISTER_FILE \
-	/** Syriac alphabet letter modification names. */ \
-	W(veth) W(ghamal) W(dhalath) W(khaf) W(feh) W(thaw)
-
-#define W(w)    w,
-typedef enum TaghaSIMDRegID { TAGHA_SIMD_REGISTER_FILE MaxSIMDRegs } ETaghaSIMDRegID;
-#undef W
 
 #ifndef TAGHA_FIRST_PARAM_REG
 #	define TAGHA_FIRST_PARAM_REG    semkath
 #endif
 
 #ifndef TAGHA_LAST_PARAM_REG
-#	define TAGHA_LAST_PARAM_REG     taw
+#	define TAGHA_LAST_PARAM_REG     dadeh
 #endif
 
 #ifndef TAGHA_REG_PARAMS_MAX
 #	define TAGHA_REG_PARAMS_MAX     (TAGHA_LAST_PARAM_REG - TAGHA_FIRST_PARAM_REG + 1)
 #endif
+
+
+struct TaghaModule;
+typedef union TaghaVal TaghaCFunc(struct TaghaModule *ctxt, size_t args, const union TaghaVal params[]);
+
+typedef struct TaghaNative {
+	const char *name;
+	TaghaCFunc *cfunc;
+} STaghaNative;
 
 
 typedef enum TaghaErrCode {
@@ -198,21 +173,18 @@ typedef enum TaghaErrCode {
 } ETaghaErrCode;
 
 /** Tagha Item
- * represents either a function or global variable.
+ *  represents either a function or global variable.
  */
-#define TAGHA_FLAG_NATIVE    1 /** if is a native C or JIT compiled function. */
-#define TAGHA_FLAG_LINKED    2 /** ptr to native/jit function is linked and verified. */
-typedef struct TaghaItem {
-	union {
-		uint8_t *stream;
-		void *datum;
-		FnTaghaNative *cfunc;
-	} item;
-	size_t bytes;
-	uint8_t flags; /// 0-bytecode based, 1-native based, 2-resolved
-} STaghaItem;
+enum {
+	TAGHA_FLAG_NATIVE = 1,    /* if is a native C or JIT compiled function. */
+	TAGHA_FLAG_LINKED         /* ptr to native/jit function is linked and verified. */
+};
 
-#define EMPTY_TAGHA_ITEM    { .item={NULL}, .bytes=0, .flags=0 }
+typedef struct TaghaItem {
+	void    *item;
+	size_t  bytes;
+	uint8_t flags; // 0-bytecode based, 1-native based, 2-resolved
+} STaghaItem;
 
 
 typedef struct TaghaItemMap {
@@ -228,8 +200,6 @@ typedef struct TaghaItemMap {
 	size_t arrlen, hashlen;
 } STaghaItemMap;
 
-#define EMPTY_TAGHA_ITEM_MAP    { .buckets=NULL, .array=NULL, .arrlen=0, .hashlen=0 }
-
 
 /** Script/Module Structure.
  * Consists of:
@@ -241,25 +211,16 @@ typedef struct TaghaItemMap {
  * and error code status.
  */
 typedef struct TaghaModule {
-	union {
-		union TaghaVal array[MaxRegisters];
-		struct {
-#			define Y(y) union TaghaVal y;
-				TAGHA_REGISTER_FILE
-#			undef Y
-		} struc;
-	} regfile;
-	struct TaghaItemMap funcs, vars;
 	struct HarbolMemPool heap;
+	struct TaghaItemMap funcs, vars;
 	struct { union TaghaVal *start; size_t size; } stack;
-	uint8_t *script;
+	union TaghaVal regs[MaxRegisters];
+	uint8_t *script, *ip;
 	const uint8_t *start_seg, *end_seg;
 	enum TaghaErrCode errcode : 8;
 	uint8_t flags;
 	bool condflag : 1;
 } STaghaModule;
-
-#define EMPTY_TAGHA_MODULE    { .regfile={{{0}}}, .funcs=EMPTY_TAGHA_ITEM_MAP, .vars=EMPTY_TAGHA_ITEM_MAP, .heap=EMPTY_HARBOL_MEMPOOL, .stack={NULL,0}, .script=NULL, .start_seg=NULL, .end_seg=NULL, .errcode=0, .flags=0, .condflag=false }
 
 
 TAGHA_EXPORT NO_NULL struct TaghaModule *tagha_module_new_from_file(const char filename[]);
@@ -282,54 +243,47 @@ TAGHA_EXPORT NEVER_NULL(1,2) int32_t tagha_module_call(struct TaghaModule *modul
 TAGHA_EXPORT NEVER_NULL(1) int32_t tagha_module_invoke(struct TaghaModule *module, int64_t func_index, size_t args, const union TaghaVal params[], union TaghaVal *retval);
 TAGHA_EXPORT NEVER_NULL(1) int32_t tagha_module_run(struct TaghaModule *module, size_t argc, const union TaghaVal argv[]);
 TAGHA_EXPORT NO_NULL void tagha_module_throw_error(struct TaghaModule *module, int32_t err);
-TAGHA_EXPORT NO_NULL void tagha_module_jit_compile(struct TaghaModule *module, FnTaghaNative *jitfunc(const uint8_t*, size_t, void *), void *userdata);
+TAGHA_EXPORT NO_NULL void tagha_module_jit_compile(struct TaghaModule *module, TaghaCFunc *jitfunc(const uint8_t*, size_t, void *), void *userdata);
 
 
 #ifdef TAGHA_USE_FLOATS
 #	define TAGHA_INSTR_SET \
 		X(halt) \
-		X(pushi) X(push) X(pop) \
+		X(push) X(pop) \
 		\
-		X(loadglobal) X(loadaddr) X(loadfunc) \
+		X(ldvar) X(ldaddr) X(ldfunc) \
 		X(movi) X(mov) \
 		X(ld1) X(ld2) X(ld4) X(ld8) \
 		X(st1) X(st2) X(st4) X(st8) \
 		\
 		X(add) X(sub) X(mul) X(divi) X(mod) \
-		\
-		X(bit_and) X(bit_or) X(bit_xor) X(bit_not) X(shl) X(shr) \
-		X(inc) X(dec) X(neg) \
+		X(bit_and) X(bit_or) X(bit_xor) X(bit_not) X(shl) X(shr) X(neg) \
 		\
 		X(ilt) X(ile) X(igt) X(ige) \
-		X(ult) X(ule) X(ugt) X(uge) \
-		X(cmp) X(neq) \
+		X(ult) X(ule) X(ugt) X(uge) X(cmp) \
 		\
 		X(jmp) X(jz) X(jnz) \
 		X(call) X(callr) X(ret) \
 		X(nop) \
 		\
-		X(flt2dbl) X(dbl2flt) X(int2dbl) X(int2flt) \
-		X(addf) X(subf) X(mulf) X(divf) \
-		X(incf) X(decf) X(negf) \
-		X(ltf) X(lef) X(gtf) X(gef) X(cmpf) X(neqf)
+		X(f32tof64) X(f64tof32) X(itof64) X(itof32) X(f64toi) X(f32toi) \
+		X(addf) X(subf) X(mulf) X(divf) X(negf) \
+		X(ltf) X(lef) X(gtf) X(gef)
 #else
 #	define TAGHA_INSTR_SET \
 		X(halt) \
-		X(pushi) X(push) X(pop) \
+		X(push) X(pop) \
 		\
-		X(loadglobal) X(loadaddr) X(loadfunc) \
+		X(ldvar) X(ldaddr) X(ldfunc) \
 		X(movi) X(mov) \
 		X(ld1) X(ld2) X(ld4) X(ld8) \
 		X(st1) X(st2) X(st4) X(st8) \
 		\
 		X(add) X(sub) X(mul) X(divi) X(mod) \
-		\
-		X(bit_and) X(bit_or) X(bit_xor) X(bit_not) X(shl) X(shr) \
-		X(inc) X(dec) X(neg) \
+		X(bit_and) X(bit_or) X(bit_xor) X(bit_not) X(shl) X(shr) X(neg) \
 		\
 		X(ilt) X(ile) X(igt) X(ige) \
-		X(ult) X(ule) X(ugt) X(uge) \
-		X(cmp) X(neq) \
+		X(ult) X(ule) X(ugt) X(uge) X(cmp) \
 		\
 		X(jmp) X(jz) X(jnz) \
 		X(call) X(callr) X(ret) \

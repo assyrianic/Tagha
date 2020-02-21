@@ -8,6 +8,7 @@ SRCS += tagha_stdlib.c
 SRCS += tagha_string.c
 SRCS += tagha_time.c
 SRCS += tagha_module.c
+SRCS += tagha_simd.c
 OBJS = $(SRCS:.c=.o)
 
 LIBNAME = libtaghaclib

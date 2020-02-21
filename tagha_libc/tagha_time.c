@@ -2,7 +2,7 @@
 #include <string.h>
 #include "tagha_libc.h"
 
-/* clock_t clock(void); */
+/** clock_t clock(void); */
 static union TaghaVal native_clock(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args; (void)params;
@@ -13,7 +13,7 @@ static union TaghaVal native_clock(struct TaghaModule *const module, const size_
 	return conv.v;
 }
 
-/* time_t time(time_t *timer); */
+/** time_t time(time_t *timer); */
 static union TaghaVal native_time(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
@@ -24,7 +24,7 @@ static union TaghaVal native_time(struct TaghaModule *const module, const size_t
 	return conv.v;
 }
 
-/* float64_t difftime(time_t end, time_t beginning); */
+/** float64_t difftime(time_t end, time_t beginning); */
 static union TaghaVal native_difftime(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
@@ -35,7 +35,7 @@ static union TaghaVal native_difftime(struct TaghaModule *const module, const si
 	return (union TaghaVal){ .float64 = difftime(end.t, begin.t) };
 }
 
-/* time_t mktime(struct tm *timeptr); */
+/** time_t mktime(struct tm *timeptr); */
 static union TaghaVal native_mktime(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
@@ -46,35 +46,35 @@ static union TaghaVal native_mktime(struct TaghaModule *const module, const size
 	return conv.v;
 }
 
-/* char *asctime(const struct tm *timeptr); */
+/** char *asctime(const struct tm *timeptr); */
 static union TaghaVal native_asctime(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .string = asctime(params[0].ptrvoid) };
 }
 
-/* char *ctime(const time_t *timer); */
+/** char *ctime(const time_t *timer); */
 static union TaghaVal native_ctime(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .string = ctime(params[0].ptrvoid)};
 }
 
-/* struct tm *gmtime(const time_t *timer); */
+/** struct tm *gmtime(const time_t *timer); */
 static union TaghaVal native_gmtime(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .ptrvoid = gmtime(params[0].ptrvoid) };
 }
 
-/* struct tm *localtime(const time_t *timer); */
+/** struct tm *localtime(const time_t *timer); */
 static union TaghaVal native_localtime(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .ptrvoid = localtime(params[0].ptrvoid) };
 }
 
-/* size_t strftime(char *ptr, size_t maxsize, const char *format, const struct tm *timeptr); */
+/** size_t strftime(char *ptr, size_t maxsize, const char *format, const struct tm *timeptr); */
 static union TaghaVal native_strftime(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;

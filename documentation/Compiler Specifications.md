@@ -15,16 +15,14 @@ To be a worthy C runtime environment, giving Tagha runtime speed is a hard requi
 
 * all binary math operations assume both operands are the same size.
 
-* Bytecode & Native Function calling convention is either through the registers or the stack, calling convention uses registers `semkath` to `taw` for the first 8 arguments. `semkath` will contain the 1st argument up to `rtaw` which will contain the 8th argument.
-	* *If there are more than 8 params, ALL params must be pushed to the stack* (cdecl convention).
+* Bytecode & Native Function Calling Convention is **only** through registers, calling convention uses registers `rsemkath` to `rdadeh` aka `rarg0` to `rarg15`. `rsemkath` will contain the 1st argument up to `rdadeh` which will contain the 16th argument.
+	* *If there are more than 16 params, optimize into a va_list*.
 
-* for C++ and other OOP-based languages, the `this` pointer should be placed in `rsemkath`.
+* for C++ and other OOP-based languages, the `this` pointer must be placed in `rsemkath` aka `rarg0`.
 
-* Function return values always return in the `ralaf` register. This includes return values for natives. If the return data is larger than 64-bits, then optimize the function to take a hidden pointer parameter.
+* Return values always go in the `ralaf` (`r0`) register. This includes return values for natives. If the return data is larger than 64-bits, then optimize the function and/or native to use a hidden pointer parameter.
 
-* For consistency with natives, all native functions returning a struct scalar must be optimized to pass a hidden pointer instead if the struct scalar is not small enough to fit in a register.
-
-* `argc` and `argv` are implemented in scripts but `env` variable is not implemented (I see no reason to implement as of current).
+* `argc` and `argv` are implemented in scripts but `env` variable is not implemented.
 
 * `main` MAY be able to allowed to give whatever parameters the developers embedding tagha want to give to script devs. Just not pointers.
 

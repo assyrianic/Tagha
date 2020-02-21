@@ -28,7 +28,7 @@
 * Tagha codebase has its own, open source implementation of libc for scripts to use (INCOMPLETE).
 * Register-based virtual machine that handles immediate values, register, and memory operations.
 * Supports 1, 2, 4, and 8 byte operations.
-* 22 **general purpose registers** + 3 reserved-use (stack pointers and instruction pointer) registers.
+* 30 **general purpose registers** + 2 reserved-use (stack pointers) registers.
 * Floats and doubles are supported (can be compiled without and also can be compiled with only one or the other).
 * Uses computed gotos (ones that use a void\*) which is 20%-25% faster than using a switch & loop construct {[citation](http://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables)}.
 * Embeddable and easy to embed.
@@ -37,7 +37,7 @@
 * Host can call script functions and retrieve return values from the script function invocation.
 * Scripts (by exporting tagha's own API) can manually load other scripts as dynamic libraries.
 * Little-endian format (only).
-* Small. The entire static library is <50kb.
+* Small. The entire runtime as a static library is less than 50kb.
 * Tagha's entire code is **about 1k lines of code**!
 * Speed, tagha is very fast for a virtual machine that does not use a JIT.
 * Memory safe, tagha sandboxes scripts.
@@ -71,7 +71,7 @@ To submit a patch, first file an issue and/or present a pull request.
 
 ## Help
 
-If you need help or have any question, you can reach me on the `#tagha` channel through [Discord](https://discord.gg/UgVuqSK)
+If you need help or have any question, you can reach me on the `#taghavm` channel through Discord (https://discord.gg/2NKFgPS)
 Simply drop a message or your question and you'll be reached in no time!
 
 You can also privately message me at **Khanno Hanna#1704** on Discord. Random messages that are not about Tagha will be ignored/deleted.
@@ -145,7 +145,7 @@ If you wish to build and test the tagha code base, compile `test_hostapp.c` with
 
 ## Contact
 
-I can be contacted through the [Discord link](https://discord.gg/UgVuqSK) or PM me @ **Khanno Hanna#1704**.
+I can be contacted through the Discord link (https://discord.gg/2NKFgPS) or PM me @ **Khanno Hanna#1704**.
 
 ## License
 [![License](https://img.shields.io/github/license/assyrianic/tagha.svg?label=License&style=plastic)](https://github.com/assyrianic/tagha)

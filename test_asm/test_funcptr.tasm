@@ -12,17 +12,20 @@ $native %fgets  # char *fgets(char *, int, FILE *);
     sub         rsp, rgamal
     
 # puts("Please enter a long string: ");
-    loadvar     rsemkath, string
+    ldvar       rarg0, string
     movi        ralaf, 1
     call        %puts
     
 # fgets(string, 256, stdin);
-    loadglobal  rpeh, stdin ; loading a global var only loads its address, we need the actual ptr value of stdin.
-    ld8         rpeh, [rpeh]
-    movi        r_eh, 256
-    loadaddr    rsemkath, [rbp-256]
+    ldvar       rarg2, stdin ; loading a global var only loads its address, we need the actual ptr value of stdin.
+    ld8         rarg2, [rarg2]
+    
+    movi        rarg1, 256
+    
+    ldaddr      rarg0, [rbp-256]
+    
     movi        ralaf, 3
-    loadfunc    rgamal, %fgets
+    ldfunc      rgamal, %fgets
     callr       rgamal
     
     movi        ralaf, 1

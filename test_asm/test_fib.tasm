@@ -1,7 +1,7 @@
 $stacksize 1024    ; 1024 stack cells, whoa.
 
 %main: {
-    movi    rsemkath, 34
+    movi    rarg0, 34
     call    %fib
 .exit:
     ret
@@ -13,35 +13,36 @@ $stacksize 1024    ; 1024 stack cells, whoa.
 ; }
 
 %fib: {
-    movi    rgamal, 16
-    sub     rsp, rgamal
-    push    rbeth
-    st4     [rbp-4], rsemkath
-    movi    rdalath, 2
+    movi    r2, 16
+    movi    r4, 1
+    sub     rsp, r2
+    push    r1
+    st4     [rbp-4], rarg0
+    movi    r3, 2
     
-    ilt     rsemkath, rdalath ; if( n<2 )
+    ilt     rarg0, r3 ; if( n<2 )
     jz      .eval
     
 .exit:
-    ld4     ralaf, [rbp-4]
+    ld4     r0, [rbp-4]
     ret
     
 .eval:
 ; return fib(n-1) + fib(n-2);
     ; fib(n-1)
-    ld4     ralaf, [rbp-4]
-    dec     ralaf
-    mov     rsemkath, ralaf
+    ld4     r0, [rbp-4]
+    sub     r0, r4
+    mov     rarg0, r0
     call    %fib
     
-    mov     rbeth, ralaf
+    mov     r1, r0
     ; fib(n-2)
-    ld4     ralaf, [rbp-4]
-    sub     ralaf, rdalath
-    mov     rsemkath, ralaf
+    ld4     r0, [rbp-4]
+    sub     r0, r3
+    mov     rarg0, r0
     call    %fib
     ; +
-    add     ralaf, rbeth
-    pop     rbeth
+    add     r0, r1
+    pop     r1
     ret
 }

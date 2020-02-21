@@ -1,15 +1,15 @@
 $stacksize 10    ; 10 stack cells so 80 bytes
 
 %main: {
-    movi     rgamal, 32
-    sub      rsp, rgamal
-    loadaddr rsemkath, [rbp-24]
-    movi     rgamal, 0x40000000 ; 2.f
+    movi     rgamal,   32
+    sub      rsp,      rgamal
+    ldaddr   rarg0,    [rbp-24]    ; rarg0 is symbolic param/argument alias for rsemkath.
+    movi     rgamal,   0x40000000  ; 2.f
     st4      [rbp-24], rgamal
-    movi     rgamal, 0x40400000 ; 3.f
+    movi     rgamal,   0x40400000  ; 3.f
     st4      [rbp-20], rgamal
-    movi     rgamal, 0x40800000 ; 4.f
-    st4      [rbp-16], rgamal
+    movi     rgamal,   0x40800000  ; 4.f
+    st4      [rbp-16], rgamal      ; r2 would be alias for rgamal.
     call     %vec3D_invert
     ret
 }
@@ -20,31 +20,40 @@ $stacksize 10    ; 10 stack cells so 80 bytes
 ;     v[1] = -v[1];
 ;     v[2] = -v[2];
 ; }
+; 
+; static UTaghaVal native_vec3D_invert(STaghaModule *const module, const uint32_t args, const UTaghaVal params[const static 1])
+; {
+;     (void)module; (void)args;
+;     float32 *restrict v3 = params[0].ptrvoid;
+;     for( size_t i=0; i<3; i++ )
+;         v3[i] = -v3[i];
+;     return (union TaghaVal){0};
+; }
 
 %vec3D_invert: {
     ; v[0] = -v[0];
-    ; make SIMD ops to lessen this code?
-    ld4      rbeth, [rsemkath]
-    flt2dbl  rbeth
-    negf     rbeth
-    addf     ralaf, rbeth
-    dbl2flt  rbeth
-    st4      [rsemkath], rbeth
+    ; make SIMD ops/natives to lessen this code?
+    ld4      r1, [rarg0] ; r1 is numeric alias for rbeth since beth is 2nd letter in aramaic alphabet.
+    f32tof64 r1
+    negf     r1
+    addf     r0, r1  ; r0 alias for ralaf.
+    f64tof32 r1
+    st4      [rarg0], r1
     
     ; v[1] = -v[1];
-    ld4      rbeth, [rsemkath+4]
-    flt2dbl  rbeth
-    negf     rbeth
-    addf     ralaf, rbeth
-    dbl2flt  rbeth
-    st4      [rsemkath+4], rbeth
+    ld4      r1, [rarg0+4]
+    f32tof64 r1
+    negf     r1
+    addf     r0, r1
+    f64tof32 r1
+    st4      [rarg0+4], r1
     
     ; v[2] = -v[2];
-    ld4      rbeth, [rsemkath+8]
-    flt2dbl  rbeth
-    negf     rbeth
-    addf     ralaf, rbeth
-    dbl2flt  rbeth
-    st4      [rsemkath+8], rbeth
+    ld4      r1, [rarg0+8]
+    f32tof64 r1
+    negf     r1
+    addf     r0, r1
+    f64tof32 r1
+    st4      [rarg0+8], r1
     ret
 }

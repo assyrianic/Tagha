@@ -16,10 +16,6 @@
 
 ### TIR_NEG
 
-### TIR_INCR
-
-### TIR_DECR
-
 ### TIR_AND
 
 ### TIR_OR
@@ -34,8 +30,6 @@
 
 ### TIR_EQ
 
-### TIR_NE
-
 ### TIR_LE
 
 ### TIR_LT
@@ -43,8 +37,6 @@
 ### TIR_GE
 
 ### TIR_GT
-
-### TIR_PUSH_IMM
 
 ### TIR_PUSH
 
@@ -82,10 +74,6 @@
 
 ### TIR_FDIV
 
-### TIR_FINCR
-
-### TIR_FDECR
-
 ### TIR_FNEG
 
 ### TIR_F32_TO_F64
@@ -96,9 +84,9 @@
 
 ### TIR_INT_TO_F64
 
-### TIR_FEQ
+### TIR_F64_TO_INT
 
-### TIR_FNE
+### TIR_F32_TO_INT
 
 ### TIR_FLE
 
@@ -188,21 +176,6 @@ creates an IR object that defines an immediate value being copied to a register.
 
 ### Return Value
 returns a `struct TaghaIR` object that represents an immediate value copy operation.
-
-
-## tagha_ir_push_imm
-```c
-struct TaghaIR tagha_ir_push_imm(const uint64_t val)
-```
-
-### Description
-creates an IR object that defines pushing an immediate value to the stack.
-
-### Parameters
-* `val` - unsigned 64-bit int value that will be pushed to the stack.
-
-### Return Value
-returns a `struct TaghaIR` object that represents pushing an immediate value to the stack.
 
 
 ## tagha_ir_push

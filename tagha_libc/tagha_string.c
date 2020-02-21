@@ -1,154 +1,154 @@
 #include <string.h>
 #include "tagha_libc.h"
 
-/* void *memcpy(void *dest, const void *src, size_t num); */
+/** void *memcpy(void *dest, const void *src, size_t num); */
 static union TaghaVal native_memcpy(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .ptrvoid = memcpy(params[0].ptrvoid, params[1].ptrvoid, params[2].uint64) };
 }
 
-/* void *memmove(void *dest, const void *src, size_t num); */
+/** void *memmove(void *dest, const void *src, size_t num); */
 static union TaghaVal native_memmove(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .ptrvoid = memmove(params[0].ptrvoid, params[1].ptrvoid, params[2].uint64) };
 }
 
-/* char *strcpy(char *dest, const char *src); */
+/** char *strcpy(char *dest, const char *src); */
 static union TaghaVal native_strcpy(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .string = strcpy(params[0].string, params[1].string) };
 }
 
-/* char *strncpy(char *dest, const char *src, size_t num); */
+/** char *strncpy(char *dest, const char *src, size_t num); */
 static union TaghaVal native_strncpy(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .string = strncpy(params[0].string, params[1].string, params[2].uint64) };
 }
 
-/* char *strcat(char *dest, const char *src); */
+/** char *strcat(char *dest, const char *src); */
 static union TaghaVal native_strcat(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .string = strcat(params[0].string, params[1].string) };
 }
 
-/* char *strncat(char *dest, const char *src, size_t num); */
+/** char *strncat(char *dest, const char *src, size_t num); */
 static union TaghaVal native_strncat(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .string = strncat(params[0].string, params[1].string, params[2].uint64) };
 }
 
-/* int memcmp(const void *ptr1, const void *ptr2, size_t num); */
+/** int memcmp(const void *ptr1, const void *ptr2, size_t num); */
 static union TaghaVal native_memcmp(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .int32 = memcmp(params[0].ptrvoid, params[1].ptrvoid, params[2].uint64) };
 }
 
-/* int strcmp(const char *str1, const char *str2); */
+/** int strcmp(const char *str1, const char *str2); */
 static union TaghaVal native_strcmp(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .int32 = strcmp(params[0].string, params[1].string) };
 }
 
-/* int strcoll(const char *str1, const char *str2); */
+/** int strcoll(const char *str1, const char *str2); */
 static union TaghaVal native_strcoll(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .int32 = strcoll(params[0].string, params[1].string) };
 }
 
-/* int strncmp(const char *str1, const char *str2, size_t num); */
+/** int strncmp(const char *str1, const char *str2, size_t num); */
 static union TaghaVal native_strncmp(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .int32 = strncmp(params[0].string, params[1].string, params[2].uint64) };
 }
 
-/* size_t strxfrm(char *dest, const char *src, size_t num); */
+/** size_t strxfrm(char *dest, const char *src, size_t num); */
 static union TaghaVal native_strxfrm(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .uint64 = strxfrm(params[0].string, params[1].string, params[2].uint64) };
 }
 
-/* void *memchr(const void *ptr, int value, size_t num); */
+/** void *memchr(const void *ptr, int value, size_t num); */
 static union TaghaVal native_memchr(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .ptrvoid = memchr(params[0].ptrvoid, params[1].int32, params[2].uint64) };
 }
 
-/* char *strchr(const char *str, int character); */
+/** char *strchr(const char *str, int character); */
 static union TaghaVal native_strchr(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .string = strchr(params[0].string, params[1].int32) };
 }
 
-/* size_t strcspn(const char *str1, const char *str2); */
+/** size_t strcspn(const char *str1, const char *str2); */
 static union TaghaVal native_strcspn(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .uint64 = strcspn(params[0].string, params[1].string) };
 }
 
-/* char *strpbrk(const char *str1, const char *str2); */
+/** char *strpbrk(const char *str1, const char *str2); */
 static union TaghaVal native_strpbrk(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .string = strpbrk(params[0].string, params[1].string) };
 }
 
-/* char *strrchr(const char *str, int character); */
+/** char *strrchr(const char *str, int character); */
 static union TaghaVal native_strrchr(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .string = strrchr(params[0].string, params[1].int32) };
 }
 
-/* size_t strspn(const char *str1, const char *str2); */
+/** size_t strspn(const char *str1, const char *str2); */
 static union TaghaVal native_strspn(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .uint64 = strspn(params[0].string, params[1].string) };
 }
 
-/* char *strstr(const char *str1, const char *str2); */
+/** char *strstr(const char *str1, const char *str2); */
 static union TaghaVal native_strstr(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .string = strstr(params[0].string, params[1].string) };
 }
 
-/* char *strtok(char *str, const char *delimiters); */
+/** char *strtok(char *str, const char *delimiters); */
 static union TaghaVal native_strtok(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .string = strtok(params[0].string, params[1].string) };
 }
 
-/* void *memset(void *ptr, int value, size_t num); */
+/** void *memset(void *ptr, int value, size_t num); */
 static union TaghaVal native_memset(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .ptrvoid = memset(params[0].ptrvoid, params[1].int32, params[1].uint64) };
 }
 
-/* char *strerror(int errnum); */
+/** char *strerror(int errnum); */
 static union TaghaVal native_strerror(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
 	return (union TaghaVal){ .string = strerror(params[0].int32) };
 }
 
-/* size_t strlen(const char * str); */
+/** size_t strlen(const char * str); */
 static union TaghaVal native_strlen(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;

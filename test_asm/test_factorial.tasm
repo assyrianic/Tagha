@@ -21,32 +21,33 @@ $native %puts
 # }
 
 %main: {
-    movi    rsemkath, 5 ; 10 bytes
+    movi    rarg0, 5   ; 10 bytes
     call    %factorial ; 9 bytes
     ret
 }
 
 %factorial: {
-    movi    rdalath, 32
-    sub     rsp, rdalath
-    movi    rbeth, 1 ; 10 bytes
-    st4     [rbp-4], rsemkath ; 7 bytes
+    movi    r3, 32
+    sub     rsp, r3
+    movi    r1, 1          ; 10 bytes
+    st4     [rbp-4], rarg0 ; 7 bytes
     
 # if( i<=1 )
-    cmp     rsemkath, rbeth ; 3 bytes
-    jz      .cont ; 9 bytes
+    cmp     rarg0, r1 ; 3 bytes
+    jz      .cont     ; 9 bytes
     
 # return 1;
-    mov     ralaf, rbeth ; 3 bytes
-    ret ; 1 byte
+    mov     r0, r1    ; 3 bytes
+    ret               ; 1 byte
     
 .cont:
 # return i * factorial(i-1);
-    ld4     ralaf, [rbp-4]
-    sub     ralaf, rbeth
-    mov     rsemkath, ralaf
+    ld4     r0, [rbp-4]
+    sub     r0, r1
+    mov     rarg0, r0
     call    %factorial
-    ld4     rgamal, [rbp-4]
-    mul     ralaf, rgamal
+    ld4     r2, [rbp-4]
+    mul     r0, r2
     ret
 }
+

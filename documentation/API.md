@@ -10,11 +10,20 @@ boolean value.
 ### int8
 signed char value.
 
+### int8a
+signed char[8] value.
+
 ### int16
 signed short value.
 
+### int16a
+signed short[4] value.
+
 ### int32
 signed int value.
+
+### int32a
+signed int[2] value.
 
 ### int64
 signed long long value.
@@ -22,11 +31,20 @@ signed long long value.
 ### uint8
 unsigned char value.
 
+### uint8a
+unsigned char[8] value.
+
 ### uint16
 unsigned short value.
 
+### uint16a
+unsigned short[4] value.
+
 ### uint32
 unsigned int value.
+
+### uint32a
+unsigned int[2] value.
 
 ### uint64
 unsigned long long value.
@@ -37,14 +55,11 @@ size_t value.
 ### ssize
 ssize_t value.
 
-### uintptr
-uintptr_t value.
-
-### intptr
-intptr_t value.
-
 ### float32
 32-bit float value. exists only if `TAGHA_FLOAT32_DEFINED` is defined.
+
+### float32a
+32-bit float[2] value. exists only if `TAGHA_FLOAT32_DEFINED` is defined.
 
 ### float64
 64-bit float value. exists only if `TAGHA_FLOAT64_DEFINED` is defined.

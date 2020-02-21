@@ -25,13 +25,13 @@ $native %vprintf
     sub         rsp, rgamal
     
     ; printf("%s\n", "printf test string formatting.");
-    loadglobal  rsemkath, fmt_str1
-    loadglobal  r_eh, str1
+    ldvar       rsemkath, fmt_str1
+    ldvar       r_eh, str1
     movi        ralaf, 2
     call        %printf
     
     ; printf("100 == %x\n", 100);
-    loadglobal  rsemkath, fmt_str2
+    ldvar       rarg0, fmt_str2
     movi        r_eh, 0x4069000000000000
     movi        ralaf, 2
     call        %printf
@@ -46,8 +46,8 @@ $native %vprintf
     st8         [rbp-16], rgamal
     
     ; load va_list
-    loadaddr    r_eh, [rbp-16]
-    loadglobal  rsemkath, fmt_str3
+    ldaddr      r_eh, [rbp-16]
+    ldvar       rsemkath, fmt_str3
     call        %my_printer
     ret
 }
@@ -70,7 +70,7 @@ $native %vprintf
     st8         [rbp-16], r_eh
     
     ; vprintf(fmt, &va);
-    loadaddr    r_eh, [rbp-16]
+    ldaddr      r_eh, [rbp-16]
     ; register semkath still contains the string pointer.
     movi        ralaf, 2
     call        %vprintf

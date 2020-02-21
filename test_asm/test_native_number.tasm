@@ -11,15 +11,16 @@ $native %add_one
 ; }
 
 %main: {
-    movi    rbeth, 1000000000
-    movi    ralaf, 0
-    movi    rgamal, 0
+    movi    r1, 1000000000
+    movi    r0, 0
+    movi    r2, 0
+    movi    r3, 1
 .loop:
-    mov     rsemkath, ralaf
-    movi    ralaf, 1
+    mov     rarg0, r0
+    movi    r0, 1
     call    %add_one
-    dec     rbeth
-    cmp     rbeth, rgamal
+    sub     r1, r3
+    cmp     r1, r2
     jz      .loop
     ret
 }

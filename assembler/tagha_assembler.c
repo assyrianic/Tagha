@@ -81,17 +81,17 @@ static NO_NULL NONNULL_RET const char *lex_number(const char str[restrict static
 	else {
 		harbol_string_clear(strobj);
 		if( *str=='0' ) {
-			if( str[1]=='x' || str[1]=='X' ) { // hexadecimal.
+			if( str[1]=='x' || str[1]=='X' ) { /// hexadecimal.
 				harbol_string_add_cstr(strobj, str[1]=='x' ? "0x" : "0X");
 				str += 2;
 				while( *str != 0 && is_hex(*str) )
 					harbol_string_add_char(strobj, *str++);
-			} else if( str[1]=='b' || str[1]=='B' ) { // binary.
+			} else if( str[1]=='b' || str[1]=='B' ) { /// binary.
 				harbol_string_add_cstr(strobj, str[1]=='b' ? "0b" : "0B");
 				str += 2;
 				while( *str != 0 && (*str=='1' || *str=='0') )
 					harbol_string_add_char(strobj, *str++);
-			} else { // octal.
+			} else { /// octal.
 				harbol_string_add_char(strobj, *str++);
 				while( *str != 0 && is_octal(*str) )
 					harbol_string_add_char(strobj, *str++);
@@ -150,7 +150,7 @@ static NO_NULL void write_utf8(struct TaghaAssembler *const tasm, const int32_t 
 	tagha_asm_err_out(tasm, "invalid unicode character: \\U%08x", rune);
 }
 
-// $stacksize <number>
+/// $stacksize <number>
 NO_NULL void tagha_asm_parse_stack_directive(struct TaghaAssembler *const tasm)
 {
 	if( tasm->src==NULL || tasm->iter==NULL )
@@ -167,7 +167,7 @@ NO_NULL void tagha_asm_parse_stack_directive(struct TaghaAssembler *const tasm)
 	tasm->stacksize = strtoul(is_binary ? tasm->lexeme->cstr+2 : tasm->lexeme->cstr, NULL, is_binary ? 2 : 0);
 }
 
-// $heapsize <number>
+/// $heapsize <number>
 NO_NULL void tagha_asm_parse_heap_directive(struct TaghaAssembler *const tasm)
 {
 	if( tasm->src==NULL || tasm->iter==NULL )
@@ -184,7 +184,7 @@ NO_NULL void tagha_asm_parse_heap_directive(struct TaghaAssembler *const tasm)
 	tasm->heapsize = strtoul(is_binary ? tasm->lexeme->cstr+2 : tasm->lexeme->cstr, NULL, is_binary ? 2 : 0);
 }
 
-// $global varname bytes ...
+/// $global varname bytes ...
 NO_NULL void tagha_asm_parse_globalvar_directive(struct TaghaAssembler *const tasm)
 {
 	if( tasm->src==NULL || tasm->iter==NULL )
@@ -219,16 +219,16 @@ NO_NULL void tagha_asm_parse_globalvar_directive(struct TaghaAssembler *const ta
 	
 	while( bytes != 0 ) {
 		tasm->iter = skip_whitespace(tasm->iter);
-		if( *tasm->iter=='"' ) { // string
+		if( *tasm->iter=='"' ) { /// string
 			harbol_string_clear(tasm->lexeme);
 			const char quote = *tasm->iter++;
 			while( *tasm->iter && *tasm->iter != quote ) {
 				const char charval = *tasm->iter++;
-				if( !charval ) { // sudden EOF?
+				if( !charval ) { /// sudden EOF?
 					tagha_asm_err_out(tasm, "sudden EOF while reading global directive string!");
 					return;
 				}
-				// handle escape chars
+				/// handle escape chars
 				if( charval=='\\' ) {
 					const char escape = *tasm->iter++;
 					switch( escape ) {
@@ -359,7 +359,7 @@ NO_NULL void tagha_asm_parse_globalvar_directive(struct TaghaAssembler *const ta
 	harbol_string_clear(&varname);
 }
 
-// $native %name
+/// $native %name
 NO_NULL void tagha_asm_parse_native_directive(struct TaghaAssembler *const tasm)
 {
 	if( tasm->src==NULL || tasm->iter==NULL )
@@ -400,8 +400,8 @@ NO_NULL uint8_t lex_reg_id(struct TaghaAssembler *const tasm)
 
 NO_NULL void lex_register_deref(struct TaghaAssembler *const restrict tasm, uint8_t *const restrict idref, int32_t *const restrict offsetref)
 {
-	tasm->iter++; // iterate past '['
-	tasm->prog_counter += 5; // 1 for byte as register id + 4 byte offset.
+	tasm->iter++; /// iterate past '['
+	tasm->prog_counter += 5; /// 1 for byte as register id + 4 byte offset.
 	tasm->iter = skip_whitespace(tasm->iter);
 	tasm->iter = lex_identifier(tasm->iter, tasm->lexeme);
 	if( !harbol_linkmap_has_key(&tasm->regs, tasm->lexeme->cstr) ) {
@@ -412,8 +412,8 @@ NO_NULL void lex_register_deref(struct TaghaAssembler *const restrict tasm, uint
 	*offsetref = 0;
 	
 	tasm->iter = skip_whitespace(tasm->iter);
-	// if there's no plus/minus equation, assume `[reg+0]`
-	// TODO: allow for scaled indexing like * typesize -> [reg+14*4] for easier array accessing.
+	/// if there's no plus/minus equation, assume `[reg+0]`
+	/// TODO: allow for scaled indexing like * typesize -> [reg+14*4] for easier array accessing.
 	const char closer = *tasm->iter;
 	if( closer != '-' && closer != '+' && closer != ']' ) {
 		tagha_asm_err_out(tasm, "invalid offset math operator '%c' in register indirection", closer);
@@ -480,7 +480,7 @@ NO_NULL void tagha_asm_parse_reg_reg(struct TaghaAssembler *const tasm, const bo
 	}
 	const uint8_t destreg = lex_reg_id(tasm);
 	
-	// ok, let's read the secondary operand!
+	/// ok, let's read the secondary operand!
 	tasm->iter = skip_whitespace(tasm->iter);
 	if( *tasm->iter==',' )
 		tasm->iter++;
@@ -535,13 +535,13 @@ NO_NULL void tagha_asm_parse_imm(struct TaghaAssembler *const tasm, const bool f
 	tasm->iter = skip_whitespace(tasm->iter);
 	
 	int64_t immval = 0;
-	// imm value.
+	/// imm value.
 	if( is_decimal(*tasm->iter) )
 		immval = lex_imm_value(tasm);
-	// label value.
+	/// label value.
 	else if( *tasm->iter=='.' || *tasm->iter=='%' )
 		immval = lex_label_value(tasm, firstpass);
-	// global variable label.
+	/// global variable label.
 	else if( is_alphabetic(*tasm->iter) ) {
 		tasm->iter = lex_identifier(tasm->iter, tasm->lexeme);
 		if( !harbol_linkmap_has_key(&tasm->varmap, tasm->lexeme->cstr) ) {
@@ -582,7 +582,7 @@ NO_NULL void tagha_asm_parse_reg_mem(struct TaghaAssembler *const tasm, const bo
 	}
 	const uint8_t destreg = lex_reg_id(tasm);
 	
-	// ok, let's read the secondary operand!
+	/// ok, let's read the secondary operand!
 	tasm->iter = skip_whitespace(tasm->iter);
 	if( *tasm->iter==',' )
 		tasm->iter++;
@@ -625,7 +625,7 @@ NO_NULL void tagha_asm_parse_mem_reg(struct TaghaAssembler *const tasm, const bo
 	int32_t offset;
 	lex_register_deref(tasm, &destreg, &offset);
 	
-	// ok, let's read the secondary operand!
+	/// ok, let's read the secondary operand!
 	tasm->iter = skip_whitespace(tasm->iter);
 	if( *tasm->iter==',' )
 		tasm->iter++;
@@ -662,7 +662,7 @@ NO_NULL void tagha_asm_parse_reg_imm(struct TaghaAssembler *const tasm, const bo
 	}
 	const uint8_t regid = lex_reg_id(tasm);
 	
-	// ok, let's read the secondary operand!
+	/// ok, let's read the secondary operand!
 	tasm->iter = skip_whitespace(tasm->iter);
 	if( *tasm->iter==',' )
 		tasm->iter++;
@@ -670,13 +670,13 @@ NO_NULL void tagha_asm_parse_reg_imm(struct TaghaAssembler *const tasm, const bo
 	tasm->iter = skip_whitespace(tasm->iter);
 	
 	int64_t immval = 0;
-	// imm value.
+	/// imm value.
 	if( is_decimal(*tasm->iter) )
 		immval = lex_imm_value(tasm);
-	// label value.
+	/// label value.
 	else if( *tasm->iter=='.' || *tasm->iter=='%' )
 		immval = lex_label_value(tasm, firstpass);
-	// global variable label.
+	/// global variable label.
 	else if( is_alphabetic(*tasm->iter) ) {
 		tasm->iter = lex_identifier(tasm->iter, tasm->lexeme);
 		if( !harbol_linkmap_has_key(&tasm->varmap, tasm->lexeme->cstr) ) {
@@ -709,7 +709,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 	if( tasm->src==NULL )
 		return false;
 	
-	// set up our data.
+	/// set up our data.
 	tasm->lexeme = &(struct HarbolString)EMPTY_HARBOL_STRING;
 	tasm->labelmap = harbol_linkmap_create(sizeof(struct Label));
 	tasm->funcmap = harbol_linkmap_create(sizeof(struct Label));
@@ -717,129 +717,38 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 	tasm->opcodes = harbol_linkmap_create(sizeof(uint8_t));
 	tasm->regs = harbol_linkmap_create(sizeof(uint8_t));
 	
-	// set up registers + map their IDs
-	harbol_linkmap_insert(&tasm->regs, "RALAF", &(uint8_t){alaf});
-	harbol_linkmap_insert(&tasm->regs, "ralaf", &(uint8_t){alaf});
+	/// set up registers + map their IDs
+#define Y(y)    harbol_linkmap_insert(&tasm->regs, "r"#y, &(uint8_t){y});
+	TAGHA_REG_FILE;
+#undef Y
+	harbol_linkmap_insert(&tasm->regs, "rfp", &(uint8_t){bp});
 	
-	harbol_linkmap_insert(&tasm->regs, "RBETH", &(uint8_t){beth});
-	harbol_linkmap_insert(&tasm->regs, "rbeth", &(uint8_t){beth});
+	/// for helping clarity and convenience, names like r0, r5, etc. can be used as an alternative!
+	for( enum TaghaRegID id=alaf; id<MaxRegisters; id++ ) {
+		char reg_num[10] = {0};
+		snprintf(reg_num, sizeof reg_num, "r%d", id);
+		harbol_linkmap_insert(&tasm->regs, reg_num, &(uint8_t){id});
+	}
 	
-	harbol_linkmap_insert(&tasm->regs, "RGAMAL", &(uint8_t){gamal});
-	harbol_linkmap_insert(&tasm->regs, "rgamal", &(uint8_t){gamal});
+	/// for strictly params/args, arg0, arg5, arg13, etc. can also be used as an alternative!
+	for( enum TaghaRegID id=TAGHA_FIRST_PARAM_REG; id<=TAGHA_LAST_PARAM_REG; id++ ) {
+		char reg_param[10] = {0};
+		snprintf(reg_param, sizeof reg_param, "rarg%d", id - TAGHA_FIRST_PARAM_REG);
+		harbol_linkmap_insert(&tasm->regs, reg_param, &(uint8_t){id});
+	}
 	
-	harbol_linkmap_insert(&tasm->regs, "RDALATH", &(uint8_t){dalath});
-	harbol_linkmap_insert(&tasm->regs, "rdalath", &(uint8_t){dalath});
-	
-	harbol_linkmap_insert(&tasm->regs, "RHEH", &(uint8_t){heh});
-	harbol_linkmap_insert(&tasm->regs, "rheh", &(uint8_t){heh});
-	
-	harbol_linkmap_insert(&tasm->regs, "RWAW", &(uint8_t){waw});
-	harbol_linkmap_insert(&tasm->regs, "rwaw", &(uint8_t){waw});
-	
-	harbol_linkmap_insert(&tasm->regs, "RZAIN", &(uint8_t){zain});
-	harbol_linkmap_insert(&tasm->regs, "rzain", &(uint8_t){zain});
-	
-	harbol_linkmap_insert(&tasm->regs, "RHETH", &(uint8_t){heth});
-	harbol_linkmap_insert(&tasm->regs, "rheth", &(uint8_t){heth});
-	
-	harbol_linkmap_insert(&tasm->regs, "RTETH", &(uint8_t){teth});
-	harbol_linkmap_insert(&tasm->regs, "rteth", &(uint8_t){teth});
-	
-	harbol_linkmap_insert(&tasm->regs, "RYODH", &(uint8_t){yodh});
-	harbol_linkmap_insert(&tasm->regs, "ryodh", &(uint8_t){yodh});
-	
-	harbol_linkmap_insert(&tasm->regs, "RKAF", &(uint8_t){kaf});
-	harbol_linkmap_insert(&tasm->regs, "rkaf", &(uint8_t){kaf});
-	
-	harbol_linkmap_insert(&tasm->regs, "RLAMADH", &(uint8_t){lamadh});
-	harbol_linkmap_insert(&tasm->regs, "rlamadh", &(uint8_t){lamadh});
-	
-	harbol_linkmap_insert(&tasm->regs, "RMEEM", &(uint8_t){meem});
-	harbol_linkmap_insert(&tasm->regs, "rmeem", &(uint8_t){meem});
-	
-	harbol_linkmap_insert(&tasm->regs, "RNOON", &(uint8_t){noon});
-	harbol_linkmap_insert(&tasm->regs, "rnoon", &(uint8_t){noon});
-	
-	harbol_linkmap_insert(&tasm->regs, "RSEMKATH", &(uint8_t){semkath});
-	harbol_linkmap_insert(&tasm->regs, "rsemkath", &(uint8_t){semkath});
-	
-	harbol_linkmap_insert(&tasm->regs, "R_EH", &(uint8_t){_eh});
-	harbol_linkmap_insert(&tasm->regs, "r_eh", &(uint8_t){_eh});
-	
-	harbol_linkmap_insert(&tasm->regs, "RPEH", &(uint8_t){peh});
-	harbol_linkmap_insert(&tasm->regs, "rpeh", &(uint8_t){peh});
-	
-	harbol_linkmap_insert(&tasm->regs, "RSADHE", &(uint8_t){sadhe});
-	harbol_linkmap_insert(&tasm->regs, "rsadhe", &(uint8_t){sadhe});
-	
-	harbol_linkmap_insert(&tasm->regs, "RQOF", &(uint8_t){qof});
-	harbol_linkmap_insert(&tasm->regs, "rqof", &(uint8_t){qof});
-	
-	harbol_linkmap_insert(&tasm->regs, "RREESH", &(uint8_t){reesh});
-	harbol_linkmap_insert(&tasm->regs, "rreesh", &(uint8_t){reesh});
-	
-	harbol_linkmap_insert(&tasm->regs, "RSHEEN", &(uint8_t){sheen});
-	harbol_linkmap_insert(&tasm->regs, "rsheen", &(uint8_t){sheen});
-	
-	harbol_linkmap_insert(&tasm->regs, "RTAW", &(uint8_t){taw});
-	harbol_linkmap_insert(&tasm->regs, "rtaw", &(uint8_t){taw});
-	
-	harbol_linkmap_insert(&tasm->regs, "RSP", &(uint8_t){stkptr});
-	harbol_linkmap_insert(&tasm->regs, "rsp", &(uint8_t){stkptr});
-	
-	harbol_linkmap_insert(&tasm->regs, "RBP", &(uint8_t){baseptr});
-	harbol_linkmap_insert(&tasm->regs, "rbp", &(uint8_t){baseptr});
-	/*
-	harbol_linkmap_insert(&tasm->regs, "ܐܠܦ", &(uint8_t){alaf});
-	harbol_linkmap_insert(&tasm->regs, "ܒܝܬ", &(uint8_t){beth});
-	harbol_linkmap_insert(&tasm->regs, "ܓܡܠ", &(uint8_t){gamal});
-	harbol_linkmap_insert(&tasm->regs, "ܕܠܬ", &(uint8_t){dalath});
-	harbol_linkmap_insert(&tasm->regs, "ܗܐ", &(uint8_t){heh});
-	harbol_linkmap_insert(&tasm->regs, "ܘܘ", &(uint8_t){waw});
-	harbol_linkmap_insert(&tasm->regs, "ܙܝܢ", &(uint8_t){zain});
-	harbol_linkmap_insert(&tasm->regs, "ܚܝܬ", &(uint8_t){heth});
-	harbol_linkmap_insert(&tasm->regs, "ܛܝܬ", &(uint8_t){teth});
-	harbol_linkmap_insert(&tasm->regs, "ܝܘܕ", &(uint8_t){yodh});
-	harbol_linkmap_insert(&tasm->regs, "ܟܦ", &(uint8_t){kaf});
-	harbol_linkmap_insert(&tasm->regs, "ܠܡܕ", &(uint8_t){lamadh});
-	harbol_linkmap_insert(&tasm->regs, "ܡܝܡ", &(uint8_t){meem});
-	harbol_linkmap_insert(&tasm->regs, "ܢܘܢ", &(uint8_t){noon});
-	harbol_linkmap_insert(&tasm->regs, "ܣܡܟܬ", &(uint8_t){semkath});
-	harbol_linkmap_insert(&tasm->regs, "ܥܐ", &(uint8_t){_eh});
-	harbol_linkmap_insert(&tasm->regs, "ܦܐ", &(uint8_t){peh});
-	harbol_linkmap_insert(&tasm->regs, "ܨܕܐ", &(uint8_t){sadhe});
-	harbol_linkmap_insert(&tasm->regs, "ܩܘܦ", &(uint8_t){qof});
-	harbol_linkmap_insert(&tasm->regs, "ܪܝܫ", &(uint8_t){reesh});
-	harbol_linkmap_insert(&tasm->regs, "ܫܝܢ", &(uint8_t){sheen});
-	harbol_linkmap_insert(&tasm->regs, "ܬܘ", &(uint8_t){taw});
-	harbol_linkmap_insert(&tasm->regs, "ܪܝܫ_ܟܫܐ", &(uint8_t){stack});
-	harbol_linkmap_insert(&tasm->regs, "ܐܫܬ_ܟܫܐ", &(uint8_t){base});
-	*/
-	// set up our instruction set!
+	/// set up our instruction set!
 #define X(x)    harbol_linkmap_insert(&tasm->opcodes, #x, &(uint8_t){x});
 	TAGHA_INSTR_SET;
 #undef X
 	
-	// add additional for specific opcodes.
+	/// add additional for specific opcodes.
 	harbol_linkmap_insert(&tasm->opcodes, "and", &(uint8_t){bit_and});
 	harbol_linkmap_insert(&tasm->opcodes, "or", &(uint8_t){bit_or});
 	harbol_linkmap_insert(&tasm->opcodes, "xor", &(uint8_t){bit_xor});
 	harbol_linkmap_insert(&tasm->opcodes, "not", &(uint8_t){bit_not});
-	harbol_linkmap_insert(&tasm->opcodes, "loadvar", &(uint8_t){loadglobal});
 	
-#ifdef TAGHA_USE_FLOATS
-	harbol_linkmap_insert(&tasm->opcodes, "f2d", &(uint8_t){flt2dbl});
-	harbol_linkmap_insert(&tasm->opcodes, "d2f", &(uint8_t){dbl2flt});
-	harbol_linkmap_insert(&tasm->opcodes, "i2d", &(uint8_t){int2dbl});
-	harbol_linkmap_insert(&tasm->opcodes, "i2f", &(uint8_t){int2flt});
-	
-	harbol_linkmap_insert(&tasm->opcodes, "f4tof8", &(uint8_t){flt2dbl});
-	harbol_linkmap_insert(&tasm->opcodes, "f8tof4", &(uint8_t){dbl2flt});
-	harbol_linkmap_insert(&tasm->opcodes, "itof8", &(uint8_t){int2dbl});
-	harbol_linkmap_insert(&tasm->opcodes, "itof4", &(uint8_t){int2flt});
-#endif
-	
-	/* FIRST PASS. Collect labels + their PC relative addresses */
+	/** FIRST PASS. Collect labels + their PC relative addresses */
 #	define MAX_LINE_CHARS    2048
 	char line_buffer[MAX_LINE_CHARS] = {0};
 	
@@ -848,17 +757,17 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 #endif
 	
 	for( tasm->iter = fgets(line_buffer, MAX_LINE_CHARS, tasm->src) ; tasm->iter != NULL ; tasm->iter = fgets(line_buffer, MAX_LINE_CHARS, tasm->src) ) {
-		// set up first line for error checks.
+		/// set up first line for error checks.
 		tasm->currline++;
 	#ifdef TASM_DEBUG
 		//printf("tasm debug: printing line:: '%s'\n", tasm->iter);
 	#endif
 		while( *tasm->iter != 0 ) {
 			harbol_string_clear(tasm->lexeme);
-			// skip whitespace.
+			/// skip whitespace.
 			tasm->iter = skip_whitespace(tasm->iter);
 			
-			// skip to next line if comment.
+			/// skip to next line if comment.
 			if( *tasm->iter=='\n' || *tasm->iter==';' || *tasm->iter=='#' )
 				break;
 			else if( *tasm->iter=='}' ) {
@@ -868,7 +777,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 				tasm->prog_counter = 0;
 				break;
 			}
-			// parse the directives!
+			/// parse the directives!
 			else if( *tasm->iter=='$' ) {
 				tasm->iter = lex_identifier(tasm->iter, tasm->lexeme);
 				if( !harbol_string_cmpcstr(tasm->lexeme, "$stacksize") ) {
@@ -884,10 +793,10 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 					tagha_asm_parse_native_directive(tasm);
 				break;
 			}
-			// holy cannoli, we found a label!
+			/// holy cannoli, we found a label!
 			else if( *tasm->iter=='.' || *tasm->iter=='%' ) {
 				const bool funclbl = *tasm->iter == '%';
-				// the dot || percent is added to our lexeme
+				/// the dot or percent is added to our lexeme
 				tasm->iter = lex_identifier(tasm->iter, tasm->lexeme);
 				tasm->iter = skip_whitespace(tasm->iter);
 				if( *tasm->iter == ':' )
@@ -926,7 +835,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 #endif
 				harbol_linkmap_insert(funclbl ? &tasm->funcmap : &tasm->labelmap, tasm->lexeme->cstr, &label);
 			}
-			// it's an opcode!
+			/// it's an opcode!
 			else if( is_alphabetic(*tasm->iter) ) {
 				if( !tasm->active_func_label ) {
 					tagha_asm_err_out(tasm, "opcode outside of function block!");
@@ -939,48 +848,42 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 				}
 				const uint8_t opcode = *(uint8_t *)harbol_linkmap_key_get(&tasm->opcodes, tasm->lexeme->cstr);
 				switch( opcode ) {
-					// opcodes that take no args
+					/// opcodes that take no args
 					case halt: case ret: case nop:
 						tasm->prog_counter++; break;
 					
-					// opcodes that only take an imm operand.
-					case pushi: case jmp: case jz: case jnz:
-					case call: //case syscall:
+					/// opcodes that only take an imm operand.
+					case jmp: case jz: case jnz: case call:
 						tagha_asm_parse_imm(tasm, true); break;
 					
-					// opcodes that only take a register operand.
-					case push: case pop: case bit_not:
-					case inc: case dec: case neg:
-					case callr: //case syscallr:
+					/// opcodes that only take a register operand.
+					case push: case pop: case bit_not: case neg: case callr:
 				#ifdef TAGHA_USE_FLOATS
-					case flt2dbl: case dbl2flt: case int2dbl: case int2flt:
-					case incf: case decf: case negf:
+					case f32tof64: case f64tof32: case itof64: case itof32: case f64toi: case f32toi: case negf:
 				#endif
 						tagha_asm_parse_reg(tasm, true); break;
 					
-					// opcodes reg<-imm
-					case loadglobal: case loadfunc: case movi:
+					/// opcodes reg<-imm
+					case ldvar: case ldfunc: case movi:
 						tagha_asm_parse_reg_imm(tasm, true); break;
 					
-					// opcodes reg<-mem (load)
-					case loadaddr:
-					case ld1: case ld2: case ld4: case ld8:
+					/// opcodes reg<-mem (load)
+					case ldaddr: case ld1: case ld2: case ld4: case ld8:
 						tagha_asm_parse_reg_mem(tasm, true); break;
 					
-					// opcodes mem<-reg (store)
+					/// opcodes mem<-reg (store)
 					case st1: case st2: case st4: case st8:
 						tagha_asm_parse_mem_reg(tasm, true); break;
 					
-					// opcodes reg<-reg
+					/// opcodes reg<-reg
 					case mov:
 					case add: case sub: case mul: case divi: case mod:
 					case bit_and: case bit_or: case bit_xor: case shl: case shr:
 					case ilt: case ile: case igt: case ige:
-					case ult: case ule: case ugt: case uge:
-					case cmp: case neq:
+					case ult: case ule: case ugt: case uge: case cmp:
 				#ifdef TAGHA_USE_FLOATS
 					case addf: case subf: case mulf: case divf:
-					case ltf: case lef: case gtf: case gef: case cmpf: case neqf:
+					case ltf: case lef: case gtf: case gef:
 				#endif
 						tagha_asm_parse_reg_reg(tasm, true); break;
 				}
@@ -1000,17 +903,17 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 	tasm->currline = 0;
 	
 	for( tasm->iter = fgets(line_buffer, MAX_LINE_CHARS, tasm->src) ; tasm->iter != NULL ; tasm->iter = fgets(line_buffer, MAX_LINE_CHARS, tasm->src) ) {
-		// set up first line for error checks.
+		/// set up first line for error checks.
 		tasm->currline++;
 	#ifdef TASM_DEBUG
 		//printf("tasm debug: printing line:: '%s'\n", tasm->iter);
 	#endif
 		while( *tasm->iter ) {
 			harbol_string_clear(tasm->lexeme);
-			// skip whitespace.
+			/// skip whitespace.
 			tasm->iter = skip_whitespace(tasm->iter);
 			
-			// skip to next line if comment or directive.
+			/// skip to next line if comment or directive.
 			if( *tasm->iter=='\n' || *tasm->iter==';' || *tasm->iter=='#' || *tasm->iter=='$' )
 				break;
 			else if( *tasm->iter=='}' ) {
@@ -1020,7 +923,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 				tasm->prog_counter = 0;
 				break;
 			}
-			// skip labels in second pass.
+			/// skip labels in second pass.
 			else if( *tasm->iter=='.' || *tasm->iter=='%' ) {
 				const bool funclbl = *tasm->iter == '%';
 				tasm->iter = lex_identifier(tasm->iter, tasm->lexeme);
@@ -1033,7 +936,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 					tasm->iter = skip_whitespace(tasm->iter);
 				}
 			}
-			// parse opcode!
+			/// parse opcode!
 			if( is_alphabetic(*tasm->iter) ) {
 				tasm->iter = lex_identifier(tasm->iter, tasm->lexeme);
 				if( !harbol_linkmap_has_key(&tasm->opcodes, tasm->lexeme->cstr) ) {
@@ -1044,48 +947,42 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 				struct Label *label = harbol_linkmap_key_get(&tasm->funcmap, tasm->active_func_label->cstr);
 				harbol_bytebuffer_insert_byte(&label->bytecode, opcode);
 				switch( opcode ) {
-					// opcodes that take no args
+					/// opcodes that take no args
 					case halt: case ret: case nop:
 						break;
 					
-					// opcodes that only take an imm operand.
-					case pushi: case jmp: case jz: case jnz:
-					case call: //case syscall:
+					/// opcodes that only take an imm operand.
+					case jmp: case jz: case jnz: case call:
 						tagha_asm_parse_imm(tasm, false); break;
 					
-					// opcodes that only take a register operand.
-					case push: case pop: case bit_not:
-					case inc: case dec: case neg:
-					case callr: //case syscallr:
+					/// opcodes that only take a register operand.
+					case push: case pop: case bit_not: case neg: case callr:
 				#ifdef TAGHA_USE_FLOATS
-					case flt2dbl: case dbl2flt: case int2dbl: case int2flt:
-					case incf: case decf: case negf:
+					case f32tof64: case f64tof32: case itof64: case itof32: case f64toi: case f32toi: case negf:
 				#endif
 						tagha_asm_parse_reg(tasm, false); break;
 					
-					// opcodes reg<-imm
-					case loadglobal: case loadfunc: case movi:
+					/// opcodes reg<-imm
+					case ldvar: case ldfunc: case movi:
 						tagha_asm_parse_reg_imm(tasm, false); break;
 					
-					// opcodes reg<-mem (load)
-					case loadaddr:
-					case ld1: case ld2: case ld4: case ld8:
+					/// opcodes reg<-mem (load)
+					case ldaddr: case ld1: case ld2: case ld4: case ld8:
 						tagha_asm_parse_reg_mem(tasm, false); break;
 					
-					// opcodes mem<-reg (store)
+					/// opcodes mem<-reg (store)
 					case st1: case st2: case st4: case st8:
 						tagha_asm_parse_mem_reg(tasm, false); break;
 					
-					// opcodes reg<-reg
+					/// opcodes reg<-reg
 					case mov:
 					case add: case sub: case mul: case divi: case mod:
 					case bit_and: case bit_or: case bit_xor: case shl: case shr:
 					case ilt: case ile: case igt: case ige:
-					case ult: case ule: case ugt: case uge:
-					case cmp: case neq:
+					case ult: case ule: case ugt: case uge: case cmp:
 				#ifdef TAGHA_USE_FLOATS
 					case addf: case subf: case mulf: case divf:
-					case ltf: case lef: case gtf: case gef: case cmpf: case neqf:
+					case ltf: case lef: case gtf: case gef:
 				#endif
 						tagha_asm_parse_reg_reg(tasm, false); break;
 				}
@@ -1105,17 +1002,17 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 	const size_t memnode_size = (sizeof(intptr_t)==8) ? sizeof(struct HarbolMemNode) : sizeof(struct HarbolMemNode) << 1;
 	const size_t tagha_kvsize = (sizeof(intptr_t)==8) ? sizeof(struct TaghaKeyVal) : sizeof(struct TaghaKeyVal) << 1;
 	
-	const struct TaghaItemMap empty_set = EMPTY_TAGHA_ITEM_MAP;
+	const struct TaghaItemMap empty_set = {0};
 	const size_t tagha_set_buckets_size = (sizeof(intptr_t)==8) ? sizeof *empty_set.buckets : (sizeof *empty_set.buckets) << 1;
 	const size_t tagha_set_arr_size = (sizeof(intptr_t)==8) ? sizeof *empty_set.array : (sizeof *empty_set.array) << 1;
 	
 	uint32_t mem_region_size = tasm->stacksize * sizeof(union TaghaVal) + memnode_size;
 	
-	// create initial script header.
+	/// create initial script header.
 	struct TaghaScriptBuilder tbc = tagha_tbc_gen_create();
 	
-	// build our func table & global var table so that we can calculate total memory usage.
-	// first build func table.
+	/// build our func table & global var table so that we can calculate total memory usage.
+	/// first build func table.
 	mem_region_size += tagha_set_buckets_size * tasm->funcmap.map.count + memnode_size;
 	mem_region_size += tagha_set_arr_size * tasm->funcmap.map.count + memnode_size;
 	for( size_t i=0; i<tasm->funcmap.map.count; i++ ) {
@@ -1136,7 +1033,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 		mem_region_size += tagha_kvsize + memnode_size;
 	}
 	
-	// now the global var table.
+	/// now the global var table.
 	mem_region_size += tagha_set_buckets_size * tasm->varmap.map.count + memnode_size;
 	mem_region_size += tagha_set_arr_size * tasm->varmap.map.count + memnode_size;
 	for( size_t i=0; i<tasm->varmap.map.count; i++ ) {
@@ -1157,7 +1054,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 	}
 	mem_region_size += tasm->heapsize;
 	
-	// now that we've made the tables and calculated how much memory we need, we finally initialize our header.
+	/// now that we've made the tables and calculated how much memory we need, we finally initialize our header.
 	tagha_tbc_gen_write_header(&tbc, tasm->stacksize, (uint32_t)harbol_align_size(mem_region_size, 8), 0);
 	
 	{
@@ -1170,11 +1067,11 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 		memset(iter, 0, len);
 	}
 	
-	// use line_buffer instead of wasting more stack space.
+	/// use line_buffer instead of wasting more stack space.
 	memset(line_buffer, 0, sizeof line_buffer);
 	sprintf(line_buffer, "%.2000s.tbc", tasm->outname.cstr);
 	
-	/* tagha_tbc_create_file will write in the final data needed to make the tbc.
+	/** tagha_tbc_create_file will write in the final data needed to make the tbc.
 	 * Will also free the TaghaScriptBuilder data.
 	 */
 	tagha_tbc_gen_create_file(&tbc, line_buffer);

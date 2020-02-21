@@ -1,77 +1,95 @@
 # Introduction
 
-TaghaVM is a little-endian, 64-bit register-based VM. Tagha has 22, 64-bit general purpose registers, named after the Syriac alphabet, with 3 additional special purpose registers.
+TaghaVM is a little-endian, 64-bit register-based VM. Tagha has 32, 64-bit general purpose registers, named after the Syriac alphabet, with 3 additional special purpose registers.
 
-Tagha also uses a stack for establishing call frames, creating local variables, and for holding function arguments to functions that require more than 8 parameters. Stack operations moves the stack pointer by 8 bytes.
+Tagha also uses a stack for establishing call frames, creating local variables, and for holding additional function arguments. Stack operations moves the stack pointer by 8 bytes.
 
 # VM Registers
 
 ## General Purpose Registers
 
-### alaf
+### alaf | 0
 Accumulator register (return values go here).
 
-### beth
-### gamal
-### dalath
-### heh
-### waw
-### zain
-### heth
-### teth
-### yodh
-### kaf
-### lamadh
-### meem
-### noon
+### beth | 1
+### gamal | 2
+### dalath | 3
+### heh | 4
+### waw | 5
+### zain | 6
+### heth | 7
+### teth | 8
+### yodh | 9
+### kaf | 10
+### lamadh | 11
+### meem | 12
+### noon | 13
 
-### semkath
-In both bytecode and native functions, contains the 1st param value.
+### semkath | 14 | arg0
+In bytecode & native functions, contains the 1st param value.
 
-### _eh
-In both bytecode and native functions, contains the 2nd param value.
+### _eh | 15 | arg1
+In bytecode & native functions, contains the 2nd param value.
 
-### peh
-In both bytecode and native functions, contains the 3rd param value.
+### peh | 16 | arg2
+In bytecode & native functions, contains the 3rd param value.
 
-### sadhe
-In both bytecode and native functions, contains the 4th param value.
+### sadhe | 17 | arg3
+In bytecode & native functions, contains the 4th param value.
 
-### qof
-In both bytecode and native functions, contains the 5th param value.
+### qof | 18 | arg4
+In bytecode & native functions, contains the 5th param value.
 
-### reesh
-In both bytecode and native functions, contains the 6th param value.
+### reesh | 19 | arg5
+In bytecode & native functions, contains the 6th param value.
 
-### sheen
-In both bytecode and native functions, contains the 7th param value.
+### sheen | 20 | arg6
+In bytecode & native functions, contains the 7th param value.
 
-### taw
-In both bytecode and native functions, contains the 8th param value.
+### taw | 21 | arg7
+In bytecode & native functions, contains the 8th param value.
+
+### veth | 22 | arg8
+In bytecode & native functions, contains the 9th param value.
+
+### ghamal | 23 | arg9
+In bytecode & native functions, contains the 10th param value.
+
+### dhalath | 24 | arg10
+In bytecode & native functions, contains the 11th param value.
+
+### khaf | 25 | arg11
+In bytecode & native functions, contains the 12th param value.
+
+### feh | 26 | arg12
+In bytecode & native functions, contains the 13th param value.
+
+### thaw | 27 | arg13
+In bytecode & native functions, contains the 14th param value.
+
+### zeth | 28 | arg14
+In bytecode & native functions, contains the 15th param value.
+
+### dadeh | 29 | arg15
+In bytecode & native functions, contains the 16th param value.
 
 ## Special Purpose Registers
 
-### rsp
+### sp | 30
 Stack Pointer.
 
-### rbp
+### bp | 31
 Base Pointer aka stack frame pointer.
 Can be repurposed as an extra register but its original value MUST be restored.
 
 
 # VM Opcodes
-The listed opcodes are in numerical order (HALT is 0x0, PUSHI is 0x01, ...)
+The listed opcodes are in numerical order (HALT is 0x0, PUSH is 0x01, ...)
 
 ## HALT
 
 ### Description
 Stops execution of a script/function and returns register `alaf`'s value as `int32_t`.
-
-
-## PUSHI
-
-### Description
-pushes an 8-byte immediate value to the stack.
 
 
 ## PUSH
@@ -86,20 +104,19 @@ pushes a register's contents to the stack.
 pops a value from the stack into a register.
 
 
-## LOADGLOBAL
+## LDVAR
 
 ### Description
 loads the address of a global variable into a register.
-Assembler can use `loadvar` & `loadglobal` naming of opcode.
 
 
-## LOADADDR
+## LDADDR
 
 ### Description
 loads an address from the local call frame.
 
 
-## LOADFUNC
+## LDFUNC
 
 ### Description
 loads a function index to a register.
@@ -235,18 +252,6 @@ peforms leftward bit shift of the integer value of a source register to a destin
 peforms rightward bit shift of the integer value of a source register to a destination register.
 
 
-## INC
-
-### Description
-increments the integer value of a register.
-
-
-## DEC
-
-### Description
-decrements the integer value of a register.
-
-
 ## NEG
 
 ### Description
@@ -307,12 +312,6 @@ unsigned GREATER-EQUAL comparison between two registers.
 EQUALITY comparison between two registers.
 
 
-## NEQ
-
-### Description
-NOT-EQUAL comparison between two registers.
-
-
 ## JMP
 
 ### Description
@@ -360,32 +359,40 @@ automatically performs function epilogue.
 Does Jack and Sh!%.
 
 
-## FLT2DBL
+## F32TOF64
 
 ### Description
 converts a register's float32 value to float64 value. Does nothing if floats or doubles values aren't defined for the tagha registers.
-Assembler can use `f2d` & `f4tof8` naming of opcode.
 
 
-## DBL2FLT
+## F64TOF32
 
 ### Description
 converts a register's float64 value to float32 value. Does nothing if floats or doubles values aren't defined for the tagha registers or floating point support isn't used at all.
-Assembler can use `d2f` & `f8tof4` naming of opcode.
 
 
-## INT2DBL
+## ITOF64
 
 ### Description
 converts a register's integer value to a float64, does nothing if doubles values aren't defined for registers or floating point support isn't used at all.
-Assembler can use `i2d` & `itof8` naming of opcode.
 
 
-## INT2FLT
+## ITOF32
 
 ### Description
 converts a register's integer value to a float32, does nothing if floats values aren't defined for registers or floating point support isn't used at all.
-Assembler can use `i2f` & `itof4` naming of opcode.
+
+
+## F64TOI
+
+### Description
+converts a register's float64 value to an int, does nothing if floats values aren't defined for registers or floating point support isn't used at all.
+
+
+## F32TOI
+
+### Description
+converts a register's float32 value to a int, does nothing if floats values aren't defined for registers or floating point support isn't used at all.
 
 
 ## ADDF
@@ -410,18 +417,6 @@ same as MUL but for floating point values. Math is done for the largest data wid
 
 ### Description
 same as DIVI but for floating point values. Math is done for the largest data width that's enabled (meaning if both doubles and floats are used, DIVF will perform on doubles, regardless whether floats are defined or not).
-
-
-## INCF
-
-### Description
-same as INC but for floating point values. Math is done for the largest data width that's enabled (meaning if both doubles and floats are used, INCF will perform on doubles, regardless whether floats are defined or not).
-
-
-## DECF
-
-### Description
-same as DEC but for floating point values. Math is done for the largest data width that's enabled (meaning if both doubles and floats are used, DECF will perform on doubles, regardless whether floats are defined or not).
 
 
 ## NEGF
@@ -454,18 +449,6 @@ same as IGT but for floating point values. Math is done for the largest data wid
 same as IGE but for floating point values. Math is done for the largest data width that's enabled (meaning if both doubles and floats are used, GEF will perform on doubles, regardless whether floats are defined or not).
 
 
-## CMPF
-
-### Description
-same as CMP but for floating point values. Math is done for the largest data width that's enabled (meaning if both doubles and floats are used, CMPF will perform on doubles, regardless whether floats are defined or not).
-
-
-## NEQF
-
-### Description
-same as NEQ but for floating point values. Math is done for the largest data width that's enabled (meaning if both doubles and floats are used, NEQF will perform on doubles, regardless whether floats are defined or not).
-
-
 # VM Instruction Encoding
 
 All opcodes take up a single byte and additional bytes depending on whether they operate on registers, immediate values, or doing memory operations.
@@ -484,6 +467,6 @@ Here's a crude ASCII art of the instruction encodings for Tagha opcodes:
 
 Tagha's Calling convention is consistent for both bytecode and native C or (C++) functions.
 
-Arguments 1 to 8 are stored in registers `semkath` to `taw`.
+Arguments 1 to 16 are stored in registers `semkath` to `dadeh`.
 
-More than 8 params requires ALL parameters be pushed to the stack. Only 8 OR LESS can be passed by registers.
+More than 8 params requires passing a va_list. Only 16 OR LESS can be passed by registers.

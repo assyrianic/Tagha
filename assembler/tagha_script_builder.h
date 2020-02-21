@@ -26,21 +26,21 @@ static inline NO_NULL void tagha_tbc_gen_write_header(struct TaghaScriptBuilder 
 
 static inline NEVER_NULL(1,3) void tagha_tbc_gen_write_func(struct TaghaScriptBuilder *const restrict tbc, const bool is_native, const char name[restrict static 1], const struct HarbolByteBuf *const restrict bytecode)
 {
-	// write flag
+	/// write flag
 	harbol_bytebuffer_insert_byte(&tbc->functbl, is_native);
 	
-	// write strlen
+	/// write strlen
 	harbol_bytebuffer_insert_int32(&tbc->functbl, (uint32_t)strlen(name) + 1);
 	
-	// write instrlen
+	/// write instrlen
 	( is_native ) ?
 		harbol_bytebuffer_insert_int32(&tbc->functbl, 8) :
 		harbol_bytebuffer_insert_int32(&tbc->functbl, (uint32_t)bytecode->count);
 	
-	// write string of func.
+	/// write string of func.
 	harbol_bytebuffer_insert_cstr(&tbc->functbl, name);
 	
-	// write bytecode.
+	/// write bytecode.
 	if( !is_native )
 		harbol_bytebuffer_append(&tbc->functbl, bytecode);
 	
@@ -49,19 +49,19 @@ static inline NEVER_NULL(1,3) void tagha_tbc_gen_write_func(struct TaghaScriptBu
 
 static inline NEVER_NULL(1,3,4) void tagha_tbc_gen_write_var(struct TaghaScriptBuilder *const restrict tbc, const uint8_t flags, const char name[restrict static 1], const struct HarbolByteBuf *const restrict datum)
 {
-	// write flag
+	/// write flag
 	harbol_bytebuffer_insert_byte(&tbc->datatbl, flags);
 	
-	// write strlen
+	/// write strlen
 	harbol_bytebuffer_insert_int32(&tbc->datatbl, (uint32_t)strlen(name) + 1);
 	
-	// write var data size
+	/// write var data size
 	harbol_bytebuffer_insert_int32(&tbc->datatbl, (uint32_t)datum->count);
 	
-	// write string of var name.
+	/// write string of var name.
 	harbol_bytebuffer_insert_cstr(&tbc->datatbl, name);
 	
-	// write var data.
+	/// write var data.
 	harbol_bytebuffer_append(&tbc->datatbl, datum);
 	
 	tbc->vars++;
@@ -77,18 +77,18 @@ static inline NO_NULL void tagha_tbc_gen_create_file(struct TaghaScriptBuilder *
 	struct HarbolByteBuf final_tbc = harbol_bytebuffer_create();
 	harbol_bytebuffer_append(&final_tbc, &tbc->header);
 	
-	// build func table.
+	/// build func table.
 	harbol_bytebuffer_insert_int32(&final_tbc, tbc->funcs);
 	harbol_bytebuffer_append(&final_tbc, &tbc->functbl);
 	
-	// build var table
+	/// build var table
 	harbol_bytebuffer_insert_int32(&final_tbc, tbc->vars);
 	harbol_bytebuffer_append(&final_tbc, &tbc->datatbl);
 	
-	// build memory region.
+	/// build memory region.
 	harbol_bytebuffer_insert_zeros(&final_tbc, tbc->memsize);
 	
-	// finally generate the tbc file binary and then free data.
+	/// finally generate the tbc file binary and then free data.
 	harbol_bytebuffer_to_file(&final_tbc, tbcfile);
 	fclose(tbcfile), tbcfile=NULL;
 	harbol_bytebuffer_clear(&final_tbc);
