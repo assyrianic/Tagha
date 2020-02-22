@@ -21,8 +21,8 @@ extern "C" {
 #define TAGHA_FLOAT64_DEFINED    /// allow tagha to use 64-bit floats
 
 #if defined(TAGHA_FLOAT32_DEFINED) || defined(TAGHA_FLOAT64_DEFINED)
-#	ifndef TAGHA_USE_FLOATS
-#		define TAGHA_USE_FLOATS
+#	ifndef TAGHA_FLOATS_ENABLED
+#		define TAGHA_FLOATS_ENABLED
 #	endif
 #endif
 
@@ -118,8 +118,7 @@ typedef union TaghaPtr {
  *     4 bytes: string size + '\0' of global var string
  *     4 bytes: byte size, 8 if ptr.
  *     n bytes: global var string
- *     if bytecode var: n bytes: data. All 0 if not initialized in script code.
- *     else: 8 bytes: var address (0 at first, filled in during runtime)
+ *     n bytes: data. All 0 if not initialized in script code.
  * 
  * .mem region - taken control by the memory pool as both a stack and heap.
  */
@@ -246,49 +245,28 @@ TAGHA_EXPORT NO_NULL void tagha_module_throw_error(struct TaghaModule *module, i
 TAGHA_EXPORT NO_NULL void tagha_module_jit_compile(struct TaghaModule *module, TaghaCFunc *jitfunc(const uint8_t*, size_t, void *), void *userdata);
 
 
-#ifdef TAGHA_USE_FLOATS
-#	define TAGHA_INSTR_SET \
-		X(halt) \
-		X(push) X(pop) \
-		\
-		X(ldvar) X(ldaddr) X(ldfunc) \
-		X(movi) X(mov) \
-		X(ld1) X(ld2) X(ld4) X(ld8) \
-		X(st1) X(st2) X(st4) X(st8) \
-		\
-		X(add) X(sub) X(mul) X(divi) X(mod) \
-		X(bit_and) X(bit_or) X(bit_xor) X(bit_not) X(shl) X(shr) X(neg) \
-		\
-		X(ilt) X(ile) X(igt) X(ige) \
-		X(ult) X(ule) X(ugt) X(uge) X(cmp) \
-		\
-		X(jmp) X(jz) X(jnz) \
-		X(call) X(callr) X(ret) \
-		X(nop) \
-		\
-		X(f32tof64) X(f64tof32) X(itof64) X(itof32) X(f64toi) X(f32toi) \
-		X(addf) X(subf) X(mulf) X(divf) X(negf) \
-		X(ltf) X(lef) X(gtf) X(gef)
-#else
-#	define TAGHA_INSTR_SET \
-		X(halt) \
-		X(push) X(pop) \
-		\
-		X(ldvar) X(ldaddr) X(ldfunc) \
-		X(movi) X(mov) \
-		X(ld1) X(ld2) X(ld4) X(ld8) \
-		X(st1) X(st2) X(st4) X(st8) \
-		\
-		X(add) X(sub) X(mul) X(divi) X(mod) \
-		X(bit_and) X(bit_or) X(bit_xor) X(bit_not) X(shl) X(shr) X(neg) \
-		\
-		X(ilt) X(ile) X(igt) X(ige) \
-		X(ult) X(ule) X(ugt) X(uge) X(cmp) \
-		\
-		X(jmp) X(jz) X(jnz) \
-		X(call) X(callr) X(ret) \
-		X(nop)
-#endif
+#define TAGHA_INSTR_SET \
+	X(halt) \
+	X(push) X(pop) \
+	\
+	X(ldvar) X(ldaddr) X(ldfunc) \
+	X(movi) X(mov) \
+	X(ld1) X(ld2) X(ld4) X(ld8) \
+	X(st1) X(st2) X(st4) X(st8) \
+	\
+	X(add) X(sub) X(mul) X(divi) X(mod) \
+	X(bit_and) X(bit_or) X(bit_xor) X(bit_not) X(shl) X(shr) X(neg) \
+	\
+	X(ilt) X(ile) X(igt) X(ige) \
+	X(ult) X(ule) X(ugt) X(uge) X(cmp) \
+	\
+	X(jmp) X(jz) X(jnz) \
+	X(call) X(callr) X(ret) \
+	X(nop) \
+	\
+	X(f32tof64) X(f64tof32) X(itof64) X(itof32) X(f64toi) X(f32toi) \
+	X(addf) X(subf) X(mulf) X(divf) X(negf) \
+	X(ltf) X(lef) X(gtf) X(gef)
 
 #define X(x) x,
 typedef enum TaghaInstrSet { TAGHA_INSTR_SET } ETaghaInstrSet;

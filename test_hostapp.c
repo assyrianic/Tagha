@@ -110,7 +110,9 @@ NO_NULL int main(const int argc, char *argv[const static 1])
 		};
 		tagha_module_register_natives(module, host_natives);
 		
+		const clock_t start = clock();
 		const int32_t result = tagha_module_run(module, 0, NULL);
+		printf("result?: %i | profile time: '%f'\n", result, (clock()-start)/(double)CLOCKS_PER_SEC);
 		tagha_module_print_vm_state(module);
 		
 		{

@@ -50,4 +50,3 @@ $native %puts
     mul     r0, r2
     ret
 }
-

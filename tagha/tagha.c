@@ -390,9 +390,10 @@ static int32_t _tagha_module_start(struct TaghaModule *const module,
 			memcpy(&module->regs[TAGHA_FIRST_PARAM_REG], &params[0], sizeof(union TaghaVal) * (args));
 			
 			/// prep the stack frame.
-			*--module->regs[sp].ptrself = (union TaghaVal){.ptrvoid=NULL}; /// push NULL return address.
-			*--module->regs[sp].ptrself = module->regs[bp];                /// push rbp
-			module->regs[bp] = module->regs[sp];                           /// mov rbp, rsp
+			module->regs[sp].ptrself -= 2;
+			module->regs[sp].ptrself[1].ptrvoid = NULL;             /** push NULL */
+			*module->regs[sp].ptrself = module->regs[bp];           /** push rbp */
+			module->regs[bp] = module->regs[sp];                    /** mov rbp, rsp */
 			
 			const int32_t result = _tagha_module_exec(module);
 			module->ip = NULL;
@@ -741,7 +742,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 			vm->errcode = tagha_err_no_func;
 			return -1;
 		} else {
-			const struct TaghaItem func = vm->funcs.array[(index>0) ? (index - 1) : (-1 - index)];
+			const size_t offset = (index>0) ? (index - 1) : (-1 - index);
+			const struct TaghaItem func = vm->funcs.array[offset];
 			if( func.flags >= TAGHA_FLAG_NATIVE ) {
 				if( func.flags != TAGHA_FLAG_NATIVE+TAGHA_FLAG_LINKED ) {
 					vm->errcode = tagha_err_no_cfunc;
@@ -756,8 +758,9 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 					}
 				}
 			} else {
-				(--vm->regs[sp].ptrself)->ptrvoid = pc.ptrvoid; /** push pc */
-				*--vm->regs[sp].ptrself = vm->regs[bp];         /** push rbp */
+				vm->regs[sp].ptrself -= 2;
+				vm->regs[sp].ptrself[1].ptrvoid = pc.ptrvoid;   /** push pc */
+				*vm->regs[sp].ptrself = vm->regs[bp];           /** push rbp */
 				vm->regs[bp] = vm->regs[sp];                    /** mov rbp, rsp */
 				pc.ptruint8 = func.item;
 				DISPATCH();
@@ -771,7 +774,8 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 			vm->errcode = tagha_err_no_func;
 			return -1;
 		} else {
-			const struct TaghaItem func = vm->funcs.array[(index>0) ? (index - 1) : (-1 - index)];
+			const size_t offset = (index>0) ? (index - 1) : (-1 - index);
+			const struct TaghaItem func = vm->funcs.array[offset];
 			if( func.flags >= TAGHA_FLAG_NATIVE ) {
 				if( func.flags != TAGHA_FLAG_NATIVE+TAGHA_FLAG_LINKED ) {
 					vm->errcode = tagha_err_no_cfunc;
@@ -786,8 +790,9 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 					}
 				}
 			} else {
-				(--vm->regs[sp].ptrself)->ptrvoid = pc.ptrvoid; /** push pc */
-				*--vm->regs[sp].ptrself = vm->regs[bp];         /** push rbp */
+				vm->regs[sp].ptrself -= 2;
+				vm->regs[sp].ptrself[1].ptrvoid = pc.ptrvoid;   /** push pc */
+				*vm->regs[sp].ptrself = vm->regs[bp];           /** push rbp */
 				vm->regs[bp] = vm->regs[sp];                    /** mov rbp, rsp */
 				pc.ptruint8 = func.item;
 				DISPATCH();
@@ -796,16 +801,17 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	}
 	exec_ret: { /** char: opcode */
 		vm->regs[sp] = vm->regs[bp];                      /** mov rsp, rbp */
-		vm->regs[bp] = *vm->regs[sp].ptrself++;           /** pop rbp */
-		pc.ptrvoid   = (*vm->regs[sp].ptrself++).ptrvoid; /** pop pc */
+		vm->regs[bp] = *vm->regs[sp].ptrself;             /** pop rbp */
+		pc.ptrvoid   = vm->regs[sp].ptrself[1].ptrvoid;   /** pop pc */
+		vm->regs[sp].ptrself += 2;
 		if( pc.ptrvoid==NULL ) {
+	exec_halt:
 			return vm->regs[alaf].int32;
 		} else {
 			DISPATCH();
 		}
 	}
 	
-#ifdef TAGHA_USE_FLOATS
 	/** treated as nop if float32_t is defined but not the other. */
 	exec_f32tof64: { /** char: opcode | char: reg id */
 		const uint8_t regid = *pc.ptruint8++;
@@ -851,7 +857,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	}
 	exec_f64toi: { /** char: opcode | char: reg id */
 		const uint8_t regid = *pc.ptruint8++;
-#	ifdef TAGHA_FLOAT32_DEFINED
+#	ifdef TAGHA_FLOAT64_DEFINED
 		const float64_t i = vm->regs[regid].float64;
 		vm->regs[regid].int64 = ( int64_t )i;
 #	else
@@ -973,7 +979,5 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 #	endif
 		DISPATCH();
 	}
-#endif
-	exec_halt:
-		return vm->regs[alaf].int32;
+	return -1;
 }

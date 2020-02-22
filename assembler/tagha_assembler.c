@@ -858,9 +858,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 					
 					/// opcodes that only take a register operand.
 					case push: case pop: case bit_not: case neg: case callr:
-				#ifdef TAGHA_USE_FLOATS
 					case f32tof64: case f64tof32: case itof64: case itof32: case f64toi: case f32toi: case negf:
-				#endif
 						tagha_asm_parse_reg(tasm, true); break;
 					
 					/// opcodes reg<-imm
@@ -881,10 +879,9 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 					case bit_and: case bit_or: case bit_xor: case shl: case shr:
 					case ilt: case ile: case igt: case ige:
 					case ult: case ule: case ugt: case uge: case cmp:
-				#ifdef TAGHA_USE_FLOATS
+				
 					case addf: case subf: case mulf: case divf:
 					case ltf: case lef: case gtf: case gef:
-				#endif
 						tagha_asm_parse_reg_reg(tasm, true); break;
 				}
 			}
@@ -957,9 +954,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 					
 					/// opcodes that only take a register operand.
 					case push: case pop: case bit_not: case neg: case callr:
-				#ifdef TAGHA_USE_FLOATS
 					case f32tof64: case f64tof32: case itof64: case itof32: case f64toi: case f32toi: case negf:
-				#endif
 						tagha_asm_parse_reg(tasm, false); break;
 					
 					/// opcodes reg<-imm
@@ -980,10 +975,8 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 					case bit_and: case bit_or: case bit_xor: case shl: case shr:
 					case ilt: case ile: case igt: case ige:
 					case ult: case ule: case ugt: case uge: case cmp:
-				#ifdef TAGHA_USE_FLOATS
 					case addf: case subf: case mulf: case divf:
 					case ltf: case lef: case gtf: case gef:
-				#endif
 						tagha_asm_parse_reg_reg(tasm, false); break;
 				}
 			}
