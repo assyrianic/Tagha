@@ -454,7 +454,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
     { \
 		const uint8_t instr = *pc.ptruint8++; \
 		\
-		if( instr>nop ) { \
+		if( instr>gef ) { \
 			vm->errcode = tagha_err_instr_oob; \
 			return -1; \
 		} \
