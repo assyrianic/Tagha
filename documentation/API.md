@@ -55,6 +55,12 @@ size_t value.
 ### ssize
 ssize_t value.
 
+### uintptr
+uintptr_t value.
+
+### inptr
+inptr_t value.
+
 ### float32
 32-bit float value. exists only if `TAGHA_FLOAT32_DEFINED` is defined.
 
