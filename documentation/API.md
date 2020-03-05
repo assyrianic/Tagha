@@ -297,7 +297,7 @@ gets a script's flags.
 * `module` - pointer to a `struct TaghaModule` object.
 
 ### Return Value
-a `uint8_t` of the script's flags
+a `uint32_t` of the script's flags
 
 
 ## tagha_module_call
