@@ -55,12 +55,6 @@ size_t value.
 ### ssize
 ssize_t value.
 
-### uintptr
-uintptr_t value.
-
-### inptr
-inptr_t value.
-
 ### float32
 32-bit float value. exists only if `TAGHA_FLOAT32_DEFINED` is defined.
 
@@ -297,7 +291,7 @@ gets a script's flags.
 * `module` - pointer to a `struct TaghaModule` object.
 
 ### Return Value
-a `uint32_t` of the script's flags
+a `uint8_t` of the script's flags
 
 
 ## tagha_module_call
