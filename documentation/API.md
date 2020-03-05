@@ -55,6 +55,12 @@ size_t value.
 ### ssize
 ssize_t value.
 
+### uintptr
+uintptr_t value.
+
+### inptr
+inptr_t value.
+
 ### float32
 32-bit float value. exists only if `TAGHA_FLOAT32_DEFINED` is defined.
 
@@ -63,54 +69,6 @@ ssize_t value.
 
 ### float64
 64-bit float value. exists only if `TAGHA_FLOAT64_DEFINED` is defined.
-
-### ptrbool
-pointer to bool value.
-
-### ptrint8
-pointer to signed char value.
-
-### ptrint16
-pointer to signed short value.
-
-### ptrint32
-pointer to signed int value.
-
-### ptrint64
-pointer to signed long long value.
-
-### ptruint8
-pointer to unsigned char value.
-
-### ptruint16
-pointer to unsigned short value.
-
-### ptruint32
-pointer to unsigned int value.
-
-### ptruint64
-pointer to unsigned long long value.
-
-### ptrsize
-pointer to size_t value.
-
-### ptrssize
-pointer to ssize_t value.
-
-### ptrfloat32
-pointer to 32-bit float value. exists only if `TAGHA_FLOAT32_DEFINED` is defined.
-
-### ptrfloat64
-pointer to 64-bit float value. exists only if `TAGHA_FLOAT64_DEFINED` is defined.
-
-### ptrvoid
-pointer to void type value.
-
-### string
-pointer to a C string (const char *).
-
-### ptrself
-pointer to union TaghaVal value.
 
 
 ## struct TaghaNative (Typedef'd as "STaghaNative")
@@ -244,7 +202,7 @@ boolean value whether the deallocation was successful or not.
 
 ## tagha_module_print_vm_state
 ```c
-void tagha_module_print_vm_state(const struct TaghaModule *module);
+void tagha_module_print_vm_state(const struct TaghaModule *module, bool hex);
 ```
 
 ### Description
@@ -252,6 +210,7 @@ Prints the registers and condition flag of a Tagha module object.
 
 ### Parameters
 * `module` - pointer to a `struct TaghaModule` object.
+* `hex` - option boolean to print general-purpose register data as hexadecimal instead of decimal.
 
 ### Return Value
 None.
@@ -328,7 +287,7 @@ pointer to the global variable, `NULL` if the variable doesn't exist or the modu
 
 ## tagha_module_get_flags
 ```c
-uint8_t tagha_module_get_flags(const struct TaghaModule *module);
+uint32_t tagha_module_get_flags(const struct TaghaModule *module);
 ```
 
 ### Description
