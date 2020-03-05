@@ -110,7 +110,7 @@ native_print_player_info(struct TaghaModule *const ctxt, const size_t args, cons
 	/* get first arg which is the address to our data.
 	 * cast the void* to a struct Player*, done implicitly in C.
 	 */
-	struct Player *const player = params[0].ptrvoid;
+	struct Player *const player = params[0].uintptr;
 	if( player != NULL ) {
 		printf("native_print_player_info :: ammo: %" PRIu32 " | health: %" PRIu32 " | speed: %f\n", player->ammo, player->health, player->speed);
 	}
@@ -155,10 +155,10 @@ struct Player {
 static union TaghaVal
 native_ip(struct TaghaModule *const ctxt, const size_t args, const union TaghaVal params[const static 1])
 {
-	struct Player *const player = params[0].ptrvoid;
+	struct Player *const player = params[0].uintptr;
 	
 	/* return the address of the 4-byte int member "health" value. */
-	return (player != NULL) ? (union TaghaVal){.ptrvoid = &player->health} : (union TaghaVal){.ptrvoid = NULL};
+	return (player != NULL) ? (union TaghaVal){.uintptr = &player->health} : (union TaghaVal){.uintptr = NULL};
 }
 ```
 
@@ -172,10 +172,10 @@ static union TaghaVal
 native_malloc(struct TaghaModule *const ctxt, const size_t args, const union TaghaVal params[const static 1])
 {
 	/* size_t is 8 bytes on 64-bit systems */
-	return (union TaghaVal){ .ptrvoid = malloc(params[0].uint64) };
+	return (union TaghaVal){ .uintptr = malloc(params[0].uint64) };
 }
 ```
-All we have to do is set the `ptrvoid` member of our return compound initializer and voila! If `malloc` returns a NULL pointer, the result will be NULL as well. Now we have our allocated pointer in our system. What if we wanted to use it?
+All we have to do is set the `uintptr` member of our return compound initializer and voila! If `malloc` returns a NULL pointer, the result will be NULL as well. Now we have our allocated pointer in our system. What if we wanted to use it?
 
 Unfortunately, script's cannot use it directly because the pointer was allocated from C's native runtime and attempting to dereference the pointer will trigger a runtime memory access violation. The best (and safest) way to use a memory allocated data is through natives that manipulate the allocated pointers themselves.
 
@@ -185,7 +185,7 @@ A good and last example would be `free` implemented as a native which takes a po
 static union TaghaVal
 native_free(struct TaghaModule *const ctxt, const size_t args, const union TaghaVal params[const static 1])
 {
-	free(params[0].ptrvoid);
+	free(( void* )params[0].uintptr);
 	return (union TaghaVal){0};
 }
 ```
@@ -260,11 +260,12 @@ native_va_int32_averages(struct TaghaModule *const ctxt, const size_t args, cons
 	const struct {
 		union TaghaVal area;
 		uint64_t args;
-	} *const valist = params[0].ptrvoid;
+	} *const valist = params[0].uintptr;
 	
 	int32_t res = 0;
+	const union TaghaVal *const restrict ints = valist->area.uintptr;
 	for( size_t i=0; i<valist->args; i++ )
-		res += valist->area.ptrself[i].int32;
+		res += ints[i].int32;
 	return (union TaghaVal){ .int32 = res / valist->args };
 }
 ```

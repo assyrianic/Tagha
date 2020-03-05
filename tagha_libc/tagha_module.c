@@ -4,28 +4,28 @@
 static union TaghaVal native_tagha_module_new_from_file(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .ptrvoid = tagha_module_new_from_file(params[0].ptrvoid) };
+	return (union TaghaVal){ .uintptr = tagha_module_new_from_file(params[0].uintptr) };
 }
 
 /** int32_t tagha_module_call(struct TaghaModule *module, const char funcname[], size_t args, const union TaghaVal params[], union TaghaVal *retval); */
 static union TaghaVal native_tagha_module_call(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = tagha_module_call(params[0].ptrvoid, params[1].string, params[2].uint64, params[3].ptrself, params[4].ptrself) };
+	return (union TaghaVal){ .int32 = tagha_module_call(params[0].uintptr, params[1].uintptr, params[2].uint64, params[3].uintptr, params[4].uintptr) };
 }
 
 /** void *tagha_module_get_var(struct TaghaModule *module, const char varname[]); */
 static union TaghaVal native_tagha_module_get_var(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .ptrvoid = tagha_module_get_var(params[0].ptrvoid, params[1].string) };
+	return (union TaghaVal){ .uintptr = tagha_module_get_var(params[0].uintptr, params[1].uintptr) };
 }
 
 /** bool tagha_module_free(struct TaghaModule **modref); */
 static union TaghaVal native_tagha_module_free(struct TaghaModule *const restrict module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	struct TaghaModule **restrict modref = params[0].ptrvoid;
+	struct TaghaModule **restrict modref = params[0].uintptr;
 	return (union TaghaVal){ .boolean = tagha_module_free(modref) };
 }
 
@@ -33,7 +33,7 @@ static union TaghaVal native_tagha_module_free(struct TaghaModule *const restric
 static union TaghaVal native_tagha_module_clear(struct TaghaModule *const restrict module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .boolean = tagha_module_clear(params[0].ptrvoid) };
+	return (union TaghaVal){ .boolean = tagha_module_clear(params[0].uintptr) };
 }
 
 

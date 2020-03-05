@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <uintptr.h>
 #include "tagha_libc.h"
 
 #define TAGHA_BUFSIZ    1024
@@ -19,21 +19,21 @@ int32_t _tagha_gen_printf(const char *fmt, size_t currarg, const union TaghaVal 
 static union TaghaVal native_remove(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = remove(params[0].string) };
+	return (union TaghaVal){ .int32 = remove(params[0].uintptr) };
 }
 
 /** int rename(const char *oldname, const char *newname); */
 static union TaghaVal native_rename(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = rename(params[0].string, params[1].string) };
+	return (union TaghaVal){ .int32 = rename(params[0].uintptr, params[1].uintptr) };
 }
 
 /** FILE *tmpfile(void); */
 static union TaghaVal native_tmpfile(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args; (void)params;
-	return (union TaghaVal){ .ptrvoid = tmpfile() };
+	return (union TaghaVal){ .uintptr = tmpfile() };
 }
 
 /** char *tmpnam(char *str); */
@@ -41,7 +41,7 @@ static union TaghaVal native_tmpfile(struct TaghaModule *const module, const siz
 static union TaghaVal native_tmpnam(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .string = tmpnam(params[0].string);
+	return (union TaghaVal){ .uintptr = tmpnam(params[0].uintptr);
 }
 */
 
@@ -54,7 +54,7 @@ static union TaghaVal native_tmpnam(struct TaghaModule *const module, const size
 static union TaghaVal native_fclose(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	FILE *const f = params[0].ptrvoid;
+	FILE *const f = params[0].uintptr;
 	return (union TaghaVal){ .int32 = (f != NULL) ? fclose(f) : -1 };
 }
 
@@ -62,37 +62,37 @@ static union TaghaVal native_fclose(struct TaghaModule *const module, const size
 static union TaghaVal native_fflush(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = fflush(params[0].ptrvoid) };
+	return (union TaghaVal){ .int32 = fflush(params[0].uintptr) };
 }
 
 /** FILE *fopen(const char *filename, const char *modes); */
 static union TaghaVal native_fopen(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	const char *restrict mode = params[1].string;
-	return( mode==NULL ) ? (union TaghaVal){ .ptrvoid = NULL } : (union TaghaVal){ .ptrvoid = fopen(params[0].ptrvoid, mode) };
+	const char *restrict mode = params[1].uintptr;
+	return( mode==NULL ) ? (union TaghaVal){ .uintptr = NULL } : (union TaghaVal){ .uintptr = fopen(params[0].uintptr, mode) };
 }
 
 /** FILE *freopen(const char *filename, const char *mode, FILE *stream); */
 static union TaghaVal native_freopen(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	const char *restrict filename = params[0].string;
-	const char *restrict mode = params[1].string;
-	FILE *const restrict stream = params[2].ptrvoid;
+	const char *restrict filename = params[0].uintptr;
+	const char *restrict mode = params[1].uintptr;
+	FILE *const restrict stream = params[2].uintptr;
 	
 	if( filename==NULL || mode==NULL || stream==NULL )
-		return (union TaghaVal){ .ptrvoid = NULL };
-	else return (union TaghaVal){ .ptrvoid = freopen(filename, mode, stream) };
+		return (union TaghaVal){ .uintptr = NULL };
+	else return (union TaghaVal){ .uintptr = freopen(filename, mode, stream) };
 }
 
 /** void setbuf(FILE *stream, char *buffer); */
 static union TaghaVal native_setbuf(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	FILE *const stream = params[0].ptrvoid;
+	FILE *const stream = params[0].uintptr;
 	if( stream != NULL )
-		setbuf(stream, params[1].string);
+		setbuf(stream, params[1].uintptr);
 	return (union TaghaVal){ 0 };
 }
 
@@ -101,8 +101,8 @@ static union TaghaVal native_setbuf(struct TaghaModule *const module, const size
 static union TaghaVal native_fprintf(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	FILE *const restrict stream = params[0].ptrvoid;
-	const char *restrict fmt = params[1].string;
+	FILE *const restrict stream = params[0].uintptr;
+	const char *restrict fmt = params[1].uintptr;
 	if( stream==NULL || fmt==NULL ) {
 		return (union TaghaVal){ .int32 = -1 };
 	} else {
@@ -117,7 +117,7 @@ static union TaghaVal native_fprintf(struct TaghaModule *const module, const siz
 static union TaghaVal native_printf(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	const char *restrict fmt = params[0].string;
+	const char *restrict fmt = params[0].uintptr;
 	if( fmt==NULL ) {
 		return (union TaghaVal){ .int32 = -1 };
 	} else {
@@ -131,8 +131,8 @@ static union TaghaVal native_printf(struct TaghaModule *const module, const size
 static union TaghaVal native_sprintf(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	char *restrict str = params[0].string;
-	const char *restrict fmt = params[1].string;
+	char *restrict str = params[0].uintptr;
+	const char *restrict fmt = params[1].uintptr;
 	if( str==NULL || fmt==NULL ) {
 		return (union TaghaVal){ .int32 = -1 };
 	} else {
@@ -146,8 +146,8 @@ static union TaghaVal native_sprintf(struct TaghaModule *const module, const siz
 static union TaghaVal native_snprintf(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	char *restrict str = params[0].string;
-	const char *restrict fmt = params[2].string;
+	char *restrict str = params[0].uintptr;
+	const char *restrict fmt = params[2].uintptr;
 	if( str==NULL || fmt==NULL ) {
 		return (union TaghaVal){ .int32 = -1 };
 	} else {
@@ -161,12 +161,12 @@ static union TaghaVal native_snprintf(struct TaghaModule *const module, const si
 static union TaghaVal native_vprintf(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	const char *restrict fmt = params[0].string;
+	const char *restrict fmt = params[0].uintptr;
 	if( fmt==NULL ) {
 		return (union TaghaVal){ .int32 = -1 };
 	} else {
-		const struct { union TaghaVal area; uint64_t args; } *const restrict valist = params[1].ptrvoid;
-		_tagha_gen_printf(fmt, 0, valist->area.ptrself, valist->args);
+		const struct { union TaghaVal area; uint64_t args; } *const restrict valist = params[1].uintptr;
+		_tagha_gen_printf(fmt, 0, valist->area.uintptr, valist->args);
 		return (union TaghaVal){ .int32 = printf("%s", _g_tagha_output.buf) };
 		memset(&_g_tagha_output, 0, sizeof _g_tagha_output);
 	}
@@ -176,13 +176,13 @@ static union TaghaVal native_vprintf(struct TaghaModule *const module, const siz
 static union TaghaVal native_vfprintf(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	FILE *const restrict stream = params[0].ptrvoid;
-	const char *restrict fmt = params[1].string;
+	FILE *const restrict stream = params[0].uintptr;
+	const char *restrict fmt = params[1].uintptr;
 	if( stream==NULL || fmt==NULL ) {
 		return (union TaghaVal){ .int32 = -1 };
 	} else {
-		const struct { union TaghaVal area; uint64_t args; } *const valist = params[2].ptrvoid;
-		_tagha_gen_printf(fmt, 0, valist->area.ptrself, valist->args);
+		const struct { union TaghaVal area; uint64_t args; } *const valist = params[2].uintptr;
+		_tagha_gen_printf(fmt, 0, valist->area.uintptr, valist->args);
 		return (union TaghaVal){ .int32 = fprintf(stream, "%s", _g_tagha_output.buf) };
 		memset(&_g_tagha_output, 0, sizeof _g_tagha_output);
 	}
@@ -192,13 +192,13 @@ static union TaghaVal native_vfprintf(struct TaghaModule *const module, const si
 static union TaghaVal native_vsprintf(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	char *restrict str = params[0].ptrvoid;
-	const char *restrict fmt = params[1].string;
+	char *restrict str = params[0].uintptr;
+	const char *restrict fmt = params[1].uintptr;
 	if( str==NULL || fmt==NULL ) {
 		return (union TaghaVal){ .int32 = -1 };
 	} else {
-		const struct { union TaghaVal area; uint64_t args; } *const valist = params[2].ptrvoid;
-		_tagha_gen_printf(fmt, 0, valist->area.ptrself, valist->args);
+		const struct { union TaghaVal area; uint64_t args; } *const valist = params[2].uintptr;
+		_tagha_gen_printf(fmt, 0, valist->area.uintptr, valist->args);
 		return (union TaghaVal){ .int32 = sprintf(str, "%s", _g_tagha_output.buf) };
 		memset(&_g_tagha_output, 0, sizeof _g_tagha_output);
 	}
@@ -208,13 +208,13 @@ static union TaghaVal native_vsprintf(struct TaghaModule *const module, const si
 static union TaghaVal native_vsnprintf(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	char *restrict str = params[0].ptrvoid;
-	const char *restrict fmt = params[2].string;
+	char *restrict str = params[0].uintptr;
+	const char *restrict fmt = params[2].uintptr;
 	if( str==NULL || fmt==NULL ) {
 		return (union TaghaVal){ .int32 = -1 };
 	} else {
-		const struct { union TaghaVal area; uint64_t args; } *const restrict valist = params[3].ptrvoid;
-		_tagha_gen_printf(fmt, 0, valist->area.ptrself, valist->args);
+		const struct { union TaghaVal area; uint64_t args; } *const restrict valist = params[3].uintptr;
+		_tagha_gen_printf(fmt, 0, valist->area.uintptr, valist->args);
 		return (union TaghaVal){ .int32 = snprintf(str, params[1].uint64, "%s", _g_tagha_output.buf) };
 		memset(&_g_tagha_output, 0, sizeof _g_tagha_output);
 	}
@@ -225,8 +225,8 @@ static union TaghaVal native_vsnprintf(struct TaghaModule *const module, const s
 static union TaghaVal native_fscanf(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	FILE *const restrict stream = params[0].ptrvoid;
-	const char *restrict fmt = params[1].string;
+	FILE *const restrict stream = params[0].uintptr;
+	const char *restrict fmt = params[1].uintptr;
 	if( stream==NULL || fmt==NULL ) {
 		return (union TaghaVal){ .int32 = -1 };
 	} else {
@@ -238,15 +238,15 @@ static union TaghaVal native_fscanf(struct TaghaModule *const module, const size
 static union TaghaVal native_puts(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = puts(params[0].string) };
+	return (union TaghaVal){ .int32 = puts(params[0].uintptr) };
 }
 
 /** int setvbuf(FILE *stream, char *buffer, int mode, size_t size); */
 static union TaghaVal native_setvbuf(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	FILE *const restrict stream = params[0].ptrvoid;
-	char *restrict buffer = params[1].string;
+	FILE *const restrict stream = params[0].uintptr;
+	char *restrict buffer = params[1].uintptr;
 	if( stream==NULL || buffer==NULL )
 		return (union TaghaVal){ .int32 = -1 };
 	else return (union TaghaVal){ .int32 = setvbuf(stream, buffer, params[2].int32, params[3].uint64) };
@@ -256,35 +256,35 @@ static union TaghaVal native_setvbuf(struct TaghaModule *const module, const siz
 static union TaghaVal native_fgetc(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = fgetc(params[0].ptrvoid) };
+	return (union TaghaVal){ .int32 = fgetc(params[0].uintptr) };
 }
 
 /** char *fgets(char *str, int num, FILE *stream); */
 static union TaghaVal native_fgets(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .string = fgets(params[0].string, params[1].int32, params[2].ptrvoid) };
+	return (union TaghaVal){ .uintptr = fgets(params[0].uintptr, params[1].int32, params[2].uintptr) };
 }
 
 /** int fputc(int character, FILE *stream); */
 static union TaghaVal native_fputc(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = fputc(params[0].int32, params[1].ptrvoid) };
+	return (union TaghaVal){ .int32 = fputc(params[0].int32, params[1].uintptr) };
 }
 
 /** int fputs(const char *str, FILE *stream); */
 static union TaghaVal native_fputs(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = fputs(params[0].string, params[1].ptrvoid) };
+	return (union TaghaVal){ .int32 = fputs(params[0].uintptr, params[1].uintptr) };
 }
 
 /** int getc(FILE *stream); */
 static union TaghaVal native_getc(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = getc(params[0].ptrvoid) };
+	return (union TaghaVal){ .int32 = getc(params[0].uintptr) };
 }
 
 /** int getchar(void); */
@@ -298,7 +298,7 @@ static union TaghaVal native_getchar(struct TaghaModule *const module, const siz
 static union TaghaVal native_putc(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = putc(params[0].int32, params[1].ptrvoid) };
+	return (union TaghaVal){ .int32 = putc(params[0].int32, params[1].uintptr) };
 }
 
 /** int putchar(int character); */
@@ -312,42 +312,42 @@ static union TaghaVal native_putchar(struct TaghaModule *const module, const siz
 static union TaghaVal native_ungetc(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = ungetc(params[0].int32, params[1].ptrvoid) };
+	return (union TaghaVal){ .int32 = ungetc(params[0].int32, params[1].uintptr) };
 }
 
 /** size_t fread(void *ptr, size_t size, size_t count, FILE *stream); */
 static union TaghaVal native_fread(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uint64 = fread(params[0].ptrvoid, params[1].uint64, params[2].uint64, params[3].ptrvoid) };
+	return (union TaghaVal){ .uint64 = fread(params[0].uintptr, params[1].uint64, params[2].uint64, params[3].uintptr) };
 }
 
 /** size_t fwrite(const void *ptr, size_t size, size_t count, FILE *stream); */
 static union TaghaVal native_fwrite(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uint64 = fwrite(params[0].ptrvoid, params[1].uint64, params[2].uint64, params[3].ptrvoid) };
+	return (union TaghaVal){ .uint64 = fwrite(params[0].uintptr, params[1].uint64, params[2].uint64, params[3].uintptr) };
 }
 
 /** int fseek(FILE *stream, long int offset, int origin); */
 static union TaghaVal native_fseek(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = fseek(params[0].ptrvoid, params[1].int64, params[2].int32) };
+	return (union TaghaVal){ .int32 = fseek(params[0].uintptr, params[1].int64, params[2].int32) };
 }
 
 /** long int ftell(FILE *stream); */
 static union TaghaVal native_ftell(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int64 = ftell(params[0].ptrvoid) };
+	return (union TaghaVal){ .int64 = ftell(params[0].uintptr) };
 }
 
 /** void rewind(FILE *stream); */
 static union TaghaVal native_rewind(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	rewind(params[0].ptrvoid);
+	rewind(params[0].uintptr);
 	return (union TaghaVal){ 0 };
 }
 
@@ -355,7 +355,7 @@ static union TaghaVal native_rewind(struct TaghaModule *const module, const size
 static union TaghaVal native_clearerr(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	clearerr(params[0].ptrvoid);
+	clearerr(params[0].uintptr);
 	return (union TaghaVal){ 0 };
 }
 
@@ -363,21 +363,21 @@ static union TaghaVal native_clearerr(struct TaghaModule *const module, const si
 static union TaghaVal native_feof(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = feof(params[0].ptrvoid) };
+	return (union TaghaVal){ .int32 = feof(params[0].uintptr) };
 }
 
 /** int ferror(FILE *stream); */
 static union TaghaVal native_ferror(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = ferror(params[0].ptrvoid) };
+	return (union TaghaVal){ .int32 = ferror(params[0].uintptr) };
 }
 
 /** void perror(const char *str); */
 static union TaghaVal native_perror(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	perror(params[0].string);
+	perror(params[0].uintptr);
 	return (union TaghaVal){ 0 };
 }
 
@@ -462,12 +462,12 @@ int32_t _tagha_printf_write_float(const union TaghaVal value, const bool is64bit
 }
 
 
-int32_t _tagha_gen_printf(const char *restrict fmt, size_t currarg, const union TaghaVal params[const restrict], const size_t paramsize)
+int32_t _tagha_gen_printf(const char fmt[restrict static 1], size_t currarg, const union TaghaVal params[const restrict], const size_t paramsize)
 {
 #define FLAG_LONG    1
 #define FLAG_FLTLONG 2
 	int32_t chars_written = 0;
-	for( ; *fmt ; fmt++ ) {
+	for( ; *fmt != 0 ; fmt++ ) {
 		if( currarg>paramsize )
 			break;
 		uint_least8_t flags = 0;
@@ -507,7 +507,7 @@ printf_loop_restart:
 					chars_written += _tagha_printf_write_float(params[currarg++], true);
 					break;
 				case 's': {
-					const char *s = params[currarg++].string;
+					const char *s = params[currarg++].uintptr;
 					const size_t len = strlen(s);
 					strncat(&_g_tagha_output.buf[_g_tagha_output.count], s, len);
 					chars_written += len;

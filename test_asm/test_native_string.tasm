@@ -21,7 +21,7 @@ $native %strlen
     st4        [rbp-8], rgamal ; int i = 0;
     jmp        .L2
 .L3:
-    ldvar      rarg0, test_str ; "hello world\n"
+    ldvar      rsemkath, test_str ; "hello world\n"
     movi       ralaf, 1
     call       %strlen ; strlen(s);
     st4        [rbp-4], ralaf ; length = strlen(s);

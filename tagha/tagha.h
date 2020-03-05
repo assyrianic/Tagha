@@ -38,74 +38,95 @@ extern "C" {
 
 
 typedef union TaghaVal {
-	uint64_t       uint64,  *ptruint64;
-	int64_t        int64,   *ptrint64;
+	uint64_t       uint64;
+	int64_t        int64;
 	
-	size_t         size,    *ptrsize;
-	ssize_t        ssize,   *ptrssize;
+	intptr_t       intptr;
+	uintptr_t      uintptr;
 	
-	uint32_t       uint32,  uint32a[2], *ptruint32;
-	int32_t        int32,   int32a[2],  *ptrint32;
+	size_t         size;
+	ssize_t        ssize;
 	
-	uint16_t       uint16,  uint16a[4], *ptruint16;
-	int16_t        int16,   int16a[4],  *ptrint16;
+	uint32_t       uint32,  uint32a[2];
+	int32_t        int32,   int32a[2];
 	
-	uint8_t        uint8,   uint8a[8],  *ptruint8;
-	int8_t         int8,    int8a[8],   *ptrint8;
-	bool           boolean, boola[8],   *ptrbool;
+	uint16_t       uint16,  uint16a[4];
+	int16_t        int16,   int16a[4];
+	
+	uint8_t        uint8,   uint8a[8];
+	int8_t         int8,    int8a[8];
+	bool           boolean, boola[8];
 	
 #ifdef TAGHA_FLOAT32_DEFINED
-	float32_t      float32, float32a[2],*ptrfloat32;
+	float32_t      float32, float32a[2];
 #endif
 #ifdef TAGHA_FLOAT64_DEFINED
-	float64_t      float64, *ptrfloat64;
+	float64_t      float64;
 #endif
-	
-	void           *ptrvoid;
-	char           *string;
-	union TaghaVal *ptrself;
 } UTaghaVal;
 
 
 typedef union TaghaPtr {
-	uint64_t       *restrict ptruint64;
-	uint32_t       *restrict ptruint32;
-	uint16_t       *restrict ptruint16;
-	uint8_t        *restrict ptruint8;
+	const uint64_t       *restrict ptruint64;
+	const uint32_t       *restrict ptruint32;
+	const uint16_t       *restrict ptruint16;
+	const uint8_t        *restrict ptruint8;
 	
-	int64_t        *restrict ptrint64;
-	int32_t        *restrict ptrint32;
-	int16_t        *restrict ptrint16;
-	int8_t         *restrict ptrint8;
+	const int64_t        *restrict ptrint64;
+	const int32_t        *restrict ptrint32;
+	const int16_t        *restrict ptrint16;
+	const int8_t         *restrict ptrint8;
 	
-	size_t         *restrict ptrsize;
-	ssize_t        *restrict ptrssize;
+	const size_t         *restrict ptrsize;
+	const ssize_t        *restrict ptrssize;
 #ifdef TAGHA_FLOAT32_DEFINED
-	float32_t      *restrict ptrfloat32;
+	const float32_t      *restrict ptrfloat32;
 #endif
 #ifdef TAGHA_FLOAT64_DEFINED
-	float64_t      *restrict ptrfloat64;
+	const float64_t      *restrict ptrfloat64;
 #endif
-	char           *restrict string;
+	const char           *restrict string;
 	
-	union TaghaVal *restrict ptrval;
-	union TaghaPtr *restrict ptrself;
-	void           *restrict ptrvoid;
+	const union TaghaVal *restrict ptrval;
+	const union TaghaPtr *restrict ptrself;
+	const void           *restrict ptrvoid;
 } UTaghaPtr;
 
 
-#define TAGHA_MAGIC_VERIFIER    0xC0DE
+enum {
+	TAGHA_MAGIC_VERIFIER = 0x7A6AC0DE
+};
+
+typedef struct TaghaHeader {
+	uint32_t
+		magic,
+		stacksize,
+		memsize,
+		flags
+	;
+} STaghaHeader;
+
+typedef struct TaghaItemEntry {
+	uint32_t
+		size,
+		flags,
+		name_len,
+		data_len
+	;
+} STaghaItemEntry;
+
 /** Script File/Binary Format Structure
  * ------------------------------ start of header ------------------------------
- * 2 bytes: magic verifier ==> 0xC0DE
+ * 4 bytes: magic verifier ==> TAGHA_MAGIC_VERIFIER
  * 4 bytes: stack size, stack size needed for the code.
  * 4 bytes: mem region size.
- * 1 byte: flags
+ * 4 bytes: flags
  * ------------------------------ end of header ------------------------------
  * .functions table
  * 4 bytes: amount of funcs
  * n bytes: func table
- *     1 byte: 0 if bytecode func, 1 if it's a native, other flags.
+ *     4 bytes: entry size.
+ *     4 bytes: 0 if bytecode func, 1 if it's a native, other flags.
  *     4 bytes: string size + '\0' of func string
  *     4 bytes: instr len, 8 if native.
  *     n bytes: func string
@@ -114,7 +135,8 @@ typedef union TaghaPtr {
  * .globalvars table
  * 4 bytes: amount of global vars
  * n bytes: global vars table
- *     1 byte: flags
+ *     4 bytes: entry size.
+ *     4 bytes: flags
  *     4 bytes: string size + '\0' of global var string
  *     4 bytes: byte size, 8 if ptr.
  *     n bytes: global var string
@@ -180,11 +202,10 @@ enum {
 };
 
 typedef struct TaghaItem {
-	void    *item;
-	size_t  bytes;
-	uint8_t flags; // 0-bytecode based, 1-native based, 2-resolved
+	void     *item;
+	size_t   bytes;
+	uint32_t flags; // 0-bytecode based, 1-native based, 2-resolved
 } STaghaItem;
-
 
 typedef struct TaghaItemMap {
 	struct {
@@ -215,10 +236,9 @@ typedef struct TaghaModule {
 	struct { union TaghaVal *start; size_t size; } stack;
 	union TaghaVal regs[MaxRegisters];
 	uint8_t *script, *ip;
-	const uint8_t *start_seg, *end_seg;
-	enum TaghaErrCode errcode : 8;
-	uint8_t flags;
-	bool condflag : 1;
+	uintptr_t start_seg, end_seg;
+	enum TaghaErrCode errcode;
+	uint32_t condflag, flags;
 } STaghaModule;
 
 
@@ -230,7 +250,7 @@ TAGHA_EXPORT NO_NULL struct TaghaModule tagha_module_create_from_file(const char
 TAGHA_EXPORT NO_NULL struct TaghaModule tagha_module_create_from_buffer(uint8_t buffer[]);
 TAGHA_EXPORT NO_NULL bool tagha_module_clear(struct TaghaModule *module);
 
-TAGHA_EXPORT NO_NULL void tagha_module_print_vm_state(const struct TaghaModule *module);
+TAGHA_EXPORT NO_NULL void tagha_module_print_vm_state(const struct TaghaModule *module, bool hex);
 TAGHA_EXPORT NO_NULL NONNULL_RET const char *tagha_module_get_error(const struct TaghaModule *module);
 TAGHA_EXPORT NO_NULL bool tagha_module_register_natives(struct TaghaModule *module, const struct TaghaNative natives[]);
 TAGHA_EXPORT NO_NULL bool tagha_module_register_ptr(struct TaghaModule *module, const char name[], void *ptr);
