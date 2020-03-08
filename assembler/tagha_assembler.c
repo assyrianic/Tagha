@@ -116,6 +116,32 @@ static NO_NULL NONNULL_RET const char *lex_number(const char str[restrict static
 	}
 }
 
+static NO_NULL void string_to_int(struct HarbolString *const restrict strobj, const size_t bytes, void *const restrict p, const bool usign)
+{
+	const bool is_binary = !harbol_string_cmpcstr(strobj, "0b") || !harbol_string_cmpcstr(strobj, "0B") ? true : false;
+	switch( bytes ) {
+		case 4: {
+			if( usign ) {
+				uint32_t *const restrict i = p;
+				*i = (uint32_t)strtoul(is_binary ? strobj->cstr+2 : strobj->cstr, NULL, is_binary ? 2 : 0);
+			} else {
+				int32_t *const restrict i = p;
+				*i = (int32_t)strtol(is_binary ? strobj->cstr+2 : strobj->cstr, NULL, is_binary ? 2 : 0);
+			}
+			break;
+		}
+		case 8: {
+			if( usign ) {
+				uint64_t *const restrict i = p;
+				*i = strtoull(is_binary ? strobj->cstr+2 : strobj->cstr, NULL, is_binary ? 2 : 0);
+			} else {
+				int64_t *const restrict i = p;
+				*i = strtoll(is_binary ? strobj->cstr+2 : strobj->cstr, NULL, is_binary ? 2 : 0);
+			}
+		}
+	}
+}
+
 static NO_NULL void tagha_asm_err_out(struct TaghaAssembler *const restrict tasm, const char err[restrict static 1], ...)
 {
 	va_list args;
@@ -168,8 +194,7 @@ NO_NULL void tagha_asm_parse_stack_directive(struct TaghaAssembler *const tasm)
 	}
 	
 	tasm->iter = lex_number(tasm->iter, tasm->lexeme);
-	const bool is_binary = !harbol_string_cmpcstr(tasm->lexeme, "0b") || !harbol_string_cmpcstr(tasm->lexeme, "0B") ? true : false;
-	tasm->stacksize = strtoul(is_binary ? tasm->lexeme->cstr+2 : tasm->lexeme->cstr, NULL, is_binary ? 2 : 0);
+	string_to_int(tasm->lexeme, sizeof tasm->stacksize, &tasm->stacksize, true);
 }
 
 /// $heapsize <number>
@@ -185,8 +210,7 @@ NO_NULL void tagha_asm_parse_heap_directive(struct TaghaAssembler *const tasm)
 	}
 	
 	tasm->iter = lex_number(tasm->iter, tasm->lexeme);
-	const bool is_binary = !harbol_string_cmpcstr(tasm->lexeme, "0b") || !harbol_string_cmpcstr(tasm->lexeme, "0B") ? true : false;
-	tasm->heapsize = strtoul(is_binary ? tasm->lexeme->cstr+2 : tasm->lexeme->cstr, NULL, is_binary ? 2 : 0);
+	string_to_int(tasm->lexeme, sizeof tasm->heapsize, &tasm->heapsize, true);
 }
 
 /// $global varname bytes ...
@@ -214,8 +238,8 @@ NO_NULL void tagha_asm_parse_globalvar_directive(struct TaghaAssembler *const ta
 	}
 	
 	tasm->iter = lex_number(tasm->iter, tasm->lexeme);
-	const bool is_binary = !harbol_string_cmpcstr(tasm->lexeme, "0b") || !harbol_string_cmpcstr(tasm->lexeme, "0B") ? true : false;
-	size_t bytes = strtoul(is_binary ? tasm->lexeme->cstr+2 : tasm->lexeme->cstr, NULL, is_binary ? 2 : 0);
+	size_t bytes = 0;
+	string_to_int(tasm->lexeme, sizeof bytes, &bytes, true);
 	
 	struct HarbolByteBuf vardata = harbol_bytebuffer_create();
 	tasm->iter = skip_whitespace(tasm->iter);
@@ -307,8 +331,9 @@ NO_NULL void tagha_asm_parse_globalvar_directive(struct TaghaAssembler *const ta
 			tasm->iter++;
 		else if( is_decimal(*tasm->iter) ) {
 			tasm->iter = lex_number(tasm->iter, tasm->lexeme);
-			const bool is_binary = !harbol_string_cmpcstr(tasm->lexeme, "0b") || !harbol_string_cmpcstr(tasm->lexeme, "0B") ? true : false;
-			const uint64_t data = strtoull(is_binary ? tasm->lexeme->cstr+2 : tasm->lexeme->cstr, NULL, is_binary ? 2 : 0);
+			uint64_t data = 0;
+			string_to_int(tasm->lexeme, sizeof data, &data, true);
+			
 			if( data ) {
 				tagha_asm_err_out(tasm, "single numeric arguments for global vars must be 0!");
 				return;
@@ -321,29 +346,29 @@ NO_NULL void tagha_asm_parse_globalvar_directive(struct TaghaAssembler *const ta
 			if( !harbol_string_cmpcstr(tasm->lexeme, "byte") ) {
 				tasm->iter = skip_whitespace(tasm->iter);
 				tasm->iter = lex_number(tasm->iter, tasm->lexeme);
-				const bool is_binary = !harbol_string_cmpcstr(tasm->lexeme, "0b") || !harbol_string_cmpcstr(tasm->lexeme, "0B") ? true : false;
-				const uint8_t data = strtoull(is_binary ? tasm->lexeme->cstr+2 : tasm->lexeme->cstr, NULL, is_binary ? 2 : 0);
-				harbol_bytebuffer_insert_byte(&vardata, data);
+				uint32_t data = 0;
+				string_to_int(tasm->lexeme, sizeof data, &data, true);
+				harbol_bytebuffer_insert_byte(&vardata, ( uint8_t )data);
 				bytes--;
 			} else if( !harbol_string_cmpcstr(tasm->lexeme, "half") ) {
 				tasm->iter = skip_whitespace(tasm->iter);
 				tasm->iter = lex_number(tasm->iter, tasm->lexeme);
-				const bool is_binary = !harbol_string_cmpcstr(tasm->lexeme, "0b") || !harbol_string_cmpcstr(tasm->lexeme, "0B") ? true : false;
-				const uint16_t data = strtoul(is_binary ? tasm->lexeme->cstr+2 : tasm->lexeme->cstr, NULL, is_binary ? 2 : 0);
-				harbol_bytebuffer_insert_int16(&vardata, data);
+				uint32_t data = 0;
+				string_to_int(tasm->lexeme, sizeof data, &data, true);
+				harbol_bytebuffer_insert_int16(&vardata, ( uint16_t )data);
 				bytes -= sizeof(uint16_t);
 			} else if( !harbol_string_cmpcstr(tasm->lexeme, "long") ) {
 				tasm->iter = skip_whitespace(tasm->iter);
 				tasm->iter = lex_number(tasm->iter, tasm->lexeme);
-				const bool is_binary = !harbol_string_cmpcstr(tasm->lexeme, "0b") || !harbol_string_cmpcstr(tasm->lexeme, "0B") ? true : false;
-				const uint32_t data = strtoul(is_binary ? tasm->lexeme->cstr+2 : tasm->lexeme->cstr, NULL, is_binary ? 2 : 0);
+				uint32_t data = 0;
+				string_to_int(tasm->lexeme, sizeof data, &data, true);
 				harbol_bytebuffer_insert_int32(&vardata, data);
 				bytes -= sizeof(uint32_t);
 			} else if( !harbol_string_cmpcstr(tasm->lexeme, "word") ) {
 				tasm->iter = skip_whitespace(tasm->iter);
 				tasm->iter = lex_number(tasm->iter, tasm->lexeme);
-				const bool is_binary = !harbol_string_cmpcstr(tasm->lexeme, "0b") || !harbol_string_cmpcstr(tasm->lexeme, "0B") ? true : false;
-				const uint64_t data = strtoull(is_binary ? tasm->lexeme->cstr+2 : tasm->lexeme->cstr, NULL, is_binary ? 2 : 0);
+				uint64_t data = 0;
+				string_to_int(tasm->lexeme, sizeof data, &data, true);
 				harbol_bytebuffer_insert_int64(&vardata, data);
 				bytes -= sizeof(uint64_t);
 			}
@@ -355,11 +380,6 @@ NO_NULL void tagha_asm_parse_globalvar_directive(struct TaghaAssembler *const ta
 #ifdef TASM_DEBUG
 	printf("tasm debug: vardata->count: %zu\n", vardata.count);
 #endif
-	/*
-	printf("tasm: adding global var '%s'\n", varname.cstr);
-	for( size_t i=0; i<harbol_bytebuffer_get_count(&vardata); i++ )
-		printf("tasm: global var[%zu] == %u\n", i, vardata.table[i]);
-	*/
 	harbol_linkmap_insert(&tasm->varmap, varname.cstr, &vardata);
 	harbol_string_clear(&varname);
 }
@@ -388,8 +408,9 @@ NO_NULL int64_t lex_imm_value(struct TaghaAssembler *const tasm)
 {
 	tasm->iter = lex_number(tasm->iter, tasm->lexeme);
 	tasm->prog_counter += 8;
-	const bool is_binary = !harbol_string_cmpcstr(tasm->lexeme, "0b") || !harbol_string_cmpcstr(tasm->lexeme, "0B") ? true : false;
-	return strtoll(is_binary ? tasm->lexeme->cstr+2 : tasm->lexeme->cstr, NULL, is_binary ? 2 : 0);
+	int64_t imm = 0;
+	string_to_int(tasm->lexeme, sizeof imm, &imm, true);
+	return imm;
 }
 
 NO_NULL uint8_t lex_reg_id(struct TaghaAssembler *const tasm)
@@ -433,8 +454,8 @@ NO_NULL void lex_register_deref(struct TaghaAssembler *const restrict tasm, uint
 		}
 		tasm->iter = lex_number(tasm->iter, tasm->lexeme);
 		tasm->iter = skip_whitespace(tasm->iter);
-		const bool is_binary = !harbol_string_cmpcstr(tasm->lexeme, "0b") || !harbol_string_cmpcstr(tasm->lexeme, "0B") ? true : false;
-		const int32_t offset = strtol(is_binary ? tasm->lexeme->cstr+2 : tasm->lexeme->cstr, NULL, is_binary ? 2 : 0);
+		int32_t offset = 0;
+		string_to_int(tasm->lexeme, sizeof offset, &offset, false);
 		//printf("offset == %i\n", offset);
 		*offsetref = closer=='-' ? -offset : offset;
 	}
