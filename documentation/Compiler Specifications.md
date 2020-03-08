@@ -3,7 +3,7 @@ The Tagha Runtime Environment, though I wish to have an official compiler for it
 
 To be a worthy C runtime environment, giving Tagha runtime speed is a hard requirement and has the following specifications needed to accommodate it.
 
-# Tagha Requirement Specification
+# Tagha Required C Specifications
 
 * `double` and `long double` should always be 8 bytes in data size.
 
@@ -22,36 +22,37 @@ To be a worthy C runtime environment, giving Tagha runtime speed is a hard requi
 
 * Return values always go in the `ralaf` (`r0`) register. This includes return values for natives. If the return data is larger than 64-bits, then optimize the function and/or native to use a hidden pointer parameter.
 
-* `argc` and `argv` are implemented in scripts but `env` variable is not implemented.
+* `argc` and `argv` are implementation-defined for Tagha, so `main` could have any type of parameters as necessary to script devs.
 
-* `main` MAY be able to allowed to give whatever parameters the developers embedding tagha want to give to script devs. Just not pointers.
+* if `argv` contains pointers that are not owned by the script, then **the VM _will_ throw a runtime exception if the bytecode dereferences them**. Keep this in mind when passing objects to the scripts. A workaround for this is to allocate from the script's own runtime heap, copy data to it, and pass that to `main`.
 
 
 # Tagha Script File Format
 
- * ------------------------------ start of header ------------------------------
- * 2 bytes: magic verifier ==> 0xC0DE
- * 4 bytes: stack size, stack size needed for the code.
- * 4 bytes: mem region size.
- * 1 byte: flags
- * ------------------------------ end of header ------------------------------
- * .functions table
- * 4 bytes: amount of funcs
- * n bytes: func table
- *     1 byte: 0 if bytecode func, 1 if it's a native, other flags.
- *     4 bytes: string size + '\0' of func string
- *     4 bytes: instr len, 8 if native.
- *     n bytes: func string
- *     if bytecode func: n bytes - instructions
- * 
- * .globalvars table
- * 4 bytes: amount of global vars
- * n bytes: global vars table
- *     1 byte: flags
- *     4 bytes: string size + '\0' of global var string
- *     4 bytes: byte size, 8 if ptr.
- *     n bytes: global var string
- *     if bytecode var: n bytes: data. All 0 if not initialized in script code.
- *     else: 8 bytes: var address (0 at first, filled in during runtime)
- * 
- * .mem region - taken control by the memory pool as both a stack and heap.
+* ------------------------------ start of header ------------------------------
+* 4 bytes: magic verifier ==> TAGHA_MAGIC_VERIFIER
+* 4 bytes: stack size, stack size needed for the code.
+* 4 bytes: mem region size.
+* 4 bytes: flags
+* ------------------------------ end of header ------------------------------
+* .functions table
+* 4 bytes: amount of funcs
+* n bytes: func table
+*     4 bytes: entry size.
+*     4 bytes: 0 if bytecode func, 1 if it's a native, other flags.
+*     4 bytes: string size + '\0' of func string
+*     4 bytes: instr len, 8 if native.
+*     n bytes: func string
+*     if bytecode func: n bytes - instructions
+* 
+* .globalvars table
+* 4 bytes: amount of global vars
+* n bytes: global vars table
+*     4 bytes: entry size.
+*     4 bytes: flags
+*     4 bytes: string size + '\0' of global var string
+*     4 bytes: byte size, 8 if ptr.
+*     n bytes: global var string
+*     n bytes: data. All 0 if not initialized in script code.
+* 
+* .mem region - taken control by the memory pool as both a stack and heap.

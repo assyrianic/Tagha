@@ -8,6 +8,11 @@
 
 //#define TASM_DEBUG
 
+enum {
+	DEFAULT_STACK_SIZE = 0x1000, /// 4kb
+	DEFAULT_HEAP_SIZE = 0x1000
+};
+
 struct Label {
 	struct HarbolByteBuf bytecode;
 	uint64_t addr;
@@ -990,7 +995,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 #endif
 	
 	if( tasm->stacksize==0 )
-		tasm->stacksize = 128;
+		tasm->stacksize = DEFAULT_STACK_SIZE;
 	
 	const size_t memnode_size = (sizeof(intptr_t)==8) ? sizeof(struct HarbolMemNode) : sizeof(struct HarbolMemNode) << 1;
 	const size_t tagha_kvsize = (sizeof(intptr_t)==8) ? sizeof(struct TaghaKeyVal) : sizeof(struct TaghaKeyVal) << 1;
@@ -1045,6 +1050,8 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 	#endif
 		mem_region_size += tagha_kvsize + memnode_size;
 	}
+	if( tasm->heapsize==0 )
+		tasm->heapsize = DEFAULT_HEAP_SIZE;
 	mem_region_size += tasm->heapsize;
 	
 	/// now that we've made the tables and calculated how much memory we need, we finally initialize our header.
@@ -1092,25 +1099,58 @@ void label_free(void **p)
 	free(*p), *p=NULL;
 }
 
+static void tagha_asm_parse_opts(struct TaghaAssembler *const restrict tasm, const char arg[static 1])
+{
+	(void)tasm;
+	(void)arg;
+	/*const char *opt = &arg[1];
+	if( !strncmp(opt, "stack", sizeof "stack"-1) ) {
+		const char *arg = opt + sizeof "stack" - 1;
+		if( *arg != '=' ) {
+			fprintf(stderr, "Tagha Assembler - bad command-line option argument :: '%s'\n", arg);
+		} else {
+			arg++;
+			const size_t num = strtoul(arg, NULL, 10);
+			tasm->stacksize = num;
+		}
+	} else if( !strncmp(opt, "heap", sizeof "heap"-1) ) {
+		const char *arg = opt + sizeof "heap" - 1;
+		if( *arg != '=' ) {
+			fprintf(stderr, "Tagha Assembler - bad command-line option argument :: '%s'\n", arg);
+		} else {
+			arg++;
+			const size_t num = strtoul(arg, NULL, 10);
+			tasm->heapsize = num;
+		}
+	} else {
+		fprintf(stderr, "Tagha Assembler - unknown option arg :: '%s'\n", arg);
+	}*/
+}
+
 int main(const int argc, char *argv[restrict static 1])
 {
-	if( argc<=1 )
+	if( argc<=1 ) {
+		fprintf(stderr, "Tagha Assembler - usage: %s [.tasm file...]\n", argv[0]);
 		return -1;
-	else if( !strcmp(argv[1], "--help") ) {
-		puts("Tagha Assembler - Tagha Runtime Environment Toolkit\nTo compile a tasm script to tbc, supply a script name as a command-line argument to the program.\nExample: './tagha_asm script.tasm'");
+	} else if( !strcmp(argv[1], "--help") ) {
+		puts("Tagha Assembler - Tagha Runtime Environment Toolkit\nTo compile a tasm script to tbc, supply a script name as a command-line argument to the program.\nExample: './tagha_asm [options] script.tasm'");
 	} else if( !strcmp(argv[1], "--version") ) {
-		puts("Tagha Assembler Version 1.0.2");
+		puts("Tagha Assembler Version 1.0.4");
 	} else {
-		for( int i=1 ; i<argc ; i++ ) {
-			FILE *tasmfile = fopen(argv[i], "r");
-			if( tasmfile==NULL )
-				continue;
-			
-			struct TaghaAssembler tasm = EMPTY_TAGHA_ASSEMBLER;
-			tasm.src = tasmfile;
-			tasm.srcsize = get_file_size(tasmfile);
-			tasm.outname = harbol_string_create(argv[i]);
-			tagha_asm_assemble(&tasm);
+		struct TaghaAssembler tasm = EMPTY_TAGHA_ASSEMBLER;
+		for( int i=1; i<argc; i++ ) {
+			if( argv[i][0]=='-' ) {
+				tagha_asm_parse_opts(&tasm, argv[i]);
+			} else {
+				FILE *tasmfile = fopen(argv[i], "r");
+				if( tasmfile==NULL )
+					continue;
+				
+				tasm.src = tasmfile;
+				tasm.srcsize = get_file_size(tasmfile);
+				tasm.outname = harbol_string_create(argv[i]);
+				tagha_asm_assemble(&tasm);
+			}
 		}
 	}
 }

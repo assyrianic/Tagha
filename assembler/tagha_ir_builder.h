@@ -127,6 +127,25 @@ static inline struct TaghaIR tagha_ir_mov_imm(const enum TaghaRegID r, const uin
 	return (struct TaghaIR){ .ir.imm.val=val, .ir.imm.r = r, TIR_MOV_IMM };
 }
 
+static inline struct TaghaIR tagha_ir_mov_imm_f32(const enum TaghaRegID r, const float32_t val)
+{
+	union {
+		uint64_t u64;
+		float32_t f32;
+	} pun = {0};
+	pun.f32 = val;
+	return (struct TaghaIR){ .ir.imm.val=pun.u64, .ir.imm.r = r, TIR_MOV_IMM };
+}
+
+static inline struct TaghaIR tagha_ir_mov_imm_f64(const enum TaghaRegID r, const float64_t val)
+{
+	union {
+		float64_t f64;
+		uint64_t u64;
+	} pun = {val};
+	return (struct TaghaIR){ .ir.imm.val=pun.u64, .ir.imm.r = r, TIR_MOV_IMM };
+}
+
 static inline struct TaghaIR tagha_ir_push(const enum TaghaRegID r)
 {
 	return (struct TaghaIR){ .ir.regs = { r,-1 }, TIR_PUSH };
@@ -182,9 +201,9 @@ static inline struct TaghaIR tagha_ir_jmp(const size_t label)
 	return (struct TaghaIR){ .ir.jmp.label = label, .ir.jmp.cond = true, TIR_JMP };
 }
 
-static inline struct TaghaIR tagha_ir_br(const size_t label, const bool iszero)
+static inline struct TaghaIR tagha_ir_br(const size_t label, const bool not_zero)
 {
-	return (struct TaghaIR){ .ir.jmp.label = label, .ir.jmp.cond = iszero, TIR_BR };
+	return (struct TaghaIR){ .ir.jmp.label = label, .ir.jmp.cond = not_zero, TIR_BR };
 }
 
 static inline struct TaghaIR tagha_ir_ret(void)

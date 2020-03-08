@@ -23,7 +23,7 @@ $native %puts
     ; C standard says that argv strings must be modifiable.
     ; argv[0][3] = 'l';
     ld8     rbeth, [rarg1]
-    movi    rdalath, 102
+    movi    rdalath, 108
     st1     [rbeth+3], rdalath
     movi    ralaf, 1
     ld8     rarg0, [rarg1]

@@ -245,7 +245,7 @@ static inline size_t harbol_align_size(const size_t size, const size_t align)
 
 // these are NOT cryptographic hashes.
 // use ONLY FOR HASH TABLE IMPLEMENTATIONS.
-static inline NO_NULL size_t string_hash(const char key[static 1])
+static inline NO_NULL size_t string_hash(const char key[])
 {
 	size_t h = 0;
 	while( *key != '\0' )
@@ -327,7 +327,7 @@ union HarbolBinIter {
 	union HarbolBinIter *self;
 };
 
-static inline NO_NULL uint8_t *make_buffer_from_binary(const char file_name[restrict static 1])
+static inline NO_NULL uint8_t *make_buffer_from_binary(const char file_name[restrict])
 {
 	FILE *restrict file = fopen(file_name, "rb");
 	if( file==NULL )
@@ -351,7 +351,7 @@ static inline NO_NULL uint8_t *make_buffer_from_binary(const char file_name[rest
 	}
 }
 
-static inline NO_NULL char *make_buffer_from_text(const char file_name[restrict static 1])
+static inline NO_NULL char *make_buffer_from_text(const char file_name[restrict])
 {
 	FILE *restrict file = fopen(file_name, "r");
 	if( file==NULL )
@@ -412,13 +412,9 @@ static inline bool is_valid_ucn(const int32_t c)
 
 static inline NO_NULL NONNULL_RET const char *skip_whitespace(const char *str)
 {
-	if( *str==0 )
-		return str;
-	else {
-		while( *str != 0 && is_whitespace(*str) )
-			str++;
-		return str;
-	}
+	while( *str != 0 && is_whitespace(*str) )
+		str++;
+	return str;
 }
 
 #endif /* HARBOL_COMMON_INCLUDES_INCLUDED */

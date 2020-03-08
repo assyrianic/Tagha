@@ -95,13 +95,13 @@ NO_NULL int main(const int argc, char *argv[const static 1])
 			tagha_module_register_ptr(module, "stderr", stderr);
 			tagha_module_register_ptr(module, "self", module);
 			
-			struct Player player = { -1.f, 1, 1 };
+			struct Player player = { 0 };
 			
 			tagha_module_register_natives(module, (struct TaghaNative[]){
 				{"add_one", native_add_one},
-				{"strlen", native_strlen},
-				{"fgets", native_fgets},
-				{"puts", native_puts},
+				{"strlen",  native_strlen},
+				{"fgets",   native_fgets},
+				{"puts",    native_puts},
 				{"tagha_module_call", native_tagha_module_call},
 				{"tagha_module_create_from_file", native_tagha_module_create_from_file},
 				{"tagha_module_new_from_file", native_tagha_module_new_from_file},
@@ -109,9 +109,24 @@ NO_NULL int main(const int argc, char *argv[const static 1])
 				{NULL, NULL}
 			});
 			
-			//const clock_t start = clock();
-			const int32_t result = tagha_module_run(module, 0, NULL);
-			//printf("result?: %i | profile time: '%f'\n", result, (clock()-start)/(double)CLOCKS_PER_SEC);
+			/// set up traditional argc & argv!
+			/// gotta use 'union TaghaVal' so we can size the array of pointers to 8 bytes each cell.
+			/// char**
+			union TaghaVal script_argv = { .uintptr = harbol_mempool_alloc(&module->heap, sizeof(union TaghaVal) * (argc + 1)) };
+			union TaghaVal *str = ( union TaghaVal* )script_argv.uintptr;
+			for( int i=0; i<argc; i++ ) {
+				const size_t arg_len = strlen(argv[i]) + 1;
+				str[i].uintptr = harbol_mempool_alloc(&module->heap, arg_len);
+				char *s = ( char* )str[i].uintptr;
+				if( s != NULL )
+					strncpy(s, argv[i], arg_len-1);
+			}
+			str[argc].uintptr = ( uintptr_t )NULL;
+			union TaghaVal main_args[2] = {
+				{.size = 2},
+				{.uintptr = script_argv.uintptr}
+			};
+			const int32_t result = tagha_module_run(module, 2, main_args);
 			tagha_module_print_vm_state(module, false);
 			
 			{

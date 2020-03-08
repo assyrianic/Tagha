@@ -178,6 +178,38 @@ creates an IR object that defines an immediate value being copied to a register.
 returns a `struct TaghaIR` object that represents an immediate value copy operation.
 
 
+## tagha_ir_mov_imm_f32
+```c
+struct TaghaIR tagha_ir_mov_imm_f32(const enum TaghaRegID r, const float32_t val)
+```
+
+### Description
+creates an IR object that defines an immediate value being copied to a register.
+
+### Parameters
+* `r` - register name that value will set.
+* `val` - 32-bit float value that `r` will be set to.
+
+### Return Value
+returns a `struct TaghaIR` object that represents an immediate value copy operation.
+
+
+## tagha_ir_mov_imm_f64
+```c
+struct TaghaIR tagha_ir_mov_imm_f64(const enum TaghaRegID r, const float64_t val)
+```
+
+### Description
+creates an IR object that defines an immediate value being copied to a register.
+
+### Parameters
+* `r` - register name that value will set.
+* `val` - 64-bit float value that `r` will be set to.
+
+### Return Value
+returns a `struct TaghaIR` object that represents an immediate value copy operation.
+
+
 ## tagha_ir_push
 ```c
 struct TaghaIR tagha_ir_push(const enum TaghaRegID r)

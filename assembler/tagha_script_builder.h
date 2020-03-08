@@ -8,6 +8,7 @@ typedef struct TaghaScriptBuilder {
 	uint32_t funcs, vars, memsize;
 } STaghaScriptBuilder;
 
+
 static inline struct TaghaScriptBuilder tagha_tbc_gen_create(void)
 {
 	struct TaghaScriptBuilder tbc = { harbol_bytebuffer_create(), harbol_bytebuffer_create(), harbol_bytebuffer_create(), 0,0,0 };
@@ -24,7 +25,7 @@ static inline NO_NULL void tagha_tbc_gen_write_header(struct TaghaScriptBuilder 
 }
 
 
-static inline NEVER_NULL(1,3) void tagha_tbc_gen_write_func(struct TaghaScriptBuilder *const restrict tbc, const bool is_native, const char name[restrict static 1], const struct HarbolByteBuf *const restrict bytecode)
+static inline NEVER_NULL(1,3) void tagha_tbc_gen_write_func(struct TaghaScriptBuilder *const restrict tbc, const bool is_native, const char *restrict name, const struct HarbolByteBuf *const restrict bytecode)
 {
 	uint32_t entry_size = sizeof(struct TaghaItemEntry);
 	uint32_t name_len = (uint32_t)strlen(name) + 1;
@@ -60,7 +61,7 @@ static inline NEVER_NULL(1,3) void tagha_tbc_gen_write_func(struct TaghaScriptBu
 	tbc->funcs++;
 }
 
-static inline NEVER_NULL(1,3,4) void tagha_tbc_gen_write_var(struct TaghaScriptBuilder *const restrict tbc, const uint32_t flags, const char name[restrict static 1], const struct HarbolByteBuf *const restrict datum)
+static inline NEVER_NULL(1,3,4) void tagha_tbc_gen_write_var(struct TaghaScriptBuilder *const restrict tbc, const uint32_t flags, const char *restrict name, const struct HarbolByteBuf *const restrict datum)
 {
 	uint32_t entry_size = sizeof(struct TaghaItemEntry);
 	uint32_t name_len = (uint32_t)strlen(name) + 1;
@@ -93,7 +94,7 @@ static inline NEVER_NULL(1,3,4) void tagha_tbc_gen_write_var(struct TaghaScriptB
 }
 
 
-static inline NO_NULL void tagha_tbc_gen_create_file(struct TaghaScriptBuilder *const restrict tbc, const char filename[restrict static 1])
+static inline NO_NULL void tagha_tbc_gen_create_file(struct TaghaScriptBuilder *const restrict tbc, const char *restrict filename)
 {
 	FILE *restrict tbcfile = fopen(filename, "w+");
 	if( tbcfile==NULL )

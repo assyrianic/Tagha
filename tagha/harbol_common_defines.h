@@ -279,7 +279,13 @@
 
 
 #ifdef COMPILER_MSVC
-#	define inline __inline
+#	ifndef inline
+#		define inline    __inline
+#	endif
+#elif !defined __STDC_VERSION__ || __STDC_VERSION__ < 199901L
+#	ifndef inline
+#		define inline    __inline__
+#	endif
 #endif
 
 

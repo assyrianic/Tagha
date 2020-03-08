@@ -260,7 +260,7 @@ TAGHA_EXPORT const char *tagha_module_get_error(const struct TaghaModule *const 
 		case tagha_err_bad_ptr:      return "Null/Invalid Pointer";
 		case tagha_err_no_func:      return "Missing Function";
 		case tagha_err_bad_script:   return "Null/Invalid Script";
-		case tagha_err_stk_size:     return "Bad stack Size";
+		case tagha_err_stk_size:     return "Bad Stack Size";
 		case tagha_err_no_cfunc:     return "Missing Native";
 		case tagha_err_stk_overflow: return "Stack Overflow";
 		default:                     return "User-Defined/Unknown Error";
@@ -301,7 +301,7 @@ TAGHA_EXPORT void *tagha_module_get_var(struct TaghaModule *const restrict modul
 	return( var != NULL ) ? var->item : NULL;
 }
 
-TAGHA_EXPORT uint8_t tagha_module_get_flags(const struct TaghaModule *module)
+TAGHA_EXPORT uint32_t tagha_module_get_flags(const struct TaghaModule *module)
 {
 	return module->flags;
 }
@@ -335,8 +335,7 @@ TAGHA_EXPORT int32_t tagha_module_invoke(struct TaghaModule *const module,
 			module->errcode = tagha_err_no_func;
 			return -1;
 		} else {
-			const struct TaghaItem item = module->funcs.array[real_index];
-			return _tagha_module_start(module, &item, args, params, retval);
+			return _tagha_module_start(module, module->funcs.array + real_index, args, params, retval);
 		}
 	}
 }
@@ -374,8 +373,8 @@ static int32_t _tagha_module_start(struct TaghaModule *const module,
 			module->errcode = tagha_err_no_func;
 			return -1;
 		} else {
-			/// make sure we have the register space to accommodate the amount of args.
-			memcpy(&module->regs[TAGHA_FIRST_PARAM_REG], &params[0], sizeof(union TaghaVal) * (args));
+			if( params != NULL )
+				memcpy(&module->regs[TAGHA_FIRST_PARAM_REG], &params[0], sizeof(union TaghaVal) * (args));
 			
 			/// prep the stack frame.
 			module->regs[sp].uintptr -= 2 * sizeof(union TaghaVal);
@@ -448,9 +447,9 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		printf("dispatching to '%s'\n", opcode2str[instr]); \
 		/*tagha_module_print_vm_state(vm, false);*/ \
 		goto *dispatch[instr]
-
+	
 #	define GCC_JMP       goto *dispatch[*pc.ptruint8++]
-
+	
 #	define DISPATCH()    GCC_JMP
 	
 	/** nop being first will make sure our VM starts with a dispatch! */
@@ -760,9 +759,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 				pc.ptruint8 = item;
 				DISPATCH();
 			}
-			DISPATCH();
 		}
-		DISPATCH();
 	}
 	exec_callr: { /** char: opcode | char: regid */
 		const uint8_t regid = *pc.ptruint8++;
@@ -797,9 +794,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 				pc.ptruint8 = item;
 				DISPATCH();
 			}
-			DISPATCH();
 		}
-		DISPATCH();
 	}
 	exec_ret: { /** char: opcode */
 		vm->regs[sp] = vm->regs[bp];       /** mov rsp, rbp */

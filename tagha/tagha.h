@@ -120,26 +120,26 @@ typedef struct TaghaItemEntry {
  * 4 bytes: magic verifier ==> TAGHA_MAGIC_VERIFIER
  * 4 bytes: stack size, stack size needed for the code.
  * 4 bytes: mem region size.
- * 4 bytes: flags
+ * 4 bytes: flags.
  * ------------------------------ end of header ------------------------------
- * .functions table
- * 4 bytes: amount of funcs
- * n bytes: func table
+ * .functions table.
+ * 4 bytes: amount of funcs.
+ * n bytes: func table.
  *     4 bytes: entry size.
  *     4 bytes: 0 if bytecode func, 1 if it's a native, other flags.
- *     4 bytes: string size + '\0' of func string
+ *     4 bytes: string size + '\0' of func string.
  *     4 bytes: instr len, 8 if native.
- *     n bytes: func string
- *     if bytecode func: n bytes - instructions
+ *     n bytes: func string.
+ *     if bytecode func: n bytes - instructions.
  * 
- * .globalvars table
- * 4 bytes: amount of global vars
- * n bytes: global vars table
+ * .globalvars table.
+ * 4 bytes: amount of global vars.
+ * n bytes: global vars table.
  *     4 bytes: entry size.
- *     4 bytes: flags
- *     4 bytes: string size + '\0' of global var string
+ *     4 bytes: flags.
+ *     4 bytes: string size + '\0' of global var string.
  *     4 bytes: byte size, 8 if ptr.
- *     n bytes: global var string
+ *     n bytes: global var string.
  *     n bytes: data. All 0 if not initialized in script code.
  * 
  * .mem region - taken control by the memory pool as both a stack and heap.
@@ -197,14 +197,14 @@ typedef enum TaghaErrCode {
  *  represents either a function or global variable.
  */
 enum {
-	TAGHA_FLAG_NATIVE = 1,    /* if is a native C or JIT compiled function. */
-	TAGHA_FLAG_LINKED         /* ptr to native/jit function is linked and verified. */
+	TAGHA_FLAG_NATIVE = 1,    /** if is a native C or JIT compiled function. */
+	TAGHA_FLAG_LINKED         /** ptr to native/jit function is linked and verified. */
 };
 
 typedef struct TaghaItem {
 	void     *item;
 	size_t   bytes;
-	uint32_t flags; // 0-bytecode based, 1-native based, 2-resolved
+	uint32_t flags; /// 0-bytecode based, 1-native based, 2-resolved
 } STaghaItem;
 
 typedef struct TaghaItemMap {
@@ -256,7 +256,7 @@ TAGHA_EXPORT NO_NULL bool tagha_module_register_natives(struct TaghaModule *modu
 TAGHA_EXPORT NO_NULL bool tagha_module_register_ptr(struct TaghaModule *module, const char name[], void *ptr);
 
 TAGHA_EXPORT NO_NULL void *tagha_module_get_var(struct TaghaModule *module, const char name[]);
-TAGHA_EXPORT NO_NULL uint8_t tagha_module_get_flags(const struct TaghaModule *module);
+TAGHA_EXPORT NO_NULL uint32_t tagha_module_get_flags(const struct TaghaModule *module);
 
 TAGHA_EXPORT NEVER_NULL(1,2) int32_t tagha_module_call(struct TaghaModule *module, const char name[], size_t args, const union TaghaVal params[], union TaghaVal *retval);
 TAGHA_EXPORT NEVER_NULL(1) int32_t tagha_module_invoke(struct TaghaModule *module, int64_t func_index, size_t args, const union TaghaVal params[], union TaghaVal *retval);

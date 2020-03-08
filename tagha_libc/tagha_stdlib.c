@@ -40,7 +40,7 @@ static union TaghaVal native_calloc(struct TaghaModule *const module, const size
 {
 	(void)module; (void)args;
 	//return (union TaghaVal){ .uintptr = calloc(params[0].uint64, params[1].uint64) };
-	return (union TaghaVal){ .uintptr = harbol_mempool_alloc(&module->heap, params[0].uint64) };
+	return (union TaghaVal){ .uintptr = harbol_mempool_alloc(&module->heap, params[0].uint64 * params[1].uint64) };
 }
 
 /** void *realloc(void *ptr, size_t size); */
@@ -56,7 +56,7 @@ static union TaghaVal native_alloca(struct TaghaModule *const restrict module, c
 {
 	(void)args;
 	union TaghaVal ret = {0};
-	const size_t cells = harbol_align_size(params[0].size, 8);
+	const size_t cells = harbol_align_size(params[0].uint64, sizeof(union TaghaVal));
 	if( module->regs[sp].uintptr - cells < ( uintptr_t )module->stack.start ) {
 		module->errcode = tagha_err_stk_overflow;
 		ret.uintptr = ( uintptr_t )NULL;
@@ -300,8 +300,8 @@ static union TaghaVal native_qsort(struct TaghaModule *const restrict module, co
 	const size_t num_elements = params[1].size;
 	const size_t element_bytes = params[2].size;
 	const int64_t func_ptr = params[3].int64;
-	const struct TaghaItem *const func = module->funcs.Order.Table[index>0 ? (index - 1) : (-1 - index)].KvPairPtr->stream.uintptr;
-	tagha_module_invoke(module, func, args, params, retval);
+	union TaghaVal ret = {0};
+	tagha_module_invoke(module, func_ptr, 2, const union TaghaVal params[], &ret);
 	*/
 	return (union TaghaVal){ 0 };
 }
