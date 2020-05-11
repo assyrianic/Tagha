@@ -8,7 +8,7 @@
 
 ## Introduction
 
-**Tagha** is a minimal, fast, memory-safe, self-contained register-based virtual machine && runtime environment designed to execute C code as bytecode scripts.
+**Tagha** is a minimal, fast, memory-safe, self-contained, register-based virtual machine runtime environment designed to execute C code as bytecode scripts.
 
 ### Rationale:
 
@@ -24,7 +24,7 @@
 ### Features
 
 * Tagha is 64-bit as the registers and memory addresses are 64-bit. (will run significantly slower (~25%) on 32-bit OS's and drastically slower (~4x-5x) on 32-bit systems.)
-* Self-contained, everything the code base needs is packaged together and there's no dependencies except for some C standard library API.
+* Self-contained, everything the codebase needs is packaged together and there's no dependencies except for some C standard library API.
 * Tagha codebase has its own, open source implementation of libc for scripts to use (INCOMPLETE).
 * Register-based virtual machine that handles immediate values, register, and memory operations.
 * Supports 1, 2, 4, and 8 byte operations.
@@ -34,13 +34,13 @@
 * Embeddable and easy to embed.
 * Tagha allocates only what is needed and performs no garbage collection during runtime.
 * Scripts can call host-defined functions (Native Interface).
-* Host can call script functions and retrieve return values from the script function invocation.
-* Scripts (by exporting tagha's own API) can manually load other scripts as dynamic libraries.
-* Little-endian format (only).
+* Host Applications can call script functions and retrieve return values from the script function invocation.
+* Scripts (by exporting Tagha's own API) can manually load other scripts as dynamic libraries.
+* VM runs as little-endian format (only).
 * Small. The entire runtime as a static library is less than 50kb.
-* Tagha's entire code is **about 1k lines of code**!
-* Speed, tagha is very fast for a virtual machine that does not use a JIT.
-* Memory safe, tagha sandboxes scripts.
+* Tagha's entire VM code is **about 1k lines of code**!
+* Speed, Tagha is very fast for a virtual machine that does not use a JIT.
+* Memory safe, Tagha sandboxes scripts by blocking memory operations that were not allocated by the script's own memory allocator.
 * Tagha Assembler - transforms human readable bytecode into binary bytecode.
 * Tagha IR Builder - header-only, higher level constructs to manually create bytecode.
 * Tagha Bytecode Builder - header-only encoder functions to help with lower level bytecode creation.
@@ -54,13 +54,13 @@
 
 int main(int argc, char *argv[])
 {
-	/* make our script instance. */
+	/** make our script instance. */
 	struct TaghaModule script = tagha_module_create_from_file("my_tbc_script.tbc");
 	
-	/* call 'main' with no command-line arguments. */
+	/** call 'main' with no command-line arguments. */
 	tagha_module_run(&script, 0, NULL);
 	
-	/* clean up script. */
+	/** clean up script. */
 	tagha_module_clear(&script);
 }
 ```
@@ -93,18 +93,18 @@ It is preferable that you compile using GCC or Clang/LLVM.
 
 ### Installation
 
-To embed tagha into your application, you must first build tagha as either a static or shared library.
+To embed Tagha into your application, you must build Tagha as either a static or shared library.
 
-Create a directory with the repo, change directory to the `tagha` folder and run `make` which will create a static library of tagha. To create a shared library version, run `make shared`. To clean up the object files, run `make clean`.
+Create a directory with the repo, change directory to the `tagha` folder and run `make` which will create a static library of Tagha. To create a shared library version, run `make shared`. To clean up the object files, run `make clean`.
 
 If for any reason, you need to create a debug version, run `make debug` to create a debug version of the static library and `make debug_shared` for a debug version of the shared library.
 
-Once you've built tagha as a library, include "tagha.h" into your C or C++ application.
+Once you've built Tagha as a library, include "tagha.h" into your C or C++ application.
 
 If you need help in embedding, check out the C tutorial on embedding in the documentation.
 
 
-To compile `.tasm` scripts to `.tbc` executables, you'll need to build the Tagha Assembler! Change directory into the `assembler` directory and run `make` which will build the tagha assembler executable (named `tagha_asm`).
+To compile `.tasm` scripts to `.tbc` executables, you'll need to build the Tagha Assembler! Change directory into the `assembler` directory and run `make` which will build the Tagha assembler executable (named `tagha_asm`).
 
 ### How to create TBC Scripts with Tagha ASM.
 
@@ -124,17 +124,17 @@ To execute tbc scripts, embed Tagha into your C or C++ application (or build the
 Tagha can be configured in consideration with floating point support.
 If you wish to completely remove floating point support, go into "tagha.h" and comment out these two macros:
 ```c
-#define TAGHA_FLOAT32_DEFINED // allow tagha to use 32-bit floats
-#define TAGHA_FLOAT64_DEFINED // allow tagha to use 64-bit floats
+#define TAGHA_FLOAT32_DEFINED    /// allow tagha to use 32-bit floats
+#define TAGHA_FLOAT64_DEFINED    /// allow tagha to use 64-bit floats
 ```
 
 If you require one of these specific float types, you can comment out the other.
 If you need to re-enable floating point support for all types, simply uncomment the defines.
 
-Note: Changing the header file requires that you recompile the tagha library and assembler for the changes to take effect on the runtime and the scripts.
+Note: Changing the header file requires that you recompile the Tagha library for the changes to take effect on the runtime.
 
 ### Testing
-If you wish to build and test the tagha code base, compile `test_hostapp.c` with either the shared or static tagha library, link with tagha's libc implementation, compile the tagha assembler and compile the testing .tasm scripts in `test_asm`, and run the generated .tbc scripts.
+If you wish to build and test the Tagha code base, compile `test_hostapp.c` with either the shared or static Tagha library, link with Tagha's libc implementation, compile the Tagha assembler and compile the testing .tasm scripts in `test_asm`, and run the generated .tbc scripts.
 
 ## Credits
 
@@ -158,16 +158,16 @@ This project is licensed under MIT License.
 * A: You're right. Any developer could simply choose an existing scripting language and its implementation, but not all developers want to use a scripting language and they could have various reasons like performance, syntax, maybe the runtime is too bloated. Secondly, not all developers might know the language, are comfortable with it, or don't preffer it. Perhaps for the sake of consistency with the code base, they want the entire code to be in one language. After all, to be able to utilize the scripting language, you'd need to learn it as well as learning the exposed API of the host app. My point is, there's a myriad of reasons to choose (or not to choose) a scripting language.
 
 * Q: _**ok, then why not use a dynamic linking/shared library module/plugin system?**_
-* A: Pretty much same answer, any developer could choose to use such a system over a scripting language as well. The benefits of this is having the native speed of the application's implementation language while still being extendable/modifiable. However the drawbacks to a shared library plugin system is that you need to build the plugins for every architecture and OS for the shared plugins to run properly. On Windows OS' this isn't as big a deal but Linux ABIs also use the OS as a factor. Thus, having portable programs isn't easy to implement with using a plugin system without building with ABI in concern.
+* A: Same answer as before, any developer could choose such a system over a scripting language as well. The benefits of this is having the native speed of the application's implementation language while still being extendable/modifiable. However the drawbacks to a shared library plugin system is that you need to build the plugins for every architecture and OS for the shared plugins to run properly. On Windows OS' this isn't as big a deal but Linux ABIs also use the OS as a factor. Thus, having portable programs isn't easy to implement with using a plugin system without taking ABI in account.
 
 * Q: _**then why use Tagha at all?**_
-* A: You should use Tagha if you want a virtual C runtime environment that is fast, minimal, very small memory footprint, completely self-contained within a single static or shared library, open source, and permissive in licensing with no strings attached.
+* A: You should use Tagha if you want a bytecode runtime environment that is fast, minimal, very small memory footprint, completely self-contained within a single static or shared library, open source, and permissive in licensing with no strings attached.
 
-* Q: _**Why implement TaghaVM in C and not C++?**_
-* A: The design choices for TaghaVM was to be minimal, fast, and with little-to-no dependencies except for a few C standard library functions. To achieve this, I needed to use C which allowed me to manipulate memory as fast and seamless as possible. I'm aware C++ allows me to manipulate memory but it's not without trouble.
+* Q: _**Why implement Tagha in C and not C++?**_
+* A: The design choices for Tagha was to be minimal, fast, and with little-to-no dependencies except for a few C standard library functions. To achieve this, I needed to use C which allowed me to manipulate memory as fast and seamless as possible. I'm aware C++ allows me to manipulate memory but it's not without trouble.
 
-* Q: _**Can TaghaVM be used to implement any language?**_
-* A: In theory yes; in practice, yes but not perfectly. If we take Lua's example, Lua values are entirely pointers to a tagged union type in which the types are either a float value, string, or table/hashmap. Tagha is designed as a runtime environment for C, not Lua.
+* Q: _**Can Tagha be used to implement any language?**_
+* A: In theory yes; in practice, yes but not perfectly. If we take Lua's example, Lua values are entirely pointers to a tagged union type in which the types are either a float value, string, or table/hashmap. Tagha is designed as a runtime environment for C, not Lua. Lua as a language can be supported but features like tables have to be translated into more lower level operations or implemented as natives.
 
 * Q: _**Will you implement a JIT in the future?**_
 * A: Maybe. I will likely not implement a JIT but I could make a compromise by adding JIT compiling support.
