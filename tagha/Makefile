@@ -1,8 +1,10 @@
 CC = gcc
 #CC = clang-9
-CFLAGS = -Wextra -Wall -std=c99 -s -O2
-TESTFLAGS = -Wextra -Wall -std=c99 -g -O2
-PROFFLAGS = -Wextra -Wall -std=c99 -pg -O2
+CFLAGS = -Wextra -Wall -Wrestrict -std=c99 -s -O2
+TFLAGS = -Wextra -Wall -Wrestrict -std=c99 -g -O2
+PFlAGS = -Wextra -Wall -Wrestrict -std=c99 -pg -O2
+
+# -static
 
 SRCS = allocators/mempool.c tagha.c
 OBJS = mempool.o tagha.o
@@ -17,14 +19,14 @@ shared:
 	$(CC) $(CFLAGS) -shared $(SRCS) -o $(LIBNAME).so
 
 debug:
-	$(CC) $(TESTFLAGS) -c $(SRCS)
+	$(CC) $(TFLAGS) -c $(SRCS)
 	$(AR) cr $(LIBNAME).a $(OBJS)
 
 debug_shared:
-	$(CC) $(TESTFLAGS) -shared $(SRCS) -o $(LIBNAME).so
+	$(CC) $(TFLAGS) -shared $(SRCS) -o $(LIBNAME).so
 
 profile:
-	$(CC) $(PROFFLAGS) -c $(SRCS)
+	$(CC) $(PFlAGS) -c $(SRCS)
 	$(AR) cr $(LIBNAME).a $(OBJS)
 
 disasm:

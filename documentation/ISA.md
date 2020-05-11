@@ -270,18 +270,6 @@ signed LESS-THAN comparison between two registers.
 signed LESS-EQUAL comparison between two registers.
 
 
-## IGT
-
-### Description
-signed GREATER-THAN comparison between two registers.
-
-
-## IGE
-
-### Description
-signed GREATER-EQUAL comparison between two registers.
-
-
 ## ULT
 
 ### Description
@@ -292,18 +280,6 @@ unsigned LESS-THAN comparison between two registers.
 
 ### Description
 unsigned LESS-EQUAL comparison between two registers.
-
-
-## UGT
-
-### Description
-unsigned GREATER-THAN comparison between two registers.
-
-
-## UGE
-
-### Description
-unsigned GREATER-EQUAL comparison between two registers.
 
 
 ## CMP
@@ -435,18 +411,6 @@ same as ILT but for floating point values. Math is done for the largest data wid
 
 ### Description
 same as ILE but for floating point values. Math is done for the largest data width that's enabled (meaning if both doubles and floats are used, LEF will perform on doubles, regardless whether floats are defined or not).
-
-
-## GTF
-
-### Description
-same as IGT but for floating point values. Math is done for the largest data width that's enabled (meaning if both doubles and floats are used, GTF will perform on doubles, regardless whether floats are defined or not).
-
-
-## GEF
-
-### Description
-same as IGE but for floating point values. Math is done for the largest data width that's enabled (meaning if both doubles and floats are used, GEF will perform on doubles, regardless whether floats are defined or not).
 
 
 # VM Instruction Encoding

@@ -34,10 +34,6 @@
 
 ### TIR_LT
 
-### TIR_GE
-
-### TIR_GT
-
 ### TIR_PUSH
 
 ### TIR_POP
@@ -91,10 +87,6 @@
 ### TIR_FLE
 
 ### TIR_FLT
-
-### TIR_FGE
-
-### TIR_FGT
 
 
 

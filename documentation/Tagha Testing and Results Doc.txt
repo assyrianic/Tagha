@@ -29,6 +29,10 @@ test_dynamicloading - purpose: tests manually loading a script module and callin
 	accurate result:
 		same result as test_factorial.tbc test module.
 
+test_dynamiclinking - purpose: tests dynamically linking a script module and calling factorial from script bytecode!
+	accurate result:
+		same result as test_factorial.tbc test module.
+
 test_native_string.tbc - purpose: profile loading a string and calling a C function 10 million times.
 	accurate result:
 		result?: '120000000' <-- "120,000,000"

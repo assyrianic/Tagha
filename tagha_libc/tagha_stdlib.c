@@ -30,7 +30,7 @@ static union TaghaVal native_safe_free(struct TaghaModule *const module, const s
 	if( *ptrref ) {
 		//free(*ptrref), *ptrref=NULL;
 		harbol_mempool_free(&module->heap, *ptrref); *ptrref=NULL;
-		return (union TaghaVal){ .boolean = true };
+		return (union TaghaVal){ .b00l = true };
 	}
 	return (union TaghaVal){ 0 };
 }

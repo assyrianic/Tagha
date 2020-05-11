@@ -4,8 +4,8 @@
 
 ## Union TaghaVal (Typedef'd as "UTaghaVal")
 
-### boolean
-boolean value.
+### b00l
+bool value.
 
 ### int8
 signed char value.
@@ -107,6 +107,9 @@ integer code that defines an invalid stack size given. Value of `5`.
 ### tagha_err_stk_overflow
 integer code that defines a stack overflow. Value of `6`.
 
+### tagha_err_bad_extern
+int code that defines a bad external call, whether the function owner is nil, the function wasn't linked, or the data was nil. Value of `7`.
+
 
 # Functions/Methods
 
@@ -152,7 +155,7 @@ Deallocates a `struct TaghaModule` pointer's data, deallocates the module pointe
 * `module_ref` - reference to a `struct TaghaModule` pointer.
 
 ### Return Value
-boolean value whether the deallocation was successful or not.
+bool value whether the deallocation was successful or not.
 
 
 ## tagha_module_create_from_file
@@ -197,7 +200,7 @@ Deallocates a `struct TaghaModule`'s stored script data. The module pointer itse
 * `module` - pointer to a `struct TaghaModule` object.
 
 ### Return Value
-boolean value whether the deallocation was successful or not.
+bool value whether the deallocation was successful or not.
 
 
 ## tagha_module_print_vm_state
@@ -210,7 +213,7 @@ Prints the registers and condition flag of a Tagha module object.
 
 ### Parameters
 * `module` - pointer to a `struct TaghaModule` object.
-* `hex` - option boolean to print general-purpose register data as hexadecimal instead of decimal.
+* `hex` - option bool to print general-purpose register data as hexadecimal instead of decimal.
 
 ### Return Value
 None.
@@ -366,6 +369,40 @@ Allows a developer to manually throw a VM runtime exception. Only use within a n
 ### Parameters
 * `module` - pointer to a `struct TaghaModule` object.
 * `err` - value that's higher or lower than 0, can be either a user defined error or an `enum TaghaErrCode` value.
+
+### Return Value
+None.
+
+
+## tagha_module_jit_compile
+```c
+void tagha_module_jit_compile(struct TaghaModule *module, TaghaCFunc *jitfunc(uintptr_t, size_t, void*), void *userdata)
+```
+
+### Description
+JIT compiles an entire module to native code.
+
+### Parameters
+* `module` - pointer to a `struct TaghaModule` object.
+* `jitfunc` - function pointer that is given a `uint8_t*` casted as a `uintptr_t`, the instruction len, and a `void*` to userdata necessary to carry out the JIT compilation process.
+* `userdata` - pointer to user data to pass the jit function pointer.
+
+### Return Value
+None.
+
+
+## tagha_module_resolve_links
+```c
+void tagha_module_resolve_links(struct TaghaModule *module, const struct TaghaModule *lib);
+```
+
+### Description
+Resolves unlinked functions in `module` from `lib`. (NOTE: `lib` could possibly have its own unresolved linkage.)
+Two modules _can_ link to functions from one another and a "lib" module can have its own unresolved links. This API function is a helper to resolve unlinked functions that are in `module`.
+
+### Parameters
+* `module` - pointer to a `struct TaghaModule` object.
+* `lib` - const pointer to a `struct TaghaModule` object.
 
 ### Return Value
 None.

@@ -10,13 +10,17 @@
 
 enum {
 	DEFAULT_STACK_SIZE = 0x1000, /// 4kb
-	DEFAULT_HEAP_SIZE = 0x1000
+	DEFAULT_HEAP_SIZE  = 0x1000
 };
 
 struct Label {
 	struct HarbolByteBuf bytecode;
 	uint64_t addr;
-	bool is_func : 1, is_native : 1;
+	bool
+		is_func : 1,
+		is_native : 1,
+		is_extern : 1
+	;
 };
 
 void label_free(void **);
@@ -123,10 +127,10 @@ static NO_NULL void string_to_int(struct HarbolString *const restrict strobj, co
 		case 4: {
 			if( usign ) {
 				uint32_t *const restrict i = p;
-				*i = (uint32_t)strtoul(is_binary ? strobj->cstr+2 : strobj->cstr, NULL, is_binary ? 2 : 0);
+				*i = ( uint32_t )strtoul(is_binary ? strobj->cstr+2 : strobj->cstr, NULL, is_binary ? 2 : 0);
 			} else {
 				int32_t *const restrict i = p;
-				*i = (int32_t)strtol(is_binary ? strobj->cstr+2 : strobj->cstr, NULL, is_binary ? 2 : 0);
+				*i = ( int32_t )strtol(is_binary ? strobj->cstr+2 : strobj->cstr, NULL, is_binary ? 2 : 0);
 			}
 			break;
 		}
@@ -392,15 +396,39 @@ NO_NULL void tagha_asm_parse_native_directive(struct TaghaAssembler *const tasm)
 	
 	tasm->iter = skip_whitespace(tasm->iter);
 	if( *tasm->iter != '%' ) {
-		tagha_asm_err_out(tasm, "missing %% for native name declaration!");
+		tagha_asm_err_out(tasm, "missing '%%' for native name declaration!");
 		return;
 	}
 	tasm->iter = lex_identifier(tasm->iter, tasm->lexeme);
 	
-	struct Label label = { EMPTY_HARBOL_BYTEBUF, 0, true, true };
+	struct Label label = { EMPTY_HARBOL_BYTEBUF, 0, true, true, false };
 	harbol_linkmap_insert(&tasm->funcmap, tasm->lexeme->cstr, &label);
 #ifdef TASM_DEBUG
 	printf("tasm: added native function '%s'\n", tasm->lexeme->cstr);
+#endif
+}
+
+/// $extern %module@name
+NO_NULL void tagha_asm_parse_extern_directive(struct TaghaAssembler *const tasm)
+{
+	if( tasm->src==NULL || tasm->iter==NULL )
+		return;
+	
+	tasm->iter = skip_whitespace(tasm->iter);
+	if( *tasm->iter != '%' ) {
+		tagha_asm_err_out(tasm, "missing '%%' for extern name declaration!");
+		return;
+	}
+	tasm->iter = lex_identifier(tasm->iter, tasm->lexeme);
+	if( strchr(tasm->lexeme->cstr, '@')==NULL ) {
+		tagha_asm_err_out(tasm, "missing '@' for extern name declaration! (format: 'module@func')");
+		return;
+	}
+	
+	struct Label label = { EMPTY_HARBOL_BYTEBUF, 0, true, false, true };
+	harbol_linkmap_insert(&tasm->funcmap, tasm->lexeme->cstr, &label);
+#ifdef TASM_DEBUG
+	printf("tasm: added extern function '%s'\n", tasm->lexeme->cstr);
 #endif
 }
 
@@ -421,7 +449,7 @@ NO_NULL uint8_t lex_reg_id(struct TaghaAssembler *const tasm)
 		return 0;
 	}
 	tasm->prog_counter++;
-	return *(uint8_t *)harbol_linkmap_key_get(&tasm->regs, tasm->lexeme->cstr);
+	return *( uint8_t* )harbol_linkmap_key_get(&tasm->regs, tasm->lexeme->cstr);
 }
 
 NO_NULL void lex_register_deref(struct TaghaAssembler *const restrict tasm, uint8_t *const restrict idref, int32_t *const restrict offsetref)
@@ -434,7 +462,7 @@ NO_NULL void lex_register_deref(struct TaghaAssembler *const restrict tasm, uint
 		tagha_asm_err_out(tasm, "invalid register name '%s' in register indirection", tasm->lexeme->cstr);
 		return;
 	}
-	*idref = *(uint8_t *)harbol_linkmap_key_get(&tasm->regs, tasm->lexeme->cstr);
+	*idref = *( uint8_t* )harbol_linkmap_key_get(&tasm->regs, tasm->lexeme->cstr);
 	*offsetref = 0;
 	
 	tasm->iter = skip_whitespace(tasm->iter);
@@ -444,8 +472,7 @@ NO_NULL void lex_register_deref(struct TaghaAssembler *const restrict tasm, uint
 	if( closer != '-' && closer != '+' && closer != ']' ) {
 		tagha_asm_err_out(tasm, "invalid offset math operator '%c' in register indirection", closer);
 		return;
-	}
-	else if( closer=='-' || closer=='+' ) {
+	} else if( closer=='-' || closer=='+' ) {
 		tasm->iter++;
 		tasm->iter = skip_whitespace(tasm->iter);
 		if( !is_decimal(*tasm->iter) ) {
@@ -459,6 +486,7 @@ NO_NULL void lex_register_deref(struct TaghaAssembler *const restrict tasm, uint
 		//printf("offset == %i\n", offset);
 		*offsetref = closer=='-' ? -offset : offset;
 	}
+	
 	if( *tasm->iter != ']' ) {
 		tagha_asm_err_out(tasm, "missing closing ']' bracket in register indirection");
 		return;
@@ -486,7 +514,7 @@ NO_NULL int64_t lex_label_value(struct TaghaAssembler *const tasm, const bool fi
 		#endif
 			return label->addr - tasm->prog_counter;
 		}
-		else return label->is_native ? -((int64_t)harbol_linkmap_get_key_index(&tasm->funcmap, tasm->lexeme->cstr) + 1LL) : ((int64_t)harbol_linkmap_get_key_index(&tasm->funcmap, tasm->lexeme->cstr) + 1LL);
+		else return label->is_native ? -(( int64_t )harbol_linkmap_get_key_index(&tasm->funcmap, tasm->lexeme->cstr) + 1LL) : (( int64_t )harbol_linkmap_get_key_index(&tasm->funcmap, tasm->lexeme->cstr) + 1LL);
 	}
 	return 0;
 }
@@ -590,7 +618,7 @@ NO_NULL void tagha_asm_parse_imm(struct TaghaAssembler *const tasm, const bool f
 			tagha_asm_err_out(tasm, "undefined label '%s'.", tasm->active_func_label->cstr);
 			return;
 		}
-		harbol_bytebuffer_insert_int64(&label->bytecode, (uint64_t)immval);
+		harbol_bytebuffer_insert_int64(&label->bytecode, ( uint64_t )immval);
 	}
 }
 
@@ -631,7 +659,7 @@ NO_NULL void tagha_asm_parse_reg_mem(struct TaghaAssembler *const tasm, const bo
 		}
 		harbol_bytebuffer_insert_byte(&label->bytecode, destreg);
 		harbol_bytebuffer_insert_byte(&label->bytecode, srcreg);
-		harbol_bytebuffer_insert_int32(&label->bytecode, (uint32_t)offset);
+		harbol_bytebuffer_insert_int32(&label->bytecode, ( uint32_t )offset);
 	}
 }
 
@@ -671,7 +699,7 @@ NO_NULL void tagha_asm_parse_mem_reg(struct TaghaAssembler *const tasm, const bo
 		}
 		harbol_bytebuffer_insert_byte(&label->bytecode, destreg);
 		harbol_bytebuffer_insert_byte(&label->bytecode, srcreg);
-		harbol_bytebuffer_insert_int32(&label->bytecode, (uint32_t)offset);
+		harbol_bytebuffer_insert_int32(&label->bytecode, ( uint32_t )offset);
 	}
 }
 
@@ -710,7 +738,7 @@ NO_NULL void tagha_asm_parse_reg_imm(struct TaghaAssembler *const tasm, const bo
 			return;
 		}
 		tasm->prog_counter += 8;
-		immval = (int64_t)harbol_linkmap_get_key_index(&tasm->varmap, tasm->lexeme->cstr);
+		immval = ( int64_t )harbol_linkmap_get_key_index(&tasm->varmap, tasm->lexeme->cstr);
 	#ifdef TASM_DEBUG
 		printf("tasm: global's '%s' index is '%zu'\n", tasm->lexeme->cstr, harbol_linkmap_get_key_index(&tasm->varmap, tasm->lexeme->cstr));
 	#endif
@@ -726,7 +754,7 @@ NO_NULL void tagha_asm_parse_reg_imm(struct TaghaAssembler *const tasm, const bo
 			return;
 		}
 		harbol_bytebuffer_insert_byte(&label->bytecode, regid);
-		harbol_bytebuffer_insert_int64(&label->bytecode, (uint64_t)immval);
+		harbol_bytebuffer_insert_int64(&label->bytecode, ( uint64_t )immval);
 	}
 }
 
@@ -775,7 +803,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 	harbol_linkmap_insert(&tasm->opcodes, "not", &(uint8_t){bit_not});
 	
 	/** FIRST PASS. Collect labels + their PC relative addresses */
-#	define MAX_LINE_CHARS    2048
+	enum{ MAX_LINE_CHARS=2048 };
 	char line_buffer[MAX_LINE_CHARS] = {0};
 	
 #ifdef TASM_DEBUG
@@ -817,6 +845,8 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 					tagha_asm_parse_globalvar_directive(tasm);
 				else if( !harbol_string_cmpcstr(tasm->lexeme, "$native") )
 					tagha_asm_parse_native_directive(tasm);
+				else if( !harbol_string_cmpcstr(tasm->lexeme, "$extern") )
+					tagha_asm_parse_extern_directive(tasm);
 				break;
 			}
 			/// holy cannoli, we found a label!
@@ -855,7 +885,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 					}
 					else harbol_string_add_str(tasm->lexeme, tasm->active_func_label);
 				}
-				struct Label label = { EMPTY_HARBOL_BYTEBUF, tasm->prog_counter, funclbl, false };
+				struct Label label = { EMPTY_HARBOL_BYTEBUF, tasm->prog_counter, funclbl, false, false };
 #ifdef TASM_DEBUG
 				printf("%s Label '%s' is located at address: %zu\n", funclbl ? "Func" : "Local", tasm->lexeme->cstr, tasm->prog_counter);
 #endif
@@ -872,7 +902,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 					tagha_asm_err_out(tasm, "unknown opcode '%s'!", tasm->lexeme->cstr);
 					continue;
 				}
-				const uint8_t opcode = *(uint8_t *)harbol_linkmap_key_get(&tasm->opcodes, tasm->lexeme->cstr);
+				const uint8_t opcode = *( uint8_t* )harbol_linkmap_key_get(&tasm->opcodes, tasm->lexeme->cstr);
 				switch( opcode ) {
 					/// opcodes that take no args
 					case halt: case ret: case nop:
@@ -903,11 +933,10 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 					case mov:
 					case add: case sub: case mul: case divi: case mod:
 					case bit_and: case bit_or: case bit_xor: case shl: case shr:
-					case ilt: case ile: case igt: case ige:
-					case ult: case ule: case ugt: case uge: case cmp:
+					case ilt: case ile: case ult: case ule: case cmp:
 				
 					case addf: case subf: case mulf: case divf:
-					case ltf: case lef: case gtf: case gef:
+					case ltf: case lef:
 						tagha_asm_parse_reg_reg(tasm, true); break;
 				}
 			}
@@ -966,7 +995,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 					tagha_asm_err_out(tasm, "unknown opcode '%s'!", tasm->lexeme->cstr);
 					continue;
 				}
-				const uint8_t opcode = *(uint8_t *)harbol_linkmap_key_get(&tasm->opcodes, tasm->lexeme->cstr);
+				const uint8_t opcode = *( uint8_t* )harbol_linkmap_key_get(&tasm->opcodes, tasm->lexeme->cstr);
 				struct Label *label = harbol_linkmap_key_get(&tasm->funcmap, tasm->active_func_label->cstr);
 				harbol_bytebuffer_insert_byte(&label->bytecode, opcode);
 				switch( opcode ) {
@@ -999,10 +1028,9 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 					case mov:
 					case add: case sub: case mul: case divi: case mod:
 					case bit_and: case bit_or: case bit_xor: case shl: case shr:
-					case ilt: case ile: case igt: case ige:
-					case ult: case ule: case ugt: case uge: case cmp:
+					case ilt: case ile: case ult: case ule: case cmp:
 					case addf: case subf: case mulf: case divf:
-					case ltf: case lef: case gtf: case gef:
+					case ltf: case lef:
 						tagha_asm_parse_reg_reg(tasm, false); break;
 				}
 			}
@@ -1018,14 +1046,16 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 	if( tasm->stacksize==0 )
 		tasm->stacksize = DEFAULT_STACK_SIZE;
 	
-	const size_t memnode_size = (sizeof(intptr_t)==8) ? sizeof(struct HarbolMemNode) : sizeof(struct HarbolMemNode) << 1;
-	const size_t tagha_kvsize = (sizeof(intptr_t)==8) ? sizeof(struct TaghaKeyVal) : sizeof(struct TaghaKeyVal) << 1;
+	bool is_64_bit = sizeof(intptr_t)==8;
+	const size_t memnode_size = (is_64_bit) ? sizeof(struct HarbolMemNode) : sizeof(struct HarbolMemNode) << 1;
+	const size_t tagha_kvsize = (is_64_bit) ? sizeof(struct TaghaKeyVal)   : sizeof(struct TaghaKeyVal) << 1;
 	
 	const struct TaghaItemMap empty_set = {0};
-	const size_t tagha_set_buckets_size = (sizeof(intptr_t)==8) ? sizeof *empty_set.buckets : (sizeof *empty_set.buckets) << 1;
-	const size_t tagha_set_arr_size = (sizeof(intptr_t)==8) ? sizeof *empty_set.array : (sizeof *empty_set.array) << 1;
+	const size_t tagha_set_buckets_size = (is_64_bit) ? sizeof *empty_set.buckets : (sizeof *empty_set.buckets) << 1;
+	const size_t tagha_set_arr_size     = (is_64_bit) ? sizeof *empty_set.array   : (sizeof *empty_set.array) << 1;
 	
 	uint32_t mem_region_size = tasm->stacksize * sizeof(union TaghaVal) + memnode_size;
+	mem_region_size += sizeof &empty_set * 2;
 	
 	/// create initial script header.
 	struct TaghaScriptBuilder tbc = tagha_tbc_gen_create();
@@ -1034,13 +1064,19 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 	/// first build func table.
 	mem_region_size += tagha_set_buckets_size * tasm->funcmap.map.count + memnode_size;
 	mem_region_size += tagha_set_arr_size * tasm->funcmap.map.count + memnode_size;
+	
 	for( size_t i=0; i<tasm->funcmap.map.count; i++ ) {
 		struct HarbolKeyVal *node = harbol_linkmap_index_get_kv(&tasm->funcmap, i);
 		struct Label *label = harbol_linkmap_index_get(&tasm->funcmap, i);
 		if( label==NULL )
 			continue;
 		
-		tagha_tbc_gen_write_func(&tbc, label->is_native, node->key.cstr+1, &label->bytecode);
+		uint32_t flags = 0;
+		if( label->is_native )
+			flags |= TAGHA_FLAG_NATIVE;
+		if( label->is_extern )
+			flags |= TAGHA_FLAG_EXTERN;
+		tagha_tbc_gen_write_func(&tbc, flags, node->key.cstr+1, &label->bytecode);
 		
 	#ifdef TASM_DEBUG
 		printf("func label: %s\nData:\n", node->key.cstr);

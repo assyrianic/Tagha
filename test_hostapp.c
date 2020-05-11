@@ -28,7 +28,7 @@ static NO_NULL UTaghaVal
 native_fgets(STaghaModule *const module, const size_t args, const UTaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (UTaghaVal){ .uintptr = ( uintptr_t )fgets(params[0].uintptr, params[1].int32, params[2].uintptr) };
+	return (UTaghaVal){ .uintptr = ( uintptr_t )fgets(( char* )params[0].uintptr, params[1].int32, ( FILE* )params[2].uintptr) };
 }
 
 /** int puts(const char *str); */
@@ -36,14 +36,20 @@ static NO_NULL UTaghaVal
 native_puts(STaghaModule *const module, const size_t args, const UTaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (UTaghaVal){ .int32 = puts(params[0].uintptr) };
+	return (UTaghaVal){ .int32 = puts(( const char* )params[0].uintptr) };
 }
 
 /** int32_t tagha_module_call(struct TaghaModule *module, const char funcname[], size_t args, union TaghaVal params[], union TaghaVal *retval); */
 static UTaghaVal native_tagha_module_call(STaghaModule *const module, const size_t args, const UTaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (UTaghaVal){ .int32 = tagha_module_call(params[0].uintptr, params[1].uintptr, params[2].uint64, params[3].uintptr, params[4].uintptr) };
+	return (UTaghaVal){ .int32 = tagha_module_call(
+									( STaghaModule* )params[0].uintptr,
+									( const char* )params[1].uintptr,
+									params[2].uint64,
+									( union TaghaVal* )params[3].uintptr,
+									( union TaghaVal* )params[4].uintptr)
+			};
 }
 
 /** struct TaghaModule tagha_module_create_from_file(const char filename[]);
@@ -53,8 +59,8 @@ static UTaghaVal native_tagha_module_call(STaghaModule *const module, const size
 static UTaghaVal native_tagha_module_create_from_file(STaghaModule *const restrict module, const size_t args, const UTaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	STaghaModule *const restrict loading_module = params[0].uintptr;
-	*loading_module = tagha_module_create_from_file(params[1].uintptr);
+	STaghaModule *const restrict loading_module = ( STaghaModule* )params[0].uintptr;
+	*loading_module = tagha_module_create_from_file(( const char* )params[1].uintptr);
 	return (UTaghaVal){0};
 }
 
@@ -62,15 +68,25 @@ static UTaghaVal native_tagha_module_create_from_file(STaghaModule *const restri
 static UTaghaVal native_tagha_module_new_from_file(STaghaModule *const module, const size_t args, const UTaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (UTaghaVal){ .uintptr = tagha_module_new_from_file(params[0].uintptr) };
+	return (UTaghaVal){ .uintptr = ( uintptr_t )tagha_module_new_from_file(( const char* )params[0].uintptr) };
 }
 
 /** bool tagha_module_free(struct TaghaModule **modref); */
 static UTaghaVal native_tagha_module_free(STaghaModule *const restrict module, const size_t args, const UTaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	STaghaModule **restrict modref = params[0].uintptr;
-	return (UTaghaVal){ .boolean = tagha_module_free(modref) };
+	STaghaModule **restrict modref = ( STaghaModule** )params[0].uintptr;
+	return (UTaghaVal){ .b00l = tagha_module_free(modref) };
+}
+
+/** void tagha_module_resolve_links(struct TaghaModule *module, struct TaghaModule *lib); */
+static UTaghaVal native_tagha_module_resolve_links(STaghaModule *const restrict module, const size_t args, const UTaghaVal params[const static 1])
+{
+	(void)module; (void)args;
+	STaghaModule       *const restrict caller = ( STaghaModule* )params[0].uintptr;
+	const STaghaModule *const restrict lib    = ( const STaghaModule* )params[1].uintptr;
+	tagha_module_resolve_links(caller==NULL ? module : caller, lib);
+	return (UTaghaVal){ 0 };
 }
 
 
@@ -87,13 +103,13 @@ NO_NULL int main(const int argc, char *argv[const static 1])
 		return 1;
 	} else {
 		struct TaghaModule *module = tagha_module_new_from_file(argv[1]);
-		//puts(module != NULL ? "module is valid." : "module is NULL.");
+		puts(module != NULL ? "module is valid." : "module is NULL.");
 		if( module != NULL ) {
 			/** make our global pointers available, if the module has them defined and uses them. */
-			tagha_module_register_ptr(module, "stdin", stdin);
+			tagha_module_register_ptr(module, "stdin",  stdin);
 			tagha_module_register_ptr(module, "stdout", stdout);
 			tagha_module_register_ptr(module, "stderr", stderr);
-			tagha_module_register_ptr(module, "self", module);
+			tagha_module_register_ptr(module, "self",   module);
 			
 			struct Player player = { 0 };
 			
@@ -106,17 +122,18 @@ NO_NULL int main(const int argc, char *argv[const static 1])
 				{"tagha_module_create_from_file", native_tagha_module_create_from_file},
 				{"tagha_module_new_from_file", native_tagha_module_new_from_file},
 				{"tagha_module_free", native_tagha_module_free},
+				{"tagha_module_resolve_links", native_tagha_module_resolve_links},
 				{NULL, NULL}
 			});
 			
 			/// set up traditional argc & argv!
 			/// gotta use 'union TaghaVal' so we can size the array of pointers to 8 bytes each cell.
 			/// char**
-			union TaghaVal script_argv = { .uintptr = harbol_mempool_alloc(&module->heap, sizeof(union TaghaVal) * (argc + 1)) };
+			union TaghaVal script_argv = { .uintptr = ( uintptr_t )harbol_mempool_alloc(&module->heap, sizeof(union TaghaVal) * (argc + 1)) };
 			union TaghaVal *str = ( union TaghaVal* )script_argv.uintptr;
 			for( int i=0; i<argc; i++ ) {
 				const size_t arg_len = strlen(argv[i]) + 1;
-				str[i].uintptr = harbol_mempool_alloc(&module->heap, arg_len);
+				str[i].uintptr = ( uintptr_t )harbol_mempool_alloc(&module->heap, arg_len);
 				char *s = ( char* )str[i].uintptr;
 				if( s != NULL )
 					strncpy(s, argv[i], arg_len-1);

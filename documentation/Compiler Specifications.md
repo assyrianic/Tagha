@@ -33,26 +33,31 @@ To be a worthy C runtime environment, giving Tagha runtime speed is a hard requi
 * 4 bytes: magic verifier ==> TAGHA_MAGIC_VERIFIER
 * 4 bytes: stack size, stack size needed for the code.
 * 4 bytes: mem region size.
-* 4 bytes: flags
+* 4 bytes: flags.
 * ------------------------------ end of header ------------------------------
-* .functions table
-* 4 bytes: amount of funcs
-* n bytes: func table
+* .functions table.
+* 4 bytes: amount of funcs.
+* n bytes: func table.
 *     4 bytes: entry size.
-*     4 bytes: 0 if bytecode func, 1 if it's a native, other flags.
-*     4 bytes: string size + '\0' of func string
+*     4 bytes: flag: if bytecode func, a native, or extern.
+*     4 bytes: string size + '\0' of func string.
 *     4 bytes: instr len, 8 if native.
-*     n bytes: func string
-*     if bytecode func: n bytes - instructions
+*     n bytes: func string.
+*     if bytecode func:
+*         n bytes - instructions.
+*     else if native func:
+*         8 bytes - function pointer to native.
+*     else if extern func:
+*         8 bytes - pointer to owning module.
 * 
-* .globalvars table
-* 4 bytes: amount of global vars
-* n bytes: global vars table
+* .globalvars table.
+* 4 bytes: amount of global vars.
+* n bytes: global vars table.
 *     4 bytes: entry size.
-*     4 bytes: flags
-*     4 bytes: string size + '\0' of global var string
+*     4 bytes: flags.
+*     4 bytes: string size + '\0' of global var string.
 *     4 bytes: byte size, 8 if ptr.
-*     n bytes: global var string
+*     n bytes: global var string.
 *     n bytes: data. All 0 if not initialized in script code.
 * 
 * .mem region - taken control by the memory pool as both a stack and heap.

@@ -60,7 +60,7 @@ None.
 
 ## tagha_tbc_gen_write_func
 ```c
-void tagha_tbc_gen_write_func(struct TaghaScriptBuilder *const restrict tbc, const bool is_native, const char name[restrict static 1], const struct HarbolByteBuf *const restrict bytecode)
+void tagha_tbc_gen_write_func(struct TaghaScriptBuilder *const restrict tbc, const int32_t flags, const char name[restrict static 1], const struct HarbolByteBuf *const restrict bytecode)
 ```
 
 ### Description
@@ -68,7 +68,7 @@ writes a single function into the function table buffer, increments the amount o
 
 ### Parameters
 * `tbc` - pointer to a `struct TaghaScriptBuilder` object.
-* `is_native` - if the function being written is a native.
+* `flags` - flags for if the function being written is a native or extern.
 * `name` - NULL terminated string name of the function.
 * `bytecode` - compiled or built bytecode of the function, should be `NULL` if the function is a native.
 

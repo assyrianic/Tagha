@@ -31,14 +31,13 @@ typedef enum TaghaIRType {
 	TIR_EQ,
 	TIR_LE,
 	TIR_LT,
-	TIR_GE,
-	TIR_GT,
 	
 	/// data transfer
 	TIR_PUSH,
 	TIR_POP,
 	TIR_MOV,
 	TIR_MOV_IMM,
+	TIR_SETC,
 	
 	/// control flow
 	TIR_RET,
@@ -81,8 +80,6 @@ typedef enum TaghaIRType {
 	/// float relational ops
 	TIR_FLE,
 	TIR_FLT,
-	TIR_FGE,
-	TIR_FGT,
 } ETaghaIRType;
 
 
@@ -144,6 +141,11 @@ static inline struct TaghaIR tagha_ir_mov_imm_f64(const enum TaghaRegID r, const
 		uint64_t u64;
 	} pun = {val};
 	return (struct TaghaIR){ .ir.imm.val=pun.u64, .ir.imm.r = r, TIR_MOV_IMM };
+}
+
+static inline struct TaghaIR tagha_ir_setc(const enum TaghaRegID r)
+{
+	return (struct TaghaIR){ .ir.regs = { r,-1 }, TIR_SETC };
 }
 
 static inline struct TaghaIR tagha_ir_push(const enum TaghaRegID r)
@@ -290,8 +292,6 @@ static NO_NULL struct HarbolByteBuf taghair_func_to_bytecode(const struct TaghaI
 				case TIR_EQ: prog_counter += tagha_bc_op_reg_reg(NULL, cmp, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_LE: prog_counter += tagha_bc_op_reg_reg(NULL, (i->usign) ? ule: ile, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_LT: prog_counter += tagha_bc_op_reg_reg(NULL, (i->usign) ? ult: ilt, i->ir.regs[0], i->ir.regs[1]); break;
-				case TIR_GE: prog_counter += tagha_bc_op_reg_reg(NULL, (i->usign) ? uge: ige, i->ir.regs[0], i->ir.regs[1]); break;
-				case TIR_GT: prog_counter += tagha_bc_op_reg_reg(NULL, (i->usign) ? ugt: igt, i->ir.regs[0], i->ir.regs[1]); break;
 				
 				case TIR_FADD: prog_counter += tagha_bc_op_reg_reg(NULL, addf, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_FSUB: prog_counter += tagha_bc_op_reg_reg(NULL, subf, i->ir.regs[0], i->ir.regs[1]); break;
@@ -300,14 +300,13 @@ static NO_NULL struct HarbolByteBuf taghair_func_to_bytecode(const struct TaghaI
 				
 				case TIR_FLE: prog_counter += tagha_bc_op_reg_reg(NULL, lef, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_FLT: prog_counter += tagha_bc_op_reg_reg(NULL, ltf, i->ir.regs[0], i->ir.regs[1]); break;
-				case TIR_FGE: prog_counter += tagha_bc_op_reg_reg(NULL, gef, i->ir.regs[0], i->ir.regs[1]); break;
-				case TIR_FGT: prog_counter += tagha_bc_op_reg_reg(NULL, gtf, i->ir.regs[0], i->ir.regs[1]); break;
 				
 				/// reg only type instrs.
 				case TIR_POP: prog_counter += tagha_bc_op_reg(NULL, pop, i->ir.regs[0]); break;
 				case TIR_NOT: prog_counter += tagha_bc_op_reg(NULL, bit_not, i->ir.regs[0]); break;
 				case TIR_NEG: prog_counter += tagha_bc_op_reg(NULL, neg, i->ir.regs[0]); break;
 				case TIR_PUSH: prog_counter += tagha_bc_op_reg(NULL, push, i->ir.regs[0]); break;
+				case TIR_SETC: prog_counter += tagha_bc_op_reg(NULL, setc, i->ir.regs[0]); break;
 				
 				case TIR_F32_TO_F64: prog_counter += tagha_bc_op_reg(NULL, f32tof64, i->ir.regs[0]); break;
 				case TIR_F64_TO_F32: prog_counter += tagha_bc_op_reg(NULL, f64tof32, i->ir.regs[0]); break;
@@ -379,8 +378,6 @@ static NO_NULL struct HarbolByteBuf taghair_func_to_bytecode(const struct TaghaI
 				case TIR_EQ: prog_counter += tagha_bc_op_reg_reg(&bytecode, cmp, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_LE: prog_counter += tagha_bc_op_reg_reg(&bytecode, (i->usign) ? ule: ile, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_LT: prog_counter += tagha_bc_op_reg_reg(&bytecode, (i->usign) ? ult: ilt, i->ir.regs[0], i->ir.regs[1]); break;
-				case TIR_GE: prog_counter += tagha_bc_op_reg_reg(&bytecode, (i->usign) ? uge: ige, i->ir.regs[0], i->ir.regs[1]); break;
-				case TIR_GT: prog_counter += tagha_bc_op_reg_reg(&bytecode, (i->usign) ? ugt: igt, i->ir.regs[0], i->ir.regs[1]); break;
 				
 				case TIR_FADD: prog_counter += tagha_bc_op_reg_reg(&bytecode, addf, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_FSUB: prog_counter += tagha_bc_op_reg_reg(&bytecode, subf, i->ir.regs[0], i->ir.regs[1]); break;
@@ -389,14 +386,13 @@ static NO_NULL struct HarbolByteBuf taghair_func_to_bytecode(const struct TaghaI
 				
 				case TIR_FLE: prog_counter += tagha_bc_op_reg_reg(&bytecode, lef, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_FLT: prog_counter += tagha_bc_op_reg_reg(&bytecode, ltf, i->ir.regs[0], i->ir.regs[1]); break;
-				case TIR_FGE: prog_counter += tagha_bc_op_reg_reg(&bytecode, gef, i->ir.regs[0], i->ir.regs[1]); break;
-				case TIR_FGT: prog_counter += tagha_bc_op_reg_reg(&bytecode, gtf, i->ir.regs[0], i->ir.regs[1]); break;
 				
 				/// reg only type instrs.
 				case TIR_POP: prog_counter += tagha_bc_op_reg(&bytecode, pop, i->ir.regs[0]); break;
 				case TIR_NOT: prog_counter += tagha_bc_op_reg(&bytecode, bit_not, i->ir.regs[0]); break;
 				case TIR_NEG: prog_counter += tagha_bc_op_reg(&bytecode, neg, i->ir.regs[0]); break;
 				case TIR_PUSH: prog_counter += tagha_bc_op_reg(&bytecode, push, i->ir.regs[0]); break;
+				case TIR_SETC: prog_counter += tagha_bc_op_reg(&bytecode, setc, i->ir.regs[0]); break;
 				
 				case TIR_F32_TO_F64: prog_counter += tagha_bc_op_reg(&bytecode, f32tof64, i->ir.regs[0]); break;
 				case TIR_F64_TO_F32: prog_counter += tagha_bc_op_reg(&bytecode, f64tof32, i->ir.regs[0]); break;
@@ -506,10 +502,6 @@ static NO_NULL struct HarbolString taghair_func_to_tasm(const struct TaghaIRFunc
 					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[(i->usign) ? ule : ile], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_LT:
 					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[(i->usign) ? ult : ilt], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
-				case TIR_GE:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[(i->usign) ? uge : ige], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
-				case TIR_GT:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[(i->usign) ? ugt : igt], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				
 				case TIR_FADD:
 					harbol_string_add_format(&str, "    %s       r%s, r%s\n", opcode2str[addf], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
@@ -524,10 +516,6 @@ static NO_NULL struct HarbolString taghair_func_to_tasm(const struct TaghaIRFunc
 					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[lef], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_FLT:
 					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[ltf], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
-				case TIR_FGE:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[gef], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
-				case TIR_FGT:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[gtf], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				
 				/// reg only type instrs.
 				case TIR_POP:
@@ -538,6 +526,8 @@ static NO_NULL struct HarbolString taghair_func_to_tasm(const struct TaghaIRFunc
 					harbol_string_add_format(&str, "    %s        r%s\n", opcode2str[neg], regs2str[i->ir.regs[0]]); break;
 				case TIR_PUSH:
 					harbol_string_add_format(&str, "    %s       r%s\n", opcode2str[push], regs2str[i->ir.regs[0]]); break;
+				case TIR_SETC:
+					harbol_string_add_format(&str, "    %s       r%s\n", opcode2str[setc], regs2str[i->ir.regs[0]]); break;
 				
 				case TIR_F32_TO_F64:
 					harbol_string_add_format(&str, "    %s r%s\n", opcode2str[f32tof64], regs2str[i->ir.regs[0]]); break;

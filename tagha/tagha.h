@@ -1,12 +1,13 @@
-#pragma once
+#ifndef TAGHA_INCLUDED
+#	define TAGHA_INCLUDED
 
 #define TAGHA_VERSION_MAJOR    1
-#define TAGHA_VERSION_MINOR    0
-#define TAGHA_VERSION_PATCH    0
-#define TAGHA_VERSION_PHASE    'beta'
+#define TAGHA_VERSION_MINOR    1
+#define TAGHA_VERSION_PATCH    5
+#define TAGHA_VERSION_PHASE    "beta"
 #define TAGHA_STR_HELPER(x)    #x
 #define TAGHA_STRINGIFY(x)     TAGHA_STR_HELPER(x)
-#define TAGHA_VERSION_STRING   TAGHA_STRINGIFY(TAGHA_VERSION_MAJOR) "." TAGHA_STRINGIFY(TAGHA_VERSION_MINOR) "." TAGHA_STRINGIFY(TAGHA_VERSION_PATCH) " " TAGHA_STRINGIFY(TAGHA_VERSION_PHASE)
+#define TAGHA_VERSION_STRING   TAGHA_STRINGIFY(TAGHA_VERSION_MAJOR) "." TAGHA_STRINGIFY(TAGHA_VERSION_MINOR) "." TAGHA_STRINGIFY(TAGHA_VERSION_PATCH) " " TAGHA_VERSION_PHASE
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,61 +41,60 @@ extern "C" {
 typedef union TaghaVal {
 	uint64_t       uint64;
 	int64_t        int64;
+#ifdef TAGHA_FLOAT64_DEFINED
+	float64_t      float64;
+#endif
 	
+	/// for general pointer data, use (u)intptr. 
 	intptr_t       intptr;
 	uintptr_t      uintptr;
 	
 	size_t         size;
 	ssize_t        ssize;
 	
-	uint32_t       uint32,  uint32a[2];
-	int32_t        int32,   int32a[2];
-	
-	uint16_t       uint16,  uint16a[4];
-	int16_t        int16,   int16a[4];
-	
-	uint8_t        uint8,   uint8a[8];
-	int8_t         int8,    int8a[8];
-	bool           boolean, boola[8];
-	
+	uint32_t       uint32,  uint32a[sizeof(uint64_t) / sizeof(uint32_t)];
+	int32_t        int32,   int32a[sizeof(uint64_t) / sizeof(int32_t)];
 #ifdef TAGHA_FLOAT32_DEFINED
-	float32_t      float32, float32a[2];
+	float32_t      float32, float32a[sizeof(uint64_t) / sizeof(float32_t)];
 #endif
-#ifdef TAGHA_FLOAT64_DEFINED
-	float64_t      float64;
-#endif
+	
+	uint16_t       uint16,  uint16a[sizeof(uint64_t) / sizeof(uint16_t)];
+	int16_t        int16,   int16a[sizeof(uint64_t) / sizeof(int16_t)];
+	
+	uint8_t        uint8,   uint8a[sizeof(uint64_t) / sizeof(uint8_t)];
+	int8_t         int8,    int8a[sizeof(uint64_t) / sizeof(int8_t)];
+	bool           b00l,    boola[sizeof(uint64_t) / sizeof(bool)];
 } UTaghaVal;
 
 
 typedef union TaghaPtr {
-	const uint64_t       *restrict ptruint64;
-	const uint32_t       *restrict ptruint32;
-	const uint16_t       *restrict ptruint16;
-	const uint8_t        *restrict ptruint8;
+	const uint64_t       *restrict uint64;
+	const uint32_t       *restrict uint32;
+	const uint16_t       *restrict uint16;
+	const uint8_t        *restrict uint8;
 	
-	const int64_t        *restrict ptrint64;
-	const int32_t        *restrict ptrint32;
-	const int16_t        *restrict ptrint16;
-	const int8_t         *restrict ptrint8;
+	const int64_t        *restrict int64;
+	const int32_t        *restrict int32;
+	const int16_t        *restrict int16;
+	const int8_t         *restrict int8;
 	
-	const size_t         *restrict ptrsize;
-	const ssize_t        *restrict ptrssize;
+	const size_t         *restrict size;
+	const ssize_t        *restrict ssize;
 #ifdef TAGHA_FLOAT32_DEFINED
-	const float32_t      *restrict ptrfloat32;
+	const float32_t      *restrict float32;
 #endif
 #ifdef TAGHA_FLOAT64_DEFINED
-	const float64_t      *restrict ptrfloat64;
+	const float64_t      *restrict float64;
 #endif
 	const char           *restrict string;
 	
-	const union TaghaVal *restrict ptrval;
-	const union TaghaPtr *restrict ptrself;
-	const void           *restrict ptrvoid;
+	const union TaghaVal *restrict val;
+	const union TaghaPtr *restrict self;
 } UTaghaPtr;
 
 
 enum {
-	TAGHA_MAGIC_VERIFIER = 0x7A6AC0DE
+	TAGHA_MAGIC_VERIFIER = 0x7A6AC0DE   /// "tagha code"
 };
 
 typedef struct TaghaHeader {
@@ -126,11 +126,16 @@ typedef struct TaghaItemEntry {
  * 4 bytes: amount of funcs.
  * n bytes: func table.
  *     4 bytes: entry size.
- *     4 bytes: 0 if bytecode func, 1 if it's a native, other flags.
+ *     4 bytes: flag: if bytecode func, a native, or extern.
  *     4 bytes: string size + '\0' of func string.
  *     4 bytes: instr len, 8 if native.
  *     n bytes: func string.
- *     if bytecode func: n bytes - instructions.
+ *     if bytecode func:
+ *         n bytes - instructions.
+ *     else if native func:
+ *         8 bytes - function pointer to native.
+ *     else if extern func:
+ *         8 bytes - pointer to owning module.
  * 
  * .globalvars table.
  * 4 bytes: amount of global vars.
@@ -160,17 +165,11 @@ typedef struct TaghaItemEntry {
 typedef enum TaghaRegID { TAGHA_REG_FILE MaxRegisters } ETaghaRegID;
 #undef Y
 
-#ifndef TAGHA_FIRST_PARAM_REG
-#	define TAGHA_FIRST_PARAM_REG    semkath
-#endif
-
-#ifndef TAGHA_LAST_PARAM_REG
-#	define TAGHA_LAST_PARAM_REG     dadeh
-#endif
-
-#ifndef TAGHA_REG_PARAMS_MAX
-#	define TAGHA_REG_PARAMS_MAX     (TAGHA_LAST_PARAM_REG - TAGHA_FIRST_PARAM_REG + 1)
-#endif
+enum {
+	TAGHA_FIRST_PARAM_REG = semkath,
+	TAGHA_LAST_PARAM_REG  = dadeh,
+	TAGHA_REG_PARAMS_MAX  = (TAGHA_LAST_PARAM_REG - TAGHA_FIRST_PARAM_REG + 1)
+};
 
 
 struct TaghaModule;
@@ -191,20 +190,23 @@ typedef enum TaghaErrCode {
 	tagha_err_bad_script,
 	tagha_err_stk_size,
 	tagha_err_stk_overflow,
+	tagha_err_bad_extern,
 } ETaghaErrCode;
 
-/** Tagha Item
- *  represents either a function or global variable.
+/**
+ * Tagha Item
+ * represents either a function or global variable.
  */
 enum {
-	TAGHA_FLAG_NATIVE = 1,    /** if is a native C or JIT compiled function. */
-	TAGHA_FLAG_LINKED         /** ptr to native/jit function is linked and verified. */
+	TAGHA_FLAG_NATIVE = 1,  /** if is a native C or JIT compiled function. */
+	TAGHA_FLAG_EXTERN = 2,  /** function is from outside module. */
+	TAGHA_FLAG_LINKED = 4,  /** ptr to native/extern function has been linked. */
 };
 
 typedef struct TaghaItem {
-	void     *item;
-	size_t   bytes;
-	uint32_t flags; /// 0-bytecode based, 1-native based, 2-resolved
+	uintptr_t item, owner; /// Add an owner so we can do dynamic linking.
+	size_t    bytes;
+	uint32_t  flags;       /// 0-bytecode based, 1-native based, 2-resolved, 4-extern
 } STaghaItem;
 
 typedef struct TaghaItemMap {
@@ -221,22 +223,24 @@ typedef struct TaghaItemMap {
 } STaghaItemMap;
 
 
-/** Script/Module Structure.
+/**
+ * Script/Module Structure.
  * Consists of:
- * A virtual machine context aka CPU.
- * An internal stack + heap controlled by a freelist allocator.
+ * An internal stack & heap freelist allocator.
  * Dynamic symbol tables for functions and global variables.
  * An internal stack.
+ * Register file.
  * pointer to the raw script data.
- * and error code status.
+ * Segment bounds.
+ * Error code status.
+ * Condition flag.
+ * and Script flags.
  */
 typedef struct TaghaModule {
 	struct HarbolMemPool heap;
-	struct TaghaItemMap funcs, vars;
-	struct { union TaghaVal *start; size_t size; } stack;
-	union TaghaVal regs[MaxRegisters];
-	uint8_t *script, *ip;
-	uintptr_t start_seg, end_seg;
+	union TaghaVal regs[MaxRegisters], *stack;
+	struct TaghaItemMap *funcs, *vars;
+	uintptr_t script, ip, start_seg, end_seg;
 	enum TaghaErrCode errcode;
 	uint32_t condflag, flags;
 } STaghaModule;
@@ -262,7 +266,8 @@ TAGHA_EXPORT NEVER_NULL(1,2) int32_t tagha_module_call(struct TaghaModule *modul
 TAGHA_EXPORT NEVER_NULL(1) int32_t tagha_module_invoke(struct TaghaModule *module, int64_t func_index, size_t args, const union TaghaVal params[], union TaghaVal *retval);
 TAGHA_EXPORT NEVER_NULL(1) int32_t tagha_module_run(struct TaghaModule *module, size_t argc, const union TaghaVal argv[]);
 TAGHA_EXPORT NO_NULL void tagha_module_throw_error(struct TaghaModule *module, int32_t err);
-TAGHA_EXPORT NO_NULL void tagha_module_jit_compile(struct TaghaModule *module, TaghaCFunc *jitfunc(const uint8_t*, size_t, void *), void *userdata);
+TAGHA_EXPORT NO_NULL void tagha_module_jit_compile(struct TaghaModule *module, TaghaCFunc *jitfunc(uintptr_t, size_t, void*), void *userdata);
+TAGHA_EXPORT NO_NULL void tagha_module_resolve_links(struct TaghaModule *module, const struct TaghaModule *lib);
 
 
 #define TAGHA_INSTR_SET \
@@ -277,21 +282,33 @@ TAGHA_EXPORT NO_NULL void tagha_module_jit_compile(struct TaghaModule *module, T
 	X(add) X(sub) X(mul) X(divi) X(mod) \
 	X(bit_and) X(bit_or) X(bit_xor) X(bit_not) X(shl) X(shr) X(neg) \
 	\
-	X(ilt) X(ile) X(igt) X(ige) \
-	X(ult) X(ule) X(ugt) X(uge) X(cmp) \
+	X(ilt) X(ile) X(ult) X(ule) \
+	X(cmp) X(setc) \
 	\
 	X(jmp) X(jz) X(jnz) \
 	X(call) X(callr) X(ret) \
 	X(nop) \
 	\
 	X(f32tof64) X(f64tof32) X(itof64) X(itof32) X(f64toi) X(f32toi) \
-	X(addf) X(subf) X(mulf) X(divf) X(negf) \
-	X(ltf) X(lef) X(gtf) X(gef)
+	X(addf) X(subf) X(mulf) X(divf) X(negf) X(ltf) X(lef)
 
 #define X(x) x,
-typedef enum TaghaInstrSet { TAGHA_INSTR_SET } ETaghaInstrSet;
+typedef enum TaghaInstrSet { TAGHA_INSTR_SET MaxInstrs } ETaghaInstrSet;
 #undef X
 
+
+/**
+typedef struct TaghaEnv {
+	struct HarbolLinkmap
+		modules, /// map[string]STaghaModule
+		natives, /// map[string]TaghaCFunc
+		globals  /// map[string]*void
+	;
+} STaghaEnv;
+*/
+
 #ifdef __cplusplus
-}
+} /// extern "C"
 #endif
+
+#endif /** TAGHA_INCLUDED */

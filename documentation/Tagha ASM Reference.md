@@ -70,9 +70,16 @@ $global ptr, 8,   word 0 ; 'word' is redundant since we're only zeroing.
 ```
 
 #### native
-the `$native` directive exists to expose the the C or C++ native to the script. The directive only takes one argument which is the name of the native you want to expose but with a "function" syntax (having the % percent sign as the first character to denote that it's indeed a function). Here's an example tasm code that exposes `malloc` from `stdlib.h` to a script:
+the `$native` directive exists to expose the C or C++ native to the script. The directive only takes one argument which is the name of the native you want to expose but with a "function" syntax (having the % percent sign as the first character to denote that it's indeed a function). Here's an example tasm code that exposes `malloc` from `stdlib.h` to a script:
 ```asm
 $native %malloc
+```
+
+#### extern
+the `$extern` directive exists to do dynamic linking between scripts. The directive takes one argument which is the name of the module we link to and the function name. The module and function names are separated by the at-sign '@'.
+Here's an example of how it's used.:
+```asm
+$extern %module_name@function_to_link
 ```
 
 # Code Syntax
