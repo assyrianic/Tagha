@@ -335,6 +335,11 @@ TAGHA_EXPORT void *tagha_module_get_var(struct TaghaModule *const restrict modul
 	return( var != NULL ) ? ( void* )var->item : NULL;
 }
 
+TAGHA_EXPORT const void *tagha_module_get_func(struct TaghaModule *const restrict module, const char name[restrict static 1])
+{
+	return _tagha_key_get_item(module->funcs, name);
+}
+
 TAGHA_EXPORT uint32_t tagha_module_get_flags(const struct TaghaModule *module)
 {
 	return module->flags;
@@ -355,22 +360,16 @@ TAGHA_EXPORT int32_t tagha_module_call(struct TaghaModule *const restrict module
 }
 
 TAGHA_EXPORT int32_t tagha_module_invoke(struct TaghaModule *const module,
-											const int64_t func_index,
+											const void *const restrict f,
 											const size_t args,
 											const union TaghaVal params[restrict],
 											union TaghaVal *const restrict retval)
 {
-	if( !func_index ) {
+	if( f==NULL ) {
 		module->errcode = tagha_err_no_func;
 		return -1;
 	} else {
-		const size_t real_index = ((func_index>0) ? (func_index - 1) : (-1 - func_index));
-		if( real_index >= module->funcs->arrlen ) {
-			module->errcode = tagha_err_no_func;
-			return -1;
-		} else {
-			return _tagha_module_start(module, module->funcs->array + real_index, args, params, retval);
-		}
+		return _tagha_module_start(module, f, args, params, retval);
 	}
 }
 
@@ -517,7 +516,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 			} else { \
 				/*usleep(100);*/ \
 				printf("dispatching to '%s'\n", opcode2str[instr]); \
-				/*tagha_module_print_vm_state(vm, false);*/ \
+				tagha_module_print_vm_state(vm, false); \
 				goto *dispatch[instr]; \
 			} \
 		} while( 0 )
@@ -530,50 +529,52 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 #	define REG2(r)       (r  >>  8)
 	
 	/** nop being first will make sure our VM starts with a dispatch! */
-	exec_nop: {
+	exec_nop: { /** u8: opcode */
 		DISPATCH();
 	}
 	/** push a register's contents. */
-	exec_push: { /** char: opcode | char: regid */
+	exec_push: { /** u8: opcode | u8: regid */
 		vm->regs[sp].uintptr -= sizeof(union TaghaVal);
 		*( union TaghaVal* )vm->regs[sp].uintptr = vm->regs[*pc.uint8++];
 		DISPATCH();
 	}
 	/** pops a value from the stack into a register then reduces stack by 8 bytes. */
-	exec_pop: { /** char: opcode | char: regid */
+	exec_pop: { /** u8: opcode | u8: regid */
 		vm->regs[*pc.uint8++] = *( union TaghaVal* )vm->regs[sp].uintptr;
 		vm->regs[sp].uintptr += sizeof(union TaghaVal);
 		DISPATCH();
 	}
-	exec_ldvar: { /** char: opcode | char: regid | u64: index */
+	exec_ldvar: { /** u8: opcode | u8: regid | u64: index */
 		const uint8_t regid = *pc.uint8++;
 		vm->regs[regid].uintptr = vm->vars->array[*pc.uint64++].item;
 		DISPATCH();
 	}
-	/** loads a function index which could be a native */
-	exec_ldfunc: { /** char: opcode | char: regid | i64: index */
+	/** loads a function object. */
+	exec_ldfunc: { /** u8: opcode | u8: regid | i64: index */
 		const uint8_t regid = *pc.uint8++;
-		vm->regs[regid] = *pc.val++;
+		const int64_t index = *pc.int64++;
+		const ssize_t offset = (index > 0LL) ? index - 1LL : -1LL - index;
+		vm->regs[regid].uintptr = ( offset < 0 ) ? 0 : ( uintptr_t )&vm->funcs->array[offset];
 		DISPATCH();
 	}
-	exec_ldaddr: { /** char: opcode | char: regid1 | char: regid2 | i32: offset */
+	exec_ldaddr: { /** u8: opcode | u8: regid1 | u8: regid2 | i32: offset */
 		const uint16_t regids = *pc.uint16++;
 		vm->regs[REG1(regids)].uintptr = vm->regs[REG2(regids)].uintptr + *pc.int32++;
 		DISPATCH();
 	}
 	
-	exec_movi: { /** char: opcode | char: regid | i64: imm */
+	exec_movi: { /** u8: opcode | u8: regid | i64: imm */
 		const uint8_t regid = *pc.uint8++;
 		vm->regs[regid] = *pc.val++;
 		DISPATCH();
 	}
-	exec_mov: { /** char: opcode | char: dest reg | char: src reg */
+	exec_mov: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 		vm->regs[REG1(regids)] = vm->regs[REG2(regids)];
 		DISPATCH();
 	}
 	
-	exec_ld1: { /** char: opcode | char: dest reg | char: src reg | i32: offset */
+	exec_ld1: { /** u8: opcode | u8: dest reg | u8: src reg | i32: offset */
 		const uint16_t regids = *pc.uint16++;
 		const uintptr_t mem = vm->regs[REG2(regids)].uintptr + *pc.int32++;
 		if( mem < vm->start_seg || mem > vm->end_seg ) {
@@ -585,7 +586,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 			DISPATCH();
 		}
 	}
-	exec_ld2: { /** char: opcode | char: dest reg | char: src reg | i32: offset */
+	exec_ld2: { /** u8: opcode | u8: dest reg | u8: src reg | i32: offset */
 		const uint16_t regids = *pc.uint16++;
 		const uintptr_t mem = vm->regs[REG2(regids)].uintptr + *pc.int32++;
 		if( mem < vm->start_seg || mem+1 > vm->end_seg ) {
@@ -597,7 +598,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 			DISPATCH();
 		}
 	}
-	exec_ld4: { /** char: opcode | char: dest reg | char: src reg | i32: offset */
+	exec_ld4: { /** u8: opcode | u8: dest reg | u8: src reg | i32: offset */
 		const uint16_t regids = *pc.uint16++;
 		const uintptr_t mem = vm->regs[REG2(regids)].uintptr + *pc.int32++;
 		if( mem < vm->start_seg || mem+3 > vm->end_seg ) {
@@ -609,7 +610,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 			DISPATCH();
 		}
 	}
-	exec_ld8: { /** char: opcode | char: dest reg | char: src reg | i32: offset */
+	exec_ld8: { /** u8: opcode | u8: dest reg | u8: src reg | i32: offset */
 		const uint16_t regids = *pc.uint16++;
 		const uintptr_t mem = vm->regs[REG2(regids)].uintptr + *pc.int32++;
 		if( mem < vm->start_seg || mem+7 > vm->end_seg ) {
@@ -622,7 +623,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		}
 	}
 	
-	exec_st1: { /** char: opcode | char: dest reg | char: src reg | i32: offset */
+	exec_st1: { /** u8: opcode | u8: dest reg | u8: src reg | i32: offset */
 		const uint16_t regids = *pc.uint16++;
 		const uintptr_t mem = vm->regs[REG1(regids)].uintptr + *pc.int32++;
 		if( mem < vm->start_seg || mem > vm->end_seg ) {
@@ -634,7 +635,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 			DISPATCH();
 		}
 	}
-	exec_st2: { /** char: opcode | char: dest reg | char: src reg | i32: offset */
+	exec_st2: { /** u8: opcode | u8: dest reg | u8: src reg | i32: offset */
 		const uint16_t regids = *pc.uint16++;
 		const uintptr_t mem = vm->regs[REG1(regids)].uintptr + *pc.int32++;
 		if( mem < vm->start_seg || mem+1 > vm->end_seg ) {
@@ -646,7 +647,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 			DISPATCH();
 		}
 	}
-	exec_st4: { /** char: opcode | char: dest reg | char: src reg | i32: offset */
+	exec_st4: { /** u8: opcode | u8: dest reg | u8: src reg | i32: offset */
 		const uint16_t regids = *pc.uint16++;
 		const uintptr_t mem = vm->regs[REG1(regids)].uintptr + *pc.int32++;
 		if( mem < vm->start_seg || mem+3 > vm->end_seg ) {
@@ -658,7 +659,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 			DISPATCH();
 		}
 	}
-	exec_st8: { /** char: opcode | char: dest reg | char: src reg | i32: offset */
+	exec_st8: { /** u8: opcode | u8: dest reg | u8: src reg | i32: offset */
 		const uint16_t regids = *pc.uint16++;
 		const uintptr_t mem = vm->regs[REG1(regids)].uintptr + *pc.int32++;
 		if( mem < vm->start_seg || mem+7 > vm->end_seg ) {
@@ -671,104 +672,104 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		}
 	}
 	
-	exec_add: { /** char: opcode | char: dest reg | char: src reg */
+	exec_add: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 		vm->regs[REG1(regids)].int64 += vm->regs[REG2(regids)].int64;
 		DISPATCH();
 	}
-	exec_sub: { /** char: opcode | char: dest reg | char: src reg */
+	exec_sub: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 		vm->regs[REG1(regids)].int64 -= vm->regs[REG2(regids)].int64;
 		DISPATCH();
 	}
-	exec_mul: { /** char: opcode | char: dest reg | char: src reg */
+	exec_mul: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 		vm->regs[REG1(regids)].int64 *= vm->regs[REG2(regids)].int64;
 		DISPATCH();
 	}
-	exec_divi: { /** char: opcode | char: dest reg | char: src reg */
+	exec_divi: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 		vm->regs[REG1(regids)].uint64 /= vm->regs[REG2(regids)].uint64;
 		DISPATCH();
 	}
-	exec_mod: { /** char: opcode | char: dest reg | char: src reg */
+	exec_mod: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 		vm->regs[REG1(regids)].uint64 %= vm->regs[REG2(regids)].uint64;
 		DISPATCH();
 	}
-	exec_bit_and: { /** char: opcode | char: dest reg | char: src reg */
+	exec_bit_and: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 		vm->regs[REG1(regids)].uint64 &= vm->regs[REG2(regids)].uint64;
 		DISPATCH();
 	}
-	exec_bit_or: { /** char: opcode | char: dest reg | char: src reg */
+	exec_bit_or: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 		vm->regs[REG1(regids)].uint64 |= vm->regs[REG2(regids)].uint64;
 		DISPATCH();
 	}
-	exec_bit_xor: { /** char: opcode | char: dest reg | char: src reg */
+	exec_bit_xor: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 		vm->regs[REG1(regids)].uint64 ^= vm->regs[REG2(regids)].uint64;
 		DISPATCH();
 	}
-	exec_shl: { /** char: opcode | char: dest reg | char: src reg */
+	exec_shl: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 		vm->regs[REG1(regids)].uint64 <<= vm->regs[REG2(regids)].uint64;
 		DISPATCH();
 	}
-	exec_shr: { /** char: opcode | char: dest reg | char: src reg */
+	exec_shr: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 		vm->regs[REG1(regids)].uint64 >>= vm->regs[REG2(regids)].uint64;
 		DISPATCH();
 	}
-	exec_bit_not: { /** char: opcode | char: regid */
+	exec_bit_not: { /** u8: opcode | u8: regid */
 		const uint8_t regid = *pc.uint8++;
 		vm->regs[regid].uint64 = ~vm->regs[regid].uint64;
 		DISPATCH();
 	}
-	exec_neg: { /** char: opcode | char: regid */
+	exec_neg: { /** u8: opcode | u8: regid */
 		const uint8_t regid = *pc.uint8++;
 		vm->regs[regid].int64 = -vm->regs[regid].int64;
 		DISPATCH();
 	}
 	
-	exec_ilt: { /** char: opcode | char: reg 1 | char: reg 2 */
+	exec_ilt: { /** u8: opcode | u8: reg 1 | u8: reg 2 */
 		const uint16_t regids = *pc.uint16++;
 		vm->condflag = vm->regs[REG1(regids)].int64 < vm->regs[REG2(regids)].int64;
 		DISPATCH();
 	}
-	exec_ile: { /** char: opcode | char: reg 1 | char: reg 2 */
+	exec_ile: { /** u8: opcode | u8: reg 1 | u8: reg 2 */
 		const uint16_t regids = *pc.uint16++;
 		vm->condflag = vm->regs[REG1(regids)].int64 <= vm->regs[REG2(regids)].int64;
 		DISPATCH();
 	}
 	
-	exec_ult: { /** char: opcode | char: reg 1 | char: reg 2 */
+	exec_ult: { /** u8: opcode | u8: reg 1 | u8: reg 2 */
 		const uint16_t regids = *pc.uint16++;
 		vm->condflag = vm->regs[REG1(regids)].uint64 < vm->regs[REG2(regids)].uint64;
 		DISPATCH();
 	}
-	exec_ule: { /** char: opcode | char: reg 1 | char: reg 2 */
+	exec_ule: { /** u8: opcode | u8: reg 1 | u8: reg 2 */
 		const uint16_t regids = *pc.uint16++;
 		vm->condflag = vm->regs[REG1(regids)].uint64 <= vm->regs[REG2(regids)].uint64;
 		DISPATCH();
 	}
 	
-	exec_cmp: { /** char: opcode | char: reg 1 | char: reg 2 */
+	exec_cmp: { /** u8: opcode | u8: reg 1 | u8: reg 2 */
 		const uint16_t regids = *pc.uint16++;
 		vm->condflag = vm->regs[REG1(regids)].uint64 == vm->regs[REG2(regids)].uint64;
 		DISPATCH();
 	}
-	exec_setc: { /** char: opcode | char: reg */
+	exec_setc: { /** u8: opcode | u8: reg */
 		vm->regs[*pc.uint8++].uint64 = vm->condflag;
 		DISPATCH();
 	}
-	exec_jmp: { /** char: opcode | i64: offset */
+	exec_jmp: { /** u8: opcode | i64: offset */
 		const int64_t offset = *pc.int64++;
 		pc.uint8 += offset;
 		DISPATCH();
 	}
-	exec_jz: { /** char: opcode | i64: offset */
+	exec_jz: { /** u8: opcode | i64: offset */
 		const int64_t offset = *pc.int64++;
 		if( !vm->condflag ) {
 			pc.uint8 += offset;
@@ -777,7 +778,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 			DISPATCH();
 		}
 	}
-	exec_jnz: { /** char: opcode | i64: offset */
+	exec_jnz: { /** u8: opcode | i64: offset */
 		const int64_t offset = *pc.int64++;
 		if( vm->condflag ) {
 			pc.uint8 += offset;
@@ -786,7 +787,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 			DISPATCH();
 		}
 	}
-	exec_call: { /** char: opcode | i64: offset */
+	exec_call: { /** u8: opcode | i64: offset */
 		const int64_t index = *pc.int64++;
 		const ssize_t offset = (index > 0LL) ? index - 1LL : -1LL - index;
 		if( offset < 0 ) {
@@ -831,16 +832,15 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 			}
 		}
 	}
-	exec_callr: { /** char: opcode | char: regid */
+	exec_callr: { /** u8: opcode | u8: regid */
 		const uint8_t regid = *pc.uint8++;
-		const int64_t index = vm->regs[regid].int64;
-		const ssize_t offset = (index > 0LL) ? index - 1LL : -1LL - index;
-		if( offset < 0 ) {
+		const struct TaghaItem *const func = ( const struct TaghaItem* )vm->regs[regid].uintptr;
+		if( func==NULL ) {
 			vm->errcode = tagha_err_no_func;
 			return -1;
 		} else {
-			const uintptr_t item = vm->funcs->array[offset].item;
-			if( index < 0 ) {
+			const uintptr_t item = func->item;
+			if( func->flags & TAGHA_FLAG_NATIVE ) {
 				if( item==0 ) {
 					vm->errcode = tagha_err_no_cfunc;
 					return -1;
@@ -855,9 +855,9 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 					}
 				}
 			} else {
-				const uint32_t flags = vm->funcs->array[offset].flags;
-				if( flags & TAGHA_FLAG_EXTERN ) {
-					struct TaghaModule *const restrict lib = ( struct TaghaModule* )vm->funcs->array[offset].owner;
+				/// if not same owner, it's an external function.
+				if( func->owner != ( uintptr_t )vm ) {
+					struct TaghaModule *const restrict lib = ( struct TaghaModule* )func->owner;
 					if( lib==NULL || item==0 ) {
 						vm->errcode = tagha_err_bad_extern;
 						return -1;
@@ -878,10 +878,10 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		}
 	}
 	
-	exec_ret: { /** char: opcode */
+	exec_ret: { /** u8: opcode */
 		vm->regs[sp] = vm->regs[bp]; /** mov rsp, rbp */
 		const union TaghaVal *const restrict rsp = ( const union TaghaVal* )vm->regs[sp].uintptr;
-		vm->regs[bp] = rsp[0];      /** pop rbp */
+		vm->regs[bp] = rsp[0];       /** pop rbp */
 		const uintptr_t pc_int = rsp[1].uintptr;
 		pc.val = ( const union TaghaVal* )pc_int; /** pop pc */
 		vm->regs[sp].uintptr += 2 * sizeof(union TaghaVal);
@@ -894,7 +894,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	}
 	
 	/** treated as nop if float32_t is defined but not the other. */
-	exec_f32tof64: { /** char: opcode | char: reg id */
+	exec_f32tof64: { /** u8: opcode | u8: reg id */
 		const uint8_t regid = *pc.uint8++;
 #	if defined(TAGHA_FLOAT32_DEFINED) && defined(TAGHA_FLOAT64_DEFINED)
 		const float32_t f = vm->regs[regid].float32;
@@ -904,7 +904,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 #	endif
 		DISPATCH();
 	}
-	exec_f64tof32: { /** char: opcode | char: reg id */
+	exec_f64tof32: { /** u8: opcode | u8: reg id */
 		const uint8_t regid = *pc.uint8++;
 #	if defined(TAGHA_FLOAT32_DEFINED) && defined(TAGHA_FLOAT64_DEFINED)
 		const float64_t d = vm->regs[regid].float64;
@@ -915,7 +915,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 #	endif
 		DISPATCH();
 	}
-	exec_itof64: { /** char: opcode | char: reg id */
+	exec_itof64: { /** u8: opcode | u8: reg id */
 		const uint8_t regid = *pc.uint8++;
 #	ifdef TAGHA_FLOAT64_DEFINED
 		const int64_t i = vm->regs[regid].int64;
@@ -925,7 +925,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 #	endif
 		DISPATCH();
 	}
-	exec_itof32: { /** char: opcode | char: reg id */
+	exec_itof32: { /** u8: opcode | u8: reg id */
 		const uint8_t regid = *pc.uint8++;
 #	ifdef TAGHA_FLOAT32_DEFINED
 		const int64_t i = vm->regs[regid].int64;
@@ -936,7 +936,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 #	endif
 		DISPATCH();
 	}
-	exec_f64toi: { /** char: opcode | char: reg id */
+	exec_f64toi: { /** u8: opcode | u8: reg id */
 		const uint8_t regid = *pc.uint8++;
 #	ifdef TAGHA_FLOAT64_DEFINED
 		const float64_t i = vm->regs[regid].float64;
@@ -946,7 +946,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 #	endif
 		DISPATCH();
 	}
-	exec_f32toi: { /** char: opcode | char: reg id */
+	exec_f32toi: { /** u8: opcode | u8: reg id */
 		const uint8_t regid = *pc.uint8++;
 #	ifdef TAGHA_FLOAT32_DEFINED
 		const float32_t i = vm->regs[regid].float32;
@@ -957,7 +957,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		DISPATCH();
 	}
 	
-	exec_addf: { /** char: opcode | char: dest reg | char: src reg */
+	exec_addf: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 #	if defined(TAGHA_FLOAT64_DEFINED) /** if float64_t's are defined, regardless whether float32_t is or not */
 		vm->regs[REG1(regids)].float64 += vm->regs[REG2(regids)].float64;
@@ -968,7 +968,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 #	endif
 		DISPATCH();
 	}
-	exec_subf: { /** char: opcode | char: dest reg | char: src reg */
+	exec_subf: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 #	if defined(TAGHA_FLOAT64_DEFINED)
 		vm->regs[REG1(regids)].float64 -= vm->regs[REG2(regids)].float64;
@@ -979,7 +979,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 #	endif
 		DISPATCH();
 	}
-	exec_mulf: { /** char: opcode | char: dest reg | char: src reg */
+	exec_mulf: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 #	if defined(TAGHA_FLOAT64_DEFINED)
 		vm->regs[REG1(regids)].float64 *= vm->regs[REG2(regids)].float64;
@@ -990,7 +990,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 #	endif
 		DISPATCH();
 	}
-	exec_divf: { /** char: opcode | char: dest reg | char: src reg */
+	exec_divf: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 #	if defined(TAGHA_FLOAT64_DEFINED)
 		vm->regs[REG1(regids)].float64 /= vm->regs[REG2(regids)].float64;
@@ -1002,7 +1002,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		DISPATCH();
 	}
 	
-	exec_ltf: { /** char: opcode | char: reg 1 | char: reg 2 */
+	exec_ltf: { /** u8: opcode | u8: reg 1 | u8: reg 2 */
 		const uint16_t regids = *pc.uint16++;
 #	if defined(TAGHA_FLOAT64_DEFINED)
 		vm->condflag = vm->regs[REG1(regids)].float64 < vm->regs[REG2(regids)].float64;
@@ -1013,7 +1013,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 #	endif
 		DISPATCH();
 	}
-	exec_lef: { /** char: opcode | char: reg 1 | char: reg 2 */
+	exec_lef: { /** u8: opcode | u8: reg 1 | u8: reg 2 */
 		const uint16_t regids = *pc.uint16++;
 #	if defined(TAGHA_FLOAT64_DEFINED)
 		vm->condflag = vm->regs[REG1(regids)].float64 <= vm->regs[REG2(regids)].float64;
@@ -1024,7 +1024,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 #	endif
 		DISPATCH();
 	}
-	exec_negf: { /** char: opcode | char: regid */
+	exec_negf: { /** u8: opcode | u8: regid */
 		const uint8_t regid = *pc.uint8++;
 #	if defined(TAGHA_FLOAT64_DEFINED)
 		const float64_t f = vm->regs[regid].float64;

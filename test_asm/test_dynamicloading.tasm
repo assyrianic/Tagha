@@ -5,8 +5,8 @@ $global factorial_str, 1,    "factorial"
 ; struct TaghaModule *tagha_module_new_from_file(const char filename[]);
 $native %tagha_module_new_from_file
 
-; int32_t tagha_module_call(struct TaghaModule *module, const char name[], size_t args, union TaghaVal params[], union TaghaVal *ret_val);
-$native %tagha_module_call
+; tagha_module_get_func(struct TaghaModule *module, const char name[]);
+$native %tagha_module_get_func
 
 ; bool tagha_module_free(struct TaghaModule **modref);
 $native %tagha_module_free
@@ -17,38 +17,33 @@ $native %tagha_module_free
     movi        rbeth, 10000000 #1000000000 / 1000000 / 10000000
     ldvar       rarg0, module_str
     movi        ralaf, 1
-    call        %tagha_module_new_from_file ; TaghaModule *fact_module = tagha_module_new_from_file("test_factorial.tbc");
-    st8         [rbp-24], ralaf ; module ptr is in ralaf, copy it to stack
+    call        %tagha_module_new_from_file ; STaghaModule *fact_module = tagha_module_new_from_file("test_factorial.tbc");
+    st8         [rbp-24], ralaf ; module ptr is in ralaf, copy the ptr to stack for later freeing.
     
-    ; load return TaghaVal ptr.
-    ldaddr      rarg4, [rbp-8]
-    
-    ; load array
-    movi        rdalath, 5
-    st8         [rbp-16], rdalath
-    ldaddr      rarg3, [rbp-16]
-    
-    ; load constant array size
-    movi        rarg2, 1
-    ; load string of function we want to execute.
     ldvar       rarg1, factorial_str
     ; copy the module ptr to register semkath.
     ld8         rarg0, [rbp-24]
+    
+    movi        ralaf, 2
+    ; int (*const factorial)(int) = dlsym(fact_module, "factorial");
+    call        %tagha_module_get_func
+    mov         ryodh, ralaf ; copy function pointer to ryodh
     
     movi        rheh, 0
     movi        rwaw, 1
     
     ; test dynamic loading function invocation overhead
 .loop:
-    movi        ralaf, 5
-    call        %tagha_module_call ; tagha_module_call(module, "factorial", 1, &(union TaghaVal){5}, &val);
+    movi        rarg0, 5
+    callr       ryodh    ; (*factorial)(5);
     sub         rbeth, rwaw
     cmp         rbeth, rheh
     jz          .loop
     
+    mov         rgamal, ralaf
     ldaddr      rsemkath, [rbp-24]
     movi        ralaf, 1
     call        %tagha_module_free ; tagha_module_free(&module);
-    ld8         ralaf, [rbp-8]
+    mov         ralaf, rgamal
     ret
 }

@@ -8,7 +8,7 @@ static union TaghaVal native_malloc(struct TaghaModule *const module, const size
 	(void)module; (void)args;
 	/** size_t is 8 bytes on 64-bit systems */
 	//return (union TaghaVal){ .uintptr = calloc(1, params[0].uint64) };
-	return (union TaghaVal){ .uintptr = harbol_mempool_alloc(&module->heap, params[0].uint64) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )harbol_mempool_alloc(&module->heap, params[0].uint64) };
 }
 
 /** void free(void *ptr); */
@@ -16,7 +16,7 @@ static union TaghaVal native_free(struct TaghaModule *const module, const size_t
 {
 	(void)module; (void)args;
 	//free(params[0].uintptr);
-	harbol_mempool_free(&module->heap, params[0].uintptr);
+	harbol_mempool_free(&module->heap, ( void* )params[0].uintptr);
 	return (union TaghaVal){ 0 };
 }
 
@@ -26,7 +26,7 @@ static union TaghaVal native_free(struct TaghaModule *const module, const size_t
 static union TaghaVal native_safe_free(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	void **restrict ptrref = params[0].uintptr;
+	void **restrict ptrref = ( void** )params[0].uintptr;
 	if( *ptrref ) {
 		//free(*ptrref), *ptrref=NULL;
 		harbol_mempool_free(&module->heap, *ptrref); *ptrref=NULL;
@@ -40,7 +40,7 @@ static union TaghaVal native_calloc(struct TaghaModule *const module, const size
 {
 	(void)module; (void)args;
 	//return (union TaghaVal){ .uintptr = calloc(params[0].uint64, params[1].uint64) };
-	return (union TaghaVal){ .uintptr = harbol_mempool_alloc(&module->heap, params[0].uint64 * params[1].uint64) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )harbol_mempool_alloc(&module->heap, params[0].uint64 * params[1].uint64) };
 }
 
 /** void *realloc(void *ptr, size_t size); */
@@ -48,7 +48,7 @@ static union TaghaVal native_realloc(struct TaghaModule *const module, const siz
 {
 	(void)module; (void)args;
 	//return (union TaghaVal){ .uintptr = realloc(params[0].uintptr, params[1].uint64) };
-	return (union TaghaVal){ .uintptr = harbol_mempool_realloc(&module->heap, params[0].uintptr, params[1].uint64) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )harbol_mempool_realloc(&module->heap, ( void* )params[0].uintptr, params[1].uint64) };
 }
 
 /** void *alloca(size_t size); */
@@ -57,7 +57,7 @@ static union TaghaVal native_alloca(struct TaghaModule *const restrict module, c
 	(void)args;
 	union TaghaVal ret = {0};
 	const size_t cells = harbol_align_size(params[0].uint64, sizeof(union TaghaVal));
-	if( module->regs[sp].uintptr - cells < ( uintptr_t )module->stack.start ) {
+	if( module->regs[sp].uintptr - cells < ( uintptr_t )module->stack ) {
 		module->errcode = tagha_err_stk_overflow;
 		ret.uintptr = ( uintptr_t )NULL;
 	} else {
@@ -86,76 +86,76 @@ static union TaghaVal native_rand(struct TaghaModule *const module, const size_t
 static union TaghaVal native_atof(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .float64 = atof(params[0].uintptr) };
+	return (union TaghaVal){ .float64 = atof(( const char* )params[0].uintptr) };
 }
 
 /** int atoi(const char *str); */
 static union TaghaVal native_atoi(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = atoi(params[0].uintptr) };
+	return (union TaghaVal){ .int32 = atoi(( const char* )params[0].uintptr) };
 }
 
 /** long int atol(const char *str); */
 static union TaghaVal native_atol(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int64 = atol(params[0].uintptr) };
+	return (union TaghaVal){ .int64 = atol(( const char* )params[0].uintptr) };
 }
 
 /** long long int atoll(const char *str); */
 static union TaghaVal native_atoll(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int64 = atoll(params[0].uintptr) };
+	return (union TaghaVal){ .int64 = atoll(( const char* )params[0].uintptr) };
 }
 
 /** float64_t strtod(const char *str, char **endptr); */
 static union TaghaVal native_strtod(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	const char *restrict str = params[0].uintptr;
-	return (union TaghaVal){ .float64 = strtod(str, params[1].uintptr) };
+	const char *restrict str = ( const char* )params[0].uintptr;
+	return (union TaghaVal){ .float64 = strtod(str, ( char** )params[1].uintptr) };
 }
 
 /** float32_t strtof(const char *str, char **endptr); */
 static union TaghaVal native_strtof(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	const char *restrict str = params[0].uintptr;
-	return (union TaghaVal){ .float32 = strtof(str, params[1].uintptr) };
+	const char *restrict str = ( const char* )params[0].uintptr;
+	return (union TaghaVal){ .float32 = strtof(str, ( char** )params[1].uintptr) };
 }
 
 /** long int strtol(const char *str, char **endptr, int base); */
 static union TaghaVal native_strtol(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	const char *restrict str = params[0].uintptr;
-	return (union TaghaVal){ .int64 = strtol(str, params[1].uintptr, params[2].int32) };
+	const char *restrict str = ( const char* )params[0].uintptr;
+	return (union TaghaVal){ .int64 = strtol(str, ( char** )params[1].uintptr, params[2].int32) };
 }
 
 /** long long int strtoll(const char *str, char **endptr, int base); */
 static union TaghaVal native_strtoll(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	const char *restrict str = params[0].uintptr;
-	return (union TaghaVal){ .int64 = strtoll(str, params[1].uintptr, params[2].int32) };
+	const char *restrict str = ( const char* )params[0].uintptr;
+	return (union TaghaVal){ .int64 = strtoll(str, ( char** )params[1].uintptr, params[2].int32) };
 }
 
 /** unsigned long int strtoul(const char *str, char **endptr, int base); */
 static union TaghaVal native_strtoul(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	const char *restrict str = params[0].uintptr;
-	return (union TaghaVal){ .uint64 = strtoul(str, params[1].uintptr, params[2].int32) };
+	const char *restrict str = ( const char* )params[0].uintptr;
+	return (union TaghaVal){ .uint64 = strtoul(str, ( char** )params[1].uintptr, params[2].int32) };
 }
 
 /** unsigned long long int strtoull(const char *str, char **endptr, int base); */
 static union TaghaVal native_strtoull(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	const char *restrict str = params[0].uintptr;
-	return (union TaghaVal){ .uint64 = strtoll(str, params[1].uintptr, params[2].int32) };
+	const char *restrict str = ( const char* )params[0].uintptr;
+	return (union TaghaVal){ .uint64 = strtoll(str, ( char** )params[1].uintptr, params[2].int32) };
 }
 
 /** void abort(void); */
@@ -179,7 +179,7 @@ static union TaghaVal native_exit(struct TaghaModule *const module, const size_t
 static union TaghaVal native_system(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	const char *command = params[0].uintptr;
+	const char *command = ( const char* )params[0].uintptr;
 	return (union TaghaVal){ .int32 = ( command==NULL ) ? -1 : system(command) };
 }
 
@@ -249,7 +249,7 @@ void lldiv(lldiv_t *res, long long int numer, long long int denom);
 static union TaghaVal native_lldiv(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	lldiv_t *const res = params[0].uintptr;
+	lldiv_t *const res = ( lldiv_t* )params[0].uintptr;
 	*res = lldiv(params[1].int64, params[2].int64);
 	return (union TaghaVal){ 0 };
 }
@@ -258,35 +258,35 @@ static union TaghaVal native_lldiv(struct TaghaModule *const module, const size_
 static union TaghaVal native_mblen(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = mblen(params[0].uintptr, params[1].uint64) };
+	return (union TaghaVal){ .int32 = mblen(( const char* )params[0].uintptr, params[1].uint64) };
 }
 
 /** int mbtowc(wchar_t *pwc, const char *pmb, size_t max); */
 static union TaghaVal native_mbtowc(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = mbtowc(params[0].uintptr, params[1].uintptr, params[2].uint64) };
+	return (union TaghaVal){ .int32 = mbtowc(( wchar_t* )params[0].uintptr, ( const char* )params[1].uintptr, params[2].uint64) };
 }
 
 /** int wctomb(char *pmb, wchar_t wc); */
 static union TaghaVal native_wctomb(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = wctomb(params[0].uintptr, sizeof(wchar_t)==2 ? params[1].uint16 : params[1].uint32) };
+	return (union TaghaVal){ .int32 = wctomb(( char* )params[0].uintptr, sizeof(wchar_t)==2 ? params[1].uint16 : params[1].uint32) };
 }
 
 /** size_t mbstowcs(wchar_t *dest, const char *src, size_t max); */
 static union TaghaVal native_mbstowcs(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uint64 = mbstowcs(params[0].uintptr, params[1].uintptr, params[2].uint64) };
+	return (union TaghaVal){ .uint64 = mbstowcs(( wchar_t* )params[0].uintptr, ( const char* )params[1].uintptr, params[2].uint64) };
 }
 
 /** size_t wcstombs(char *dest, const wchar_t *src, size_t max); */
 static union TaghaVal native_wcstombs(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uint64 = wcstombs(params[0].uintptr, params[1].uintptr, params[2].uint64) };
+	return (union TaghaVal){ .uint64 = wcstombs(( char* )params[0].uintptr, ( const wchar_t* )params[1].uintptr, params[2].uint64) };
 }
 
 
@@ -296,10 +296,10 @@ static union TaghaVal native_qsort(struct TaghaModule *const restrict module, co
 {
 	(void)module; (void)args; (void)params;
 	/*
-	void *const restrict array_base = params[0].uintptr;
+	void *const restrict array_base = ( void* )params[0].uintptr;
 	const size_t num_elements = params[1].size;
 	const size_t element_bytes = params[2].size;
-	const int64_t func_ptr = params[3].int64;
+	const void *func_ptr = ( const void* )params[3].uintptr;
 	union TaghaVal ret = {0};
 	tagha_module_invoke(module, func_ptr, 2, const union TaghaVal params[], &ret);
 	*/
@@ -310,6 +310,9 @@ static union TaghaVal native_qsort(struct TaghaModule *const restrict module, co
 static union TaghaVal native_atexit(struct TaghaModule *const restrict module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args; (void)params;
+	/*
+	const void *func_ptr = ( const void* )params[0].uintptr;
+	*/
 	return (union TaghaVal){ .int32 = -1 };
 }
 
@@ -317,13 +320,25 @@ static union TaghaVal native_atexit(struct TaghaModule *const restrict module, c
 static union TaghaVal native_bsearch(struct TaghaModule *const restrict module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args; (void)params;
-	return (union TaghaVal){ .uintptr = NULL };
+	/*
+	const void *const restrict key = ( const void* )params[0].uintptr;
+	const void *const restrict base = ( const void* )params[1].uintptr;
+	const size_t num = params[2].size;
+	const size_t size = params[3].size;
+	const void *const restrict func_ptr = ( const void* )params[4].uintptr;
+	union TaghaVal ret = {0};
+	tagha_module_invoke(module, func_ptr, 2, const union TaghaVal params[], &ret);
+	*/
+	return (union TaghaVal){ .uintptr = ( uintptr_t )NULL };
 }
 
 /** int at_quick_exit(void (*func)(void)); */
 static union TaghaVal native_at_quick_exit(struct TaghaModule *const restrict module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args; (void)params;
+	/*
+	const void *func_ptr = ( const void* )params[0].uintptr;
+	*/
 	return (union TaghaVal){ .int32 = -1 };
 }
 
@@ -331,7 +346,7 @@ static union TaghaVal native_at_quick_exit(struct TaghaModule *const restrict mo
 static union TaghaVal native_getenv(struct TaghaModule *const restrict module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uintptr = getenv(params[0].uintptr) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )getenv(( const char* )params[0].uintptr) };
 }
 
 

@@ -110,7 +110,7 @@ native_print_player_info(struct TaghaModule *const ctxt, const size_t args, cons
 	/* get first arg which is the address to our data.
 	 * cast the void* to a struct Player*, done implicitly in C.
 	 */
-	struct Player *const player = params[0].uintptr;
+	struct Player *const player = ( struct Player* )params[0].uintptr;
 	if( player != NULL ) {
 		printf("native_print_player_info :: ammo: %" PRIu32 " | health: %" PRIu32 " | speed: %f\n", player->ammo, player->health, player->speed);
 	}
@@ -155,10 +155,10 @@ struct Player {
 static union TaghaVal
 native_ip(struct TaghaModule *const ctxt, const size_t args, const union TaghaVal params[const static 1])
 {
-	struct Player *const player = params[0].uintptr;
+	struct Player *const player = ( struct Player* )params[0].uintptr;
 	
 	/* return the address of the 4-byte int member "health" value. */
-	return (player != NULL) ? (union TaghaVal){.uintptr = &player->health} : (union TaghaVal){.uintptr = NULL};
+	return (union TaghaVal){ .uintptr = (player != NULL) ? ( uintptr_t )&player->health : ( uintptr_t )NULL };
 }
 ```
 
@@ -172,7 +172,7 @@ static union TaghaVal
 native_malloc(struct TaghaModule *const ctxt, const size_t args, const union TaghaVal params[const static 1])
 {
 	/* size_t is 8 bytes on 64-bit systems */
-	return (union TaghaVal){ .uintptr = malloc(params[0].uint64) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )malloc(params[0].uint64) };
 }
 ```
 All we have to do is set the `uintptr` member of our return compound initializer and voila! If `malloc` returns a NULL pointer, the result will be NULL as well. Now we have our allocated pointer in our system. What if we wanted to use it?
@@ -260,10 +260,10 @@ native_va_int32_averages(struct TaghaModule *const ctxt, const size_t args, cons
 	const struct {
 		union TaghaVal area;
 		uint64_t args;
-	} *const valist = params[0].uintptr;
+	} *const valist = ( const void* )params[0].uintptr;
 	
 	int32_t res = 0;
-	const union TaghaVal *const restrict ints = valist->area.uintptr;
+	const union TaghaVal *const restrict ints = ( const union TaghaVal* )valist->area.uintptr;
 	for( size_t i=0; i<valist->args; i++ )
 		res += ints[i].int32;
 	return (union TaghaVal){ .int32 = res / valist->args };
@@ -278,3 +278,27 @@ the struct has two fields: `args` & `area`.
 
 With the `area`, we dereference and retrieve `int32_t` values from it and add it with our `res` variable.
 Finally we get the average calculation by dividing `res` with the `args` member of our `va_list` struct implementation.
+
+
+### Function Pointer Arguments
+Here's a tricky one. Let's say you have a native that requires a script-based function pointer.
+A classic one in C is `qsort`. How would you support something like `qsort`?
+
+We have to use an API Function called `tagha_module_invoke` which takes a bytecode-based function pointer and invokes it.
+
+For our example, we will do something like a destructor for an exported dynamic array type:
+```c
+/* void array_destroy(array *a, void dtor(void *item)); */
+union TaghaVal
+native_array_destroy(struct TaghaModule *const restrict ctxt, const size_t args, const union TaghaVal params[const restrict static 1])
+{
+	(void)args;
+	array_type *restrict array = ( array_type* )params[0].uintptr;
+	const void *const restrict dtor = ( const void* )params[1].uintptr;
+	for( size_t i=0; i<array->len; i++ ) {
+		tagha_module_invoke(ctxt, dtor, 1, &(union TaghaVal){ .uintptr = ( uintptr )array->table[i] }, NULL);
+	}
+	array_type_destroy(array);
+	return (union TaghaVal){ 0 };
+}
+```

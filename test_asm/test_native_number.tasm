@@ -11,7 +11,7 @@ $native %add_one
 ; }
 
 %main: {
-    movi    r1, 1000000000
+    movi    r1, 1000000000 ; loop 1 billion times.
     movi    r0, 0
     movi    r2, 0
     movi    r3, 1

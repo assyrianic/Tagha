@@ -288,6 +288,22 @@ If the global variable is defined as a pointer in the script, then the returning
 pointer to the global variable, `NULL` if the variable doesn't exist or the module doesn't have script data/memory.
 
 
+## tagha_module_get_func
+```c
+void *tagha_module_get_func(struct TaghaModule *module, const char name[]);
+```
+
+### Description
+Returns a pointer to a script-defined function.
+
+### Parameters
+* `module` - pointer to a `struct TaghaModule` object.
+* `name` - string name of the function to retrieve.
+
+### Return Value
+pointer to bytecode function, `NULL` if the function doesn't exist or the module doesn't have script data/memory.
+
+
 ## tagha_module_get_flags
 ```c
 uint32_t tagha_module_get_flags(const struct TaghaModule *module);
@@ -324,15 +340,16 @@ returns a status `int32_t` value, returns `-1` if an error occurred. Use `ret_va
 
 ## tagha_module_invoke
 ```c
-int32_t tagha_module_invoke(struct TaghaModule *module, int64_t func_index, size_t args, union TaghaVal params[], union TaghaVal *ret_val);
+int32_t tagha_module_invoke(struct TaghaModule *module, const void *func, size_t args, union TaghaVal params[], union TaghaVal *ret_val);
 ```
 
 ### Description
-Manually calls a script function from C by function index. Designed to be used for natives that take a function pointer from bytecode.
+Manually calls a script function from C by function pointer.
+Designed to be used for natives that use a function pointer from bytecode as a parameter.
 
 ### Parameters
 * `module` - pointer to a `struct TaghaModule` object.
-* `func_index` - index of script function to invoke.
+* `func` - const pointer to script function.
 * `args` - amount of arguments to pass.
 * `params` - function params to be passed, as an array of `union TaghaVal`.
 * `ret_val` - pointer to `union TaghaVal` for use as a return value buffer.

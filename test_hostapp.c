@@ -89,6 +89,14 @@ static UTaghaVal native_tagha_module_resolve_links(STaghaModule *const restrict 
 	return (UTaghaVal){ 0 };
 }
 
+/** void *tagha_module_get_func(struct TaghaModule *module, const char funcname[]); */
+static union TaghaVal native_tagha_module_get_func(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
+{
+	(void)module; (void)args;
+	struct TaghaModule *const p = ( struct TaghaModule* )params[0].uintptr;
+	return (union TaghaVal){ .uintptr = ( uintptr_t )tagha_module_get_func(p==NULL ? module : p, ( const char* )params[1].uintptr) };
+}
+
 
 struct Player {
 	float32_t speed;
@@ -123,6 +131,7 @@ NO_NULL int main(const int argc, char *argv[const static 1])
 				{"tagha_module_new_from_file", native_tagha_module_new_from_file},
 				{"tagha_module_free", native_tagha_module_free},
 				{"tagha_module_resolve_links", native_tagha_module_resolve_links},
+				{"tagha_module_get_func", native_tagha_module_get_func},
 				{NULL, NULL}
 			});
 			

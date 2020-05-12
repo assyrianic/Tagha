@@ -195,7 +195,7 @@ typedef enum TaghaErrCode {
 
 /**
  * Tagha Item
- * represents either a function or global variable.
+ * Represents either a function or global variable.
  */
 enum {
 	TAGHA_FLAG_NATIVE = 1,  /** if is a native C or JIT compiled function. */
@@ -206,7 +206,7 @@ enum {
 typedef struct TaghaItem {
 	uintptr_t item, owner; /// Add an owner so we can do dynamic linking.
 	size_t    bytes;
-	uint32_t  flags;       /// 0-bytecode based, 1-native based, 2-resolved, 4-extern
+	uint32_t  flags;
 } STaghaItem;
 
 typedef struct TaghaItemMap {
@@ -260,11 +260,13 @@ TAGHA_EXPORT NO_NULL bool tagha_module_register_natives(struct TaghaModule *modu
 TAGHA_EXPORT NO_NULL bool tagha_module_register_ptr(struct TaghaModule *module, const char name[], void *ptr);
 
 TAGHA_EXPORT NO_NULL void *tagha_module_get_var(struct TaghaModule *module, const char name[]);
+TAGHA_EXPORT NO_NULL const void *tagha_module_get_func(struct TaghaModule *module, const char name[]);
 TAGHA_EXPORT NO_NULL uint32_t tagha_module_get_flags(const struct TaghaModule *module);
 
 TAGHA_EXPORT NEVER_NULL(1,2) int32_t tagha_module_call(struct TaghaModule *module, const char name[], size_t args, const union TaghaVal params[], union TaghaVal *retval);
-TAGHA_EXPORT NEVER_NULL(1) int32_t tagha_module_invoke(struct TaghaModule *module, int64_t func_index, size_t args, const union TaghaVal params[], union TaghaVal *retval);
+TAGHA_EXPORT NEVER_NULL(1) int32_t tagha_module_invoke(struct TaghaModule *module, const void *func, size_t args, const union TaghaVal params[], union TaghaVal *retval);
 TAGHA_EXPORT NEVER_NULL(1) int32_t tagha_module_run(struct TaghaModule *module, size_t argc, const union TaghaVal argv[]);
+
 TAGHA_EXPORT NO_NULL void tagha_module_throw_error(struct TaghaModule *module, int32_t err);
 TAGHA_EXPORT NO_NULL void tagha_module_jit_compile(struct TaghaModule *module, TaghaCFunc *jitfunc(uintptr_t, size_t, void*), void *userdata);
 TAGHA_EXPORT NO_NULL void tagha_module_resolve_links(struct TaghaModule *module, const struct TaghaModule *lib);

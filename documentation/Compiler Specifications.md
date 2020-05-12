@@ -7,7 +7,7 @@ To be a worthy C runtime environment, giving Tagha runtime speed is a hard requi
 
 * `double` and `long double` should always be 8 bytes in data size.
 
-* `float` and `double` as defined by the IEEE.
+* `float` and `double` are as defined by the IEEE.
 
 * Tagha's push and pop operations manipulates the stack by 8 bytes.
 
@@ -24,7 +24,7 @@ To be a worthy C runtime environment, giving Tagha runtime speed is a hard requi
 
 * `argc` and `argv` are implementation-defined for Tagha, so `main` could have any type of parameters as necessary to script devs.
 
-* if `argv` contains pointers that are not owned by the script, then **the VM _will_ throw a runtime exception if the bytecode dereferences them**. Keep this in mind when passing objects to the scripts. A workaround for this is to allocate from the script's own runtime heap, copy data to it, and pass that to `main`.
+* if `argv` contains pointers that are not owned by the script's memory allocator, then **the VM _will_ throw a runtime exception if the bytecode dereferences them**. Keep this in mind when passing objects to the scripts. A workaround for this is to allocate from the script's own runtime heap, copy data to it, and pass that to `main`.
 
 
 # Tagha Script File Format

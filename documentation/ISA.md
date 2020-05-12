@@ -119,7 +119,7 @@ loads an address from the local call frame.
 ## LDFUNC
 
 ### Description
-loads a function index to a register.
+loads a function pointer to a register.
 
 
 ## MOVI
@@ -317,7 +317,7 @@ automatically performs a function prologue.
 ## CALLR
 
 ### Description
-jumps to a function using a register as an index.
+jumps to a function using an item pointer.
 can also call a native function.
 automatically performs a function prologue.
 

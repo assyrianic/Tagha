@@ -1,158 +1,158 @@
-#include <uintptr.h>
+#include <string.h>
 #include "tagha_libc.h"
 
 /** void *memcpy(void *dest, const void *src, size_t num); */
 static union TaghaVal native_memcpy(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uintptr = memcpy(params[0].uintptr, params[1].uintptr, params[2].uint64) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )memcpy(( void* )params[0].uintptr, ( const void* )params[1].uintptr, params[2].uint64) };
 }
 
 /** void *memmove(void *dest, const void *src, size_t num); */
 static union TaghaVal native_memmove(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uintptr = memmove(params[0].uintptr, params[1].uintptr, params[2].uint64) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )memmove(( void* )params[0].uintptr, ( const void* )params[1].uintptr, params[2].uint64) };
 }
 
 /** char *strcpy(char *dest, const char *src); */
 static union TaghaVal native_strcpy(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uintptr = strcpy(params[0].uintptr, params[1].uintptr) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )strcpy(( char* )params[0].uintptr, ( const char* )params[1].uintptr) };
 }
 
 /** char *strncpy(char *dest, const char *src, size_t num); */
 static union TaghaVal native_strncpy(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uintptr = strncpy(params[0].uintptr, params[1].uintptr, params[2].uint64) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )strncpy(( char* )params[0].uintptr, ( const char* )params[1].uintptr, params[2].uint64) };
 }
 
 /** char *strcat(char *dest, const char *src); */
 static union TaghaVal native_strcat(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uintptr = strcat(params[0].uintptr, params[1].uintptr) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )strcat(( char* )params[0].uintptr, ( const char* )params[1].uintptr) };
 }
 
 /** char *strncat(char *dest, const char *src, size_t num); */
 static union TaghaVal native_strncat(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uintptr = strncat(params[0].uintptr, params[1].uintptr, params[2].uint64) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )strncat(( char* )params[0].uintptr, ( const char* )params[1].uintptr, params[2].uint64) };
 }
 
 /** int memcmp(const void *ptr1, const void *ptr2, size_t num); */
 static union TaghaVal native_memcmp(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = memcmp(params[0].uintptr, params[1].uintptr, params[2].uint64) };
+	return (union TaghaVal){ .int32 = memcmp(( const void* )params[0].uintptr, ( const void* )params[1].uintptr, params[2].uint64) };
 }
 
 /** int strcmp(const char *str1, const char *str2); */
 static union TaghaVal native_strcmp(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = strcmp(params[0].uintptr, params[1].uintptr) };
+	return (union TaghaVal){ .int32 = strcmp(( const char* )params[0].uintptr, ( const char* )params[1].uintptr) };
 }
 
 /** int strcoll(const char *str1, const char *str2); */
 static union TaghaVal native_strcoll(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = strcoll(params[0].uintptr, params[1].uintptr) };
+	return (union TaghaVal){ .int32 = strcoll(( const char* )params[0].uintptr, ( const char* )params[1].uintptr) };
 }
 
 /** int strncmp(const char *str1, const char *str2, size_t num); */
 static union TaghaVal native_strncmp(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .int32 = strncmp(params[0].uintptr, params[1].uintptr, params[2].uint64) };
+	return (union TaghaVal){ .int32 = strncmp(( const char* )params[0].uintptr, ( const char* )params[1].uintptr, params[2].uint64) };
 }
 
 /** size_t strxfrm(char *dest, const char *src, size_t num); */
 static union TaghaVal native_strxfrm(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uint64 = strxfrm(params[0].uintptr, params[1].uintptr, params[2].uint64) };
+	return (union TaghaVal){ .uint64 = strxfrm(( char* )params[0].uintptr, ( const char* )params[1].uintptr, params[2].uint64) };
 }
 
 /** void *memchr(const void *ptr, int value, size_t num); */
 static union TaghaVal native_memchr(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uintptr = memchr(params[0].uintptr, params[1].int32, params[2].uint64) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )memchr(( const void* )params[0].uintptr, params[1].int32, params[2].uint64) };
 }
 
 /** char *strchr(const char *str, int character); */
 static union TaghaVal native_strchr(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uintptr = strchr(params[0].uintptr, params[1].int32) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )strchr(( const char* )params[0].uintptr, params[1].int32) };
 }
 
 /** size_t strcspn(const char *str1, const char *str2); */
 static union TaghaVal native_strcspn(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uint64 = strcspn(params[0].uintptr, params[1].uintptr) };
+	return (union TaghaVal){ .uint64 = strcspn(( const char* )params[0].uintptr, ( const char* )params[1].uintptr) };
 }
 
 /** char *strpbrk(const char *str1, const char *str2); */
 static union TaghaVal native_strpbrk(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uintptr = strpbrk(params[0].uintptr, params[1].uintptr) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )strpbrk(( const char* )params[0].uintptr, ( const char* )params[1].uintptr) };
 }
 
 /** char *strrchr(const char *str, int character); */
 static union TaghaVal native_strrchr(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uintptr = strrchr(params[0].uintptr, params[1].int32) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )strrchr(( const char* )params[0].uintptr, params[1].int32) };
 }
 
 /** size_t strspn(const char *str1, const char *str2); */
 static union TaghaVal native_strspn(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uint64 = strspn(params[0].uintptr, params[1].uintptr) };
+	return (union TaghaVal){ .uint64 = strspn(( const char* )params[0].uintptr, ( const char* )params[1].uintptr) };
 }
 
 /** char *strstr(const char *str1, const char *str2); */
 static union TaghaVal native_strstr(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uintptr = strstr(params[0].uintptr, params[1].uintptr) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )strstr(( const char* )params[0].uintptr, ( const char* )params[1].uintptr) };
 }
 
 /** char *strtok(char *str, const char *delimiters); */
 static union TaghaVal native_strtok(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uintptr = strtok(params[0].uintptr, params[1].uintptr) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )strtok(( char* )params[0].uintptr, ( const char* )params[1].uintptr) };
 }
 
 /** void *memset(void *ptr, int value, size_t num); */
 static union TaghaVal native_memset(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uintptr = memset(params[0].uintptr, params[1].int32, params[1].uint64) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )memset(( void* )params[0].uintptr, params[1].int32, params[1].uint64) };
 }
 
 /** char *strerror(int errnum); */
 static union TaghaVal native_strerror(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uintptr = strerror(params[0].int32) };
+	return (union TaghaVal){ .uintptr = ( uintptr_t )strerror(params[0].int32) };
 }
 
-/** size_t strlen(const char * str); */
+/** size_t strlen(const char *str); */
 static union TaghaVal native_strlen(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
-	return (union TaghaVal){ .uint64 = strlen(params[0].uintptr) };
+	return (union TaghaVal){ .uint64 = strlen(( const char* )params[0].uintptr) };
 }
 
 
