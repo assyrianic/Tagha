@@ -1,0 +1,62 @@
+test_3d_vecs.tbc - purpose: test float and pointer/array arithmetics.
+	accurate result:
+		register[alaf] == -1055916032 or 13844628204490326016 <-- -9.f as an int32 or uint64.
+
+test_factorial.tbc - purpose: test stack and recursive call frames.
+	accurate result:
+		register[alaf] == 120 <-- factorial of 5
+		factorial result == 120 <-- factorial of 5
+
+test_fib.tbc - purpose: test recursive calling speed
+	accurate result:
+		register[alaf] == 5702887 <-- fibonacci of 34
+		result == 5702887 <-- fibonacci of 34
+
+test_global.tbc - purpose: calling a native and testing a host app-side variable being modified by the script.
+	accurate result:
+		player.speed: '300.000000' | player.health: '100' | player.ammo: '32'
+
+test_stdin.tbc - purpose: advanced test combo of calling natives, passing host exported global pointers to natives, and loading string literals from script memory.
+	accurate result:
+		Please enter a long string:  <--
+		*long pause because you're supposed to type stuff and hit enter.*
+		...
+		register[semkath] == 163399954 <-- address of buffer array. (random number because ptr)
+		register[eh] == 256 <-- size of buffer array.
+		register[peh] == 3077363104 <-- ptr value of 'stdin'. (random number because ptr)
+
+test_dynamicloading - purpose: tests manually loading a script module and calling factorial from script bytecode!
+	accurate result:
+		same result as test_factorial.tbc test module.
+
+test_dynamiclinking - purpose: tests dynamically linking a script module and calling factorial from script bytecode!
+	accurate result:
+		same result as test_factorial.tbc test module.
+
+test_native_string.tbc - purpose: profile loading a string and calling a C function 10 million times.
+	accurate result:
+		result?: '120000000' <-- "120,000,000"
+
+test_native_number.tbc - purpose: profile calling a C function 1 billion times with a number and adding it.
+	accurate result:
+		result?: '1000000000' <-- "1,000,000,000" one billion.
+
+test_selfcall.tbc - purpose: test having the invoking API call a function within itself.
+	accurate result:
+		send flowers
+		send nudes <-- the correct output should print "send nudes".
+		send flowers
+		send keks
+
+-- BELOW TESTS ARE DEPRECATED.
+test_argv.tbc - purpose: testing argv pointer vector passed to main.
+	accurate result:
+		example1 <-- correct output
+		example2 <-- correct output
+		exafple1 <-- correct output, modified first string to test mutability of string.
+
+test_printf.tbc - purpose: testing printf implementation and vprintf + va_list implementation.
+	accurate result:
+		printf test string formatting. <-- correct output, test simple printing.
+		200 == '200.000000' <-- correct output, test float printing.
+		vprintf: '200.000000', '2.000000' <-- correct output, test vprintf va_list implementation

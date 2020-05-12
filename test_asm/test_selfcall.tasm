@@ -1,0 +1,70 @@
+$stacksize 64    ; 64 stack cells
+
+$global func_str, 1,    "func"
+$global nude_str, 1,    "send nudes"
+$global kek_str, 1,     "send keks"
+$global flwr_str, 1,    "send flowers"
+
+$global self, 8,    0
+
+; int32_t tagha_module_call(struct TaghaModule *module, const char funcname[], size_t args, union TaghaVal params[], union TaghaVal *return_val);
+$native %tagha_module_call
+
+; int puts(const char *);
+$native %puts
+
+%prior_func: {
+	movi        rgamal, 32
+	sub         rsp, rgamal
+	ldvar       rarg0, flwr_str
+	movi        ralaf, 1
+	call        %puts
+	ret
+}
+
+%func: {
+	movi        rgamal, 32
+	sub         rsp, rgamal
+	ldvar       rarg0, nude_str
+	movi        ralaf, 1
+	call        %puts
+	call        %prior_func
+	ret
+}
+
+%another_func: {
+	movi        rgamal, 32
+	sub         rsp, rgamal
+	ldvar       rarg0, kek_str
+	movi        ralaf, 1
+	call        %puts
+	ret
+}
+
+%main: {
+	movi        rgamal, 32
+	sub         rsp, rgamal
+	call        %prior_func
+	
+	; load return TaghaVal ptr.
+	ldaddr      rarg4, [rbp-8]
+	
+	; load NULL array
+	movi        rarg3, 0
+	
+	; load constant array size
+	movi        rarg2, 0
+	
+	; load string of function we want to execute.
+	ldvar       rarg1, func_str
+	
+	; copy the module ptr to register semkath.
+	ldvar       rarg0, self ; load our self-referencing module
+	ld8         rarg0, [rarg0]
+	
+	movi        ralaf, 5
+	call        %tagha_module_call ; tagha_module_call(self, "func", 0, NULL, &val);
+	call        %another_func
+	ld8         ralaf, [rbp-8]
+	ret
+}

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../tagha.h"
+#include "../tagha/tagha.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,6 +14,7 @@ bool tagha_module_load_stdlib_natives(struct TaghaModule *module);
 bool tagha_module_load_string_natives(struct TaghaModule *module);
 bool tagha_module_load_time_natives(struct TaghaModule *module);
 bool tagha_module_load_module_natives(struct TaghaModule *module);
+bool tagha_module_load_simd_natives(struct TaghaModule *module);
 #endif
 
 #ifdef __cplusplus

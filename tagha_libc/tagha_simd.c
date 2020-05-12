@@ -1,0 +1,315 @@
+#include <time.h>
+#include <string.h>
+#include "tagha_libc.h"
+
+
+#define SIMD_OP_NATIVE_REG(name, op) \
+	{"##name_##op", native_##name_##op},
+
+#define SIMD_BIN_OP_NATIVE(name, member, op, opname) \
+	static union TaghaVal native_##name_##opname(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1]) \
+	{ \
+		(void)module; (void)args; \
+		union TaghaVal v = {0}; \
+		for( size_t i=0; i<sizeof v.member / v.member[0]; i++ ) \
+			v.member[i] = params[0].member[i] op params[1].member[i]; \
+		return v; \
+	}
+
+#define SIMD_UN_OP_NATIVE(name, member, op, opname) \
+	static union TaghaVal native_##name_##opname(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1]) \
+	{ \
+		(void)module; (void)args; \
+		union TaghaVal v = {0}; \
+		for( size_t i=0; i<sizeof v.member / v.member[0]; i++ ) \
+			v.member[i] = op params[0].member[i]; \
+		return v; \
+	}
+
+#define SIMD_OP_NATIVE_PACK(name, member, type) \
+	static union TaghaVal native_##name_pack(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1]) \
+	{ \
+		(void)module; (void)args; \
+		union TaghaVal v = {0}; \
+		for( size_t i=0; i<sizeof v.member / v.member[0]; i++ ) \
+			v.member[i] = params[i].type; \
+		return v; \
+	}
+
+SIMD_OP_NATIVE_PACK(v2u32, uint32a, uint32)
+SIMD_BIN_OP_NATIVE(v2u32, uint32a, +, add)
+SIMD_BIN_OP_NATIVE(v2u32, uint32a, -, sub)
+SIMD_BIN_OP_NATIVE(v2u32, uint32a, *, mul)
+SIMD_BIN_OP_NATIVE(v2u32, uint32a, /, div)
+SIMD_BIN_OP_NATIVE(v2u32, uint32a, %, mod)
+SIMD_BIN_OP_NATIVE(v2u32, uint32a, &, and)
+SIMD_BIN_OP_NATIVE(v2u32, uint32a, |, or)
+SIMD_BIN_OP_NATIVE(v2u32, uint32a, ^, xor)
+SIMD_BIN_OP_NATIVE(v2u32, uint32a, <<, shl)
+SIMD_BIN_OP_NATIVE(v2u32, uint32a, >>, shr)
+SIMD_BIN_OP_NATIVE(v2u32, uint32a, >=, grteq)
+SIMD_BIN_OP_NATIVE(v2u32, uint32a, >, grtr)
+SIMD_BIN_OP_NATIVE(v2u32, uint32a, <=, lesseq)
+SIMD_BIN_OP_NATIVE(v2u32, uint32a, <, less)
+SIMD_BIN_OP_NATIVE(v2u32, uint32a, ==, cmp)
+SIMD_BIN_OP_NATIVE(v2u32, uint32a, !=, neq)
+SIMD_UN_OP_NATIVE(v2u32, uint32a, ~, compl)
+SIMD_UN_OP_NATIVE(v2u32, uint32a, -, neg)
+
+SIMD_OP_NATIVE_PACK(v2i32, int32a, int32)
+SIMD_BIN_OP_NATIVE(v2i32, int32a, +, add)
+SIMD_BIN_OP_NATIVE(v2i32, int32a, -, sub)
+SIMD_BIN_OP_NATIVE(v2i32, int32a, *, mul)
+SIMD_BIN_OP_NATIVE(v2i32, int32a, /, div)
+SIMD_BIN_OP_NATIVE(v2i32, int32a, %, mod)
+SIMD_BIN_OP_NATIVE(v2i32, int32a, &, and)
+SIMD_BIN_OP_NATIVE(v2i32, int32a, |, or)
+SIMD_BIN_OP_NATIVE(v2i32, int32a, ^, xor)
+SIMD_BIN_OP_NATIVE(v2i32, int32a, <<, shl)
+SIMD_BIN_OP_NATIVE(v2i32, int32a, >>, shr)
+SIMD_BIN_OP_NATIVE(v2i32, int32a, >=, grteq)
+SIMD_BIN_OP_NATIVE(v2i32, int32a, >, grtr)
+SIMD_BIN_OP_NATIVE(v2i32, int32a, <=, lesseq)
+SIMD_BIN_OP_NATIVE(v2i32, int32a, <, less)
+SIMD_BIN_OP_NATIVE(v2i32, int32a, ==, cmp)
+SIMD_BIN_OP_NATIVE(v2i32, int32a, !=, neq)
+SIMD_UN_OP_NATIVE(v2i32, int32a, ~, compl)
+SIMD_UN_OP_NATIVE(v2i32, int32a, -, neg)
+
+SIMD_OP_NATIVE_PACK(v4u16, uint16a, uint16)
+SIMD_BIN_OP_NATIVE(v4u16, uint16a, +, add)
+SIMD_BIN_OP_NATIVE(v4u16, uint16a, -, sub)
+SIMD_BIN_OP_NATIVE(v4u16, uint16a, *, mul)
+SIMD_BIN_OP_NATIVE(v4u16, uint16a, /, div)
+SIMD_BIN_OP_NATIVE(v4u16, uint16a, %, mod)
+SIMD_BIN_OP_NATIVE(v4u16, uint16a, &, and)
+SIMD_BIN_OP_NATIVE(v4u16, uint16a, |, or)
+SIMD_BIN_OP_NATIVE(v4u16, uint16a, ^, xor)
+SIMD_BIN_OP_NATIVE(v4u16, uint16a, <<, shl)
+SIMD_BIN_OP_NATIVE(v4u16, uint16a, >>, shr)
+SIMD_BIN_OP_NATIVE(v4u16, uint16a, >=, grteq)
+SIMD_BIN_OP_NATIVE(v4u16, uint16a, >, grtr)
+SIMD_BIN_OP_NATIVE(v4u16, uint16a, <=, lesseq)
+SIMD_BIN_OP_NATIVE(v4u16, uint16a, <, less)
+SIMD_BIN_OP_NATIVE(v4u16, uint16a, ==, cmp)
+SIMD_BIN_OP_NATIVE(v4u16, uint16a, !=, neq)
+SIMD_UN_OP_NATIVE(v4u16, uint16a, ~, compl)
+SIMD_UN_OP_NATIVE(v4u16, uint16a, -, neg)
+
+SIMD_OP_NATIVE_PACK(v4i16, int16a, int16)
+SIMD_BIN_OP_NATIVE(v4i16, int16a, +, add)
+SIMD_BIN_OP_NATIVE(v4i16, int16a, -, sub)
+SIMD_BIN_OP_NATIVE(v4i16, int16a, *, mul)
+SIMD_BIN_OP_NATIVE(v4i16, int16a, /, div)
+SIMD_BIN_OP_NATIVE(v4i16, int16a, %, mod)
+SIMD_BIN_OP_NATIVE(v4i16, int16a, &, and)
+SIMD_BIN_OP_NATIVE(v4i16, int16a, |, or)
+SIMD_BIN_OP_NATIVE(v4i16, int16a, ^, xor)
+SIMD_BIN_OP_NATIVE(v4i16, int16a, <<, shl)
+SIMD_BIN_OP_NATIVE(v4i16, int16a, >>, shr)
+SIMD_BIN_OP_NATIVE(v4i16, int16a, >=, grteq)
+SIMD_BIN_OP_NATIVE(v4i16, int16a, >, grtr)
+SIMD_BIN_OP_NATIVE(v4i16, int16a, <=, lesseq)
+SIMD_BIN_OP_NATIVE(v4i16, int16a, <, less)
+SIMD_BIN_OP_NATIVE(v4i16, int16a, ==, cmp)
+SIMD_BIN_OP_NATIVE(v4i16, int16a, !=, neq)
+SIMD_UN_OP_NATIVE(v4i16, int16a, ~, compl)
+SIMD_UN_OP_NATIVE(v4i16, int16a, -, neg)
+
+SIMD_OP_NATIVE_PACK(v8u8, uint8a, uint8)
+SIMD_BIN_OP_NATIVE(v8u8, uint8a, +, add)
+SIMD_BIN_OP_NATIVE(v8u8, uint8a, -, sub)
+SIMD_BIN_OP_NATIVE(v8u8, uint8a, *, mul)
+SIMD_BIN_OP_NATIVE(v8u8, uint8a, /, div)
+SIMD_BIN_OP_NATIVE(v8u8, uint8a, %, mod)
+SIMD_BIN_OP_NATIVE(v8u8, uint8a, &, and)
+SIMD_BIN_OP_NATIVE(v8u8, uint8a, |, or)
+SIMD_BIN_OP_NATIVE(v8u8, uint8a, ^, xor)
+SIMD_BIN_OP_NATIVE(v8u8, uint8a, <<, shl)
+SIMD_BIN_OP_NATIVE(v8u8, uint8a, >>, shr)
+SIMD_BIN_OP_NATIVE(v8u8, uint8a, >=, grteq)
+SIMD_BIN_OP_NATIVE(v8u8, uint8a, >, grtr)
+SIMD_BIN_OP_NATIVE(v8u8, uint8a, <=, lesseq)
+SIMD_BIN_OP_NATIVE(v8u8, uint8a, <, less)
+SIMD_BIN_OP_NATIVE(v8u8, uint8a, ==, cmp)
+SIMD_BIN_OP_NATIVE(v8u8, uint8a, !=, neq)
+SIMD_UN_OP_NATIVE(v8u8, uint8a, ~, compl)
+SIMD_UN_OP_NATIVE(v8u8, uint8a, -, neg)
+
+SIMD_OP_NATIVE_PACK(v8i8, int8a, int8)
+SIMD_BIN_OP_NATIVE(v8i8, int8a, +, add)
+SIMD_BIN_OP_NATIVE(v8i8, int8a, -, sub)
+SIMD_BIN_OP_NATIVE(v8i8, int8a, *, mul)
+SIMD_BIN_OP_NATIVE(v8i8, int8a, /, div)
+SIMD_BIN_OP_NATIVE(v8i8, int8a, %, mod)
+SIMD_BIN_OP_NATIVE(v8i8, int8a, &, and)
+SIMD_BIN_OP_NATIVE(v8i8, int8a, |, or)
+SIMD_BIN_OP_NATIVE(v8i8, int8a, ^, xor)
+SIMD_BIN_OP_NATIVE(v8i8, int8a, <<, shl)
+SIMD_BIN_OP_NATIVE(v8i8, int8a, >>, shr)
+SIMD_BIN_OP_NATIVE(v8i8, int8a, >=, grteq)
+SIMD_BIN_OP_NATIVE(v8i8, int8a, >, grtr)
+SIMD_BIN_OP_NATIVE(v8i8, int8a, <=, lesseq)
+SIMD_BIN_OP_NATIVE(v8i8, int8a, <, less)
+SIMD_BIN_OP_NATIVE(v8i8, int8a, ==, cmp)
+SIMD_BIN_OP_NATIVE(v8i8, int8a, !=, neq)
+SIMD_UN_OP_NATIVE(v8i8, int8a, ~, compl)
+SIMD_UN_OP_NATIVE(v8i8, int8a, -, neg)
+
+#ifdef TAGHA_FLOAT32_DEFINED
+SIMD_OP_NATIVE_PACK(v2f32, float32a, float32)
+SIMD_BIN_OP_NATIVE(v2f32, float32a, +, add)
+SIMD_BIN_OP_NATIVE(v2f32, float32a, -, sub)
+SIMD_BIN_OP_NATIVE(v2f32, float32a, *, mul)
+SIMD_BIN_OP_NATIVE(v2f32, float32a, /, div)
+SIMD_BIN_OP_NATIVE(v2f32, float32a, >=, grteq)
+SIMD_BIN_OP_NATIVE(v2f32, float32a, >, grtr)
+SIMD_BIN_OP_NATIVE(v2f32, float32a, <=, lesseq)
+SIMD_BIN_OP_NATIVE(v2f32, float32a, <, less)
+SIMD_BIN_OP_NATIVE(v2f32, float32a, ==, cmp)
+SIMD_BIN_OP_NATIVE(v2f32, float32a, !=, neq)
+SIMD_UN_OP_NATIVE(v2f32, float32a, -, neg)
+#endif
+
+bool tagha_module_load_simd_natives(struct TaghaModule *const module)
+{
+	const struct TaghaNative simd_natives[] = {
+		SIMD_OP_NATIVE_REG(v2u32, pack)
+		SIMD_OP_NATIVE_REG(v2u32, add)
+		SIMD_OP_NATIVE_REG(v2u32, sub)
+		SIMD_OP_NATIVE_REG(v2u32, mul)
+		SIMD_OP_NATIVE_REG(v2u32, div)
+		SIMD_OP_NATIVE_REG(v2u32, mod)
+		SIMD_OP_NATIVE_REG(v2u32, and)
+		SIMD_OP_NATIVE_REG(v2u32, or)
+		SIMD_OP_NATIVE_REG(v2u32, xor)
+		SIMD_OP_NATIVE_REG(v2u32, shl)
+		SIMD_OP_NATIVE_REG(v2u32, shr)
+		SIMD_OP_NATIVE_REG(v2u32, grteq)
+		SIMD_OP_NATIVE_REG(v2u32, grtr)
+		SIMD_OP_NATIVE_REG(v2u32, lesseq)
+		SIMD_OP_NATIVE_REG(v2u32, less)
+		SIMD_OP_NATIVE_REG(v2u32, cmp)
+		SIMD_OP_NATIVE_REG(v2u32, neq)
+		SIMD_OP_NATIVE_REG(v2u32, compl)
+		SIMD_OP_NATIVE_REG(v2u32, neg)
+		
+		SIMD_OP_NATIVE_REG(v2i32, pack)
+		SIMD_OP_NATIVE_REG(v2i32, add)
+		SIMD_OP_NATIVE_REG(v2i32, sub)
+		SIMD_OP_NATIVE_REG(v2i32, mul)
+		SIMD_OP_NATIVE_REG(v2i32, div)
+		SIMD_OP_NATIVE_REG(v2i32, mod)
+		SIMD_OP_NATIVE_REG(v2i32, and)
+		SIMD_OP_NATIVE_REG(v2i32, or)
+		SIMD_OP_NATIVE_REG(v2i32, xor)
+		SIMD_OP_NATIVE_REG(v2i32, shl)
+		SIMD_OP_NATIVE_REG(v2i32, shr)
+		SIMD_OP_NATIVE_REG(v2i32, grteq)
+		SIMD_OP_NATIVE_REG(v2i32, grtr)
+		SIMD_OP_NATIVE_REG(v2i32, lesseq)
+		SIMD_OP_NATIVE_REG(v2i32, less)
+		SIMD_OP_NATIVE_REG(v2i32, cmp)
+		SIMD_OP_NATIVE_REG(v2i32, neq)
+		SIMD_OP_NATIVE_REG(v2i32, compl)
+		SIMD_OP_NATIVE_REG(v2i32, neg)
+		
+		SIMD_OP_NATIVE_REG(v4u16, pack)
+		SIMD_OP_NATIVE_REG(v4u16, add)
+		SIMD_OP_NATIVE_REG(v4u16, sub)
+		SIMD_OP_NATIVE_REG(v4u16, mul)
+		SIMD_OP_NATIVE_REG(v4u16, div)
+		SIMD_OP_NATIVE_REG(v4u16, mod)
+		SIMD_OP_NATIVE_REG(v4u16, and)
+		SIMD_OP_NATIVE_REG(v4u16, or)
+		SIMD_OP_NATIVE_REG(v4u16, xor)
+		SIMD_OP_NATIVE_REG(v4u16, shl)
+		SIMD_OP_NATIVE_REG(v4u16, shr)
+		SIMD_OP_NATIVE_REG(v4u16, grteq)
+		SIMD_OP_NATIVE_REG(v4u16, grtr)
+		SIMD_OP_NATIVE_REG(v4u16, lesseq)
+		SIMD_OP_NATIVE_REG(v4u16, less)
+		SIMD_OP_NATIVE_REG(v4u16, cmp)
+		SIMD_OP_NATIVE_REG(v4u16, neq)
+		SIMD_OP_NATIVE_REG(v4u16, compl)
+		SIMD_OP_NATIVE_REG(v4u16, neg)
+		
+		SIMD_OP_NATIVE_REG(v4i16, pack)
+		SIMD_OP_NATIVE_REG(v4i16, add)
+		SIMD_OP_NATIVE_REG(v4i16, sub)
+		SIMD_OP_NATIVE_REG(v4i16, mul)
+		SIMD_OP_NATIVE_REG(v4i16, div)
+		SIMD_OP_NATIVE_REG(v4i16, mod)
+		SIMD_OP_NATIVE_REG(v4i16, and)
+		SIMD_OP_NATIVE_REG(v4i16, or)
+		SIMD_OP_NATIVE_REG(v4i16, xor)
+		SIMD_OP_NATIVE_REG(v4i16, shl)
+		SIMD_OP_NATIVE_REG(v4i16, shr)
+		SIMD_OP_NATIVE_REG(v4i16, grteq)
+		SIMD_OP_NATIVE_REG(v4i16, grtr)
+		SIMD_OP_NATIVE_REG(v4i16, lesseq)
+		SIMD_OP_NATIVE_REG(v4i16, less)
+		SIMD_OP_NATIVE_REG(v4i16, cmp)
+		SIMD_OP_NATIVE_REG(v4i16, neq)
+		SIMD_OP_NATIVE_REG(v4i16, compl)
+		SIMD_OP_NATIVE_REG(v4i16, neg)
+		
+		SIMD_OP_NATIVE_REG(v8u8, pack)
+		SIMD_OP_NATIVE_REG(v8u8, add)
+		SIMD_OP_NATIVE_REG(v8u8, sub)
+		SIMD_OP_NATIVE_REG(v8u8, mul)
+		SIMD_OP_NATIVE_REG(v8u8, div)
+		SIMD_OP_NATIVE_REG(v8u8, mod)
+		SIMD_OP_NATIVE_REG(v8u8, and)
+		SIMD_OP_NATIVE_REG(v8u8, or)
+		SIMD_OP_NATIVE_REG(v8u8, xor)
+		SIMD_OP_NATIVE_REG(v8u8, shl)
+		SIMD_OP_NATIVE_REG(v8u8, shr)
+		SIMD_OP_NATIVE_REG(v8u8, grteq)
+		SIMD_OP_NATIVE_REG(v8u8, grtr)
+		SIMD_OP_NATIVE_REG(v8u8, lesseq)
+		SIMD_OP_NATIVE_REG(v8u8, less)
+		SIMD_OP_NATIVE_REG(v8u8, cmp)
+		SIMD_OP_NATIVE_REG(v8u8, neq)
+		SIMD_OP_NATIVE_REG(v8u8, compl)
+		SIMD_OP_NATIVE_REG(v8u8, neg)
+		
+		SIMD_OP_NATIVE_REG(v8i8, pack)
+		SIMD_OP_NATIVE_REG(v8i8, add)
+		SIMD_OP_NATIVE_REG(v8i8, sub)
+		SIMD_OP_NATIVE_REG(v8i8, mul)
+		SIMD_OP_NATIVE_REG(v8i8, div)
+		SIMD_OP_NATIVE_REG(v8i8, mod)
+		SIMD_OP_NATIVE_REG(v8i8, and)
+		SIMD_OP_NATIVE_REG(v8i8, or)
+		SIMD_OP_NATIVE_REG(v8i8, xor)
+		SIMD_OP_NATIVE_REG(v8i8, shl)
+		SIMD_OP_NATIVE_REG(v8i8, shr)
+		SIMD_OP_NATIVE_REG(v8i8, grteq)
+		SIMD_OP_NATIVE_REG(v8i8, grtr)
+		SIMD_OP_NATIVE_REG(v8i8, lesseq)
+		SIMD_OP_NATIVE_REG(v8i8, less)
+		SIMD_OP_NATIVE_REG(v8i8, cmp)
+		SIMD_OP_NATIVE_REG(v8i8, neq)
+		SIMD_OP_NATIVE_REG(v8i8, compl)
+		SIMD_OP_NATIVE_REG(v8i8, neg)
+		
+#ifdef TAGHA_FLOAT32_DEFINED
+		SIMD_OP_NATIVE_REG(v2f32, pack)
+		SIMD_OP_NATIVE_REG(v2f32, add)
+		SIMD_OP_NATIVE_REG(v2f32, sub)
+		SIMD_OP_NATIVE_REG(v2f32, mul)
+		SIMD_OP_NATIVE_REG(v2f32, div)
+		SIMD_OP_NATIVE_REG(v2f32, grteq)
+		SIMD_OP_NATIVE_REG(v2f32, grtr)
+		SIMD_OP_NATIVE_REG(v2f32, lesseq)
+		SIMD_OP_NATIVE_REG(v2f32, less)
+		SIMD_OP_NATIVE_REG(v2f32, cmp)
+		SIMD_OP_NATIVE_REG(v2f32, neq)
+		SIMD_OP_NATIVE_REG(v2f32, neg)
+#endif
+		{NULL, NULL}
+	};
+	return module ? tagha_module_register_natives(module, simd_natives) : false;
+}
+

@@ -1,0 +1,26 @@
+$stacksize 0xf    ; 15 stack cells
+
+; int add_one(const int n);
+$native %add_one
+
+; int main(void)
+; {
+;     int count = 0; // 1,000,000,000
+;     for (int i = 0; i < iterations; i++)
+;         count = add_one(count);
+; }
+
+%main: {
+    movi    r1, 1000000000 ; loop 1 billion times.
+    movi    r0, 0
+    movi    r2, 0
+    movi    r3, 1
+.loop:
+    mov     rarg0, r0
+    movi    r0, 1
+    call    %add_one
+    sub     r1, r3
+    cmp     r1, r2
+    jz      .loop
+    ret
+}

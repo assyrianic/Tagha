@@ -1,0 +1,52 @@
+# manually set stack size
+# directives start with $
+# if stacksize isn't set, the default stacksize is 255 which will end up as
+# 255 stack cells * 8 == 2040 bytes of stack size.
+$stacksize 255
+
+# global var named 'i' which is 12 bytes (struct) and is assigned the values after the bytesize.
+$global i, 12,    0
+$global n, 4,     byte 0, byte 0, byte 0, byte 0x40 # alternative: long 0x40000000 or 1073741824
+
+# global var for strings, number is string length WITH null terminator.
+# number is deprecated, string size is automatically deduced by assembler.
+$global str, 1,  "bytecode says you suck hahaah \u0710"
+
+$native %puts
+
+# uint32_t factorial(const uint32_t i) {
+#     if( i<=1 )
+#         return 1;
+#     else return i * factorial(i-1);
+# }
+
+%main: {
+    movi    rarg0, 5   ; 10 bytes
+    call    %factorial ; 9 bytes
+    ret
+}
+
+%factorial: {
+    movi    r3, 32
+    sub     rsp, r3
+    movi    r1, 1          ; 10 bytes
+    st4     [rbp-4], rarg0 ; 7 bytes
+    
+# if( i<=1 )
+    cmp     rarg0, r1 ; 3 bytes
+    jz      .cont     ; 9 bytes
+    
+# return 1;
+    mov     r0, r1    ; 3 bytes
+    ret               ; 1 byte
+    
+.cont:
+# return i * factorial(i-1);
+    ld4     r0, [rbp-4]
+    sub     r0, r1
+    mov     rarg0, r0
+    call    %factorial
+    ld4     r2, [rbp-4]
+    mul     r0, r2
+    ret
+}

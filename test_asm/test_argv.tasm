@@ -1,0 +1,32 @@
+$stacksize 8
+
+; int puts(const char *);
+$native %puts
+
+; int main(int argc, char *argv[])
+%main: {
+    movi    rgamal, 32
+    sub     rsp, rgamal
+    mov     rgamal, rarg0 ; save the amount of args we have.
+    
+    ; puts(argv[0]);
+    ld8     rarg0, [rarg1]
+    movi    ralaf, 1
+    call    %puts
+    
+    ; puts(argv[1]);
+    ld8     rarg0, [rarg1 + 8]
+    movi    ralaf, 1
+    call    %puts
+    
+    ; modify a single character
+    ; C standard says that argv strings must be modifiable.
+    ; argv[0][3] = 'l';
+    ld8     rbeth, [rarg1]
+    movi    rdalath, 108
+    st1     [rbeth+3], rdalath
+    movi    ralaf, 1
+    ld8     rarg0, [rarg1]
+    call    %puts
+    ret
+}
