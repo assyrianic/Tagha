@@ -433,4 +433,4 @@ Tagha's Calling convention is consistent for both bytecode and native C or (C++)
 
 Arguments 1 to 16 are stored in registers `semkath` to `dadeh`.
 
-More than 8 params requires passing a va_list. Only 16 OR LESS can be passed by registers.
+More than 16 params requires passing a va_list. Only 16 OR LESS can be passed by registers.

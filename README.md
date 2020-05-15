@@ -39,7 +39,7 @@
 * VM runs as little-endian format (only).
 * Small. The entire runtime as a static library is less than 50kb.
 * Tagha's entire VM code is **about 1k lines of code**!
-* Speed, Tagha is very fast for a virtual machine that does not use a JIT.
+* Speed, Tagha is very fast for a virtual machine that does not use a JIT -- Check out the documentation for profiling results.
 * Memory safe, Tagha sandboxes scripts by blocking memory operations that were not allocated by the script's own memory allocator.
 * Tagha Assembler - transforms human readable bytecode into binary bytecode.
 * Tagha IR Builder - header-only, higher level constructs to manually create bytecode.
@@ -154,20 +154,20 @@ This project is licensed under MIT License.
 
 
 ## FAQ
-* Q: _**why not just pick a scripting language?**_
+* Q: _**Why not just pick a scripting language?**_
 * A: You're right. Any developer could simply choose an existing scripting language and its implementation, but not all developers want to use a scripting language and they could have various reasons like performance, syntax, maybe the runtime is too bloated. Secondly, not all developers might know the language, are comfortable with it, or don't preffer it. Perhaps for the sake of consistency with the code base, they want the entire code to be in one language. After all, to be able to utilize the scripting language, you'd need to learn it as well as learning the exposed API of the host app. My point is, there's a myriad of reasons to choose (or not to choose) a scripting language.
 
-* Q: _**ok, then why not use a dynamic linking/shared library module/plugin system?**_
+* Q: _**Ok, then why not use a dynamic linking/shared library module/plugin system?**_
 * A: Same answer as before, any developer could choose such a system over a scripting language as well. The benefits of this is having the native speed of the application's implementation language while still being extendable/modifiable. However the drawbacks to a shared library plugin system is that you need to build the plugins for every architecture and OS for the shared plugins to run properly. On Windows OS' this isn't as big a deal but Linux ABIs also use the OS as a factor. Thus, having portable programs isn't easy to implement with using a plugin system without taking ABI in account.
 
-* Q: _**then why use Tagha at all?**_
-* A: You should use Tagha if you want a bytecode runtime environment that is fast, minimal, very small memory footprint, completely self-contained within a single static or shared library, open source, and permissive in licensing with no strings attached.
+* Q: _**Then why use Tagha at all?**_
+* A: You should use Tagha if you want a bytecode runtime environment that is fast, minimal, very small memory footprint, completely self-contained within a single (static or shared) library, open source, and permissive in licensing with absolutely no strings attached.
 
 * Q: _**Why implement Tagha in C and not C++?**_
 * A: The design choices for Tagha was to be minimal, fast, and with little-to-no dependencies except for a few C standard library functions. To achieve this, I needed to use C which allowed me to manipulate memory as fast and seamless as possible. I'm aware C++ allows me to manipulate memory but it's not without trouble.
 
 * Q: _**Can Tagha be used to implement any language?**_
-* A: In theory yes; in practice, yes but not perfectly. If we take Lua's example, Lua values are entirely pointers to a tagged union type in which the types are either a float value, string, or table/hashmap. Tagha is designed as a runtime environment for C, not Lua. Lua as a language can be supported but features like tables have to be translated into more lower level operations or implemented as natives.
+* A: In theory yes; in practice, yes but not perfectly. If we take Lua's example, Lua values are entirely pointers to a tagged union type in which the types are either a float value, string, or table/hashmap. Tagha is designed as a runtime environment for C code that is compiled to bytecode, not Lua. Lua as a language can be supported but features like tables have to be translated into more lower level operations or implemented as natives. Since Tagha has the bare minimum features to be a C runtime, that can be adapted to other languages although it would require more effort.
 
 * Q: _**Will you implement a JIT in the future?**_
-* A: Maybe. I will likely not implement a JIT but I could make a compromise by adding JIT compiling support.
+* A: Maybe. I will likely not implement a JIT but I could make a compromise by adding JIT compiling support. If I were to seriously consider implementing a JIT, I'd likely use the MIR JIT Compiler since it's also in C and is planned as a standalone library, easy to use JIT compilation library.

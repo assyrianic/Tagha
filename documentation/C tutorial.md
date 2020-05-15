@@ -4,6 +4,7 @@
  * [Script - Native Communication](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#script--native-communication)
  * [Script - Host Messaging](https://github.com/assyrianic/Tagha/wiki/Embedding-Tagha-to-your-Application!-(C)#script--host-messaging)
  * ['va_list' Natives](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#va_list-arguments)
+ * [Function Pointer Arguments](https://github.com/assyrianic/Tagha-Virtual-Machine/wiki/Embedding-Tagha-to-your-Application!-(C)#function-pointer-arguments)
 
 # Intro
 Thank you for choosing Tagha as your runtime environment/scripting engine! Tagha has a wide range of API functions to help you get as much control as possible to data to and from scripts. Let's get started!
