@@ -231,6 +231,7 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 		harbol_string_add_format(&vars, "\n");
 	}
 	harbol_string_add_cstr(&vars, "\n");
+	free(filedata);
 	
 	for( size_t i=0; i<func_names.count; i++ ) {
 		struct HarbolString *name = harbol_vector_get(&func_names, i);
@@ -279,7 +280,7 @@ int main(const int argc, char *argv[restrict static 1])
 	} else if( !strcmp(argv[1], "--help") ) {
 		puts("Tagha Disassembler - Tagha Runtime Environment Toolkit\nTo decompile a tbc script to tasm, supply a script name as a command-line argument to the program.\nExample: './tagha_disasm [options] script.tbc'");
 	} else if( !strcmp(argv[1], "--version") ) {
-		puts("Tagha Disassembler Version 1.0.0");
+		puts("Tagha Disassembler Version 1.0.1");
 	} else {
 		for( int i=1; i<argc; i++ ) {
 			if( argv[i][0]=='-' ) {
