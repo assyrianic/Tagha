@@ -45,6 +45,7 @@
 * Tagha IR Builder - header-only, higher level constructs to manually create bytecode.
 * Tagha Bytecode Builder - header-only encoder functions to help with lower level bytecode creation.
 * Tagha Script Builder - header-only constructs that help create a full-fledged Tagha script.
+* Tagha Disassembler - complement to the Tagha Assembler, disassembles tagha modules to human readable bytecode and recreates the assembly as close to the original as possible.
 
 
 ## Usage
