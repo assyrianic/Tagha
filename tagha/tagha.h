@@ -278,11 +278,11 @@ TAGHA_EXPORT NO_NULL void tagha_module_resolve_links(struct TaghaModule *module,
 	\
 	X(ldvar) X(ldaddr) X(ldfunc) \
 	X(movi) X(mov) \
-	X(ld1) X(ld2) X(ld4) X(ld8) \
+	X(ld1) X(ld2) X(ld4) X(ld8) X(lds1) X(lds2) X(lds4) \
 	X(st1) X(st2) X(st4) X(st8) \
 	\
 	X(add) X(sub) X(mul) X(divi) X(mod) \
-	X(bit_and) X(bit_or) X(bit_xor) X(bit_not) X(shl) X(shr) X(neg) \
+	X(bit_and) X(bit_or) X(bit_xor) X(bit_not) X(shl) X(shr) X(shal) X(shar) X(neg) \
 	\
 	X(ilt) X(ile) X(ult) X(ule) \
 	X(cmp) X(setc) \

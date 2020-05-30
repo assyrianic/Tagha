@@ -300,7 +300,6 @@ static union TaghaVal native_qsort(struct TaghaModule *const restrict module, co
 	const size_t num_elements = params[1].size;
 	const size_t element_bytes = params[2].size;
 	const void *func_ptr = ( const void* )params[3].uintptr;
-	union TaghaVal ret = {0};
 	tagha_module_invoke(module, func_ptr, 2, const union TaghaVal params[], &ret);
 	*/
 	return (union TaghaVal){ 0 };
@@ -353,40 +352,40 @@ static union TaghaVal native_getenv(struct TaghaModule *const restrict module, c
 bool tagha_module_load_stdlib_natives(struct TaghaModule *const module)
 {
 	const struct TaghaNative libc_stdlib_natives[] = {
-		{"malloc", native_malloc},
-		{"free", native_free},
-		{"safe_free", native_safe_free},
-		{"calloc", native_calloc},
-		{"realloc", native_realloc},
-		{"srand", native_srand},
-		{"rand", native_rand},
-		{"atof", native_atof},
-		{"atoi", native_atoi},
-		{"atol", native_atol},
-		{"atoll", native_atoll},
-		{"strtod", native_strtod},
-		{"strtof", native_strtof},
-		{"strtol", native_strtol},
-		{"strtoll", native_strtoll},
-		{"strtoul", native_strtoul},
-		{"strtoull", native_strtoull},
-		{"abort", native_abort},
-		{"exit", native_exit},
-		{"system", native_system},
-		{"abs", native_abs},
-		{"labs", native_labs},
-		{"llabs", native_llabs},
-		{"div", native_div},
-		{"ldiv", native_lldiv}, //native_ldiv}, long and long long are both 8 bytes for Tagha...
-		{"lldiv", native_lldiv},
-		{"mblen", native_mblen},
-		{"mbtowc", native_mbtowc},
-		{"wctomb", native_wctomb},
-		{"mbstowcs", native_mbstowcs},
-		{"wcstombs", native_wcstombs},
-		{"atexit", native_atexit},
+		{"malloc",        native_malloc},
+		{"free",          native_free},
+		{"safe_free",     native_safe_free},
+		{"calloc",        native_calloc},
+		{"realloc",       native_realloc},
+		{"srand",         native_srand},
+		{"rand",          native_rand},
+		{"atof",          native_atof},
+		{"atoi",          native_atoi},
+		{"atol",          native_atol},
+		{"atoll",         native_atoll},
+		{"strtod",        native_strtod},
+		{"strtof",        native_strtof},
+		{"strtol",        native_strtol},
+		{"strtoll",       native_strtoll},
+		{"strtoul",       native_strtoul},
+		{"strtoull",      native_strtoull},
+		{"abort",         native_abort},
+		{"exit",          native_exit},
+		{"system",        native_system},
+		{"abs",           native_abs},
+		{"labs",          native_labs},
+		{"llabs",         native_llabs},
+		{"div",           native_div},
+		{"ldiv",          native_lldiv}, //native_ldiv}, long and long long are both 8 bytes for Tagha...
+		{"lldiv",         native_lldiv},
+		{"mblen",         native_mblen},
+		{"mbtowc",        native_mbtowc},
+		{"wctomb",        native_wctomb},
+		{"mbstowcs",      native_mbstowcs},
+		{"wcstombs",      native_wcstombs},
+		{"atexit",        native_atexit},
 		{"at_quick_exit", native_at_quick_exit},
-		{"getenv", native_getenv},
+		{"getenv",        native_getenv},
 		{NULL, NULL}
 	};
 	return module ? tagha_module_register_natives(module, libc_stdlib_natives) : false;

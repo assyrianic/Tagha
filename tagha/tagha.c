@@ -490,6 +490,9 @@ TAGHA_EXPORT void tagha_module_resolve_links(struct TaghaModule *const restrict 
 
 //#include <unistd.h>    /// sleep() func
 
+static inline uint8_t REG1(const uint16_t r) { return r & 0xff; }
+static inline uint8_t REG2(const uint16_t r) { return r  >>  8; }
+
 static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 {
 	/** pc is restricted and must not access beyond the function table! */
@@ -524,9 +527,6 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 #	define GCC_JMP       goto *dispatch[*pc.uint8++]
 	
 #	define DISPATCH()    GCC_JMP
-	
-#	define REG1(r)       (r & 0xff)
-#	define REG2(r)       (r  >>  8)
 	
 	/** nop being first will make sure our VM starts with a dispatch! */
 	exec_nop: { /** u8: opcode */
@@ -619,6 +619,42 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		} else {
 			const uint64_t *const restrict ptr = ( const uint64_t* )mem;
 			vm->regs[REG1(regids)].uint64 = *ptr;
+			DISPATCH();
+		}
+	}
+	exec_lds1: { /** u8: opcode | u8: dest reg | u8: src reg | i32: offset */
+		const uint16_t regids = *pc.uint16++;
+		const uintptr_t mem = vm->regs[REG2(regids)].uintptr + *pc.int32++;
+		if( mem < vm->start_seg || mem > vm->end_seg ) {
+			vm->errcode = tagha_err_bad_ptr;
+			return -1;
+		} else {
+			const int8_t *const restrict ptr = ( const int8_t* )mem;
+			vm->regs[REG1(regids)].int64 = *ptr;
+			DISPATCH();
+		}
+	}
+	exec_lds2: { /** u8: opcode | u8: dest reg | u8: src reg | i32: offset */
+		const uint16_t regids = *pc.uint16++;
+		const uintptr_t mem = vm->regs[REG2(regids)].uintptr + *pc.int32++;
+		if( mem < vm->start_seg || mem+1 > vm->end_seg ) {
+			vm->errcode = tagha_err_bad_ptr;
+			return -1;
+		} else {
+			const int16_t *const restrict ptr = ( const int16_t* )mem;
+			vm->regs[REG1(regids)].int64 = *ptr;
+			DISPATCH();
+		}
+	}
+	exec_lds4: { /** u8: opcode | u8: dest reg | u8: src reg | i32: offset */
+		const uint16_t regids = *pc.uint16++;
+		const uintptr_t mem = vm->regs[REG2(regids)].uintptr + *pc.int32++;
+		if( mem < vm->start_seg || mem+3 > vm->end_seg ) {
+			vm->errcode = tagha_err_bad_ptr;
+			return -1;
+		} else {
+			const int32_t *const restrict ptr = ( const int32_t* )mem;
+			vm->regs[REG1(regids)].int64 = *ptr;
 			DISPATCH();
 		}
 	}
@@ -720,6 +756,16 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	exec_shr: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 		vm->regs[REG1(regids)].uint64 >>= vm->regs[REG2(regids)].uint64;
+		DISPATCH();
+	}
+	exec_shal: { /** u8: opcode | u8: dest reg | u8: src reg */
+		const uint16_t regids = *pc.uint16++;
+		vm->regs[REG1(regids)].int64 <<= vm->regs[REG2(regids)].uint64;
+		DISPATCH();
+	}
+	exec_shar: { /** u8: opcode | u8: dest reg | u8: src reg */
+		const uint16_t regids = *pc.uint16++;
+		vm->regs[REG1(regids)].int64 >>= vm->regs[REG2(regids)].uint64;
 		DISPATCH();
 	}
 	exec_bit_not: { /** u8: opcode | u8: regid */

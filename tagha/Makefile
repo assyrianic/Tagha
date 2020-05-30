@@ -31,7 +31,7 @@ profile:
 
 disasm:
 	$(CC) -O2 -fverbose-asm -masm=intel -S $(SRCS)
-	#llvm-gcc -emit-llvm -S $(SRCS)
+	#$(CC) -O3 -emit-llvm -S $(SRCS)
 
 clean:
 	$(RM) *.o

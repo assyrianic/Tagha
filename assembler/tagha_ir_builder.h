@@ -26,6 +26,8 @@ typedef enum TaghaIRType {
 	TIR_NOT,
 	TIR_SHL,
 	TIR_SHR,
+	TIR_SHAL,
+	TIR_SHAR,
 	
 	/// int relational ops
 	TIR_EQ,
@@ -46,9 +48,9 @@ typedef enum TaghaIRType {
 	TIR_BR,
 	
 	/// memory loads
-	TIR_LOAD1,
-	TIR_LOAD2,
-	TIR_LOAD4,
+	TIR_LOAD1, TIR_LOADS1,
+	TIR_LOAD2, TIR_LOADS2,
+	TIR_LOAD4, TIR_LOADS4,
 	TIR_LOAD8,
 	TIR_LOADBP,
 	TIR_LOADFN,
@@ -173,13 +175,13 @@ static inline struct TaghaIR tagha_ir_load_bp(const enum TaghaRegID r, const int
 	return (struct TaghaIR){ .ir.mem.offset = offset, .ir.mem.regs = { r, bp }, TIR_LOADBP };
 }
 
-static inline struct TaghaIR tagha_ir_load(const enum TaghaRegID r1, const enum TaghaRegID r2, const int32_t offset, const size_t bytes)
+static inline struct TaghaIR tagha_ir_load(const enum TaghaRegID r1, const enum TaghaRegID r2, const int32_t offset, const size_t bytes, const bool sign_d)
 {
 	switch( bytes ) {
-		case 2: return (struct TaghaIR){ .ir.mem.offset = offset, .ir.mem.regs = { r1, r2 }, TIR_LOAD2 };
-		case 4: return (struct TaghaIR){ .ir.mem.offset = offset, .ir.mem.regs = { r1, r2 }, TIR_LOAD4 };
+		case 2: return (struct TaghaIR){ .ir.mem.offset = offset, .ir.mem.regs = { r1, r2 }, sign_d ? TIR_LOADS2 : TIR_LOAD2 };
+		case 4: return (struct TaghaIR){ .ir.mem.offset = offset, .ir.mem.regs = { r1, r2 }, sign_d ? TIR_LOADS4 : TIR_LOAD4 };
 		case 8: return (struct TaghaIR){ .ir.mem.offset = offset, .ir.mem.regs = { r1, r2 }, TIR_LOAD8 };
-		default: return (struct TaghaIR){ .ir.mem.offset = offset, .ir.mem.regs = { r1, r2 }, TIR_LOAD1 };
+		default: return (struct TaghaIR){ .ir.mem.offset = offset, .ir.mem.regs = { r1, r2 }, sign_d ? TIR_LOADS1 : TIR_LOAD1 };
 	}
 }
 
@@ -288,6 +290,8 @@ static NO_NULL struct HarbolByteBuf taghair_func_to_bytecode(const struct TaghaI
 				case TIR_XOR: prog_counter += tagha_bc_op_reg_reg(NULL, bit_xor, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_SHL: prog_counter += tagha_bc_op_reg_reg(NULL, shl, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_SHR: prog_counter += tagha_bc_op_reg_reg(NULL, shr, i->ir.regs[0], i->ir.regs[1]); break;
+				case TIR_SHAL: prog_counter += tagha_bc_op_reg_reg(NULL, shal, i->ir.regs[0], i->ir.regs[1]); break;
+				case TIR_SHAR: prog_counter += tagha_bc_op_reg_reg(NULL, shar, i->ir.regs[0], i->ir.regs[1]); break;
 				
 				case TIR_EQ: prog_counter += tagha_bc_op_reg_reg(NULL, cmp, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_LE: prog_counter += tagha_bc_op_reg_reg(NULL, (i->usign) ? ule: ile, i->ir.regs[0], i->ir.regs[1]); break;
@@ -320,6 +324,9 @@ static NO_NULL struct HarbolByteBuf taghair_func_to_bytecode(const struct TaghaI
 				case TIR_LOAD1: prog_counter += tagha_bc_op_reg_mem(NULL, ld1, i->ir.mem.regs[0], i->ir.mem.regs[1], i->ir.mem.offset); break;
 				case TIR_LOAD2: prog_counter += tagha_bc_op_reg_mem(NULL, ld2, i->ir.mem.regs[0], i->ir.mem.regs[1], i->ir.mem.offset); break;
 				case TIR_LOAD4: prog_counter += tagha_bc_op_reg_mem(NULL, ld4, i->ir.mem.regs[0], i->ir.mem.regs[1], i->ir.mem.offset); break;
+				case TIR_LOADS1: prog_counter += tagha_bc_op_reg_mem(NULL, lds1, i->ir.mem.regs[0], i->ir.mem.regs[1], i->ir.mem.offset); break;
+				case TIR_LOADS2: prog_counter += tagha_bc_op_reg_mem(NULL, lds2, i->ir.mem.regs[0], i->ir.mem.regs[1], i->ir.mem.offset); break;
+				case TIR_LOADS4: prog_counter += tagha_bc_op_reg_mem(NULL, lds4, i->ir.mem.regs[0], i->ir.mem.regs[1], i->ir.mem.offset); break;
 				case TIR_LOAD8: prog_counter += tagha_bc_op_reg_mem(NULL, ld8, i->ir.mem.regs[0], i->ir.mem.regs[1], i->ir.mem.offset); break;
 				case TIR_LOADBP: prog_counter += tagha_bc_op_reg_mem(NULL, ldaddr, i->ir.mem.regs[0], i->ir.mem.regs[1], i->ir.mem.offset); break;
 				
@@ -374,6 +381,8 @@ static NO_NULL struct HarbolByteBuf taghair_func_to_bytecode(const struct TaghaI
 				case TIR_XOR: prog_counter += tagha_bc_op_reg_reg(&bytecode, bit_xor, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_SHL: prog_counter += tagha_bc_op_reg_reg(&bytecode, shl, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_SHR: prog_counter += tagha_bc_op_reg_reg(&bytecode, shr, i->ir.regs[0], i->ir.regs[1]); break;
+				case TIR_SHAL: prog_counter += tagha_bc_op_reg_reg(&bytecode, shal, i->ir.regs[0], i->ir.regs[1]); break;
+				case TIR_SHAR: prog_counter += tagha_bc_op_reg_reg(&bytecode, shar, i->ir.regs[0], i->ir.regs[1]); break;
 				
 				case TIR_EQ: prog_counter += tagha_bc_op_reg_reg(&bytecode, cmp, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_LE: prog_counter += tagha_bc_op_reg_reg(&bytecode, (i->usign) ? ule: ile, i->ir.regs[0], i->ir.regs[1]); break;
@@ -406,6 +415,9 @@ static NO_NULL struct HarbolByteBuf taghair_func_to_bytecode(const struct TaghaI
 				case TIR_LOAD1: prog_counter += tagha_bc_op_reg_mem(&bytecode, ld1, i->ir.mem.regs[0], i->ir.mem.regs[1], i->ir.mem.offset); break;
 				case TIR_LOAD2: prog_counter += tagha_bc_op_reg_mem(&bytecode, ld2, i->ir.mem.regs[0], i->ir.mem.regs[1], i->ir.mem.offset); break;
 				case TIR_LOAD4: prog_counter += tagha_bc_op_reg_mem(&bytecode, ld4, i->ir.mem.regs[0], i->ir.mem.regs[1], i->ir.mem.offset); break;
+				case TIR_LOADS1: prog_counter += tagha_bc_op_reg_mem(&bytecode, lds1, i->ir.mem.regs[0], i->ir.mem.regs[1], i->ir.mem.offset); break;
+				case TIR_LOADS2: prog_counter += tagha_bc_op_reg_mem(&bytecode, lds2, i->ir.mem.regs[0], i->ir.mem.regs[1], i->ir.mem.offset); break;
+				case TIR_LOADS4: prog_counter += tagha_bc_op_reg_mem(&bytecode, lds4, i->ir.mem.regs[0], i->ir.mem.regs[1], i->ir.mem.offset); break;
 				case TIR_LOAD8: prog_counter += tagha_bc_op_reg_mem(&bytecode, ld8, i->ir.mem.regs[0], i->ir.mem.regs[1], i->ir.mem.offset); break;
 				case TIR_LOADBP: prog_counter += tagha_bc_op_reg_mem(&bytecode, ldaddr, i->ir.mem.regs[0], i->ir.mem.regs[1], i->ir.mem.offset); break;
 				
@@ -457,7 +469,7 @@ static NO_NULL struct HarbolString taghair_func_to_tasm(const struct TaghaIRFunc
 	struct HarbolString str = harbol_string_create("");
 	
 #define X(x) #x ,
-	const char *opcode2str[] = { TAGHA_INSTR_SET };
+	const char *op_to_cstr[] = { TAGHA_INSTR_SET };
 #undef X
 #define Y(y) #y ,
 	const char *regs2str[] = { TAGHA_REG_FILE };
@@ -473,125 +485,135 @@ static NO_NULL struct HarbolString taghair_func_to_tasm(const struct TaghaIRFunc
 			switch( i->op ) {
 				/// reg <-- reg type instrs.
 				case TIR_MOV:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[mov], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[mov], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_ADD:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[add], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[add], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_SUB:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[sub], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[sub], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_MUL:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[mul], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[mul], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_DIV:
-					harbol_string_add_format(&str, "    %s       r%s, r%s\n", opcode2str[divi], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s       r%s, r%s\n", op_to_cstr[divi], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_MOD:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[mod], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[mod], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				
 				case TIR_AND:
-					harbol_string_add_format(&str, "    %s r%s, r%s\n", opcode2str[bit_and], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s r%s, r%s\n", op_to_cstr[bit_and], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_OR:
-					harbol_string_add_format(&str, "    %s  r%s, r%s\n", opcode2str[bit_or], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s  r%s, r%s\n", op_to_cstr[bit_or], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_XOR:
-					harbol_string_add_format(&str, "    %s r%s, r%s\n", opcode2str[bit_xor], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s r%s, r%s\n", op_to_cstr[bit_xor], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_SHL:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[shl], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[shl], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_SHR:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[shr], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[shr], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+				case TIR_SHAL:
+					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[shAl], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+				case TIR_SHAR:
+					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[shAr], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				
 				case TIR_EQ:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[cmp], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[cmp], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_LE:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[(i->usign) ? ule : ile], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[(i->usign) ? ule : ile], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_LT:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[(i->usign) ? ult : ilt], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[(i->usign) ? ult : ilt], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				
 				case TIR_FADD:
-					harbol_string_add_format(&str, "    %s       r%s, r%s\n", opcode2str[addf], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s       r%s, r%s\n", op_to_cstr[addf], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_FSUB:
-					harbol_string_add_format(&str, "    %s       r%s, r%s\n", opcode2str[subf], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s       r%s, r%s\n", op_to_cstr[subf], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_FMUL:
-					harbol_string_add_format(&str, "    %s       r%s, r%s\n", opcode2str[mulf], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s       r%s, r%s\n", op_to_cstr[mulf], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_FDIV:
-					harbol_string_add_format(&str, "    %s       r%s, r%s\n", opcode2str[divf], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s       r%s, r%s\n", op_to_cstr[divf], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				
 				case TIR_FLE:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[lef], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[lef], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_FLT:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", opcode2str[ltf], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[ltf], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				
 				/// reg only type instrs.
 				case TIR_POP:
-					harbol_string_add_format(&str, "    %s        r%s\n", opcode2str[pop], regs2str[i->ir.regs[0]]); break;
+					harbol_string_add_format(&str, "    %s        r%s\n", op_to_cstr[pop], regs2str[i->ir.regs[0]]); break;
 				case TIR_NOT:
-					harbol_string_add_format(&str, "    %s r%s\n", opcode2str[bit_not], regs2str[i->ir.regs[0]]); break;
+					harbol_string_add_format(&str, "    %s r%s\n", op_to_cstr[bit_not], regs2str[i->ir.regs[0]]); break;
 				case TIR_NEG:
-					harbol_string_add_format(&str, "    %s        r%s\n", opcode2str[neg], regs2str[i->ir.regs[0]]); break;
+					harbol_string_add_format(&str, "    %s        r%s\n", op_to_cstr[neg], regs2str[i->ir.regs[0]]); break;
 				case TIR_PUSH:
-					harbol_string_add_format(&str, "    %s       r%s\n", opcode2str[push], regs2str[i->ir.regs[0]]); break;
+					harbol_string_add_format(&str, "    %s       r%s\n", op_to_cstr[push], regs2str[i->ir.regs[0]]); break;
 				case TIR_SETC:
-					harbol_string_add_format(&str, "    %s       r%s\n", opcode2str[setc], regs2str[i->ir.regs[0]]); break;
+					harbol_string_add_format(&str, "    %s       r%s\n", op_to_cstr[setc], regs2str[i->ir.regs[0]]); break;
 				
 				case TIR_F32_TO_F64:
-					harbol_string_add_format(&str, "    %s r%s\n", opcode2str[f32tof64], regs2str[i->ir.regs[0]]); break;
+					harbol_string_add_format(&str, "    %s r%s\n", op_to_cstr[f32tof64], regs2str[i->ir.regs[0]]); break;
 				case TIR_F64_TO_F32:
-					harbol_string_add_format(&str, "    %s r%s\n", opcode2str[f64tof32], regs2str[i->ir.regs[0]]); break;
+					harbol_string_add_format(&str, "    %s r%s\n", op_to_cstr[f64tof32], regs2str[i->ir.regs[0]]); break;
 				case TIR_INT_TO_F32:
-					harbol_string_add_format(&str, "    %s r%s\n", opcode2str[itof32], regs2str[i->ir.regs[0]]); break;
+					harbol_string_add_format(&str, "    %s r%s\n", op_to_cstr[itof32], regs2str[i->ir.regs[0]]); break;
 				case TIR_INT_TO_F64:
-					harbol_string_add_format(&str, "    %s r%s\n", opcode2str[itof64], regs2str[i->ir.regs[0]]); break;
+					harbol_string_add_format(&str, "    %s r%s\n", op_to_cstr[itof64], regs2str[i->ir.regs[0]]); break;
 				case TIR_F64_TO_INT:
-					harbol_string_add_format(&str, "    %s r%s\n", opcode2str[f64toi], regs2str[i->ir.regs[0]]); break;
+					harbol_string_add_format(&str, "    %s r%s\n", op_to_cstr[f64toi], regs2str[i->ir.regs[0]]); break;
 				case TIR_F32_TO_INT:
-					harbol_string_add_format(&str, "    %s r%s\n", opcode2str[f32toi], regs2str[i->ir.regs[0]]); break;
+					harbol_string_add_format(&str, "    %s r%s\n", op_to_cstr[f32toi], regs2str[i->ir.regs[0]]); break;
 				case TIR_FNEG:
-					harbol_string_add_format(&str, "    %s       r%s\n", opcode2str[negf], regs2str[i->ir.regs[0]]); break;
+					harbol_string_add_format(&str, "    %s       r%s\n", op_to_cstr[negf], regs2str[i->ir.regs[0]]); break;
 				
 				/// reg <-- *(reg + offset) load instrs.
 				case TIR_LOAD1:
-					harbol_string_add_format(&str, "    %s        r%s, [r%s + %i]\n", opcode2str[ld1], regs2str[i->ir.mem.regs[0]], regs2str[i->ir.mem.regs[1]], i->ir.mem.offset); break;
+					harbol_string_add_format(&str, "    %s        r%s, [r%s + %i]\n", op_to_cstr[ld1], regs2str[i->ir.mem.regs[0]], regs2str[i->ir.mem.regs[1]], i->ir.mem.offset); break;
 				case TIR_LOAD2:
-					harbol_string_add_format(&str, "    %s        r%s, [r%s + %i]\n", opcode2str[ld2], regs2str[i->ir.mem.regs[0]], regs2str[i->ir.mem.regs[1]], i->ir.mem.offset); break;
+					harbol_string_add_format(&str, "    %s        r%s, [r%s + %i]\n", op_to_cstr[ld2], regs2str[i->ir.mem.regs[0]], regs2str[i->ir.mem.regs[1]], i->ir.mem.offset); break;
 				case TIR_LOAD4:
-					harbol_string_add_format(&str, "    %s        r%s, [r%s + %i]\n", opcode2str[ld4], regs2str[i->ir.mem.regs[0]], regs2str[i->ir.mem.regs[1]], i->ir.mem.offset); break;
+					harbol_string_add_format(&str, "    %s        r%s, [r%s + %i]\n", op_to_cstr[ld4], regs2str[i->ir.mem.regs[0]], regs2str[i->ir.mem.regs[1]], i->ir.mem.offset); break;
+				case TIR_LOADS1:
+					harbol_string_add_format(&str, "    %s        r%s, [r%s + %i]\n", op_to_cstr[lds1], regs2str[i->ir.mem.regs[0]], regs2str[i->ir.mem.regs[1]], i->ir.mem.offset); break;
+				case TIR_LOADS2:
+					harbol_string_add_format(&str, "    %s        r%s, [r%s + %i]\n", op_to_cstr[lds2], regs2str[i->ir.mem.regs[0]], regs2str[i->ir.mem.regs[1]], i->ir.mem.offset); break;
+				case TIR_LOADS4:
+					harbol_string_add_format(&str, "    %s        r%s, [r%s + %i]\n", op_to_cstr[lds4], regs2str[i->ir.mem.regs[0]], regs2str[i->ir.mem.regs[1]], i->ir.mem.offset); break;
 				case TIR_LOAD8:
-					harbol_string_add_format(&str, "    %s        r%s, [r%s + %i]\n", opcode2str[ld8], regs2str[i->ir.mem.regs[0]], regs2str[i->ir.mem.regs[1]], i->ir.mem.offset); break;
+					harbol_string_add_format(&str, "    %s        r%s, [r%s + %i]\n", op_to_cstr[ld8], regs2str[i->ir.mem.regs[0]], regs2str[i->ir.mem.regs[1]], i->ir.mem.offset); break;
 				case TIR_LOADBP:
-					harbol_string_add_format(&str, "    %s r%s, [r%s + %i]\n", opcode2str[ldaddr], regs2str[i->ir.mem.regs[0]], regs2str[i->ir.mem.regs[1]], i->ir.mem.offset); break;
+					harbol_string_add_format(&str, "    %s r%s, [r%s + %i]\n", op_to_cstr[ldaddr], regs2str[i->ir.mem.regs[0]], regs2str[i->ir.mem.regs[1]], i->ir.mem.offset); break;
 				
 				/// *(reg + offset) <-- reg store instrs.
 				case TIR_STORE1:
-					harbol_string_add_format(&str, "    %s        [r%s + %i], r%s\n", opcode2str[st1], regs2str[i->ir.mem.regs[0]], i->ir.mem.offset, regs2str[i->ir.mem.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s        [r%s + %i], r%s\n", op_to_cstr[st1], regs2str[i->ir.mem.regs[0]], i->ir.mem.offset, regs2str[i->ir.mem.regs[1]]); break;
 				case TIR_STORE2:
-					harbol_string_add_format(&str, "    %s        [r%s + %i], r%s\n", opcode2str[st2], regs2str[i->ir.mem.regs[0]], i->ir.mem.offset, regs2str[i->ir.mem.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s        [r%s + %i], r%s\n", op_to_cstr[st2], regs2str[i->ir.mem.regs[0]], i->ir.mem.offset, regs2str[i->ir.mem.regs[1]]); break;
 				case TIR_STORE4:
-					harbol_string_add_format(&str, "    %s        [r%s + %i], r%s\n", opcode2str[st4], regs2str[i->ir.mem.regs[0]], i->ir.mem.offset, regs2str[i->ir.mem.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s        [r%s + %i], r%s\n", op_to_cstr[st4], regs2str[i->ir.mem.regs[0]], i->ir.mem.offset, regs2str[i->ir.mem.regs[1]]); break;
 				case TIR_STORE8:
-					harbol_string_add_format(&str, "    %s        [r%s + %i], r%s\n", opcode2str[st8], regs2str[i->ir.mem.regs[0]], i->ir.mem.offset, regs2str[i->ir.mem.regs[1]]); break;
+					harbol_string_add_format(&str, "    %s        [r%s + %i], r%s\n", op_to_cstr[st8], regs2str[i->ir.mem.regs[0]], i->ir.mem.offset, regs2str[i->ir.mem.regs[1]]); break;
 				
 				/// reg <-- imm type instrs.
 				case TIR_LOADFN:
-					harbol_string_add_format(&str, "    %s r%s, %%F%" PRIu64 "\n", opcode2str[ldfunc], regs2str[i->ir.imm.r], i->ir.imm.val); break;
+					harbol_string_add_format(&str, "    %s r%s, %%F%" PRIu64 "\n", op_to_cstr[ldfunc], regs2str[i->ir.imm.r], i->ir.imm.val); break;
 				case TIR_LOADVAR:
-					harbol_string_add_format(&str, "    %s r%s, %%V%" PRIu64 "\n", opcode2str[ldvar], regs2str[i->ir.imm.r], i->ir.imm.val); break;
+					harbol_string_add_format(&str, "    %s r%s, %%V%" PRIu64 "\n", op_to_cstr[ldvar], regs2str[i->ir.imm.r], i->ir.imm.val); break;
 				case TIR_MOV_IMM:
-					harbol_string_add_format(&str, "    %s       r%s, %" PRIu64 "\n", opcode2str[movi], regs2str[i->ir.imm.r], i->ir.imm.val); break;
+					harbol_string_add_format(&str, "    %s       r%s, %" PRIu64 "\n", op_to_cstr[movi], regs2str[i->ir.imm.r], i->ir.imm.val); break;
 				
 				/// imm only instrs.
 				case TIR_CALL:
 					if( i->ir.call.is_native )
-						harbol_string_add_format(&str, "    %s        r%s, %" PRIu64 "\n", opcode2str[movi], regs2str[alaf], i->ir.imm.val);
+						harbol_string_add_format(&str, "    %s        r%s, %" PRIu64 "\n", op_to_cstr[movi], regs2str[alaf], i->ir.imm.val);
 					
 					if( i->ir.call.is_reg )
-						harbol_string_add_format(&str, "    %s         r%s\n", opcode2str[callr], regs2str[i->ir.call.id]);
-					else harbol_string_add_format(&str, "    %s       %" PRIu64 "\n", opcode2str[call], (uint64_t)i->ir.call.id);
+						harbol_string_add_format(&str, "    %s         r%s\n", op_to_cstr[callr], regs2str[i->ir.call.id]);
+					else harbol_string_add_format(&str, "    %s       %" PRIu64 "\n", op_to_cstr[call], (uint64_t)i->ir.call.id);
 					break;
 				
 				case TIR_JMP:
-					harbol_string_add_format(&str, "    %s         .L%" PRIu64 "\n", opcode2str[jmp], (uint64_t)i->ir.jmp.label); break;
+					harbol_string_add_format(&str, "    %s         .L%" PRIu64 "\n", op_to_cstr[jmp], (uint64_t)i->ir.jmp.label); break;
 				case TIR_BR:
-					harbol_string_add_format(&str, "    %s         .L%" PRIu64 "\n", opcode2str[(i->ir.jmp.cond) ? jnz : jz], (uint64_t)i->ir.jmp.label); break;
+					harbol_string_add_format(&str, "    %s         .L%" PRIu64 "\n", op_to_cstr[(i->ir.jmp.cond) ? jnz : jz], (uint64_t)i->ir.jmp.label); break;
 				
 				/// no operand instrs
-				case TIR_RET: harbol_string_add_format(&str, "    %s\n\n", opcode2str[ret]); break;
-				case TIR_NOP: harbol_string_add_format(&str, "    %s\n", opcode2str[nop]); break;
+				case TIR_RET: harbol_string_add_format(&str, "    %s\n\n", op_to_cstr[ret]); break;
+				case TIR_NOP: harbol_string_add_format(&str, "    %s\n", op_to_cstr[nop]); break;
 			}
 		}
 	}

@@ -4,12 +4,14 @@ $stacksize 10    ; 10 stack cells so 80 bytes
     movi     rgamal,   32
     sub      rsp,      rgamal
     ldaddr   rarg0,    [rbp-24]    ; rarg0 is symbolic param/argument alias for rsemkath.
+    
     movi     rgamal,   0x40000000  ; 2.f
     st4      [rbp-24], rgamal
     movi     rgamal,   0x40400000  ; 3.f
     st4      [rbp-20], rgamal
     movi     rgamal,   0x40800000  ; 4.f
     st4      [rbp-16], rgamal      ; r2 would be alias for rgamal.
+    
     call     %vec3D_invert
     ret
 }

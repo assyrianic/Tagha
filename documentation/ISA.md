@@ -158,6 +158,24 @@ loads a long (4 byte) value from a memory address (added with a signed 4-byte of
 loads a long long (8 byte) value from a memory address (added with a signed 4-byte offset) into a register.
 
 
+## LDS1
+
+### Description
+loads a signed byte value from a memory address (added with a signed 4-byte offset) into a register.
+
+
+## LDS2
+
+### Description
+loads a signed short (2 byte) value from a memory address (added with a signed 4-byte offset) into a register.
+
+
+## LDS4
+
+### Description
+loads a signed long (4 byte) value from a memory address (added with a signed 4-byte offset) into a register.
+
+
 ## ST1
 
 ### Description
@@ -243,13 +261,25 @@ Assembler can use `not` & `bit_not` naming of opcode.
 ## SHL
 
 ### Description
-peforms leftward bit shift of the integer value of a source register to a destination register.
+peforms logical leftward bit shift of the integer value of a source register to a destination register.
 
 
 ## SHR
 
 ### Description
-peforms rightward bit shift of the integer value of a source register to a destination register.
+peforms logical rightward bit shift of the integer value of a source register to a destination register.
+
+
+## SHAL
+
+### Description
+peforms arithmetic leftward bit shift of the integer value of a source register to a destination register.
+
+
+## SHAR
+
+### Description
+peforms arithmetic rightward bit shift of the integer value of a source register to a destination register.
 
 
 ## NEG
@@ -417,14 +447,14 @@ same as ILE but for floating point values. Math is done for the largest data wid
 
 All opcodes take up a single byte and additional bytes depending on whether they operate on registers, immediate values, or doing memory operations.
 
-Here's a crude ASCII art of the instruction encodings for Tagha opcodes:
+Here's a crude ASCII art of the instruction encodings for Tagha opcodes order by byte size:
 ---------------------------------------------------------------------
-* | byte: opcode                                                    |
-* | byte: opcode | byte: register id                                |
-* | byte: opcode | byte: dest reg | byte: src reg                   |
-* | byte: opcode | 8 bytes: imm (immediate) value                   |
-* | byte: opcode | byte: register id | 8 bytes: imm value           |
-* | byte: opcode | byte: dest reg | byte: src reg | 4 bytes: offset |
+* | byte: opcode                                                    | 1  byte
+* | byte: opcode | byte: register id                                | 2  bytes
+* | byte: opcode | byte: dest reg | byte: src reg                   | 3  bytes
+* | byte: opcode | byte: dest reg | byte: src reg | 4 bytes: offset | 7  bytes
+* | byte: opcode | 8 bytes: imm (immediate) value                   | 9  bytes
+* | byte: opcode | byte: register id | 8 bytes: imm value           | 10 bytes
 ---------------------------------------------------------------------
 
 # Calling Convention

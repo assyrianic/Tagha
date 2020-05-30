@@ -147,7 +147,7 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 					}
 					
 					/// opcodes that take two registers as a load memory op.
-					case ldaddr: case ld1: case ld2: case ld4: case ld8: {
+					case ldaddr: case ld1: case ld2: case ld4: case ld8: case lds1: case lds2: case lds4: {
 						const uintptr_t addr = ( uintptr_t )pc.uint8 - offs;
 						const uint8_t regid1 = *pc.uint8++;
 						const uint8_t regid2 = *pc.uint8++;
@@ -174,7 +174,7 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 					
 					case mov:
 					case add: case sub: case mul: case divi: case mod:
-					case bit_and: case bit_or: case bit_xor: case shl: case shr:
+					case bit_and: case bit_or: case bit_xor: case shl: case shr: case shal: case shar:
 					case ilt: case ile: case ult: case ule: case cmp:
 					case addf: case subf: case mulf: case divf:
 					case ltf: case lef: {

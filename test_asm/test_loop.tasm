@@ -1,0 +1,25 @@
+$stacksize 10    ; 10 stack cells so 80 bytes
+
+; var i = 0
+; while i < 100000000 { 
+;     i = i + 1
+; }
+;
+; return i
+
+%main: {
+    movi     r1,   32
+    sub      rsp,  r1
+    
+    movi     r1,   0
+    movi     r4,   100000000
+    movi     r5,   1
+    
+    ; test basic loop overhead.
+.loop:
+    add      r1,   r5
+    mov      r0,   r1
+    cmp      r1,   r4
+    jz       .loop
+    ret
+}

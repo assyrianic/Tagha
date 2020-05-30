@@ -111,7 +111,7 @@ NO_NULL int main(const int argc, char *argv[const static 1])
 		return 1;
 	} else {
 		struct TaghaModule *module = tagha_module_new_from_file(argv[1]);
-		puts(module != NULL ? "module is valid." : "module is NULL.");
+		//puts(module != NULL ? "module is valid." : "module is NULL.");
 		if( module != NULL ) {
 			/** make our global pointers available, if the module has them defined and uses them. */
 			tagha_module_register_ptr(module, "stdin",  stdin);
@@ -121,7 +121,7 @@ NO_NULL int main(const int argc, char *argv[const static 1])
 			
 			struct Player player = { 0 };
 			
-			tagha_module_register_natives(module, (struct TaghaNative[]){
+			tagha_module_register_natives(module, (const struct TaghaNative[]){
 				{"add_one", native_add_one},
 				{"strlen",  native_strlen},
 				{"fgets",   native_fgets},
