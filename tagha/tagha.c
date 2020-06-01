@@ -480,7 +480,7 @@ TAGHA_EXPORT void tagha_module_resolve_links(struct TaghaModule *const restrict 
 			if( !(func->flags & TAGHA_FLAG_EXTERN) )
 				continue;
 			else {
-				/// Skip the dot so we can get the actual function name.
+				/// Skip the at-sign so we can get the actual function name.
 				const char *at = funcs->keys[i];
 				while( *at != 0 && *at != '@' )
 					at++;
