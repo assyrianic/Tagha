@@ -21,16 +21,19 @@ static void _tagha_prep_stackframe(struct TaghaModule *const restrict module, co
 	module->regs[bp] = module->regs[sp];         /// mov rbp, rsp
 }
 
-static NO_NULL struct TaghaItem *_tagha_key_get_item(const struct TaghaItemMap *const restrict syms,
+static NO_NULL struct TaghaItem *_tagha_key_get_item(const struct TaghaSymTable *const restrict syms,
 															const char key[restrict static 1])
 {
-	if( syms->hashlen==0 )
+	if( syms->len==0 )
 		return NULL;
 	else {
-		const size_t hash = string_hash(key) % syms->hashlen;
-		for( size_t i=0; i<syms->buckets[hash].len; i++ ) {
-			if( !strncmp(syms->buckets[hash].table[i].key, key, syms->buckets[hash].table[i].keylen) )
-				return syms->buckets[hash].table[i].val;
+		const size_t hash = string_hash(key);
+		const size_t bucket_size = (syms->len > TAGHA_SYM_HASH_MAX ? TAGHA_SYM_HASH_MAX : TAGHA_SYM_HASH_MIN);
+		const size_t index = hash % bucket_size;
+		for( size_t i=syms->buckets[index]; i != SIZE_MAX; i = syms->chain[i] ) {
+			if( syms->hashes[i]==hash || !strcmp(syms->keys[i], key) ) {
+				return syms->table + i;
+			}
 		}
 		return NULL;
 	}
@@ -41,8 +44,6 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 {
 	module->script = ( uintptr_t )filedata;
 	const struct TaghaHeader *const hdr = ( const struct TaghaHeader* )filedata;
-	
-	size_t largest_funcs_hash=0, largest_vars_hash=0;
 	module->flags = hdr->flags;
 	
 	union HarbolBinIter iter = { .uint8 = filedata + sizeof *hdr };
@@ -52,11 +53,6 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 	for( uint32_t i=0; i<func_table_size; i++ ) {
 		const struct TaghaItemEntry *const entry = iter.ptr;
 		iter.uint8 += sizeof *entry;
-		const char *cstr = iter.string;
-		const size_t hash = string_hash(cstr) % func_table_size;
-		if( hash > largest_funcs_hash )
-			largest_funcs_hash = hash;
-		
 		iter.uint8 += ( !entry->flags ) ? (entry->name_len + entry->data_len) : entry->name_len;
 	}
 	
@@ -65,11 +61,6 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 	for( uint32_t i=0; i<var_table_size; i++ ) {
 		const struct TaghaItemEntry *const entry = iter.ptr;
 		iter.uint8 += sizeof *entry;
-		const char *cstr = iter.string;
-		const size_t hash = string_hash(cstr) % var_table_size;
-		if( hash > largest_vars_hash )
-			largest_vars_hash = hash;
-		
 		iter.uint8 += (entry->name_len + entry->data_len);
 	}
 	
@@ -82,7 +73,7 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 		return false;
 	}
 	
-	struct TaghaItemMap
+	struct TaghaSymTable
 		*funcs = harbol_mempool_alloc(&module->heap, sizeof *funcs),
 		*vars = harbol_mempool_alloc(&module->heap, sizeof *vars)
 	;
@@ -90,21 +81,30 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 		fprintf(stderr, "Tagha Module File Error :: **** unable to allocate symbol tables. ****\n");
 		return false;
 	}
-	funcs->arrlen  = func_table_size;
-	funcs->hashlen = largest_funcs_hash + 1;
-	
-	vars->arrlen  = var_table_size;
-	vars->hashlen = largest_vars_hash + 1;
+	funcs->len = func_table_size;
+	vars->len  = var_table_size;
 	
 	iter.uint8 = filedata + sizeof *hdr + sizeof(uint32_t);
-	funcs->buckets = harbol_mempool_alloc(&module->heap, sizeof *funcs->buckets * funcs->hashlen);
-	funcs->array = harbol_mempool_alloc(&module->heap, sizeof *funcs->array * funcs->arrlen);
+	funcs->table  = harbol_mempool_alloc(&module->heap, sizeof *funcs->table  * funcs->len);
+	funcs->keys   = harbol_mempool_alloc(&module->heap, sizeof *funcs->keys   * funcs->len);
+	funcs->hashes = harbol_mempool_alloc(&module->heap, sizeof *funcs->hashes * funcs->len);
+	
+	const size_t func_bucket_size = funcs->len > TAGHA_SYM_HASH_MAX ? TAGHA_SYM_HASH_MAX : TAGHA_SYM_HASH_MIN;
+	
+	funcs->buckets = harbol_mempool_alloc(&module->heap, sizeof *funcs->buckets * func_bucket_size);
+	for( size_t i=0; i<func_bucket_size; i++ )
+		funcs->buckets[i] = SIZE_MAX;
+	
+	funcs->chain = harbol_mempool_alloc(&module->heap, sizeof *funcs->chain * funcs->len);
+	for( size_t i=0; i<funcs->len; i++ )
+		funcs->chain[i] = SIZE_MAX;
+	
 	for( uint32_t i=0; i<func_table_size; i++ ) {
 		const struct TaghaItemEntry *const entry = iter.ptr;
 		iter.uint8 += sizeof *entry;
 		const uint32_t flag = entry->flags;
 		const char *cstr = iter.string;
-		const size_t hash = string_hash(cstr) % funcs->hashlen;
+		const size_t hash = string_hash(cstr);
 		iter.uint8 += entry->name_len;
 		const struct TaghaItem funcitem = {
 			.owner = flag & TAGHA_FLAG_EXTERN ? 0 : ( uintptr_t )module,
@@ -113,17 +113,21 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 			.item  = (!flag) ? ( uintptr_t )iter.uint8 : 0
 		};
 		
-		funcs->array[i] = funcitem;
-		const size_t currlen = funcs->buckets[hash].len;
-		funcs->buckets[hash].table = harbol_mempool_realloc(&module->heap, funcs->buckets[hash].table, sizeof *funcs->buckets[hash].table * (currlen + 1));
-		if( funcs->buckets[hash].table==NULL ) {
-			fprintf(stderr, "Tagha Module File Error :: **** unable to allocate enough space for function table: %zu bytes ****\n", sizeof *funcs->buckets[hash].table * (currlen + 1));
-			return false;
+		funcs->table[i]  = funcitem;
+		funcs->keys[i]   = cstr;
+		funcs->hashes[i] = hash;
+		//printf("\ntagha func: '%s' => hash: '%zu', ", cstr, hash);
+		
+		if( funcs->buckets[hash % func_bucket_size] == SIZE_MAX ) {
+			funcs->buckets[hash % func_bucket_size] = i;
+			//printf("added to bucket, i: '%u', bucket: '%zu'\n", i, hash % func_bucket_size);
+		} else {
+			size_t n = funcs->buckets[hash % func_bucket_size];
+			while( funcs->chain[n] != SIZE_MAX )
+				n = funcs->chain[n];
+			funcs->chain[n] = i;
+			//printf("added to chain, i: '%u', bucket: '%zu', chain index: '%zu'\n", i, hash % func_bucket_size, n);
 		}
-		funcs->buckets[hash].table[currlen].key = cstr;
-		funcs->buckets[hash].table[currlen].keylen = entry->name_len - 1;
-		funcs->buckets[hash].table[currlen].val = &funcs->array[i];
-		funcs->buckets[hash].len++;
 		
 		if( !flag )
 			iter.uint8 += entry->data_len;
@@ -132,14 +136,26 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 	
 	iter.uint32++; /// skip var table size.
 	module->start_seg = ( uintptr_t )iter.uint8;
-	vars->buckets = harbol_mempool_alloc(&module->heap, sizeof *vars->buckets * vars->hashlen);
-	vars->array = harbol_mempool_alloc(&module->heap, sizeof *vars->array * vars->arrlen);
+	vars->table  = harbol_mempool_alloc(&module->heap, sizeof *vars->table  * vars->len);
+	vars->keys   = harbol_mempool_alloc(&module->heap, sizeof *vars->keys   * vars->len);
+	vars->hashes = harbol_mempool_alloc(&module->heap, sizeof *vars->hashes * vars->len);
+	
+	const size_t var_bucket_size = vars->len > TAGHA_SYM_HASH_MAX ? TAGHA_SYM_HASH_MAX : TAGHA_SYM_HASH_MIN;
+	vars->buckets = harbol_mempool_alloc(&module->heap, sizeof *vars->buckets * var_bucket_size);
+	
+	for( size_t i=0; i<var_bucket_size; i++ )
+		vars->buckets[i] = SIZE_MAX;
+	
+	vars->chain = harbol_mempool_alloc(&module->heap, sizeof *vars->chain * vars->len);
+	for( size_t i=0; i<vars->len; i++ )
+		vars->chain[i] = SIZE_MAX;
+	
 	for( uint32_t i=0; i<var_table_size; i++ ) {
 		const struct TaghaItemEntry *const entry = iter.ptr;
 		iter.uint8 += sizeof *entry;
 		const uint32_t flag = entry->flags;
 		const char *cstr = iter.string;
-		const size_t hash = string_hash(cstr) % vars->hashlen;
+		const size_t hash = string_hash(cstr);
 		iter.uint8 += entry->name_len;
 		const struct TaghaItem varitem = {
 			.owner = flag & TAGHA_FLAG_EXTERN ? 0 : ( uintptr_t )module,
@@ -148,23 +164,24 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 			.item  = ( uintptr_t )iter.uint8
 		};
 		
-		vars->array[i] = varitem;
-		const size_t currlen = vars->buckets[hash].len;
-		vars->buckets[hash].table = harbol_mempool_realloc(&module->heap, vars->buckets[hash].table, sizeof *vars->buckets[hash].table * (currlen + 1));
-		if( vars->buckets[hash].table==NULL ) {
-			fprintf(stderr, "Tagha Module File Error :: **** unable to allocate enough space for var table: %zu bytes ****\n", sizeof *vars->buckets[hash].table * (currlen + 1));
-			return false;
+		vars->table[i]  = varitem;
+		vars->keys[i]   = cstr;
+		vars->hashes[i] = hash;
+		
+		if( vars->buckets[hash % var_bucket_size] == SIZE_MAX ) {
+			vars->buckets[hash % var_bucket_size] = i;
+		} else {
+			size_t n = vars->buckets[hash % var_bucket_size];
+			while( vars->chain[n] != SIZE_MAX )
+				n = vars->chain[n];
+			vars->chain[n] = i;
 		}
-		vars->buckets[hash].table[currlen].key = cstr;
-		vars->buckets[hash].table[currlen].keylen = entry->name_len - 1;
-		vars->buckets[hash].table[currlen].val = &vars->array[i];
-		vars->buckets[hash].len++;
 		
 		iter.uint8 += entry->data_len;
 	}
 	harbol_mempool_defrag(&module->heap);
 	module->funcs = funcs;
-	module->vars = vars;
+	module->vars  = vars;
 	
 	module->stack = harbol_mempool_alloc(&module->heap, sizeof *module->stack * hdr->stacksize);
 	if( module->stack==NULL ) {
@@ -431,9 +448,9 @@ TAGHA_EXPORT void tagha_module_jit_compile(struct TaghaModule *const restrict mo
 	if( module->funcs==NULL )
 		return;
 	else {
-		struct TaghaItemMap *const restrict funcs = module->funcs;
-		for( uindex_t i=0; i<funcs->arrlen; i++ ) {
-			struct TaghaItem *const func = &funcs->array[i];
+		struct TaghaSymTable *const restrict funcs = module->funcs;
+		for( uindex_t i=0; i<funcs->len; i++ ) {
+			struct TaghaItem *const func = &funcs->table[i];
 			/// trying to JIT compile something that's already compiled? lol.
 			if( func->flags & TAGHA_FLAG_NATIVE )
 				continue;
@@ -457,30 +474,27 @@ TAGHA_EXPORT void tagha_module_resolve_links(struct TaghaModule *const restrict 
 	if( module->funcs==NULL || lib->funcs==NULL )
 		return;
 	else {
-		struct TaghaItemMap *const funcs = module->funcs;
-		for( size_t i=0; i<funcs->hashlen; i++ ) {
-			for( size_t n=0; n<funcs->buckets[i].len; n++ ) {
-				struct TaghaKeyVal *const kv = &funcs->buckets[i].table[n];
-				struct TaghaItem *const func = kv->val;
-				if( !(func->flags & TAGHA_FLAG_EXTERN) )
+		struct TaghaSymTable *const funcs = module->funcs;
+		for( size_t i=0; i<funcs->len; i++ ) {
+			struct TaghaItem *const func = &funcs->table[i];
+			if( !(func->flags & TAGHA_FLAG_EXTERN) )
+				continue;
+			else {
+				/// Skip the dot so we can get the actual function name.
+				const char *at = funcs->keys[i];
+				while( *at != 0 && *at != '@' )
+					at++;
+				
+				struct TaghaItem *const extern_func = _tagha_key_get_item(lib->funcs, at+1);
+				if( extern_func==NULL
+						|| extern_func->flags & TAGHA_FLAG_NATIVE /// don't link natives, could cause potential problems.
+						|| extern_func->item==0 ) /// allow getting the extern of an extern but the inner extern must be resolved.
 					continue;
 				else {
-					/// Skip the dot so we can get the actual function name.
-					const char *at = kv->key;
-					while( *at != 0 && *at != '@' )
-						at++;
-					
-					struct TaghaItem *const extern_func = _tagha_key_get_item(lib->funcs, at+1);
-					if( extern_func==NULL
-							|| extern_func->flags & TAGHA_FLAG_NATIVE /// don't link natives, could cause potential problems.
-							|| extern_func->item==0 ) /// allow getting the extern of an extern but the inner extern must be resolved.
-						continue;
-					else {
-						func->owner = extern_func->owner;
-						func->item  = extern_func->item;
-						func->flags = TAGHA_FLAG_EXTERN | TAGHA_FLAG_LINKED;
-						func->bytes = extern_func->bytes;
-					}
+					func->owner = extern_func->owner;
+					func->item  = extern_func->item;
+					func->flags = TAGHA_FLAG_EXTERN | TAGHA_FLAG_LINKED;
+					func->bytes = extern_func->bytes;
 				}
 			}
 		}
@@ -546,7 +560,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 	}
 	exec_ldvar: { /** u8: opcode | u8: regid | u64: index */
 		const uint8_t regid = *pc.uint8++;
-		vm->regs[regid].uintptr = vm->vars->array[*pc.uint64++].item;
+		vm->regs[regid].uintptr = vm->vars->table[*pc.uint64++].item;
 		DISPATCH();
 	}
 	/** loads a function object. */
@@ -554,7 +568,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		const uint8_t regid = *pc.uint8++;
 		const int64_t index = *pc.int64++;
 		const ssize_t offset = (index > 0LL) ? index - 1LL : -1LL - index;
-		vm->regs[regid].uintptr = ( offset < 0 ) ? 0 : ( uintptr_t )&vm->funcs->array[offset];
+		vm->regs[regid].uintptr = ( offset < 0 ) ? 0 : ( uintptr_t )&vm->funcs->table[offset];
 		DISPATCH();
 	}
 	exec_ldaddr: { /** u8: opcode | u8: regid1 | u8: regid2 | i32: offset */
@@ -840,7 +854,7 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 			vm->errcode = tagha_err_no_func;
 			return -1;
 		} else {
-			const uintptr_t item = vm->funcs->array[offset].item;
+			const uintptr_t item = vm->funcs->table[offset].item;
 			if( index < 0 ) {
 				if( item==0 ) {
 					vm->errcode = tagha_err_no_cfunc;
@@ -856,9 +870,9 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 					}
 				}
 			} else {
-				const uint32_t flags = vm->funcs->array[offset].flags;
+				const uint32_t flags = vm->funcs->table[offset].flags;
 				if( flags & TAGHA_FLAG_EXTERN ) {
-					struct TaghaModule *const restrict lib = ( struct TaghaModule* )vm->funcs->array[offset].owner;
+					struct TaghaModule *const restrict lib = ( struct TaghaModule* )vm->funcs->table[offset].owner;
 					if( lib==NULL || item==0 ) {
 						vm->errcode = tagha_err_bad_extern;
 						return -1;

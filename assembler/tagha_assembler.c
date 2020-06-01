@@ -1046,25 +1046,23 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 	if( tasm->stacksize==0 )
 		tasm->stacksize = DEFAULT_STACK_SIZE;
 	
-	bool is_64_bit = sizeof(intptr_t)==8;
-	const size_t memnode_size = (is_64_bit) ? sizeof(struct HarbolMemNode) : sizeof(struct HarbolMemNode) << 1;
-	const size_t tagha_kvsize = (is_64_bit) ? sizeof(struct TaghaKeyVal)   : sizeof(struct TaghaKeyVal) << 1;
+	const bool is_64_bit = sizeof(intptr_t)==8;
+	const size_t tagha_ptr_size = (is_64_bit) ? sizeof(intptr_t) : sizeof(intptr_t) << 1;
+	const size_t memnode_size = harbol_align_size(sizeof(struct HarbolMemNode), tagha_ptr_size);
 	
-	const struct TaghaItemMap empty_set = {0};
-	const size_t tagha_set_buckets_size = (is_64_bit) ? sizeof *empty_set.buckets : (sizeof *empty_set.buckets) << 1;
-	const size_t tagha_set_arr_size     = (is_64_bit) ? sizeof *empty_set.array   : (sizeof *empty_set.array) << 1;
+	const struct TaghaSymTable empty_set = {0};
+	const size_t tagha_set_arr_size = harbol_align_size(sizeof *empty_set.table, tagha_ptr_size);
 	
 	uint32_t mem_region_size = tasm->stacksize * sizeof(union TaghaVal) + memnode_size;
-	mem_region_size += sizeof &empty_set * 2;
+	mem_region_size += tagha_ptr_size * 2;
 	
 	/// create initial script header.
 	struct TaghaScriptBuilder tbc = tagha_tbc_gen_create();
 	
 	/// build our func table & global var table so that we can calculate total memory usage.
 	/// first build func table.
-	mem_region_size += tagha_set_buckets_size * tasm->funcmap.map.count + memnode_size;
-	mem_region_size += tagha_set_arr_size * tasm->funcmap.map.count + memnode_size;
-	
+	mem_region_size += (tagha_set_arr_size * tasm->funcmap.map.count + memnode_size);
+	mem_region_size += ((tagha_ptr_size * tasm->funcmap.map.count * 4) + (memnode_size * 4));
 	for( size_t i=0; i<tasm->funcmap.map.count; i++ ) {
 		struct HarbolKeyVal *node = harbol_linkmap_index_get_kv(&tasm->funcmap, i);
 		struct Label *label = harbol_linkmap_index_get(&tasm->funcmap, i);
@@ -1085,12 +1083,11 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 				printf("bytecode[%zu] == %u\n", i, label->bytecode.table[i]);
 		puts("\n");
 	#endif
-		mem_region_size += tagha_kvsize + memnode_size;
 	}
 	
 	/// now the global var table.
-	mem_region_size += tagha_set_buckets_size * tasm->varmap.map.count + memnode_size;
-	mem_region_size += tagha_set_arr_size * tasm->varmap.map.count + memnode_size;
+	mem_region_size += (tagha_set_arr_size * tasm->varmap.map.count + memnode_size);
+	mem_region_size += ((tagha_ptr_size * tasm->varmap.map.count * 4) + (memnode_size * 4));
 	for( size_t i=0; i<tasm->varmap.map.count; i++ ) {
 		struct HarbolKeyVal *node = harbol_linkmap_index_get_kv(&tasm->varmap, i);
 		struct HarbolByteBuf *bytedata = harbol_linkmap_index_get(&tasm->varmap, i);
@@ -1105,7 +1102,6 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 			printf("bytecode[%zu] == %u\n", i, bytedata->table[i]);
 		puts("\n");
 	#endif
-		mem_region_size += tagha_kvsize + memnode_size;
 	}
 	if( tasm->heapsize==0 )
 		tasm->heapsize = DEFAULT_HEAP_SIZE;

@@ -12,11 +12,17 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 {
 	uint8_t *filedata = make_buffer_from_binary(filename);
 	if( filedata==NULL ) {
-		fprintf(stderr, "Tagha Disassembler Error: **** Couldn't load TBC file '%s' ****\n", filename);
+		fprintf(stderr, "Tagha Disassembler Error: **** Couldn't load Tagha Module file: '%s' ****\n", filename);
 		return false;
 	}
 	
 	const struct TaghaHeader *const hdr = ( const struct TaghaHeader* )filedata;
+	if( hdr->magic != 0x7A6AC0DE ) {
+		free(filedata), filedata=NULL;
+		fprintf(stderr, "Tagha Disassembler Error: **** Invalid Tagha Module file: '%s' ****\n", filename);
+		return false;
+	}
+	
 	union HarbolBinIter iter = { .uint8 = filedata + sizeof *hdr };
 	struct HarbolString
 		header    = harbol_string_create(NULL),

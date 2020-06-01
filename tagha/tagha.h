@@ -209,18 +209,20 @@ typedef struct TaghaItem {
 	uint32_t  flags;
 } STaghaItem;
 
-typedef struct TaghaItemMap {
-	struct {
-		struct TaghaKeyVal {
-			const char *key;
-			size_t keylen;
-			struct TaghaItem *val;
-		} *table;
-		size_t len;
-	} *buckets;
-	struct TaghaItem *array;
-	size_t arrlen, hashlen;
-} STaghaItemMap;
+enum {
+	TAGHA_SYM_HASH_MIN = 8,    /// for small amount of functions in a module.
+	TAGHA_SYM_HASH_MAX = 32,   /// for larger amount of functions.
+};
+typedef struct TaghaSymTable {
+	const char       **keys;   /// array of string names of each item.
+	size_t
+		*hashes,  /// hash value for each item index.
+		*buckets, /// hash index bucket for each index. SIZE_MAX if invalid.
+		*chain    /// index chain to resolve collisions. SIZE_MAX if invalid.
+	;
+	struct TaghaItem *table;   /// table of items.
+	size_t           len;      /// table len.
+} STaghaSymTable;
 
 
 /**
@@ -239,7 +241,7 @@ typedef struct TaghaItemMap {
 typedef struct TaghaModule {
 	struct HarbolMemPool heap;
 	union TaghaVal regs[MaxRegisters], *stack;
-	struct TaghaItemMap *funcs, *vars;
+	struct TaghaSymTable *funcs, *vars;
 	uintptr_t script, ip, start_seg, end_seg;
 	enum TaghaErrCode errcode;
 	uint32_t condflag, flags;

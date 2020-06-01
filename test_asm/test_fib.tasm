@@ -1,3 +1,5 @@
+$stacksize 100
+
 %main: {
     movi    rarg0, 34
     call    %fib

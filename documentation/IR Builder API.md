@@ -286,7 +286,7 @@ returns a `struct TaghaIR` object that represents loading a local stack address 
 
 ## tagha_ir_load
 ```c
-struct TaghaIR tagha_ir_load(const enum TaghaRegID r1, const enum TaghaRegID r2, const int32_t offset, const size_t bytes)
+struct TaghaIR tagha_ir_load(const enum TaghaRegID r1, const enum TaghaRegID r2, const int32_t offset, const size_t bytes, const bool sign_d)
 ```
 
 ### Description
@@ -297,6 +297,7 @@ creates an IR object that defines loading from an address to a register.
 * `r2` - source register.
 * `offset` - offset to add with `r2`'s pointer address.
 * `bytes` - how large of a dereference size, valid values are 1, 2, 4, and 8. Invalid values give a default load size of 1 byte.
+* `sign_d` - whether the memory load is a sign extended or unsigned (zero extending) load, ignored if full 8 byte memory load.
 
 ### Return Value
 returns a `struct TaghaIR` object that represents loading from an address to a register.
