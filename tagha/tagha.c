@@ -116,17 +116,14 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 		funcs->table[i]  = funcitem;
 		funcs->keys[i]   = cstr;
 		funcs->hashes[i] = hash;
-		//printf("\ntagha func: '%s' => hash: '%zu', ", cstr, hash);
 		
 		if( funcs->buckets[hash % func_bucket_size] == SIZE_MAX ) {
 			funcs->buckets[hash % func_bucket_size] = i;
-			//printf("added to bucket, i: '%u', bucket: '%zu'\n", i, hash % func_bucket_size);
 		} else {
 			size_t n = funcs->buckets[hash % func_bucket_size];
 			while( funcs->chain[n] != SIZE_MAX )
 				n = funcs->chain[n];
 			funcs->chain[n] = i;
-			//printf("added to chain, i: '%u', bucket: '%zu', chain index: '%zu'\n", i, hash % func_bucket_size, n);
 		}
 		
 		if( !flag )
