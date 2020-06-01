@@ -270,12 +270,6 @@ peforms logical leftward bit shift of the integer value of a source register to 
 peforms logical rightward bit shift of the integer value of a source register to a destination register.
 
 
-## SHAL
-
-### Description
-peforms arithmetic leftward bit shift of the integer value of a source register to a destination register.
-
-
 ## SHAR
 
 ### Description

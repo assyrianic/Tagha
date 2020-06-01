@@ -17,9 +17,8 @@ $stacksize 10    ; 10 stack cells so 80 bytes
     
     ; test basic loop overhead.
 .loop:
-    add      r1,   r5
-    mov      r0,   r1
-    cmp      r1,   r4
+    add      r0,   r5
+    cmp      r0,   r4
     jz       .loop
     ret
 }

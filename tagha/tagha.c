@@ -769,11 +769,6 @@ static int32_t _tagha_module_exec(struct TaghaModule *const vm)
 		vm->regs[REG1(regids)].uint64 >>= vm->regs[REG2(regids)].uint64;
 		DISPATCH();
 	}
-	exec_shal: { /** u8: opcode | u8: dest reg | u8: src reg */
-		const uint16_t regids = *pc.uint16++;
-		vm->regs[REG1(regids)].int64 <<= vm->regs[REG2(regids)].uint64;
-		DISPATCH();
-	}
 	exec_shar: { /** u8: opcode | u8: dest reg | u8: src reg */
 		const uint16_t regids = *pc.uint16++;
 		vm->regs[REG1(regids)].int64 >>= vm->regs[REG2(regids)].uint64;

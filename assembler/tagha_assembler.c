@@ -932,7 +932,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 					/// opcodes reg<-reg
 					case mov:
 					case add: case sub: case mul: case divi: case mod:
-					case bit_and: case bit_or: case bit_xor: case shl: case shr: case shal: case shar:
+					case bit_and: case bit_or: case bit_xor: case shl: case shr: case shar:
 					case ilt: case ile: case ult: case ule: case cmp:
 				
 					case addf: case subf: case mulf: case divf:
@@ -1027,7 +1027,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 					/// opcodes reg<-reg
 					case mov:
 					case add: case sub: case mul: case divi: case mod:
-					case bit_and: case bit_or: case bit_xor: case shl: case shr: case shal: case shar:
+					case bit_and: case bit_or: case bit_xor: case shl: case shr: case shar:
 					case ilt: case ile: case ult: case ule: case cmp:
 					case addf: case subf: case mulf: case divf:
 					case ltf: case lef:

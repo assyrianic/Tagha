@@ -180,7 +180,7 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 					
 					case mov:
 					case add: case sub: case mul: case divi: case mod:
-					case bit_and: case bit_or: case bit_xor: case shl: case shr: case shal: case shar:
+					case bit_and: case bit_or: case bit_xor: case shl: case shr: case shar:
 					case ilt: case ile: case ult: case ule: case cmp:
 					case addf: case subf: case mulf: case divf:
 					case ltf: case lef: {

@@ -28,8 +28,6 @@
 
 ### TIR_SHR
 
-### TIR_SHAL
-
 ### TIR_SHAR
 
 ### TIR_EQ

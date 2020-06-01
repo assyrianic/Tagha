@@ -26,7 +26,6 @@ typedef enum TaghaIRType {
 	TIR_NOT,
 	TIR_SHL,
 	TIR_SHR,
-	TIR_SHAL,
 	TIR_SHAR,
 	
 	/// int relational ops
@@ -290,7 +289,6 @@ static NO_NULL struct HarbolByteBuf taghair_func_to_bytecode(const struct TaghaI
 				case TIR_XOR: prog_counter += tagha_bc_op_reg_reg(NULL, bit_xor, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_SHL: prog_counter += tagha_bc_op_reg_reg(NULL, shl, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_SHR: prog_counter += tagha_bc_op_reg_reg(NULL, shr, i->ir.regs[0], i->ir.regs[1]); break;
-				case TIR_SHAL: prog_counter += tagha_bc_op_reg_reg(NULL, shal, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_SHAR: prog_counter += tagha_bc_op_reg_reg(NULL, shar, i->ir.regs[0], i->ir.regs[1]); break;
 				
 				case TIR_EQ: prog_counter += tagha_bc_op_reg_reg(NULL, cmp, i->ir.regs[0], i->ir.regs[1]); break;
@@ -381,7 +379,6 @@ static NO_NULL struct HarbolByteBuf taghair_func_to_bytecode(const struct TaghaI
 				case TIR_XOR: prog_counter += tagha_bc_op_reg_reg(&bytecode, bit_xor, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_SHL: prog_counter += tagha_bc_op_reg_reg(&bytecode, shl, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_SHR: prog_counter += tagha_bc_op_reg_reg(&bytecode, shr, i->ir.regs[0], i->ir.regs[1]); break;
-				case TIR_SHAL: prog_counter += tagha_bc_op_reg_reg(&bytecode, shal, i->ir.regs[0], i->ir.regs[1]); break;
 				case TIR_SHAR: prog_counter += tagha_bc_op_reg_reg(&bytecode, shar, i->ir.regs[0], i->ir.regs[1]); break;
 				
 				case TIR_EQ: prog_counter += tagha_bc_op_reg_reg(&bytecode, cmp, i->ir.regs[0], i->ir.regs[1]); break;
@@ -507,8 +504,6 @@ static NO_NULL struct HarbolString taghair_func_to_tasm(const struct TaghaIRFunc
 					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[shl], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_SHR:
 					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[shr], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
-				case TIR_SHAL:
-					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[shAl], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				case TIR_SHAR:
 					harbol_string_add_format(&str, "    %s        r%s, r%s\n", op_to_cstr[shAr], regs2str[i->ir.regs[0]], regs2str[i->ir.regs[1]]); break;
 				

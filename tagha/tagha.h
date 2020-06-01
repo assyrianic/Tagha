@@ -2,7 +2,7 @@
 #	define TAGHA_INCLUDED
 
 #define TAGHA_VERSION_MAJOR    1
-#define TAGHA_VERSION_MINOR    1
+#define TAGHA_VERSION_MINOR    8
 #define TAGHA_VERSION_PATCH    5
 #define TAGHA_VERSION_PHASE    "beta"
 #define TAGHA_STR_HELPER(x)    #x
@@ -284,7 +284,7 @@ TAGHA_EXPORT NO_NULL void tagha_module_resolve_links(struct TaghaModule *module,
 	X(st1) X(st2) X(st4) X(st8) \
 	\
 	X(add) X(sub) X(mul) X(divi) X(mod) \
-	X(bit_and) X(bit_or) X(bit_xor) X(bit_not) X(shl) X(shr) X(shal) X(shar) X(neg) \
+	X(bit_and) X(bit_or) X(bit_xor) X(bit_not) X(shl) X(shr) X(shar) X(neg) \
 	\
 	X(ilt) X(ile) X(ult) X(ule) \
 	X(cmp) X(setc) \
