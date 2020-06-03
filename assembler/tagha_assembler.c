@@ -1062,7 +1062,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 	/// build our func table & global var table so that we can calculate total memory usage.
 	/// first build func table.
 	mem_region_size += (tagha_set_arr_size * tasm->funcmap.map.count + memnode_size);
-	mem_region_size += ((tagha_ptr_size * tasm->funcmap.map.count * 4) + (memnode_size * 4));
+	mem_region_size += ((tagha_ptr_size * tasm->funcmap.map.count * 3) + (memnode_size * 3));
 	for( size_t i=0; i<tasm->funcmap.map.count; i++ ) {
 		struct HarbolKeyVal *node = harbol_linkmap_index_get_kv(&tasm->funcmap, i);
 		struct Label *label = harbol_linkmap_index_get(&tasm->funcmap, i);
@@ -1087,7 +1087,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 	
 	/// now the global var table.
 	mem_region_size += (tagha_set_arr_size * tasm->varmap.map.count + memnode_size);
-	mem_region_size += ((tagha_ptr_size * tasm->varmap.map.count * 4) + (memnode_size * 4));
+	mem_region_size += ((tagha_ptr_size * tasm->varmap.map.count * 3) + (memnode_size * 3));
 	for( size_t i=0; i<tasm->varmap.map.count; i++ ) {
 		struct HarbolKeyVal *node = harbol_linkmap_index_get_kv(&tasm->varmap, i);
 		struct HarbolByteBuf *bytedata = harbol_linkmap_index_get(&tasm->varmap, i);
@@ -1108,7 +1108,7 @@ NO_NULL bool tagha_asm_assemble(struct TaghaAssembler *const tasm)
 	mem_region_size += tasm->heapsize;
 	
 	/// now that we've made the tables and calculated how much memory we need, we finally initialize our header.
-	tagha_tbc_gen_write_header(&tbc, tasm->stacksize, (uint32_t)harbol_align_size(mem_region_size, 8), 0);
+	tagha_tbc_gen_write_header(&tbc, tasm->stacksize, tasm->heapsize, (uint32_t)harbol_align_size(mem_region_size, 8), 0);
 	
 	{
 		char *iter = tasm->outname.cstr;

@@ -4,8 +4,8 @@
 
 ## struct TaghaScriptBuilder (Typedef'd as "STaghaScriptBuilder")
 
-### header
-byte buffer that stores header information.
+### hdr
+structure (in tagha.h) that stores header information.
 
 ### datatbl
 byte buffer that stores the global var table information.
@@ -13,21 +13,12 @@ byte buffer that stores the global var table information.
 ### functbl
 byte buffer that stores the function table information.
 
-### funcs
-int data that tracks how many functions have been encoded into the function table.
-
-### vars
-int data that tracks how many vars have been encoded into the global var table.
-
-### memsize
-int data that stores how much memory the script will have (including the total stack size!).
-
 
 # Functions/Methods
 
 ## tagha_tbc_gen_create
 ```c
-struct TaghaScriptBuilder tagha_tbc_gen_create(void)
+struct TaghaScriptBuilder tagha_tbc_gen_create(void);
 ```
 
 ### Description
@@ -42,7 +33,7 @@ None.
 
 ## tagha_tbc_gen_write_header
 ```c
-void tagha_tbc_gen_write_header(struct TaghaScriptBuilder *const tbc, const uint32_t stack_size, const uint32_t mem_size, const uint8_t flags)
+void tagha_tbc_gen_write_header(struct TaghaScriptBuilder *tbc, uint32_t stack_size, uint32_t heap_size, uint32_t mem_size, uint32_t flags);
 ```
 
 ### Description
@@ -51,6 +42,7 @@ writes all the header information necessary. the magic verifier is also automati
 ### Parameters
 * `tbc` - pointer to a `struct TaghaScriptBuilder` object.
 * `stack_size` - how many stack cells the script will need.
+* `heap_size` - how much heap memory to add to the script.
 * `mem_size` - total byte size of all the memory the stack needs (including stack size).
 * `flags` - script flags to encode.
 
@@ -60,7 +52,7 @@ None.
 
 ## tagha_tbc_gen_write_func
 ```c
-void tagha_tbc_gen_write_func(struct TaghaScriptBuilder *const restrict tbc, const int32_t flags, const char name[restrict static 1], const struct HarbolByteBuf *const restrict bytecode)
+void tagha_tbc_gen_write_func(struct TaghaScriptBuilder *tbc, uint32_t flags, const char name[], const struct HarbolByteBuf *bytecode);
 ```
 
 ### Description
@@ -78,7 +70,7 @@ None.
 
 ## tagha_tbc_gen_write_var
 ```c
-void tagha_tbc_gen_write_var(struct TaghaScriptBuilder *const restrict tbc, const uint8_t flags, const char name[restrict static 1], const struct HarbolByteBuf *const restrict datum)
+void tagha_tbc_gen_write_var(struct TaghaScriptBuilder *tbc, uint32_t flags, const char name[], const struct HarbolByteBuf *datum);
 ```
 
 ### Description
@@ -94,9 +86,25 @@ writes a single var into the global var table buffer, increments the amount of v
 None.
 
 
+## tagha_tbc_gen_to_buffer
+```c
+struct HarbolByteBuf tagha_tbc_gen_to_buffer(struct TaghaScriptBuilder *tbc);
+```
+
+### Description
+creates a direct byte buffer out of a `struct TaghaScriptBuilder` object.
+This **WILL** clear the script builder data.
+
+### Parameters
+* `tbc` - pointer to a `struct TaghaScriptBuilder` object.
+
+### Return Value
+`struct HarbolByteBuf` object containing the entire script.
+
+
 ## tagha_tbc_gen_create_file
 ```c
-bool tagha_tbc_gen_create_file(struct TaghaScriptBuilder *const restrict tbc, const char filename[restrict static 1])
+bool tagha_tbc_gen_create_file(struct TaghaScriptBuilder *tbc, const char filename[]);
 ```
 
 ### Description
@@ -109,20 +117,3 @@ This **WILL** clear the script builder data.
 
 ### Return Value
 true if successful, false otherwise.
-
-
-## tagha_tbc_gen_to_buffer
-```c
-struct HarbolByteBuf tagha_tbc_gen_to_buffer(struct TaghaScriptBuilder *const tbc)
-```
-
-### Description
-creates a direct byte buffer out of a `struct TaghaScriptBuilder` object.
-This **WILL** clear the script builder data.
-
-### Parameters
-* `tbc` - pointer to a `struct TaghaScriptBuilder` object.
-* `filename` - name of the file. Does NOT add the `.tbc` extension.
-
-### Return Value
-`struct HarbolByteBuf` object containing the entire script.

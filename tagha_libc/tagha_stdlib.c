@@ -27,7 +27,7 @@ static union TaghaVal native_safe_free(struct TaghaModule *const module, const s
 {
 	(void)module; (void)args;
 	void **restrict ptrref = ( void** )params[0].uintptr;
-	if( *ptrref ) {
+	if( *ptrref != NULL ) {
 		//free(*ptrref), *ptrref=NULL;
 		harbol_mempool_free(&module->heap, *ptrref); *ptrref=NULL;
 		return (union TaghaVal){ .b00l = true };
@@ -82,7 +82,7 @@ static union TaghaVal native_rand(struct TaghaModule *const module, const size_t
 	return (union TaghaVal){ .int32 = rand() };
 }
 
-/** float64_t atof(const char *str); */
+/** double atof(const char *str); */
 static union TaghaVal native_atof(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
@@ -110,7 +110,7 @@ static union TaghaVal native_atoll(struct TaghaModule *const module, const size_
 	return (union TaghaVal){ .int64 = atoll(( const char* )params[0].uintptr) };
 }
 
-/** float64_t strtod(const char *str, char **endptr); */
+/** double strtod(const char *str, char **endptr); */
 static union TaghaVal native_strtod(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;
@@ -118,7 +118,7 @@ static union TaghaVal native_strtod(struct TaghaModule *const module, const size
 	return (union TaghaVal){ .float64 = strtod(str, ( char** )params[1].uintptr) };
 }
 
-/** float32_t strtof(const char *str, char **endptr); */
+/** float strtof(const char *str, char **endptr); */
 static union TaghaVal native_strtof(struct TaghaModule *const module, const size_t args, const union TaghaVal params[const static 1])
 {
 	(void)module; (void)args;

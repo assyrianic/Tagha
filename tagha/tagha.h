@@ -1,9 +1,9 @@
 #ifndef TAGHA_INCLUDED
 #	define TAGHA_INCLUDED
 
-#define TAGHA_VERSION_MAJOR    1
-#define TAGHA_VERSION_MINOR    8
-#define TAGHA_VERSION_PATCH    5
+#define TAGHA_VERSION_MAJOR    2
+#define TAGHA_VERSION_MINOR    0
+#define TAGHA_VERSION_PATCH    0
 #define TAGHA_VERSION_PHASE    "beta"
 #define TAGHA_STR_HELPER(x)    #x
 #define TAGHA_STRINGIFY(x)     TAGHA_STR_HELPER(x)
@@ -96,12 +96,17 @@ typedef union TaghaPtr {
 enum {
 	TAGHA_MAGIC_VERIFIER = 0x7A6AC0DE   /// "tagha code"
 };
-
 typedef struct TaghaHeader {
 	uint32_t
 		magic,
 		stacksize,
+		heapsize,
 		memsize,
+		funcs_offset,
+		vars_offset,
+		mem_offset,
+		func_count,
+		var_count,
 		flags
 	;
 } STaghaHeader;
@@ -119,11 +124,16 @@ typedef struct TaghaItemEntry {
  * ------------------------------ start of header ------------------------------
  * 4 bytes: magic verifier ==> TAGHA_MAGIC_VERIFIER
  * 4 bytes: stack size, stack size needed for the code.
+ * 4 bytes: heap size.
  * 4 bytes: mem region size.
+ * 4 bytes: func table offset.
+ * 4 bytes: var table offset.
+ * 4 bytes: mem region offset.
+ * 4 bytes: amount of funcs.
+ * 4 bytes: amount of vars.
  * 4 bytes: flags.
  * ------------------------------ end of header ------------------------------
  * .functions table.
- * 4 bytes: amount of funcs.
  * n bytes: func table.
  *     4 bytes: entry size.
  *     4 bytes: flag: if bytecode func, a native, or extern.
@@ -138,7 +148,6 @@ typedef struct TaghaItemEntry {
  *         8 bytes - pointer to owning module.
  * 
  * .globalvars table.
- * 4 bytes: amount of global vars.
  * n bytes: global vars table.
  *     4 bytes: entry size.
  *     4 bytes: flags.
@@ -162,14 +171,13 @@ typedef struct TaghaItemEntry {
 	/** Syriac alphabet makes great register names! */
 
 #define Y(y) y,
-typedef enum TaghaRegID { TAGHA_REG_FILE MaxRegisters } ETaghaRegID;
-#undef Y
-
-enum {
+typedef enum TaghaRegID {
+	TAGHA_REG_FILE MaxRegisters,
 	TAGHA_FIRST_PARAM_REG = semkath,
 	TAGHA_LAST_PARAM_REG  = dadeh,
 	TAGHA_REG_PARAMS_MAX  = (TAGHA_LAST_PARAM_REG - TAGHA_FIRST_PARAM_REG + 1)
-};
+} ETaghaRegID;
+#undef Y
 
 
 struct TaghaModule;
@@ -210,18 +218,19 @@ typedef struct TaghaItem {
 } STaghaItem;
 
 enum {
-	TAGHA_SYM_HASH_MIN = 8,    /// for small amount of functions in a module.
-	TAGHA_SYM_HASH_MAX = 32,   /// for larger amount of functions.
+	TAGHA_SYM_BUCKETS = 32
 };
 typedef struct TaghaSymTable {
 	const char       **keys;   /// array of string names of each item.
 	size_t
 		*hashes,  /// hash value for each item index.
-		*buckets, /// hash index bucket for each index. SIZE_MAX if invalid.
 		*chain    /// index chain to resolve collisions. SIZE_MAX if invalid.
 	;
 	struct TaghaItem *table;   /// table of items.
-	size_t           len;      /// table len.
+	size_t
+		len,                   /// table's len.
+		buckets[TAGHA_SYM_BUCKETS] /// hash index bucket for each index. SIZE_MAX if invalid.;
+	;
 } STaghaSymTable;
 
 

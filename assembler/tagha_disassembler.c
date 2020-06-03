@@ -23,7 +23,6 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 		return false;
 	}
 	
-	union HarbolBinIter iter = { .uint8 = filedata + sizeof *hdr };
 	struct HarbolString
 		header    = harbol_string_create(NULL),
 		nbc_funcs = harbol_string_create(NULL), /// NBC "Non-ByteCode" functions.
@@ -46,12 +45,16 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 	/// collect header info.
 	harbol_string_add_format(&header, "; %s disassembled by the official tagha disassembler.\n", filename);
 	harbol_string_add_format(&header, "$stacksize    %d\n", hdr->stacksize);
-	harbol_string_add_format(&header, "$heapsize     %d\n\n", hdr->memsize - hdr->stacksize);
+	harbol_string_add_format(&header, "$heapsize     %d\n", hdr->heapsize);
+	harbol_string_add_format(&header, "; total memory usage: '%d' bytes\n\n", hdr->memsize);
 	
-	const uint32_t func_table_size = *iter.uint32++;
+	const uint32_t func_table_size = hdr->func_count;
+	const uint32_t var_table_size  = hdr->var_count;
+	harbol_string_add_format(&header, "; function count: %u\n", func_table_size);
+	harbol_string_add_format(&header, "; global var count: %u\n\n", var_table_size);
+	union HarbolBinIter iter = { .uint8 = filedata + hdr->funcs_offset };
 	{
 		union HarbolBinIter first_run = iter;
-		harbol_string_add_format(&header, "; function count: %u\n", func_table_size);
 		for( uint32_t i=0; i<func_table_size; i++ ) {
 			const struct TaghaItemEntry *const entry = first_run.ptr;
 			first_run.uint8 += sizeof *entry;
@@ -62,8 +65,6 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 				first_run.uint8 += entry->data_len;
 		}
 		
-		const uint32_t var_table_size = *first_run.uint32++;
-		harbol_string_add_format(&header, "; global var count: %u\n\n", var_table_size);
 		for( uint32_t i=0; i<var_table_size; i++ ) {
 			const struct TaghaItemEntry *const entry = first_run.ptr;
 			first_run.uint8 += sizeof *entry;
@@ -207,7 +208,6 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 	harbol_string_add_cstr(&nbc_funcs, "\n");
 	
 	/// iterate var table and get bytecode sizes.
-	const uint32_t var_table_size = *iter.uint32++;
 	for( uint32_t i=0; i<var_table_size; i++ ) {
 		const struct TaghaItemEntry *const entry = iter.ptr;
 		iter.uint8 += sizeof *entry;
@@ -286,7 +286,7 @@ int main(const int argc, char *argv[restrict static 1])
 	} else if( !strcmp(argv[1], "--help") ) {
 		puts("Tagha Disassembler - Tagha Runtime Environment Toolkit\nTo decompile a tbc script to tasm, supply a script name as a command-line argument to the program.\nExample: './tagha_disasm [options] script.tbc'");
 	} else if( !strcmp(argv[1], "--version") ) {
-		puts("Tagha Disassembler Version 1.0.1");
+		puts("Tagha Disassembler Version 1.1.1");
 	} else {
 		for( int i=1; i<argc; i++ ) {
 			if( argv[i][0]=='-' ) {

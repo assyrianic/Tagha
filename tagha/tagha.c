@@ -28,9 +28,8 @@ static NO_NULL struct TaghaItem *_tagha_key_get_item(const struct TaghaSymTable 
 		return NULL;
 	else {
 		const size_t hash = string_hash(key);
-		const size_t bucket_size = (syms->len > TAGHA_SYM_HASH_MAX ? TAGHA_SYM_HASH_MAX : TAGHA_SYM_HASH_MIN);
-		const size_t index = hash % bucket_size;
-		for( size_t i=syms->buckets[index]; i != SIZE_MAX; i = syms->chain[i] ) {
+		const size_t index = hash % TAGHA_SYM_BUCKETS;
+		for( uindex_t i=syms->buckets[index]; i != SIZE_MAX; i = syms->chain[i] ) {
 			if( syms->hashes[i]==hash || !strcmp(syms->keys[i], key) ) {
 				return syms->table + i;
 			}
@@ -39,32 +38,10 @@ static NO_NULL struct TaghaItem *_tagha_key_get_item(const struct TaghaSymTable 
 	}
 }
 
-
-static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module, uint8_t filedata[const static 1])
+static NO_NULL bool _setup_memory(struct TaghaModule *const restrict module)
 {
-	module->script = ( uintptr_t )filedata;
-	const struct TaghaHeader *const hdr = ( const struct TaghaHeader* )filedata;
-	module->flags = hdr->flags;
-	
-	union HarbolBinIter iter = { .uint8 = filedata + sizeof *hdr };
-	
-	/// iterate function table and get bytecode sizes.
-	const uint32_t func_table_size = *iter.uint32++;
-	for( uint32_t i=0; i<func_table_size; i++ ) {
-		const struct TaghaItemEntry *const entry = iter.ptr;
-		iter.uint8 += sizeof *entry;
-		iter.uint8 += ( !entry->flags ) ? (entry->name_len + entry->data_len) : entry->name_len;
-	}
-	
-	/// iterate global var table
-	const uint32_t var_table_size = *iter.uint32++;
-	for( uint32_t i=0; i<var_table_size; i++ ) {
-		const struct TaghaItemEntry *const entry = iter.ptr;
-		iter.uint8 += sizeof *entry;
-		iter.uint8 += (entry->name_len + entry->data_len);
-	}
-	
-	module->heap = harbol_mempool_from_buffer(iter.uint8, hdr->memsize);
+	const struct TaghaHeader *const hdr = ( const struct TaghaHeader* )module->script;
+	module->heap = harbol_mempool_from_buffer(( uint8_t* )(module->script + hdr->mem_offset), hdr->memsize);
 	module->heap.freelist.auto_defrag = true;
 	module->heap.freelist.max_nodes = 0;
 	const size_t given_heapsize = harbol_mempool_mem_remaining(&module->heap);
@@ -72,34 +49,31 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 		fprintf(stderr, "Tagha Module File Error :: **** given heapsize (%zu) is not same as required memory size! (%u). ****\n", given_heapsize, hdr->memsize);
 		return false;
 	}
-	
-	struct TaghaSymTable
-		*funcs = harbol_mempool_alloc(&module->heap, sizeof *funcs),
-		*vars = harbol_mempool_alloc(&module->heap, sizeof *vars)
-	;
-	if( vars==NULL || funcs==NULL ) {
-		fprintf(stderr, "Tagha Module File Error :: **** unable to allocate symbol tables. ****\n");
+	else return true;
+}
+
+static NO_NULL bool _setup_func_table(struct TaghaModule *const restrict module)
+{
+	const struct TaghaHeader *const hdr = ( const struct TaghaHeader* )module->script;
+	struct TaghaSymTable *const funcs = harbol_mempool_alloc(&module->heap, sizeof *funcs);
+	if( funcs==NULL ) {
+		fputs("Tagha Module File Error :: **** Unable to allocate function symbol table. ****\n", stderr);
 		return false;
 	}
-	funcs->len = func_table_size;
-	vars->len  = var_table_size;
-	
-	iter.uint8 = filedata + sizeof *hdr + sizeof(uint32_t);
+	funcs->len    = hdr->func_count;
 	funcs->table  = harbol_mempool_alloc(&module->heap, sizeof *funcs->table  * funcs->len);
 	funcs->keys   = harbol_mempool_alloc(&module->heap, sizeof *funcs->keys   * funcs->len);
 	funcs->hashes = harbol_mempool_alloc(&module->heap, sizeof *funcs->hashes * funcs->len);
 	
-	const size_t func_bucket_size = funcs->len > TAGHA_SYM_HASH_MAX ? TAGHA_SYM_HASH_MAX : TAGHA_SYM_HASH_MIN;
-	
-	funcs->buckets = harbol_mempool_alloc(&module->heap, sizeof *funcs->buckets * func_bucket_size);
-	for( size_t i=0; i<func_bucket_size; i++ )
+	for( uindex_t i=0; i<TAGHA_SYM_BUCKETS; i++ )
 		funcs->buckets[i] = SIZE_MAX;
 	
-	funcs->chain = harbol_mempool_alloc(&module->heap, sizeof *funcs->chain * funcs->len);
-	for( size_t i=0; i<funcs->len; i++ )
+	funcs->chain = harbol_mempool_alloc(&module->heap, sizeof *funcs->chain   * funcs->len);
+	for( uindex_t i=0; i<funcs->len; i++ )
 		funcs->chain[i] = SIZE_MAX;
 	
-	for( uint32_t i=0; i<func_table_size; i++ ) {
+	union HarbolBinIter iter = { .uint8 = ( uint8_t* )(module->script + hdr->funcs_offset) };
+	for( uint32_t i=0; i<hdr->func_count; i++ ) {
 		const struct TaghaItemEntry *const entry = iter.ptr;
 		iter.uint8 += sizeof *entry;
 		const uint32_t flag = entry->flags;
@@ -117,10 +91,10 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 		funcs->keys[i]   = cstr;
 		funcs->hashes[i] = hash;
 		
-		if( funcs->buckets[hash % func_bucket_size] == SIZE_MAX ) {
-			funcs->buckets[hash % func_bucket_size] = i;
+		if( funcs->buckets[hash % TAGHA_SYM_BUCKETS] == SIZE_MAX ) {
+			funcs->buckets[hash % TAGHA_SYM_BUCKETS] = i;
 		} else {
-			size_t n = funcs->buckets[hash % func_bucket_size];
+			size_t n = funcs->buckets[hash % TAGHA_SYM_BUCKETS];
 			while( funcs->chain[n] != SIZE_MAX )
 				n = funcs->chain[n];
 			funcs->chain[n] = i;
@@ -129,25 +103,32 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 		if( !flag )
 			iter.uint8 += entry->data_len;
 	}
-	module->end_seg = ( uintptr_t )module->heap.stack.base;
-	
-	iter.uint32++; /// skip var table size.
-	module->start_seg = ( uintptr_t )iter.uint8;
+	module->funcs = funcs;
+	return true;
+}
+
+static NO_NULL bool _setup_var_table(struct TaghaModule *const restrict module)
+{
+	const struct TaghaHeader *const hdr = ( const struct TaghaHeader* )module->script;
+	struct TaghaSymTable *const vars = harbol_mempool_alloc(&module->heap, sizeof *vars);
+	if( vars==NULL ) {
+		fputs("Tagha Module File Error :: **** Unable to allocate global var symbol table. ****\n", stderr);
+		return false;
+	}
+	vars->len    = hdr->var_count;
 	vars->table  = harbol_mempool_alloc(&module->heap, sizeof *vars->table  * vars->len);
 	vars->keys   = harbol_mempool_alloc(&module->heap, sizeof *vars->keys   * vars->len);
 	vars->hashes = harbol_mempool_alloc(&module->heap, sizeof *vars->hashes * vars->len);
 	
-	const size_t var_bucket_size = vars->len > TAGHA_SYM_HASH_MAX ? TAGHA_SYM_HASH_MAX : TAGHA_SYM_HASH_MIN;
-	vars->buckets = harbol_mempool_alloc(&module->heap, sizeof *vars->buckets * var_bucket_size);
-	
-	for( size_t i=0; i<var_bucket_size; i++ )
+	for( uindex_t i=0; i<TAGHA_SYM_BUCKETS; i++ )
 		vars->buckets[i] = SIZE_MAX;
 	
-	vars->chain = harbol_mempool_alloc(&module->heap, sizeof *vars->chain * vars->len);
-	for( size_t i=0; i<vars->len; i++ )
+	vars->chain = harbol_mempool_alloc(&module->heap, sizeof *vars->chain   * vars->len);
+	for( uindex_t i=0; i<vars->len; i++ )
 		vars->chain[i] = SIZE_MAX;
 	
-	for( uint32_t i=0; i<var_table_size; i++ ) {
+	union HarbolBinIter iter = { .uint8 = ( uint8_t* )(module->script + hdr->vars_offset) };
+	for( uint32_t i=0; i<hdr->var_count; i++ ) {
 		const struct TaghaItemEntry *const entry = iter.ptr;
 		iter.uint8 += sizeof *entry;
 		const uint32_t flag = entry->flags;
@@ -165,10 +146,10 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 		vars->keys[i]   = cstr;
 		vars->hashes[i] = hash;
 		
-		if( vars->buckets[hash % var_bucket_size] == SIZE_MAX ) {
-			vars->buckets[hash % var_bucket_size] = i;
+		if( vars->buckets[hash % TAGHA_SYM_BUCKETS] == SIZE_MAX ) {
+			vars->buckets[hash % TAGHA_SYM_BUCKETS] = i;
 		} else {
-			size_t n = vars->buckets[hash % var_bucket_size];
+			size_t n = vars->buckets[hash % TAGHA_SYM_BUCKETS];
 			while( vars->chain[n] != SIZE_MAX )
 				n = vars->chain[n];
 			vars->chain[n] = i;
@@ -176,9 +157,23 @@ static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module,
 		
 		iter.uint8 += entry->data_len;
 	}
+	module->vars = vars;
+	return true;
+}
+
+static NO_NULL bool _read_module_data(struct TaghaModule *const restrict module, const uintptr_t filedata)
+{
+	module->script = filedata;
+	const struct TaghaHeader *const hdr = ( const struct TaghaHeader* )filedata;
+	module->flags = hdr->flags;
+	
+	_setup_memory(module);
+	_setup_func_table(module);
+	_setup_var_table(module);
+	
+	module->start_seg = module->script + hdr->vars_offset;
+	module->end_seg   = ( uintptr_t )module->heap.stack.base;
 	harbol_mempool_defrag(&module->heap);
-	module->funcs = funcs;
-	module->vars  = vars;
 	
 	module->stack = harbol_mempool_alloc(&module->heap, sizeof *module->stack * hdr->stacksize);
 	if( module->stack==NULL ) {
@@ -209,7 +204,7 @@ TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_buffer(uint8_t buffer[res
 {
 	struct TaghaModule *restrict module = calloc(1, sizeof *module);
 	if( module==NULL ) {
-		fprintf(stderr, "Tagha Module Error :: **** Unable to allocate module. ****\n");
+		fputs("Tagha Module Error :: **** Unable to allocate module. ****\n", stderr);
 		return NULL;
 	} else {
 		*module = tagha_module_create_from_buffer(buffer);
@@ -244,7 +239,7 @@ TAGHA_EXPORT struct TaghaModule tagha_module_create_from_file(const char filenam
 		return module;
 	}
 	
-	const bool read_result = _read_module_data(&module, bytecode);
+	const bool read_result = _read_module_data(&module, ( uintptr_t )bytecode);
 	if( !read_result ) {
 		fprintf(stderr, "Tagha Module Error :: **** couldn't allocate tables for file: '%s' ****\n", filename);
 		tagha_module_clear(&module);
@@ -261,9 +256,9 @@ TAGHA_EXPORT struct TaghaModule tagha_module_create_from_buffer(uint8_t buffer[r
 		return module;
 	}
 	
-	const bool read_result = _read_module_data(&module, buffer);
+	const bool read_result = _read_module_data(&module, ( uintptr_t )buffer);
 	if( !read_result ) {
-		fprintf(stderr, "Tagha Module Error :: **** couldn't allocate tables from buffer ****\n");
+		fputs("Tagha Module Error :: **** couldn't allocate tables from buffer ****\n", stderr);
 		tagha_module_clear(&module);
 		return (struct TaghaModule){0};
 	}
@@ -284,14 +279,17 @@ TAGHA_EXPORT bool tagha_module_clear(struct TaghaModule *const module)
 TAGHA_EXPORT void tagha_module_print_vm_state(const struct TaghaModule *const module, const bool hex)
 {
 	printf("=== Tagha VM State Info ===\n\nPrinting Registers:\n");
-	for( size_t i=0; i<MaxRegisters; i++ ) {
+	const char *reg_fmt = ( hex ) ? (const char[]){ "register %.2zu:       '%" PRIx64 "'\n" } : (const char[]){ "register %.2zu:       '%" PRIu64 "'\n" };
+	for( uindex_t i=0; i<MaxRegisters; i++ ) {
 		switch( i ) {
-			case sp: printf("register stack ptr: '0x%" PRIxPTR "'\n", module->regs[i].uintptr); break;
-			case bp: printf("register base  ptr: '0x%" PRIxPTR "'\n", module->regs[i].uintptr); break;
+			case sp:
+				printf("register stack ptr: '0x%" PRIxPTR "'\n", module->regs[i].uintptr);
+				break;
+			case bp:
+				printf("register base  ptr: '0x%" PRIxPTR "'\n", module->regs[i].uintptr);
+				break;
 			default:
-				if( hex )
-					printf("register %.3zu:       '%" PRIx64 "'\n", i, module->regs[i].uint64);
-				else printf("register %.3zu:       '%" PRIu64 "'\n", i, module->regs[i].uint64);
+				printf(reg_fmt, i, module->regs[i].uint64);
 				break;
 		}
 	}
@@ -472,7 +470,7 @@ TAGHA_EXPORT void tagha_module_resolve_links(struct TaghaModule *const restrict 
 		return;
 	else {
 		struct TaghaSymTable *const funcs = module->funcs;
-		for( size_t i=0; i<funcs->len; i++ ) {
+		for( uindex_t i=0; i<funcs->len; i++ ) {
 			struct TaghaItem *const func = &funcs->table[i];
 			if( !(func->flags & TAGHA_FLAG_EXTERN) )
 				continue;
