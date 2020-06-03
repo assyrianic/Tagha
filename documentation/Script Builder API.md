@@ -7,10 +7,10 @@
 ### hdr
 structure (in tagha.h) that stores header information.
 
-### datatbl
+### var_table
 byte buffer that stores the global var table information.
 
-### functbl
+### func_table
 byte buffer that stores the function table information.
 
 
