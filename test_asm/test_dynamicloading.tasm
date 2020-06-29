@@ -1,0 +1,48 @@
+$global module_str,    "test_factorial.tbc"
+$global factorial_str, "factorial"
+
+;; struct TaghaModule *tagha_module_new_from_file(const char filename[]);
+$native tagha_module_new_from_file
+
+;; TaghaFunc tagha_module_get_func(struct TaghaModule *module, const char name[]);
+$native tagha_module_get_func
+
+;; bool tagha_module_free(struct TaghaModule **modref);
+$native tagha_module_free
+
+main {
+    alloc       10
+    movi        r9, 10000000     ;; 1000000000 / 1000000 / 10000000
+    
+    ;; struct TaghaModule *fact_module = tagha_module_new_from_file("test_factorial.tbc");
+    ldvar       r0, module_str
+    call        tagha_module_new_from_file
+    
+    mov         r8, r0 ;; module ptr is in ralaf, copy the ptr to stack for later freeing.
+    ldvar       r1, factorial_str
+    
+    ;; int (*const factorial)(int) = dlsym(fact_module, "factorial");
+    mov         r0, r8
+    call        tagha_module_get_func
+    mov         r7, r0 ;; copy function pointer
+    
+    movi        r6, 0
+    movi        r5, 1
+    
+    ;; test dynamic loading function invocation overhead
+.loop
+    movi        r1, 5    ;; rsp[1] = 5;
+    movi        r0, 1    ;; rsp[0] = 1;
+    callr       r7       ;; (*factorial)(rsp); | result in r0.
+    sub         r9, r5   ;; rsp[9] -= rsp[5];
+    cmp         r9, r6   ;; while( rsp[9] != rsp[6] )
+    jz          .loop
+    mov         r4, r0
+    
+    mov         r3, r8   ;; rsp[3] = rsp[8];
+    lsp         r0, 24   ;; rsp[0] = &rsp[3];
+    call        tagha_module_free ;; tagha_module_free(&module);
+    mov         r9, r4
+    redux       9
+    ret
+}

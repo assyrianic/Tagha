@@ -1,0 +1,78 @@
+Clang Version: clang version 9.0.0-2~ubuntu18.04.2 (tags/RELEASE_900/final)
+Specs: Intel Core i5 8250U | 8GB RAM
+Flags: -Wextra -Wall -Wrestrict -std=c99 -s -O3
+Results:
+
+Test Purpose: Recursive Function Call Overhead.
+ Performance counter stats for './taghatest test_fib.tbc' (50 runs):
+
+        523.641518      task-clock (msec)         #    1.000 CPUs utilized            ( +-  0.53% )
+                 3      context-switches          #    0.005 K/sec                    ( +- 15.10% )
+                 0      cpu-migrations            #    0.000 K/sec                    ( +- 69.99% )
+                54      page-faults               #    0.103 K/sec                    ( +-  0.40% )
+     1,771,947,003      cycles                    #    3.384 GHz                      ( +-  0.52% )
+     4,181,367,102      instructions              #    2.36  insn per cycle           ( +-  0.00% )
+       433,934,415      branches                  #  828.686 M/sec                    ( +-  0.00% )
+         4,171,940      branch-misses             #    0.96% of all branches          ( +-  0.26% )
+
+       0.523894881 seconds time elapsed                                          ( +-  0.53% )
+
+
+Test Purpose: Dynamically Linked Function Call Overhead (runs test_factorial.tbc in a loop, iterating 10M times).
+ Performance counter stats for './taghatest test_dynamiclinking.tbc' (50 runs):
+
+       1392.250730      task-clock (msec)         #    1.000 CPUs utilized            ( +-  0.54% )
+                35      context-switches          #    0.025 K/sec                    ( +- 73.62% )
+                 0      cpu-migrations            #    0.000 K/sec                    ( +- 37.29% )
+                58      page-faults               #    0.041 K/sec                    ( +-  0.33% )
+     4,655,421,239      cycles                    #    3.344 GHz                      ( +-  0.14% )
+    11,542,550,472      instructions              #    2.48  insn per cycle           ( +-  0.00% )
+     1,230,459,442      branches                  #  883.792 M/sec                    ( +-  0.00% )
+           196,196      branch-misses             #    0.02% of all branches          ( +- 11.06% )
+
+       1.392784354 seconds time elapsed                                          ( +-  0.55% )
+
+
+Test Purpose: Dynamically Loaded Function Call Overhead (runs test_factorial.tbc in a loop, iterating 10M times).
+ Performance counter stats for './taghatest test_dynamicloading.tbc' (50 runs):
+
+       1398.918557      task-clock (msec)         #    1.000 CPUs utilized            ( +-  0.50% )
+                 4      context-switches          #    0.003 K/sec                    ( +- 19.69% )
+                 0      cpu-migrations            #    0.000 K/sec                    ( +- 60.19% )
+                58      page-faults               #    0.041 K/sec                    ( +-  0.38% )
+     4,693,886,538      cycles                    #    3.355 GHz                      ( +-  0.15% )
+    11,512,532,891      instructions              #    2.45  insn per cycle           ( +-  0.00% )
+     1,230,451,682      branches                  #  879.573 M/sec                    ( +-  0.00% )
+           224,374      branch-misses             #    0.02% of all branches          ( +- 25.38% )
+
+       1.398736821 seconds time elapsed                                          ( +-  0.49% )
+
+
+Test Purpose: Recursive Function Call Overhead.
+ Performance counter stats for './taghatest test_factorial.tbc' (50 runs):
+
+          1.072002      task-clock (msec)         #    0.678 CPUs utilized            ( +-  2.96% )
+                 0      context-switches          #    0.000 K/sec                  
+                 0      cpu-migrations            #    0.000 K/sec                  
+                54      page-faults               #    0.050 M/sec                    ( +-  0.41% )
+           960,943      cycles                    #    0.896 GHz                      ( +-  1.54% )
+           694,091      instructions              #    0.72  insn per cycle           ( +-  0.38% )
+           134,477      branches                  #  125.444 M/sec                    ( +-  0.32% )
+             6,081      branch-misses             #    4.52% of all branches          ( +-  0.92% )
+
+       0.001580391 seconds time elapsed                                          ( +-  3.07% )
+
+
+Test Purpose: Basic Loop Overhead. (iterates 100M times)
+ Performance counter stats for './taghatest test_loop.tbc' (50 runs):
+
+        810.255282      task-clock (msec)         #    0.999 CPUs utilized            ( +-  0.15% )
+                 5      context-switches          #    0.006 K/sec                    ( +- 22.03% )
+                 0      cpu-migrations            #    0.000 K/sec                    ( +- 48.45% )
+                54      page-faults               #    0.066 K/sec                    ( +-  0.35% )
+     2,738,603,886      cycles                    #    3.380 GHz                      ( +-  0.03% )
+     4,701,699,194      instructions              #    1.72  insn per cycle           ( +-  0.00% )
+       400,309,509      branches                  #  494.054 M/sec                    ( +-  0.00% )
+            13,827      branch-misses             #    0.00% of all branches          ( +-  2.06% )
+
+       0.810811763 seconds time elapsed                                          ( +-  0.15% )

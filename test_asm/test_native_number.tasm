@@ -1,0 +1,29 @@
+;; int add_one(const int n);
+$native add_one
+
+/**
+int main(void)
+{
+	int count = 0;
+	for( int i=0; i<iterations; i++ ) {
+		count = add_one(count);
+	}
+}
+*/
+
+main {
+    alloc   4
+    movi    r3, 1000000000
+    movi    r0, 0
+    movi    r2, 0
+    movi    r1, 1
+    
+.loop
+    call    add_one
+    sub     r3, r1
+    cmp     r3, r2
+    jz      .loop
+    
+    redux   3
+    ret
+}

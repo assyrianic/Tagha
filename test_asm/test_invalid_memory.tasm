@@ -1,0 +1,34 @@
+$global g_var, 12, 0
+
+;; test global variable going out of bounds.
+test_globalmembnds {
+    ldvar   r0, g_var
+    movi    r1, 50
+    st4     [r0+300], r1
+    ret
+}
+
+;; test local var going out of bounds.
+;; remember we have a stack size of 128 bytes.
+test_stackbnds {
+    movi    r1, 90
+    ;; this probably overwrites alot of global var data but it won't overwrite func data.
+    st4     [r0-1024], r1
+    ret
+}
+
+test_toomuchalloc {
+    alloc   255
+    alloc   255
+    alloc   255
+    ret
+}
+
+main {
+    alloc   10
+    pushlr
+    call    test_globalmembnds
+    call    test_stackbnds
+    poplr
+    ret
+}

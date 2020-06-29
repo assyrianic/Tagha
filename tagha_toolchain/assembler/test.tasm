@@ -1,0 +1,29 @@
+;; single line comment!
+
+/** 
+multi-line comment! */
+
+$opstack_size     6000.0
+$callstack_size   6000
+$heap_size        0x1000
+
+
+$global g_player, 12,    0
+$global str0,     "lolololololol"
+$global raw,      `''''raw string!\n`
+$global n, 4,     long 0x40000000
+$global x, 4,     byte 0, byte 0, byte 0, byte 0x40
+
+$native puts
+$extern _libtagha@load_module
+
+main {
+.label alloc 2          ;; 0
+	ldvar r1, str0      ;; 2
+	lea   r0, [r1-1]    ;; 6
+	lea   r0, r1-1      ;; 11
+	st8   [r0], r1      ;; 11
+.l:	call  puts          ;; 16
+	movi  r10, 1000000
+	jmp   .l            ;; 21
+}

@@ -1,0 +1,59 @@
+$opstack_size  10    ; 10 stack cells so 80 bytes
+
+main {
+    pushlr   ;; push link register
+    ;; think of 'alloc' as allocating the number of registers.
+    alloc    4              ;; reduce stack pointer by 32 (8 * 4) bytes | rsp -= 32;
+    lsp      r1, 16         ;; float v[3]; | rsp[1] = rsp + 16;
+    movi     r0, 0x40000000 ;; rsp[0] = 2.f;
+    st4      [r1], r0       ;; v[0] = 2.f; | (( int* )rsp[1])[0] = rsp[0]
+    movi     r0, 0x40400000 ;; rsp[0] = 3.f;
+    st4      [r1+4], r0     ;; v[1] = 2.f; | (( int* )rsp[1])[1] = rsp[0];
+    movi     r0, 0x40800000 ;; rsp[0] = 4.f;
+    st4      [r1+8], r0     ;; v[2] = 4.f; | (( int* )rsp[1])[2] = rsp[0];
+    call     Vec3D_Invert   ;; Vec3D_Invert(rsp);
+    poplr    ;; pop back link register
+    ret
+}
+
+/**
+void Vec3D_Invert(float v[const static 3])
+{
+	v[0] = -v[0];
+	v[1] = -v[1];
+	v[2] = -v[2];
+}
+*/
+
+Vec3D_Invert {
+    alloc    1          ;; rsp -= 8;
+    ;; REMEMBER that our array is stored in r1 so allocating another cell means it's in r2 now!!!
+    ;; rsp[0] == 0;
+    ;; rsp[1] == 0;
+    ;; rsp[2] == v[3];
+    
+    ;; v[0] = -v[0];
+    ld4      r0, [r2]   ;; rsp[0] = (( int* )rsp[2])[0];
+    f32tof64 r0         ;; rsp[0] = ( double )rsp[0];
+    fneg     r0         ;; rsp[0] = -rsp[1];
+    fadd     r1, r0     ;; rsp[1] += rsp[0];
+    f64tof32 r0         ;; rsp[0] = ( float )rsp[0];
+    st4      [r2], r0   ;; (( int* )rsp[2])[0] = rsp[0];
+    
+    ;; v[1] = -v[1];
+    ld4      r0, [r2+4] ;; rsp[0] = (( int* )rsp[2])[1];
+    f32tof64 r0         ;; rsp[0] = ( double )rsp[0];
+    fneg     r0         ;; rsp[0] = -rsp[1];
+    fadd     r1, r0     ;; rsp[1] += rsp[0];
+    f64tof32 r0         ;; rsp[0] = ( float )rsp[0];
+    st4      [r2+4], r0 ;; (( int* )rsp[2])[1] = rsp[0];
+    
+    ;; v[2] = -v[2];
+    ld4      r0, [r2+8] ;; rsp[0] = (( int* )rsp[2])[2];
+    f32tof64 r0         ;; rsp[0] = ( double )rsp[0];
+    fneg     r0         ;; rsp[0] = -rsp[1];
+    fadd     r1, r0     ;; rsp[0] += rsp[1];
+    f64tof32 r0         ;; rsp[0] = ( float )rsp[0];
+    st4      [r2+8], r0 ;; (( int* )rsp[2])[2] = rsp[0];
+    ret
+}

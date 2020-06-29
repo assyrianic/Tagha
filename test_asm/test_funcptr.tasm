@@ -1,0 +1,26 @@
+$global stdin,  8, word 0
+$global string, "Please enter a long string: "
+
+$native puts    ;; int puts(const char *str);
+$native fgets   ;; char *fgets(char *buf, int size, FILE *stream);
+
+main {
+;; char string[256];
+    alloc       36 ;; 8 * 36 = 288 bytes of stack space.
+    
+;; puts("Please enter a long string: ");
+    ldvar       r0, string
+    call        puts
+    
+;; fgets(string, 256, stdin);
+    ;; loading a global var only loads its address, we need the actual ptr value of stdin.
+    ldvar       r2, stdin
+    ld8         r2, [r2]
+    movi        r1, 256
+    lsp         r0, 40
+    ldfn        r3, fgets
+    callr       r3
+    
+    call        puts
+    ret
+}

@@ -1,0 +1,27 @@
+/**
+struct Player {
+	float32_t  speed;
+	uint32_t   health, ammo;
+} g_player;
+ * 
+ * g_player is defined in this script
+ * but its data will be supplied from the host!
+ */
+
+$global g_player, 12,    0
+
+main: {
+    alloc   4
+    ldvar   r0, g_player
+    
+    movi    r1, 0x43960000   ; 300.f as a 32-bit int hex
+    st4     [r0], r1         ; g_player.speed = 300.f;
+    
+    movi    r2, 100
+    st4     [r0+4], r2       ; g_player.health = 100;
+    
+    movi    r3, 32
+    st4     [r0+8], r3       ; g_player.ammo = 32;
+    
+    ret
+}

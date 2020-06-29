@@ -1,0 +1,45 @@
+/**
+uint32_t factorial(const uint32_t i) {
+	if( i<=1 )
+		return 1;
+	else return i * factorial(i-1);
+}
+*/
+
+main {
+    alloc   1
+    pushlr
+    movi    r0, 5
+    call    factorial
+    poplr
+    ret
+}
+
+factorial {
+    pushlr
+    alloc   3
+    mov     r0, r3
+    
+;; if( i<=1 )
+    movi    r1, 1
+    ule     r0, r1
+    jz      .L1
+    
+;; return 1;
+    mov     r0, r1
+    jmp     .L2
+    
+.L1
+;; return i * factorial(i-1);
+    mov     r2, r0    ;; int temp = i;
+    sub     r2, r1    ;; temp -= 1;
+    mov     r0, r2
+    call    factorial ;; int res = factorial(temp);
+    mul     r3, r0    ;; i * res;
+    
+.L2
+    poplr
+    redux   3
+    
+    ret
+}

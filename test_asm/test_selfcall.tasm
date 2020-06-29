@@ -1,0 +1,58 @@
+$global func_str, "func"
+$global nude_str, "send nudes"
+$global kek_str,  "send keks"
+$global flwr_str, "send flowers"
+
+$global self, 8,    0
+
+
+;; TaghaFunc tagha_module_get_func(struct TaghaModule *module, const char name[]);
+$native tagha_module_get_func
+
+;; int puts(const char *str);
+$native puts
+
+
+prior_func {
+	alloc       1
+	ldvar       r0, flwr_str
+	call        puts
+	redux       1
+	ret
+}
+
+func {
+	pushlr
+	alloc       1
+	ldvar       r0, nude_str
+	call        puts
+	call        prior_func
+	redux       1
+	poplr
+	ret
+}
+
+another_func {
+	alloc       1
+	ldvar       r0, kek_str
+	call        puts
+	redux       1
+	ret
+}
+
+main {
+	pushlr
+	alloc       4
+	call        prior_func
+	
+	ldvar       r1, func_str
+	movi        r0, 0
+	call        tagha_module_get_func
+	mov         r3, r0
+	
+	callr       r3
+	call        another_func
+	redux       3
+	poplr
+	ret
+}
