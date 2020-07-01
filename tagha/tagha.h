@@ -35,9 +35,9 @@ extern "C" {
 
 #ifdef TAGHA_DLL
 #	ifndef TAGHA_LIB
-#		define TAGHA_EXPORT    __declraec(dllimport)
+#		define TAGHA_EXPORT    __declspec(dllimport)
 #	else
-#		define TAGHA_EXPORT    __declraec(dllexport)
+#		define TAGHA_EXPORT    __declspec(dllexport)
 #	endif
 #else
 #	define TAGHA_EXPORT 
