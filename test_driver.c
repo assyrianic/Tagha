@@ -27,17 +27,6 @@ static NO_NULL union TaghaVal native_tagha_module_get_func(struct TaghaModule *c
 	return ( union TaghaVal ){ .uintptr = ( uintptr_t )tagha_module_get_func(p==NULL ? module : p, ( const char* )params[1].uintptr) };
 }
 
-/// void tagha_module_link_module(struct TaghaModule *module, struct TaghaModule *lib);
-static NO_NULL union TaghaVal native_tagha_module_link_module(struct TaghaModule *const restrict module, const union TaghaVal params[const static 2])
-{
-	( void )module;
-	struct TaghaModule       *const restrict caller = ( struct TaghaModule* )params[0].uintptr;
-	const struct TaghaModule *const restrict lib    = ( const struct TaghaModule* )params[1].uintptr;
-	tagha_module_link_module(caller==NULL ? module : caller, lib);
-	return ( union TaghaVal ){ 0 };
-}
-
-
 /// int puts(const char *str);
 static NO_NULL union TaghaVal native_puts(struct TaghaModule *const restrict module, const union TaghaVal params[const static 1])
 {
@@ -58,6 +47,17 @@ static NO_NULL union TaghaVal native_add_one(struct TaghaModule *const module, c
 	( void )module;
 	return ( union TaghaVal ){ .int32 = params[0].int32 + 1 };
 }
+
+/// void tagha_module_link_module(struct TaghaModule *module, struct TaghaModule *lib);
+static NO_NULL union TaghaVal native_tagha_module_link_module(struct TaghaModule *const restrict module, const union TaghaVal params[const static 2])
+{
+	( void )module;
+	struct TaghaModule       *const restrict caller = ( struct TaghaModule* )params[0].uintptr;
+	const struct TaghaModule *const restrict lib    = ( const struct TaghaModule* )params[1].uintptr;
+	tagha_module_link_module(caller==NULL ? module : caller, lib);
+	return ( union TaghaVal ){ 0 };
+}
+
 
 NO_NULL int main(const int argc, char *argv[const restrict static 1])
 {

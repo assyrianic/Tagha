@@ -24,12 +24,12 @@
 
 ### Features
 
-* Tagha is 64-bit as the registers and memory addresses are 64-bit. (will run significantly slower (~25%) on 32-bit OS's and drastically slower (~4x-5x) on 32-bit systems.)
+* Tagha is 64-bit as registers & memory addresses are 64-bit. (will run significantly slower (~25%) on 32-bit OS's and drastically slower (~4x-5x) on 32-bit systems.)
 * Self-contained, everything the codebase needs is packaged together and there's no dependencies except for some C standard library API.
 * Tagha codebase has its own, open source implementation of libc for scripts to use (INCOMPLETE).
 * Register-based virtual machine that handles immediate values, register, and memory operations.
 * Supports 1, 2, 4, and 8 byte operations.
-* Utilize up to 256 **general purpose registers**.
+* Utilize up to 256 **general purpose registers** _per_ function!.
 * Floats and doubles are supported (can be compiled without and also can be compiled with only one or the other).
 * Uses computed gotos (ones that use a `void\*`) which is 20%-25% faster than using a switch+loop construct {[citation](http://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables)}.
 * Embeddable and easy to embed.
