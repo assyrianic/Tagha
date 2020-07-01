@@ -1,0 +1,30 @@
+/**
+void incr(int *x) {
+	*x += 1;
+}
+
+int main()
+{
+	int n = 100;
+	incr(&n);
+}
+ */
+
+incr {
+	alloc  2
+	movi   r1, 1
+	ld4    r0, [r2]
+	add    r0, r1
+	st4    [r2], r1
+	redux  2
+	ret
+}
+
+main {
+    pushlr
+    alloc    2
+    movi     r1, 100
+    lra      r0, 1
+    poplr
+    ret
+}

@@ -4,7 +4,7 @@ main {
     pushlr   ;; push link register
     ;; think of 'alloc' as allocating the number of registers.
     alloc    4              ;; reduce stack pointer by 32 (8 * 4) bytes | rsp -= 32;
-    lsp      r1, 16         ;; float v[3]; | rsp[1] = rsp + 16;
+    lra      r1, 2          ;; float v[3]; | rsp[1] = &rsp[2];
     movi     r0, 0x40000000 ;; rsp[0] = 2.f;
     st4      [r1], r0       ;; v[0] = 2.f; | (( int* )rsp[1])[0] = rsp[0]
     movi     r0, 0x40400000 ;; rsp[0] = 3.f;

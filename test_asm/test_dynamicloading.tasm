@@ -31,8 +31,7 @@ main {
     
     ;; test dynamic loading function invocation overhead
 .loop
-    movi        r1, 5    ;; rsp[1] = 5;
-    movi        r0, 1    ;; rsp[0] = 1;
+    movi        r0, 5    ;; rsp[0] = 5;
     callr       r7       ;; (*factorial)(rsp); | result in r0.
     sub         r9, r5   ;; rsp[9] -= rsp[5];
     cmp         r9, r6   ;; while( rsp[9] != rsp[6] )
@@ -40,7 +39,7 @@ main {
     mov         r4, r0
     
     mov         r3, r8   ;; rsp[3] = rsp[8];
-    lsp         r0, 24   ;; rsp[0] = &rsp[3];
+    lra         r0, 3    ;; rsp[0] = &rsp[3];
     call        tagha_module_free ;; tagha_module_free(&module);
     mov         r9, r4
     redux       9

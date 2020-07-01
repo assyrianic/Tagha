@@ -17,7 +17,7 @@ main {
     ldvar       r2, stdin
     ld8         r2, [r2]
     movi        r1, 256
-    lsp         r0, 40
+    lra         r0, 4
     ldfn        r3, fgets
     callr       r3
     
