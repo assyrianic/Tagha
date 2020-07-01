@@ -304,12 +304,7 @@ TAGHA_EXPORT void tagha_module_link_module(struct TaghaModule *const restrict mo
 			if( func->flags != TAGHA_FLAG_EXTERN ) {
 				continue;    /// skip non-extern and already-linked extern funcs.
 			} else {
-				/// Skip the at-sign so we can get the actual function name.
-				const char *at = funcs->keys[i];
-				while( *at != 0 && *at != '@' )
-					at++;
-				
-				struct TaghaItem *const extern_func = _tagha_key_get_item(lib->funcs, at+1);
+				struct TaghaItem *const extern_func = _tagha_key_get_item(lib->funcs, funcs->keys[i]);
 				if( extern_func==NULL
 						|| extern_func->flags & TAGHA_FLAG_NATIVE /// don't link natives, could cause potential problems.
 						|| extern_func->item==0 ) /// allow getting the extern of an extern but the inner extern must be resolved.
@@ -482,11 +477,12 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 		rsp[dst] = rsp[src];
 		DISPATCH();
 	}
-	exec_lsp: { /// u8: opcode | u8: regid | u16: offset
+	exec_lra: { /// u8: opcode | u8: regid | u16: offset
 		const uint32_t regid = *pc.uint8++;
 		const uint32_t offset = *pc.uint16++;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->sp;
-		rsp[regid].uintptr = vm->sp + offset;
+		//rsp[regid].uintptr = vm->sp + offset;
+		rsp[regid].uintptr = ( uintptr_t )(rsp + offset);
 		DISPATCH();
 	}
 	exec_lea: { /// u8: opcode | u8: dest | u8: src | i16: offset
@@ -752,7 +748,7 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 		const uint32_t src   = instr >> 8;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->sp;
 		
-		/// if float64_t's are defined, regardless whether float32_t is or not
+		/// if float64's are defined, regardless whether float32 is or not
 #	if defined(TAGHA_FLOAT64_DEFINED)
 		rsp[dst].float64 += rsp[src].float64;
 #	elif defined(TAGHA_FLOAT32_DEFINED)
@@ -1021,22 +1017,33 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 			}
 		} else if( flags & TAGHA_FLAG_EXTERN ) {
 			struct TaghaModule *const restrict lib = ( struct TaghaModule* )func->owner;
-			union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->sp;
-			const size_t alloc_size = sizeof *rsp * rsp->size;
-			if( lib->sp - alloc_size < lib->opstack ) {
-				vm->err = TaghaErrOpStackOF;
-				return;
-			} else {
-				lib->sp -= alloc_size;
-				memcpy(( union TaghaVal* )lib->sp, rsp + 1, alloc_size);
-				lib->ip = item;
-				lib->lr = NIL;
-				_tagha_module_exec(lib);
-				const union TaghaVal *const restrict ex_rsp = ( const union TaghaVal* )lib->sp;
-				*rsp = *ex_rsp;
-				lib->sp += alloc_size;
-				DISPATCH();
+			/// save old symbol tables.
+			uintptr_t
+				saved_funcs = ( uintptr_t )vm->funcs,
+				saved_vars  = ( uintptr_t )vm->vars
+			;
+			vm->funcs = lib->funcs;
+			vm->vars  = lib->vars;
+			
+			/// save link register.
+			{
+				uintptr_t *const restrict call_stack = ( uintptr_t* )vm->cp;
+				*call_stack = vm->lr;
+				vm->cp += sizeof(uintptr_t);
 			}
+			vm->ip = item;
+			vm->lr = NIL;
+			_tagha_module_exec(vm);
+			
+			/// restore link register.
+			{
+				vm->cp -= sizeof(uintptr_t);
+				const uintptr_t *const restrict call_stack = ( const uintptr_t* )vm->cp;
+				vm->lr = *call_stack;
+			}
+			vm->funcs = ( struct TaghaSymTable* )saved_funcs;
+			vm->vars  = ( struct TaghaSymTable* )saved_vars;
+			DISPATCH();
 		} else {
 			vm->lr = ( uintptr_t )pc.uint8;
 			pc.uint8 = ( const uint8_t* )item;
@@ -1067,26 +1074,38 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 				}
 			} else if( func->owner != ( uintptr_t )vm ) {
 				/// if not same owner, it's an external function.
-				struct TaghaModule *const restrict lib = ( struct TaghaModule* )func->owner;
-				if( lib==NULL ) {
+				if( func->owner==NIL ) {
 					vm->err = TaghaErrBadExtern;
 					return;
 				} else {
-					const size_t alloc_size = sizeof *rsp * rsp->size;
-					if( lib->sp - alloc_size < lib->opstack ) {
-						vm->err = TaghaErrOpStackOF;
-						return;
-					} else {
-						lib->sp -= alloc_size;
-						memcpy(( union TaghaVal* )lib->sp, rsp + 1, alloc_size);
-						lib->ip = func->item;
-						lib->lr = NIL;
-						_tagha_module_exec(lib);
-						const union TaghaVal *const restrict ex_rsp = ( const union TaghaVal* )lib->sp;
-						*rsp = *ex_rsp;
-						lib->sp += alloc_size;
-						DISPATCH();
+					struct TaghaModule *const restrict lib = ( struct TaghaModule* )func->owner;
+					/// save old symbol tables.
+					uintptr_t
+						saved_funcs = ( uintptr_t )vm->funcs,
+						saved_vars  = ( uintptr_t )vm->vars
+					;
+					vm->funcs = lib->funcs;
+					vm->vars  = lib->vars;
+					
+					/// save link register.
+					{
+						uintptr_t *const restrict call_stack = ( uintptr_t* )vm->cp;
+						*call_stack = vm->lr;
+						vm->cp += sizeof(uintptr_t);
 					}
+					vm->ip = item;
+					vm->lr = NIL;
+					_tagha_module_exec(vm);
+					
+					/// restore link register.
+					{
+						vm->cp -= sizeof(uintptr_t);
+						const uintptr_t *const restrict call_stack = ( const uintptr_t* )vm->cp;
+						vm->lr = *call_stack;
+					}
+					vm->funcs = ( struct TaghaSymTable* )saved_funcs;
+					vm->vars  = ( struct TaghaSymTable* )saved_vars;
+					DISPATCH();
 				}
 			} else {
 				vm->lr = ( uintptr_t )pc.uint8;

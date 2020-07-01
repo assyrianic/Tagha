@@ -378,15 +378,11 @@ static void tagha_asm_parse_extern(void)
 	}
 	
 	if( lex_id(tagha_asm.iter, &tagha_asm.iter, &tagha_asm.lexeme) ) {
-		if( strchr(tagha_asm.lexeme.cstr, '@')==NULL ) {
-			_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "missing '@' for extern name declaration! '%s' (format should be: 'module@func')", tagha_asm.lexeme.cstr);
-		} else {
-		#ifdef TAGHA_ASM_DEBUG
-			printf("extern func: %s\n", tagha_asm.lexeme.cstr);
-		#endif
-			Label extrn = { EMPTY_HARBOL_BYTEBUF, 0, true, false, true };
-			harbol_linkmap_insert(&tagha_asm.funcs, tagha_asm.lexeme.cstr, &extrn);
-		}
+	#ifdef TAGHA_ASM_DEBUG
+		printf("extern func: %s\n", tagha_asm.lexeme.cstr);
+	#endif
+		Label extrn = { EMPTY_HARBOL_BYTEBUF, 0, true, false, true };
+		harbol_linkmap_insert(&tagha_asm.funcs, tagha_asm.lexeme.cstr, &extrn);
 	} else {
 		_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "bad name '%s' for extern directive", tagha_asm.lexeme.cstr);
 	}
@@ -667,7 +663,7 @@ static void tagha_asm_assemble(void)
 					}
 					
 					/// one uint8 register and uint16 imm operand.
-					case lsp: {
+					case lra: {
 						uint64_t reg = 0;
 						if( *tagha_asm.iter=='r' || *tagha_asm.iter=='R' )
 							tagha_asm.iter++;

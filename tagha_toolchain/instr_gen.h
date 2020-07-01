@@ -63,7 +63,7 @@ static inline size_t tagha_instr_gen(struct HarbolByteBuf *const tbc, const enum
 		}
 		
 		/// one byte + unsigned 2-byte int.
-		case lsp: case ldvar: case ldfn: {
+		case lra: case ldvar: case ldfn: {
 			if( tbc != NULL ) {
 				const int oper1 = va_arg(ap, int);
 				const int oper2 = va_arg(ap, int);

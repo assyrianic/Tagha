@@ -2,7 +2,7 @@
 #	define TAGHA_INCLUDED
 
 #define TAGHA_VERSION_MAJOR    1
-#define TAGHA_VERSION_MINOR    0
+#define TAGHA_VERSION_MINOR    1
 #define TAGHA_VERSION_PATCH    0
 #define TAGHA_VERSION_PHASE    "beta"
 #define TAGHA_STR_HELPER(x)    #x
@@ -35,9 +35,9 @@ extern "C" {
 
 #ifdef TAGHA_DLL
 #	ifndef TAGHA_LIB
-#		define TAGHA_EXPORT    __declspec(dllimport)
+#		define TAGHA_EXPORT    __declraec(dllimport)
 #	else
-#		define TAGHA_EXPORT    __declspec(dllexport)
+#		define TAGHA_EXPORT    __declraec(dllexport)
 #	endif
 #else
 #	define TAGHA_EXPORT 
@@ -277,6 +277,13 @@ TAGHA_EXPORT NO_NULL void tagha_module_link_natives(struct TaghaModule *module, 
 TAGHA_EXPORT NO_NULL bool tagha_module_link_ptr(struct TaghaModule *module, const char name[], uintptr_t ptr);
 TAGHA_EXPORT NO_NULL void tagha_module_link_module(struct TaghaModule *module, const struct TaghaModule *lib);
 
+/** Yes, I like Golang. Sue me.
+type TaghaSys struct {
+	funcs   map[string]TaghaFunc
+	natives map[string]TaghaCFunc
+}
+ */
+
 #define TAGHA_INSTR_SET \
 	X(halt) X(nop) \
 	\
@@ -284,7 +291,7 @@ TAGHA_EXPORT NO_NULL void tagha_module_link_module(struct TaghaModule *module, c
 	X(alloc) X(redux) X(movi) X(mov) \
 	\
 	/** memory ops. */ \
-	X(lsp) X(lea) X(ldvar) X(ldfn) \
+	X(lra) X(lea) X(ldvar) X(ldfn) \
 	X(ld1) X(ld2) X(ld4) X(ld8) X(ldu1) X(ldu2) X(ldu4) \
 	X(st1) X(st2) X(st4) X(st8) \
 	\

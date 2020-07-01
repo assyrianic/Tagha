@@ -46,10 +46,10 @@ copies an 8 byte immediate value to a register.
 copies a source register's contents to a destination register.
 
 
-## lsp
+## lra
 
 ### Description
-"Load Stack Pointer", gets the address of the op-stack pointer, adds an unsigned offset to it, and puts the resulting address in a register.
+"Load Register Address", gets the address of the op-stack pointer, adds an unsigned offset multiplied by 8 (word size of Tagha) to it, and puts the resulting address in a register.
 
 
 ## lea
@@ -365,14 +365,14 @@ pops a return address from the call stack to the link register.
 ## call
 
 ### Description
-jumps to a function using an unsigned 8 byte immediate value as an index.
+jumps to a function using an unsigned 2 byte value as an index.
 can also call a native function.
 
 
 ## callr
 
 ### Description
-jumps to a function using an item pointer.
+jumps to a function using a function pointer.
 can also call a native function.
 
 
@@ -399,7 +399,9 @@ Here's a crude ASCII art of the instruction encodings for Tagha opcodes by byte 
 
 # Calling Convention
 
-Calling Convention is that argument counts AND return values go into `r0` which is the top of stack.
-If the function returns nothing (`void`), `r0` may be used whenever as pleased by the compiler.
+Calling Convention is that return values should go or end up into `r0` which is the top of stack.
+If the function returns nothing (`void`), `r0` may be used as pleased by the compiler.
 
 If the function calls another (bytecode) function, it's REQUIRED to push the link register and pop it back at the end of the function's context.
+Please be aware if the function requires additional registers so that the old top of stack for use as return data is kept track of.
+If you give an argument that lives in r0 and the subsequent function requests 5 additional registers, then the 1st argument will be `r5` at least until the amount of registers in use has been reduced.

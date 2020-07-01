@@ -80,14 +80,11 @@ $native malloc
 ```
 
 #### extern
-the `$extern` directive exists to do dynamic linking between scripts. The directive takes one argument which is the name of the module we link to and the function name. The module and function names are separated by the at-sign '@'.
+the `$extern` directive exists to do dynamic linking between scripts. The directive only takes one argument which is the name of the external function to link.
 
 Here's an example of how it's used:
 ```asm
-$extern module_name@function_to_link
-
-;; realistic example:
-$extern vec3D_lib@invert_vec3D
+$extern function_name
 ```
 
 # Code Syntax
