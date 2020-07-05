@@ -95,6 +95,41 @@ union TaghaPtr {
 };
 
 
+#define TAGHA_INSTR_SET \
+	X(halt) X(nop) \
+	\
+	/** data movement ops. */ \
+	X(alloc) X(redux) X(movi) X(mov) \
+	\
+	/** memory ops. */ \
+	X(lra) X(lea) X(ldvar) X(ldfn) \
+	X(ld1) X(ld2) X(ld4) X(ld8) X(ldu1) X(ldu2) X(ldu4) \
+	X(st1) X(st2) X(st4) X(st8) \
+	\
+	/** arithmetic ops. */ \
+	X(add)  X(sub)  X(mul)  X(idiv) X(mod) X(neg) \
+	X(fadd) X(fsub) X(fmul) X(fdiv) X(fneg) \
+	\
+	/** bit-wise ops. */ \
+	X(bit_and) X(bit_or) X(bit_xor) X(shl) X(shr) X(shar) X(bit_not) \
+	\
+	/** comparison ops. */ \
+	X(ilt) X(ile) X(ult) X(ule) X(cmp) X(flt) X(fle) X(setc) \
+	\
+	/** float<=>int conversion ops. */ \
+	X(f32tof64) X(f64tof32) X(itof64) X(itof32) X(f64toi) X(f32toi) \
+	\
+	/** control flow ops. */ \
+	X(jmp) X(jz) X(jnz) \
+	\
+	/** function ops. */ \
+	X(pushlr) X(poplr) X(call) X(callr) X(ret)
+
+#define X(x) x,
+enum TaghaInstrSet { TAGHA_INSTR_SET MaxOps };
+#undef X
+
+
 enum {
 	TAGHA_MAGIC_VERIFIER = 0x7A6AC0DE    /// "tagha code"
 };
@@ -225,10 +260,7 @@ enum TaghaErrCode {
 };
 
 
-/**
- * Script/Module Structure.
- * Consists of:
- */
+/// Script/Module Structure.
 struct TaghaModule {
 	struct HarbolMemPool heap;   /// holds ALL memory in a script.
 	struct TaghaSymTable *funcs, *vars;
@@ -239,8 +271,8 @@ struct TaghaModule {
 		high_seg,   /// higher memory segment (uint8_t*)
 		opstack,    /// ptr to base of operand stack (union TaghaVal*)
 		callstack,  /// ptr to base of call stack (uintptr_t*)
-		sp,         /// stack ptr (union TaghaVal*)
-		cp,         /// ptr to call stack (uintptr_t*)
+		osp,        /// opstack ptr (union TaghaVal*)
+		csp,        /// call stack ptr (uintptr_t*)
 		lr          /// link register.
 	;
 	size_t    opstack_size, callstack_size;
@@ -259,14 +291,17 @@ TAGHA_EXPORT bool tagha_module_free(struct TaghaModule **modref);
 /// Calling/Execution API.
 TAGHA_EXPORT NEVER_NULL(1,2) bool tagha_module_call(struct TaghaModule *module, const char name[], size_t args, const union TaghaVal params[], union TaghaVal *retval);
 
-TAGHA_EXPORT NEVER_NULL(1) bool tagha_module_invoke(struct TaghaModule *module, TaghaFunc func, size_t args, const union TaghaVal params[], union TaghaVal *retval);
+TAGHA_EXPORT NEVER_NULL(1,2) bool tagha_module_invoke(struct TaghaModule *module, TaghaFunc func, size_t args, const union TaghaVal params[], union TaghaVal *retval);
 
-TAGHA_EXPORT NEVER_NULL(1,4) bool tagha_module_run(struct TaghaModule *module, size_t argc, const union TaghaVal argv[], int32_t *retval);
+TAGHA_EXPORT NEVER_NULL(1) int tagha_module_run(struct TaghaModule *module, size_t argc, const union TaghaVal argv[]);
 
 /// Runtime Data API.
-TAGHA_EXPORT NO_NULL void *tagha_module_get_var(struct TaghaModule *module, const char name[]);
-TAGHA_EXPORT NO_NULL TaghaFunc tagha_module_get_func(struct TaghaModule *module, const char name[]);
+TAGHA_EXPORT NO_NULL void *tagha_module_get_var(const struct TaghaModule *module, const char name[]);
+TAGHA_EXPORT NO_NULL TaghaFunc tagha_module_get_func(const struct TaghaModule *module, const char name[]);
 TAGHA_EXPORT NO_NULL uint32_t tagha_module_get_flags(const struct TaghaModule *module);
+
+TAGHA_EXPORT NO_NULL uintptr_t tagha_module_heap_alloc(struct TaghaModule *module, size_t size);
+TAGHA_EXPORT NO_NULL bool tagha_module_heap_free(struct TaghaModule *module, uintptr_t ptr);
 
 /// Error API.
 TAGHA_EXPORT NO_NULL NONNULL_RET const char *tagha_module_get_err(const struct TaghaModule *module);
@@ -277,47 +312,12 @@ TAGHA_EXPORT NO_NULL void tagha_module_link_natives(struct TaghaModule *module, 
 TAGHA_EXPORT NO_NULL bool tagha_module_link_ptr(struct TaghaModule *module, const char name[], uintptr_t ptr);
 TAGHA_EXPORT NO_NULL void tagha_module_link_module(struct TaghaModule *module, const struct TaghaModule *lib);
 
-/** Yes, I like Golang. Sue me.
+/** I like Golang.
 type TaghaSys struct {
-	funcs   map[string]TaghaFunc
+	modules map[string]*TaghaModule // map[string]TaghaFunc
 	natives map[string]TaghaCFunc
 }
  */
-
-#define TAGHA_INSTR_SET \
-	X(halt) X(nop) \
-	\
-	/** data movement ops. */ \
-	X(alloc) X(redux) X(movi) X(mov) \
-	\
-	/** memory ops. */ \
-	X(lra) X(lea) X(ldvar) X(ldfn) \
-	X(ld1) X(ld2) X(ld4) X(ld8) X(ldu1) X(ldu2) X(ldu4) \
-	X(st1) X(st2) X(st4) X(st8) \
-	\
-	/** arithmetic ops. */ \
-	X(add)  X(sub)  X(mul)  X(idiv) X(mod) X(neg) \
-	X(fadd) X(fsub) X(fmul) X(fdiv) X(fneg) \
-	\
-	/** bit-wise ops. */ \
-	X(bit_and) X(bit_or) X(bit_xor) X(shl) X(shr) X(shar) X(bit_not) \
-	\
-	/** comparison ops. */ \
-	X(ilt) X(ile) X(ult) X(ule) X(cmp) X(flt) X(fle) X(setc) \
-	\
-	/** float<=>int conversion ops. */ \
-	X(f32tof64) X(f64tof32) X(itof64) X(itof32) X(f64toi) X(f32toi) \
-	\
-	/** control flow ops. */ \
-	X(jmp) X(jz) X(jnz) \
-	\
-	/** function ops. */ \
-	X(pushlr) X(poplr) X(call) X(callr) X(ret)
-
-#define X(x) x,
-enum TaghaInstrSet { TAGHA_INSTR_SET MaxOps };
-#undef X
-
 
 #ifdef __cplusplus
 } /// extern "C"

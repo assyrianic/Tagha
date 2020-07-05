@@ -6,17 +6,17 @@
 	return i
  */
 
-main: {
-    alloc    4
-    movi     r1, 0
-    movi     r3, 100000000  ;; 100M
-    movi     r2, 1
+main {
+    alloc    3
+    movi     r2, 100000000  ;; 100M
+    movi     r1, 1
     
     ;; test basic loop overhead.
 .loop
-    add      r0, r2
-    cmp      r0, r3
+    add      r0, r1
+    cmp      r0, r2
     jz       .loop
-    redux    4
+    
+    redux    2
     ret
 }

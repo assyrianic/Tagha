@@ -31,7 +31,7 @@
 * Supports 1, 2, 4, and 8 byte operations.
 * Utilize up to 256 **general purpose registers** _per_ function!.
 * Floats and doubles are supported (can be compiled without and also can be compiled with only one or the other).
-* Uses computed gotos (ones that use a `void\*`) which is 20%-25% faster than using a switch+loop construct {[citation](http://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables)}.
+* Uses computed gotos (ones that use a `void*`) which is 20%-25% faster than using a switch+loop construct {[citation](http://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables)}.
 * Embeddable and easy to embed.
 * Tagha allocates only what is needed and performs no garbage collection during runtime.
 * Scripts can call host-defined functions (Native Interface).

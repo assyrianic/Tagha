@@ -698,7 +698,7 @@ static void tagha_asm_assemble(void)
 						const bool res1 = string_to_int(&tagha_asm.lexeme, ( int64_t* )&reg);
 						if( res1 && reg < 256 ) {
 							_tagha_asm_skip_delim(',');
-							const bool use_vars = *opcode==ldvar;
+							const bool use_vars = ( *opcode != ldfn );
 							if( lex_id(tagha_asm.iter, &tagha_asm.iter, &tagha_asm.lexeme) ) {
 								if( !harbol_linkmap_has_key(use_vars ? &tagha_asm.vars : &tagha_asm.funcs, tagha_asm.lexeme.cstr) ) {
 									_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' %s value ('%s') doesn't exist", op_to_cstr[*opcode], use_vars ? "global var" : "func", tagha_asm.lexeme.cstr);

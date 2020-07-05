@@ -1,8 +1,8 @@
 CC = gcc
 #CC = clang-9
-CFLAGS = -Wextra -Wall -Wrestrict -std=c99 -s  -O2
-TFLAGS = -Wextra -Wall -Wrestrict -std=c99 -g  -O2
-PFlAGS = -Wextra -Wall -Wrestrict -std=c99 -pg -O2
+CFLAGS = -Wextra -Wall -Wrestrict -std=c99 -s  -O2 -mtune=native -march=native
+TFLAGS = -Wextra -Wall -Wrestrict -std=c99 -g  -O2 -mtune=native -march=native
+PFlAGS = -Wextra -Wall -Wrestrict -std=c99 -pg -O2 -mtune=native -march=native
 
 # -static
 

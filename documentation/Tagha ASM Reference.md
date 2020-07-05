@@ -2,7 +2,8 @@
 This article teaches about the Tagha Assembly language that's compiled by the Tagha Assembler into a working .tbc script
 
 # Comments
-In Tagha Assembly, only single line comments exist. the `;` or `#` both work as comments.
+In Tagha Assembly, there are single and multi-line comments.
+`;` is for single line comments and C style `/*  */` multi-line comments.
 
 # Directives
 In Tagha Assembly, the assembly directives start with a dollar sign `$`. Here's a break down of all the Tagha Assembly directives.
@@ -16,8 +17,8 @@ Example Tagha Assembly code usage:
 ```asm
 $opstack_size 10   ;; sets the stack size to 10 * 8 bytes (decimal)
 $opstack_size 0x10 ;; sets the stack size to 16 * 8 bytes (hexadecimal)
-$opstack_size 010  ;; sets the stack size to 8 * 8 bytes  (octal)
-$opstack_size 0b10 ;; sets the stack size to 2 * 8 bytes  (binary)
+$opstack_size 010  ;; sets the stack size to 8  * 8 bytes (octal)
+$opstack_size 0b10 ;; sets the stack size to 2  * 8 bytes (binary)
 ```
 
 #### callstack_size
@@ -25,8 +26,8 @@ Used the same way as `$opstack_size` but for a module's call stack size.
 ```asm
 $callstack_size 10   ;; sets the stack size to 10 * 8 bytes (decimal)
 $callstack_size 0x10 ;; sets the stack size to 16 * 8 bytes (hexadecimal)
-$callstack_size 010  ;; sets the stack size to 8 * 8 bytes  (octal)
-$callstack_size 0b10 ;; sets the stack size to 2 * 8 bytes  (binary)
+$callstack_size 010  ;; sets the stack size to 8  * 8 bytes (octal)
+$callstack_size 0b10 ;; sets the stack size to 2  * 8 bytes (binary)
 ```
 
 #### heap_size
@@ -37,10 +38,10 @@ The directive only takes one argument which is either a decimal, `0x` hexadecima
 
 Example Tagha Assembly code usage:
 ```asm
-$heap_size 10 ; sets the heap size to 10 bytes (decimal)
-$heap_size 0x10 ; sets the heap size to 16 bytes (hexadecimal)
-$heap_size 010 ; sets the heap size to 8 bytes (octal)
-$heap_size 0b10 ; sets the heap size to 2 bytes (binary)
+$heap_size 10   ;; sets the heap size to 10 bytes (decimal)
+$heap_size 0x10 ;; sets the heap size to 16 bytes (hexadecimal)
+$heap_size 010  ;; sets the heap size to 8  bytes (octal)
+$heap_size 0b10 ;; sets the heap size to 2  bytes (binary)
 ```
 
 #### global
@@ -60,15 +61,17 @@ $global str1, "hello world\n"    ;; escape chars are handled.
 For every other variable, there's 2 kinds of possible arguments:
 Like the string version, you must have a name for the variable as well as the byte size of the variable.
 for the 3rd argument (the actual data). You have two (limited) options.
+
 * the data for a global var must have each data count listed by size and the data and the count must be equal to the bytesize of the global var.
+
 * if you're making a large global variable (struct or array or something) and you only want its data to be zero, you simply put a `0` as the 3rd argument without requiring to give a size.
 
 ```asm
 $global i,   12,  0
 $global n,   4,   byte 0, byte 0, byte 0, byte 0x40
-$global m,   4,   half 0, half 0x4000 ; same as what n does, including data
-$global c,   4,   long 0x40000000 ; same as n does, including data
-$global ptr, 8,   word 0 ; 'word' is redundant since we're only zeroing.
+$global m,   4,   half 0, half 0x4000   ;; same as what n does, including data
+$global c,   4,   long 0x40000000       ;; same as n does, including data
+$global ptr, 8,   word 0                ;; 'word' is redundant since we're only zeroing.
 ```
 
 #### native
@@ -119,12 +122,12 @@ One of the most common ways to input data is through constants or immediate valu
 As mentioned in the registers portion, registers data can be used as memory addresses.
 Dereferencing a register as a memory address has the following format:
 ```asm
-[register_name +/- constant_offset]
+[register +/- constant_offset]
 ```
 
 Register-Memory operations also gives you the ability to add (or subtract) an offset to the address you're dereferencing. The offset is calculated in terms of bytes (again Tagha is byte-addressable).
 
-Here's an example where we assume `alaf` contains a memory address and we want to dereference it as an int16:
+Here's an example where we assume `r0` contains a memory address and we want to dereference it as an int16:
 ```asm
 st2 [r0 + 0]   ;; store 2 bytes
 ```
@@ -205,12 +208,7 @@ So now let's implement that in our Tagha ASM language!
 
 Now the important part here is that since `factorial` calls another function (itself), we must save the link register before calling another function and then restore it once the execution frame goes back to the original one by using `pushlr` and `poplr`.
 
-This is where we talk about Calling convention.
-
-Calling convention is that argument counts AND return values go into `r0` which is the top of stack.
-If the function returns nothing (`void`), `r0` may be used whenever as pleased by the compiler.
-
-If the function calls another (bytecode) function (since `factorial` calls itself), it's REQUIRED to push the link register (by using `pushlr`) and pop it back (by using `poplr`) at the end of the function's context.
+For further details on Calling Convention, please refer to the Instruction Set Arch documentation.
 
 
 ```asm

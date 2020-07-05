@@ -31,8 +31,7 @@ HARBOL_EXPORT void harbol_memnode_replace(struct HarbolMemNode *const old, struc
 HARBOL_EXPORT void harbol_freelist_insert_before(struct HarbolFreeList *const list, struct HarbolMemNode *const curr, struct HarbolMemNode *const insert)
 {
 	insert->next = curr;
-	if( curr->prev==NULL )
-		list->head = insert;
+	if (curr->prev==NULL) list->head = insert;
 	else {
 		insert->prev = curr->prev;
 		curr->prev->next = insert;
@@ -63,20 +62,26 @@ HARBOL_EXPORT void harbol_freelist_insert(struct HarbolMemPool *const mempool, s
 			else if( iter < node ) {
 				if( iter_end > inode ) // node was coalesced prior.
 					return;
-				else if( iter_end==inode && !is_bucket ) { // if we can coalesce, do so.
+				else if( iter_end==inode ) { // if we can coalesce, do so.
 					iter->size += node->size;
+					if( is_bucket )
+						harbol_freelist_insert(mempool, &mempool->large, harbol_freelist_remove(list, iter), false);
 					return;
 				}
 			} else if( iter > node ) {
 				// Address sort, lowest to highest aka ascending order.
 				if( iter==list->head ) {
-					if( iter_end==inode && !is_bucket )
+					if( iter_end==inode ) {
 						iter->size += node->size;
-					else if( node_end==iiter && !is_bucket ) {
+						if( is_bucket )
+							harbol_freelist_insert(mempool, &mempool->large, harbol_freelist_remove(list, iter), false);
+					} else if( node_end==iiter ) {
 						node->size += list->head->size;
 						node->next = list->head->next;
 						node->prev = NULL;
 						list->head = node;
+						if( is_bucket )
+							harbol_freelist_insert(mempool, &mempool->large, harbol_freelist_remove(list, list->head), false);
 					} else {
 						node->next = iter;
 						node->prev = NULL;
@@ -85,8 +90,10 @@ HARBOL_EXPORT void harbol_freelist_insert(struct HarbolMemPool *const mempool, s
 						list->len++;
 					}
 					return;
-				} else if( iter_end==inode && !is_bucket ) {
+				} else if( iter_end==inode ) {
 					iter->size += node->size;
+					if( is_bucket )
+						harbol_freelist_insert(mempool, &mempool->large, harbol_freelist_remove(list, iter), false);
 					return;
 				} else {
 					harbol_freelist_insert_before(list, iter, node);

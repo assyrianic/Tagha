@@ -1,4 +1,4 @@
-$opstack_size  10    ; 10 stack cells so 80 bytes
+$opstack_size  10    ; 10 stack cells so 10 registers
 
 main {
     pushlr   ;; push link register

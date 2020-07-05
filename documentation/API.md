@@ -2,7 +2,7 @@
 
 # Datatypes
 
-## Union TaghaVal (Typedef'd as "UTaghaVal")
+## Union TaghaVal
 
 ### b00l
 bool value.
@@ -71,10 +71,10 @@ intptr_t value.
 64-bit float value. exists only if `TAGHA_FLOAT64_DEFINED` is defined.
 
 
-## struct TaghaNative (Typedef'd as "STaghaNative")
+## struct TaghaNative
 
 ### name
-constant C string (const char *) of the name of the native function.
+constant C string (const char*) of the name of the native function.
 
 ### cfunc
 pointer to native C function.
@@ -222,7 +222,7 @@ true or false if the operation was successful or not.
 
 ## tagha_module_get_var
 ```c
-void *tagha_module_get_var(struct TaghaModule *module, const char name[]);
+void *tagha_module_get_var(const struct TaghaModule *module, const char name[]);
 ```
 
 ### Description
@@ -230,7 +230,7 @@ Returns a pointer to a script-defined global variable.
 If the global variable is defined as a pointer in the script, then the returning pointer will be a pointer to that pointer.
 
 ### Parameters
-* `module` - pointer to a `struct TaghaModule` object.
+* `module` - pointer to a `const struct TaghaModule` object.
 * `name` - string name of the global variable to retrieve.
 
 ### Return Value
@@ -239,14 +239,14 @@ pointer to the global variable, `NULL` if the variable doesn't exist or the modu
 
 ## tagha_module_get_func
 ```c
-TaghaFunc tagha_module_get_func(struct TaghaModule *module, const char name[]);
+TaghaFunc tagha_module_get_func(const struct TaghaModule *module, const char name[]);
 ```
 
 ### Description
 Returns a pointer to a script-defined function.
 
 ### Parameters
-* `module` - pointer to a `struct TaghaModule` object.
+* `module` - pointer to a `const struct TaghaModule` object.
 * `name` - string name of the function to retrieve.
 
 ### Return Value
@@ -265,7 +265,39 @@ gets a script's flags.
 * `module` - pointer to a `struct TaghaModule` object.
 
 ### Return Value
-a `uint32_t` of the script's flags
+a `uint32_t` of the script's flags.
+
+
+## tagha_module_heap_alloc
+```c
+uintptr_t tagha_module_heap_alloc(struct TaghaModule *module, size_t size);
+```
+
+### Description
+allocates memory from the script's heap.
+
+### Parameters
+* `module` - pointer to a `struct TaghaModule` object.
+* `size` - how many bytes to allocate.
+
+### Return Value
+a pointer allocated from a module's runtime casted to `uintptr_t`, `NIL` if script heap is exhausted.
+
+
+## tagha_module_heap_free
+```c
+bool tagha_module_heap_free(struct TaghaModule *module, uintptr_t ptr);
+```
+
+### Description
+returns memory back to a script's heap.
+
+### Parameters
+* `module` - pointer to a `struct TaghaModule` object.
+* `ptr` - `uintptr_t` of a pointer that was allocated from the script's heap.
+
+### Return Value
+true if operation was successful, false otherwise.
 
 
 ## tagha_module_call
@@ -309,7 +341,7 @@ true if successful AND no errors occurred, false otherwise.
 
 ## tagha_module_run
 ```c
-bool tagha_module_run(struct TaghaModule *module, size_t argc, const union TaghaVal argv[], int32_t *retval);
+int tagha_module_run(struct TaghaModule *module, size_t argc, const union TaghaVal argv[]);
 ```
 
 ### Description
@@ -319,10 +351,9 @@ Executes a script by calling its main function.
 * `module` - pointer to a `struct TaghaModule` object.
 * `argc` - length of the `argv` array.
 * `argv` - array of `union TaghaVal`s of length `argc`.
-* `ret_val` - pointer to `int32_t` for use as a return value buffer.
 
 ### Return Value
-true if successful AND no errors occurred, false otherwise.
+true if successful AND no errors occurred, false otherwise as an `int`.
 
 
 ## tagha_module_throw_err

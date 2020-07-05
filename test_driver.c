@@ -23,7 +23,7 @@ static NO_NULL union TaghaVal native_tagha_module_free(struct TaghaModule *const
 /// TaghaFunc tagha_module_get_func(struct TaghaModule *module, const char name[]);
 static NO_NULL union TaghaVal native_tagha_module_get_func(struct TaghaModule *const module, const union TaghaVal params[const static 2])
 {
-	struct TaghaModule *const p = ( struct TaghaModule* )params[0].uintptr;
+	const struct TaghaModule *const p = ( const struct TaghaModule* )params[0].uintptr;
 	return ( union TaghaVal ){ .uintptr = ( uintptr_t )tagha_module_get_func(p==NULL ? module : p, ( const char* )params[1].uintptr) };
 }
 
@@ -84,8 +84,7 @@ NO_NULL int main(const int argc, char *argv[const restrict static 1])
 			tagha_module_link_ptr(module, "stdout", ( uintptr_t )stdout);
 			tagha_module_link_ptr(module, "self",   ( uintptr_t )module);
 			
-			int32_t r = 0;
-			tagha_module_run(module, 0, NULL, &r);
+			const int r = tagha_module_run(module, 0, NULL);
 			printf("result => %i | err? '%s'\n", r, tagha_module_get_err(module));
 			tagha_module_print_opstack(module);
 			tagha_module_print_callstack(module);

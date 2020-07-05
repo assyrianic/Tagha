@@ -4,7 +4,7 @@ uint32_t factorial(const uint32_t i) {
 		return 1;
 	else return i * factorial(i-1);
 }
-*/
+ */
 
 main {
     alloc   1
