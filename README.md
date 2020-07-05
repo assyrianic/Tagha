@@ -57,11 +57,10 @@ int main(int argc, char *argv[])
 	/// make our script instance.
 	struct TaghaModule *script = tagha_module_new_from_file("my_tbc_script.tbc");
 	
-	/// call 'main' with no command-line arguments. */
-	int32_t exit_res = 0;
-	if( tagha_module_run(script, 0, NULL, &exit_res) ) {
-		...
-	}
+	/// call 'main' with no command-line arguments.
+	const int32_t result = tagha_module_run(script, 0, NULL);
+	
+	/// do something with 'result'.
 	
 	/// clean up script. sets 'script' to NULL.
 	tagha_module_free(&script);
