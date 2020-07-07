@@ -183,7 +183,7 @@ TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_file(const char filename[
 		if( bytecode==NULL ) {
 			fprintf(stderr, "Tagha Module Error :: **** Failed to create file data buffer from '%s'. ****\n", filename);
 			free(module), module = NULL;
-		} else if( *( uint32_t* )bytecode != TAGHA_MAGIC_VERIFIER ) {
+		} else if( *( const uint32_t* )bytecode != TAGHA_MAGIC_VERIFIER ) {
 			fprintf(stderr, "Tagha Module Error :: **** Invalid Tagha Module: '%s' ****\n", filename);
 			free(bytecode);
 			free(module), module = NULL;
@@ -202,7 +202,7 @@ TAGHA_EXPORT struct TaghaModule *tagha_module_new_from_buffer(uint8_t buffer[res
 		fputs("Tagha Module Error :: **** Unable to allocate module. ****\n", stderr);
 		return NULL;
 	} else {
-		if( *( uint32_t* )buffer != TAGHA_MAGIC_VERIFIER ) {
+		if( *( const uint32_t* )buffer != TAGHA_MAGIC_VERIFIER ) {
 			fprintf(stderr, "Tagha Module Error :: **** Invalid Tagha Module Buffer '%p' ****\n", buffer);
 			tagha_module_free(&module);
 		} else if( !_read_module_data(module, ( uintptr_t )buffer) ) {
@@ -657,7 +657,7 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 		const int32_t offset = ( int32_t )instr >> 16;
 		const union TaghaVal *const restrict rsp = ( const union TaghaVal* )vm->osp;
 		const uintptr_t mem = rsp[dst].uintptr + offset;
-		if( (mem - vm->low_seg) > mem_bnds_diff ) {
+		if( (mem+1 - vm->low_seg) > mem_bnds_diff ) {
 			vm->err = TaghaErrBadPtr;
 			return;
 		} else {
@@ -673,7 +673,7 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 		const int32_t offset = ( int32_t )instr >> 16;
 		const union TaghaVal *const restrict rsp = ( const union TaghaVal* )vm->osp;
 		const uintptr_t mem = rsp[dst].uintptr + offset;
-		if( (mem - vm->low_seg) > mem_bnds_diff ) {
+		if( (mem+3 - vm->low_seg) > mem_bnds_diff ) {
 			vm->err = TaghaErrBadPtr;
 			return;
 		} else {
@@ -689,7 +689,7 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 		const int32_t offset = ( int32_t )instr >> 16;
 		const union TaghaVal *const restrict rsp = ( const union TaghaVal* )vm->osp;
 		const uintptr_t mem = rsp[dst].uintptr + offset;
-		if( (mem - vm->low_seg) > mem_bnds_diff ) {
+		if( (mem+7 - vm->low_seg) > mem_bnds_diff ) {
 			vm->err = TaghaErrBadPtr;
 			return;
 		} else {
