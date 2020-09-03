@@ -121,6 +121,16 @@ Allocates a `struct TaghaModule` pointer from a script file.
 ### Return Value
 pointer to a newly allocated `struct TaghaModule` pointer, returns `NULL` if an error occured or problems reading the script.
 
+### Example
+```c
+int main(void)
+{
+	struct TaghaModule *m = tagha_module_new_from_file("test_fib.tbc");
+	...;
+	tagha_module_free(&m);
+}
+```
+
 
 ## tagha_module_new_from_buffer
 ```c
@@ -135,6 +145,18 @@ Allocates a `struct TaghaModule` pointer from an existing data buffer.
 
 ### Return Value
 pointer to a newly allocated `struct TaghaModule` pointer, return `NULL` if an error occured or problem reading the buffer data.
+
+### Example
+```c
+int main(void)
+{
+	struct TaghaModGen module_generator = ...;
+	...;
+	struct TaghaModule *m = tagha_module_new_from_buffer(tagha_mod_gen_raw(&module_generator));
+	...;
+	tagha_module_free(&m);
+}
+```
 
 
 ## tagha_module_clear
@@ -151,6 +173,17 @@ Deallocates a `struct TaghaModule` pointer's data.
 ### Return Value
 bool value whether the deallocation was successful or not.
 
+### Example
+```c
+int main(void)
+{
+	/// useful if you have to free a restrict and/or const qualified pointer.
+	struct TaghaModule *const restrict ctxt = tagha_module_new_from_file("test_fib.tbc");
+	...;
+	tagha_module_clear(ctxt), ctxt = NULL;
+}
+```
+
 
 ## tagha_module_free
 ```c
@@ -165,6 +198,17 @@ Deallocates a `struct TaghaModule` pointer's data, deallocates the module pointe
 
 ### Return Value
 bool value whether the deallocation was successful or not.
+
+### Example
+```c
+int main(void)
+{
+	/// cannot use const or restricted pointers on 'tagha_module_free' or compiler will discard those qualifiers.
+	struct TaghaModule *ctxt = tagha_module_new_from_file("test_fib.tbc");
+	...;
+	tagha_module_free(&ctxt);
+}
+```
 
 
 
@@ -182,6 +226,16 @@ Returns a constant string of an error message to check what error had occurred. 
 ### Return Value
 constant C string (const char *) error message. Never returns `NULL`.
 
+### Example
+```c
+result typical_function(struct TaghaModule *const ctxt, ...)
+{
+	if( tagha_module_run(ctxt, 0, NULL) != 0 || ctxt->err ) {
+		prog_log_error("result => %i | err? '%s'\n", main_result, tagha_module_get_err(ctxt));
+	}
+}
+```
+
 
 ## tagha_module_link_natives
 ```c
@@ -197,6 +251,24 @@ Links the native C functions to a module for data communication between C code a
 
 ### Return Value
 None.
+
+### Example
+```c
+/// int puts(const char *str);
+static NO_NULL union TaghaVal native_puts(struct TaghaModule *const restrict ctxt, const union TaghaVal params[const static 1])
+{
+	( void )ctxt;
+	return ( union TaghaVal ){ .int32 = puts(( const char* )params[0].uintptr) };
+}
+
+bool setup_rt_natives(void *const restrict sys, struct TaghaModule *const restrict ctxt)
+{
+	return tagha_module_link_natives(ctxt, ( const struct TaghaNative[] ){
+		{"puts", &native_puts},
+		{NULL,   NULL}
+	});
+}
+```
 
 
 ## tagha_module_link_ptr
@@ -219,6 +291,27 @@ Will crash the program if the variable name given is not a pointer on the script
 ### Return Value
 true or false if the operation was successful or not.
 
+### Example
+```c
+/// int puts(const char *str);
+static NO_NULL union TaghaVal native_puts(struct TaghaModule *const restrict module, const union TaghaVal params[const static 1])
+{
+	( void )module;
+	return ( union TaghaVal ){ .int32 = puts(( const char* )params[0].uintptr) };
+}
+
+bool setup_rt_natives(void *const restrict sys, struct TaghaModule *const restrict ctxt)
+{
+	tagha_module_link_ptr(ctxt, "stdin",  ( uintptr_t )stdin);
+	tagha_module_link_ptr(ctxt, "stdout", ( uintptr_t )stdout);
+	tagha_module_link_ptr(ctxt, "g_sys",  ( uintptr_t )sys);
+	return tagha_module_link_natives(ctxt, ( const struct TaghaNative[] ){
+		{"puts", &native_puts},
+		{NULL,   NULL}
+	});
+}
+```
+
 
 ## tagha_module_get_var
 ```c
@@ -236,6 +329,15 @@ If the global variable is defined as a pointer in the script, then the returning
 ### Return Value
 pointer to the global variable, `NULL` if the variable doesn't exist or the module doesn't have script data/memory.
 
+### Example
+```c
+const char *get_ctxt_name(struct TaghaModule *const restrict ctxt)
+{
+	const char *restrict name = tagha_module_get_var(ctxt, "g_name");
+	return ( name != NULL ) ? name : "unknown";
+}
+```
+
 
 ## tagha_module_get_func
 ```c
@@ -252,6 +354,19 @@ Returns a pointer to a script-defined function.
 ### Return Value
 returns a `TaghaFunc` object, NULL if error occurred.
 
+### Example
+```c
+void invoke_startup(struct TaghaModule *ctxts[const restrict static 1], const size_t num_ctxts)
+{
+	for( size_t i=0; i<num_ctxts; i++ ) {
+		const TaghaFunc on_start = tagha_module_get_func(ctxts[i], "on_start");
+		
+		/// void on_start(void);
+		tagha_module_invoke(ctxts[i], on_start, 0, NULL, NULL);
+	}
+}
+```
+
 
 ## tagha_module_get_flags
 ```c
@@ -266,6 +381,23 @@ gets a script's flags.
 
 ### Return Value
 a `uint32_t` of the script's flags.
+
+### Example
+```c
+size_t count_extensions(struct TaghaModule *ctxts[const restrict static 1], const size_t num_ctxts)
+{
+	size_t count = 0;
+	for( size_t i=0; i<num_ctxts; i++ ) {
+		const uint32_t ctxt_flags = tagha_module_get_flags(ctxts[i]);
+		
+		/// ignore if module contains no 'main' or 'on_start'.
+		if( ctxt_flags & LIBRARY )
+			continue;
+		else count++;
+	}
+	return count;
+}
+```
 
 
 ## tagha_module_heap_alloc
@@ -283,6 +415,32 @@ allocates memory from the script's heap.
 ### Return Value
 a pointer allocated from a module's runtime casted to `uintptr_t`, `NIL` if script heap is exhausted.
 
+### Example
+```c
+void invoke_startup_with_argv(struct TaghaModule *ctxts[const restrict static 1], const size_t num_ctxts)
+{
+	for( size_t i=0; i<num_ctxts; i++ ) {
+		const TaghaFunc on_start = tagha_module_get_func(ctxts[i], "on_start");
+		
+		/// void on_start_args(const char *titles[static MAX_TITLES]);
+		union TaghaVal script_argv = { .uintptr = tagha_module_heap_alloc(ctxts[i], sizeof(union TaghaVal) * MAX_TITLES + 1) };
+		union TaghaVal *strs = ( union TaghaVal* )script_argv.uintptr;
+		for( size_t i=0; i<MAX_TITLES; i++ ) {
+			const size_t len = strlen(g_app_sys->titles[i]);
+			strs[i].uintptr = tagha_module_heap_alloc(ctxts[i], len + 1);
+			char *restrict title = ( char* )strs[i].uintptr;
+			strcpy(title, g_app_sys->titles[i]);
+		}
+		strs[MAX_TITLES].uintptr = NIL;
+		union TaghaVal main_args[2] = {
+			{.size = 2},
+			{.uintptr = script_argv.uintptr}
+		};
+		tagha_module_invoke(ctxts[i], on_start, 2, main_args, NULL);
+	}
+}
+```
+
 
 ## tagha_module_heap_free
 ```c
@@ -298,6 +456,13 @@ returns memory back to a script's heap.
 
 ### Return Value
 true if operation was successful, false otherwise.
+
+### Example
+```c
+	const uintptr_t ctxt_mem = tagha_module_heap_alloc(ctxt, 256);
+	...;
+	tagha_module_heap_free(ctxt, ctxt_mem);
+```
 
 
 ## tagha_module_call
@@ -317,6 +482,16 @@ Manually calls a script function from C by name.
 
 ### Return Value
 true if successful AND no errors occurred, false otherwise.
+
+### Example
+```c
+int invoke_startup(struct TaghaModule *ctxts[const restrict static 1], const size_t num_ctxts)
+{
+	for( size_t i=0; i<num_ctxts; i++ ) {
+		tagha_module_call(ctxts[i], "on_start", 0, NULL, NULL);
+	}
+}
+```
 
 
 ## tagha_module_invoke
@@ -338,6 +513,22 @@ Designed to be used for natives that use a function pointer from bytecode as a p
 ### Return Value
 true if successful AND no errors occurred, false otherwise.
 
+### Example
+```c
+/** void array_destroy(array *a, void dtor(void *item)); */
+union TaghaVal native_array_destroy(struct TaghaModule *const restrict ctxt, const union TaghaVal params[const restrict static 1])
+{
+	(void)args;
+	array_type *const array = ( array_type* )params[0].uintptr;
+	const TaghaFunc dtor = ( TaghaFunc )params[1].uintptr;
+	if( dtor != NULL ) {
+		tagha_module_invoke(ctxt, dtor, 2, ( union TaghaVal[] ){ {.uintptr = ( uintptr_t )array->table}, {.size = array->len} }, NULL);
+	}
+	array_type_destroy(array);
+	return ( union TaghaVal ){ 0 };
+}
+```
+
 
 ## tagha_module_run
 ```c
@@ -355,6 +546,17 @@ Executes a script by calling its main function.
 ### Return Value
 true if successful AND no errors occurred, false otherwise as an `int`.
 
+### Example
+```c
+int main(void)
+{
+	struct TaghaModule *ctxt = tagha_module_new_from_file(argv[1]);
+	const int result = tagha_module_run(ctxt, 0, NULL);
+	...;
+	tagha_module_free(&ctxt);
+}
+```
+
 
 ## tagha_module_throw_err
 ```c
@@ -371,6 +573,17 @@ Allows a developer to manually throw a VM runtime exception. Only use within a n
 ### Return Value
 None.
 
+### Example
+```c
+/** void abort(void); */
+union TaghaVal native_abort(struct TaghaModule *const restrict ctxt, const union TaghaVal params[const restrict static 1])
+{
+	(void)args; (void)params;
+	tagha_module_throw_err(ctxt, 0xff);
+	return ( union TaghaVal ){ 0 };
+}
+```
+
 
 ## tagha_module_link_module
 ```c
@@ -383,7 +596,24 @@ Two modules _can_ link to functions from one another and a "lib" module can have
 
 ### Parameters
 * `module` - pointer to a `struct TaghaModule` object.
-* `lib` - const pointer to a `struct TaghaModule` object.
+* `lib` - pointer to a const `struct TaghaModule` object.
 
 ### Return Value
 None.
+
+### Example
+```c
+bool load_extension_to_sys(const char ctxt_name[restrict static 1])
+{
+	if( g_app_sys.num_ctxts >= MAX_CTXTS || app_sys_ctxt_exists(ctxt_name) )
+		return false;
+	
+	struct TaghaModule *ctxt = tagha_module_new_from_file(ctxt_name);
+	const size_t curr_ctxts = g_app_sys.num_ctxts;
+	g_app_sys.ctxts[g_app_sys.num_ctxts++] = ctxt;
+	for( size_t i=0; i<curr_ctxts; i++ ) {
+		tagha_module_link_module(ctxt, g_app_sys.ctxts[i]);
+	}
+	return true;
+}
+```

@@ -11,7 +11,7 @@ Through the opcodes & operand stack, the instruction set can allocate up to 256 
 # VM Opcodes
 
 ## halt
-Stops execution of a script/function and returns register `r0`'s value as `int32_t`.
+Stops execution of a script/function.
 
 
 ## nop
@@ -260,6 +260,99 @@ can also call a native function pointer.
 loads the value of the link register to the program counter and resumes execution.
 
 
+### Vector Opcodes
+Vectors are basically packed registers that can be larger than 8 bytes but can be any width multiplied by an element size. For any vector opcode that takes a source and destination register, the destination register must be the same vector size or larger than the source register. In terms of technical operation, a vector register is basically an array.
+
+When using a register as a vector, any element size less than word (64-bits) must be packed. For float-based vector operations, both `float32_t` and `float64_t` MUST BE DEFINED AND USEABLE, otherwise it's entirely a nop.
+
+
+## setvlen
+sets the operational width of vectors that are used for the vector opcodes.
+
+## setelen
+sets the element size of vectors. Valid sizes are `byte`, `half`, `long`, and `word`. For float-based vector operations, only `long` and `word` are valid. If the element size is invalid, `word` size is used.
+
+## vmov
+copies a source register's contents as a vector (element size multiplied by vector width) to a destination register, destination registers is also used as a vector.
+
+## vadd
+same as `add` but source + destination registers are vectors.
+
+## vsub
+same as `sub` but source + destination registers are vectors.
+
+## vmul
+same as `mul` but source + destination registers are vectors.
+
+## vdiv
+same as `div` but source + destination registers are vectors.
+
+## vmod
+same as `mod` but source + destination registers are vectors.
+
+## vneg
+same as `neg` but source register is a vector.
+
+## vfadd
+Same as `vadd` but with floats.
+
+## vfsub
+Same as `vsub` but with floats.
+
+## vfmul
+Same as `vmul` but with floats.
+
+## vfdiv
+Same as `vdiv` but with floats.
+
+## vfneg
+Same as `vneg` but with floats.
+
+## vand
+same as `bit_and` but source + destination registers are vectors.
+
+## vor
+same as `bit_or` but source + destination registers are vectors.
+
+## vxor
+same as `bit_xor` but source + destination registers are vectors.
+
+## vshl
+same as `shl` but source + destination registers are vectors.
+
+## vshr
+same as `shr` but source + destination registers are vectors.
+
+## vshar
+same as `shar` but source + destination registers are vectors.
+
+## vnot
+same as `bit_not` but source + destination registers are vectors.
+
+## vcmp
+same as `cmp` but source + destination registers are vectors.
+
+## vilt
+same as `ilt` but source + destination registers are vectors.
+
+## vile
+same as `ile` but source + destination registers are vectors.
+
+## vult
+same as `ult` but source + destination registers are vectors. Not a "deus vult" joke.
+
+## vule
+same as `ule` but source + destination registers are vectors.
+
+## vflt
+same as `flt` but source + destination registers are vectors.
+
+## vfle
+same as `fle` but source + destination registers are vectors.
+
+
+
+
 # VM Instruction Encoding
 
 All opcodes take up a single byte and additional bytes depending on whether they operate on registers, immediate values, or doing memory operations.
@@ -283,9 +376,9 @@ If a bytecode function calls another bytecode function (even itself) and that by
 
 ### Arguments
 All arguments must be placed in registers from `r1` to `rN` as needed for the amount of arguments.
-It's suggested that `r0` stores the number of arguments but not required.
+It's suggested that `r0` stores the number of arguments (or perhaps total byte size sum of all arguments) but not required.
 
-In a different calling convention (called "Clobber Call"), a bytecode function may use `r0` to hold the first argument and clobber that `r0` with the final return result.
+In a different calling convention (called "Clobber Call"), a bytecode function may use `r0` to hold the first argument and clobber `r0` with the final return result.
 
 For `va_list`, it's required to use a register to store a pointer that will point to two values, a pointer to the array of arguments and a number of the arguments.
 

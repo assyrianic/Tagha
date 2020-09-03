@@ -63,11 +63,11 @@ static NO_NULL bool _setup_func_table(struct TaghaModule *const module)
 	funcs->keys   = harbol_mempool_alloc(&module->heap, sizeof *funcs->keys   * funcs->len);
 	funcs->hashes = harbol_mempool_alloc(&module->heap, sizeof *funcs->hashes * funcs->len);
 	
-	for( uindex_t i=0; i<TAGHA_SYM_BUCKETS; i++ )
+	for( size_t i=0; i<TAGHA_SYM_BUCKETS; i++ )
 		funcs->buckets[i] = SIZE_MAX;
 	
 	funcs->chain = harbol_mempool_alloc(&module->heap, sizeof *funcs->chain   * funcs->len);
-	for( uindex_t i=0; i<funcs->len; i++ )
+	for( uint32_t i=0; i<funcs->len; i++ )
 		funcs->chain[i] = SIZE_MAX;
 	
 	union HarbolBinIter iter = { .uint8 = ( uint8_t* )(module->script + hdr->funcs_offset) };
@@ -118,11 +118,11 @@ static NO_NULL bool _setup_var_table(struct TaghaModule *const module)
 	vars->keys   = harbol_mempool_alloc(&module->heap, sizeof *vars->keys   * vars->len);
 	vars->hashes = harbol_mempool_alloc(&module->heap, sizeof *vars->hashes * vars->len);
 	
-	for( uindex_t i=0; i<TAGHA_SYM_BUCKETS; i++ )
+	for( size_t i=0; i<TAGHA_SYM_BUCKETS; i++ )
 		vars->buckets[i] = SIZE_MAX;
 	
 	vars->chain = harbol_mempool_alloc(&module->heap, sizeof *vars->chain   * vars->len);
-	for( uindex_t i=0; i<vars->len; i++ )
+	for( size_t i=0; i<vars->len; i++ )
 		vars->chain[i] = SIZE_MAX;
 	
 	union HarbolBinIter iter = { .uint8 = ( uint8_t* )(module->script + hdr->vars_offset) };
@@ -311,7 +311,7 @@ TAGHA_EXPORT void tagha_module_link_module(struct TaghaModule *const restrict mo
 	if( module->funcs==NULL || lib->funcs==NULL )
 		return;
 	else {
-		struct TaghaSymTable *const funcs = module->funcs;
+		const struct TaghaSymTable *const funcs = module->funcs;
 		for( size_t i=0; i<funcs->len; i++ ) {
 			struct TaghaItem *const func = &funcs->table[i];
 			if( func->flags != TAGHA_FLAG_EXTERN ) {
@@ -407,6 +407,21 @@ static bool _tagha_module_start(struct TaghaModule *const module, const TaghaFun
 }
 
 
+static void _tagha_push_lr(struct TaghaModule *const vm)
+{
+	uintptr_t *const call_stack = ( uintptr_t* )vm->csp;
+	*call_stack = vm->lr;
+	vm->csp += sizeof(uintptr_t);
+}
+
+static void _tagha_pop_lr(struct TaghaModule *const vm)
+{
+	vm->csp -= sizeof(uintptr_t);
+	const uintptr_t *const call_stack = ( const uintptr_t* )vm->csp;
+	vm->lr = *call_stack;
+}
+
+
 static void _tagha_module_exec(struct TaghaModule *const vm)
 {
 	/// pc is restricted and must not access beyond the function table!
@@ -426,7 +441,7 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 	
 #	define DBG_JMP \
 		do { \
-			const uint8_t instr = *pc.uint8++; \
+			const uint32_t instr = *pc.uint8++; \
 			if( instr>=MaxOps ) { \
 				printf("instr : '%#x' '%u' | offset: %zu\n", instr, instr, ( uintptr_t )pc.uint8 - vm->script); \
 				vm->err = TaghaErrOpcodeOOB; \
@@ -645,8 +660,8 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 			vm->err = TaghaErrBadPtr;
 			return;
 		} else {
-			int8_t *const restrict ptr = ( int8_t* )mem;
-			*ptr = rsp[src].int8;
+			uint8_t *const restrict ptr = ( uint8_t* )mem;
+			*ptr = rsp[src].uint64 & UINT8_MAX;
 			DISPATCH();
 		}
 	}
@@ -662,7 +677,7 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 			return;
 		} else {
 			uint16_t *const restrict ptr = ( uint16_t* )mem;
-			*ptr = rsp[src].uint16;
+			*ptr = rsp[src].uint64 & UINT16_MAX;
 			DISPATCH();
 		}
 	}
@@ -678,7 +693,7 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 			return;
 		} else {
 			uint32_t *const restrict ptr = ( uint32_t* )mem;
-			*ptr = rsp[src].uint32;
+			*ptr = rsp[src].uint64 & UINT32_MAX;
 			DISPATCH();
 		}
 	}
@@ -995,15 +1010,11 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 	}
 	
 	exec_pushlr: { /// u8: opcode
-		uintptr_t *const restrict call_stack = ( uintptr_t* )vm->csp;
-		*call_stack = vm->lr;
-		vm->csp += sizeof(uintptr_t);
+		_tagha_push_lr(vm);
 		DISPATCH();
 	}
 	exec_poplr: { /// u8: opcode
-		vm->csp -= sizeof(uintptr_t);
-		const uintptr_t *const restrict call_stack = ( const uintptr_t* )vm->csp;
-		vm->lr = *call_stack;
+		_tagha_pop_lr(vm);
 		DISPATCH();
 	}
 	
@@ -1027,31 +1038,21 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 		} else if( flags & TAGHA_FLAG_EXTERN ) {
 			const struct TaghaModule *const restrict lib = ( const struct TaghaModule* )func->owner;
 			/// save old symbol tables.
-			uintptr_t
+			const uintptr_t
 				saved_funcs = ( uintptr_t )vm->funcs,
 				saved_vars  = ( uintptr_t )vm->vars
 			;
 			vm->funcs = lib->funcs;
 			vm->vars  = lib->vars;
 			
-			/// save link register.
-			{
-				uintptr_t *const restrict call_stack = ( uintptr_t* )vm->csp;
-				*call_stack = vm->lr;
-				vm->csp += sizeof(uintptr_t);
-			}
+			_tagha_push_lr(vm);
 			vm->ip = item;
 			vm->lr = NIL;
 			_tagha_module_exec(vm);
 			
-			/// restore link register.
-			{
-				vm->csp -= sizeof(uintptr_t);
-				const uintptr_t *const restrict call_stack = ( const uintptr_t* )vm->csp;
-				vm->lr = *call_stack;
-			}
-			vm->funcs = ( struct TaghaSymTable* )saved_funcs;
-			vm->vars  = ( struct TaghaSymTable* )saved_vars;
+			_tagha_pop_lr(vm);
+			vm->funcs = ( const struct TaghaSymTable* )saved_funcs;
+			vm->vars  = ( const struct TaghaSymTable* )saved_vars;
 			DISPATCH();
 		} else {
 			vm->lr = ( uintptr_t )pc.uint8;
@@ -1089,31 +1090,21 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 				} else {
 					const struct TaghaModule *const restrict lib = ( const struct TaghaModule* )func->owner;
 					/// save old symbol tables.
-					uintptr_t
+					const uintptr_t
 						saved_funcs = ( uintptr_t )vm->funcs,
 						saved_vars  = ( uintptr_t )vm->vars
 					;
 					vm->funcs = lib->funcs;
 					vm->vars  = lib->vars;
 					
-					/// save link register.
-					{
-						uintptr_t *const restrict call_stack = ( uintptr_t* )vm->csp;
-						*call_stack = vm->lr;
-						vm->csp += sizeof(uintptr_t);
-					}
+					_tagha_push_lr(vm);
 					vm->ip = item;
 					vm->lr = NIL;
 					_tagha_module_exec(vm);
 					
-					/// restore link register.
-					{
-						vm->csp -= sizeof(uintptr_t);
-						const uintptr_t *const restrict call_stack = ( const uintptr_t* )vm->csp;
-						vm->lr = *call_stack;
-					}
-					vm->funcs = ( struct TaghaSymTable* )saved_funcs;
-					vm->vars  = ( struct TaghaSymTable* )saved_vars;
+					_tagha_pop_lr(vm);
+					vm->funcs = ( const struct TaghaSymTable* )saved_funcs;
+					vm->vars  = ( const struct TaghaSymTable* )saved_vars;
 					DISPATCH();
 				}
 			} else {
@@ -1201,6 +1192,624 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 #	else
 		( void )regid; ( void )rsp;
 #	endif
+		DISPATCH();
+	}
+	
+	/** Vector Extension */
+	exec_setvlen: { /// u8: opcode | u8: vector width
+		vm->vec_len = *pc.uint8++;
+		DISPATCH();
+	}
+	exec_setelen: { /// u8: opcode | u8: element width
+		vm->elem_len = *pc.uint8++;
+		DISPATCH();
+	}
+	exec_vmov: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		memcpy(&rsp[dst], &rsp[src], vm->vec_len * vm->elem_len);
+		DISPATCH();
+	}
+	exec_vadd: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(int8_t) ) {
+				int8_t *const restrict r1 = ( int8_t* )(rsp + dst);
+				const int8_t *const restrict r2 = ( const int8_t* )(rsp + src);
+				r1[i] += r2[i];
+			} else if( vm->elem_len==sizeof(int16_t) ) {
+				int16_t *const restrict r1 = ( int16_t* )(rsp + dst);
+				const int16_t *const restrict r2 = ( const int16_t* )(rsp + src);
+				r1[i] += r2[i];
+			} else if( vm->elem_len==sizeof(int32_t) ) {
+				int32_t *const restrict r1 = ( int32_t* )(rsp + dst);
+				const int32_t *const restrict r2 = ( const int32_t* )(rsp + src);
+				r1[i] += r2[i];
+			} else {
+				int64_t *const restrict r1 = ( int64_t* )(rsp + dst);
+				const int64_t *const restrict r2 = ( const int64_t* )(rsp + src);
+				r1[i] += r2[i];
+			}
+		}
+		DISPATCH();
+	}
+	exec_vsub: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(int8_t) ) {
+				int8_t *const restrict r1 = ( int8_t* )(rsp + dst);
+				const int8_t *const restrict r2 = ( const int8_t* )(rsp + src);
+				r1[i] -= r2[i];
+			} else if( vm->elem_len==sizeof(int16_t) ) {
+				int16_t *const restrict r1 = ( int16_t* )(rsp + dst);
+				const int16_t *const restrict r2 = ( const int16_t* )(rsp + src);
+				r1[i] -= r2[i];
+			} else if( vm->elem_len==sizeof(int32_t) ) {
+				int32_t *const restrict r1 = ( int32_t* )(rsp + dst);
+				const int32_t *const restrict r2 = ( const int32_t* )(rsp + src);
+				r1[i] -= r2[i];
+			} else {
+				int64_t *const restrict r1 = ( int64_t* )(rsp + dst);
+				const int64_t *const restrict r2 = ( const int64_t* )(rsp + src);
+				r1[i] -= r2[i];
+			}
+		}
+		DISPATCH();
+	}
+	exec_vmul: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(int8_t) ) {
+				int8_t *const restrict r1 = ( int8_t* )(rsp + dst);
+				const int8_t *const restrict r2 = ( const int8_t* )(rsp + src);
+				r1[i] *= r2[i];
+			} else if( vm->elem_len==sizeof(int16_t) ) {
+				int16_t *const restrict r1 = ( int16_t* )(rsp + dst);
+				const int16_t *const restrict r2 = ( const int16_t* )(rsp + src);
+				r1[i] *= r2[i];
+			} else if( vm->elem_len==sizeof(int32_t) ) {
+				int32_t *const restrict r1 = ( int32_t* )(rsp + dst);
+				const int32_t *const restrict r2 = ( const int32_t* )(rsp + src);
+				r1[i] *= r2[i];
+			} else {
+				int64_t *const restrict r1 = ( int64_t* )(rsp + dst);
+				const int64_t *const restrict r2 = ( const int64_t* )(rsp + src);
+				r1[i] *= r2[i];
+			}
+		}
+		DISPATCH();
+	}
+	exec_vdiv: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				uint8_t *const restrict r1 = ( uint8_t* )(rsp + dst);
+				const uint8_t *const restrict r2 = ( const uint8_t* )(rsp + src);
+				r1[i] /= r2[i];
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				uint16_t *const restrict r1 = ( uint16_t* )(rsp + dst);
+				const uint16_t *const restrict r2 = ( const uint16_t* )(rsp + src);
+				r1[i] /= r2[i];
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				uint32_t *const restrict r1 = ( uint32_t* )(rsp + dst);
+				const uint32_t *const restrict r2 = ( const uint32_t* )(rsp + src);
+				r1[i] /= r2[i];
+			} else {
+				uint64_t *const restrict r1 = ( uint64_t* )(rsp + dst);
+				const uint64_t *const restrict r2 = ( const uint64_t* )(rsp + src);
+				r1[i] /= r2[i];
+			}
+		}
+		DISPATCH();
+	}
+	exec_vmod: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				uint8_t *const restrict r1 = ( uint8_t* )(rsp + dst);
+				const uint8_t *const restrict r2 = ( const uint8_t* )(rsp + src);
+				r1[i] %= r2[i];
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				uint16_t *const restrict r1 = ( uint16_t* )(rsp + dst);
+				const uint16_t *const restrict r2 = ( const uint16_t* )(rsp + src);
+				r1[i] %= r2[i];
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				uint32_t *const restrict r1 = ( uint32_t* )(rsp + dst);
+				const uint32_t *const restrict r2 = ( const uint32_t* )(rsp + src);
+				r1[i] %= r2[i];
+			} else {
+				uint64_t *const restrict r1 = ( uint64_t* )(rsp + dst);
+				const uint64_t *const restrict r2 = ( const uint64_t* )(rsp + src);
+				r1[i] %= r2[i];
+			}
+		}
+		DISPATCH();
+	}
+	exec_vneg: { /// u8: opcode | u8: regid
+		const uint32_t regid = *pc.uint8++;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				int8_t *const restrict r = ( int8_t* )(rsp + regid);
+				r[i] = -r[i];
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				int16_t *const restrict r = ( int16_t* )(rsp + regid);
+				r[i] = -r[i];
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				int32_t *const restrict r = ( int32_t* )(rsp + regid);
+				r[i] = -r[i];
+			} else {
+				int64_t *const restrict r = ( int64_t* )(rsp + regid);
+				r[i] = -r[i];
+			}
+		}
+		DISPATCH();
+	}
+	exec_vfadd: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+#	if defined(TAGHA_FLOAT32_DEFINED) && defined(TAGHA_FLOAT64_DEFINED)
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(float32_t) ) {
+				float32_t *const restrict r1 = ( float32_t* )(rsp + dst);
+				const float32_t *const restrict r2 = ( const float32_t* )(rsp + src);
+				r1[i] += r2[i];
+			} else {
+				float64_t *const restrict r1 = ( float64_t* )(rsp + dst);
+				const float64_t *const restrict r2 = ( const float64_t* )(rsp + src);
+				r1[i] += r2[i];
+			}
+		}
+#else
+		( void )instr;
+#endif
+		DISPATCH();
+	}
+	exec_vfsub: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+#	if defined(TAGHA_FLOAT32_DEFINED) && defined(TAGHA_FLOAT64_DEFINED)
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(float32_t) ) {
+				float32_t *const restrict r1 = ( float32_t* )(rsp + dst);
+				const float32_t *const restrict r2 = ( const float32_t* )(rsp + src);
+				r1[i] -= r2[i];
+			} else {
+				float64_t *const restrict r1 = ( float64_t* )(rsp + dst);
+				const float64_t *const restrict r2 = ( const float64_t* )(rsp + src);
+				r1[i] -= r2[i];
+			}
+		}
+#else
+		( void )instr;
+#endif
+		DISPATCH();
+	}
+	exec_vfmul: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+#	if defined(TAGHA_FLOAT32_DEFINED) && defined(TAGHA_FLOAT64_DEFINED)
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(float32_t) ) {
+				float32_t *const restrict r1 = ( float32_t* )(rsp + dst);
+				const float32_t *const restrict r2 = ( const float32_t* )(rsp + src);
+				r1[i] *= r2[i];
+			} else {
+				float64_t *const restrict r1 = ( float64_t* )(rsp + dst);
+				const float64_t *const restrict r2 = ( const float64_t* )(rsp + src);
+				r1[i] *= r2[i];
+			}
+		}
+#else
+		( void )instr;
+#endif
+		DISPATCH();
+	}
+	exec_vfdiv: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+#	if defined(TAGHA_FLOAT32_DEFINED) && defined(TAGHA_FLOAT64_DEFINED)
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(float32_t) ) {
+				float32_t *const restrict r1 = ( float32_t* )(rsp + dst);
+				const float32_t *const restrict r2 = ( const float32_t* )(rsp + src);
+				r1[i] /= r2[i];
+			} else {
+				float64_t *const restrict r1 = ( float64_t* )(rsp + dst);
+				const float64_t *const restrict r2 = ( const float64_t* )(rsp + src);
+				r1[i] /= r2[i];
+			}
+		}
+#else
+		( void )instr;
+#endif
+		DISPATCH();
+	}
+	exec_vfneg: { /// u8: opcode | u8: regid
+		const uint32_t regid = *pc.uint8++;
+#	if defined(TAGHA_FLOAT32_DEFINED) && defined(TAGHA_FLOAT64_DEFINED)
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(float32_t) ) {
+				float32_t *const restrict r = ( float32_t* )(rsp + regid);
+				r[i] = -r[i];
+			} else {
+				float64_t *const restrict r = ( float64_t* )(rsp + regid);
+				r[i] = -r[i];
+			}
+		}
+#else
+		( void )regid;
+#endif
+		DISPATCH();
+	}
+	exec_vand: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				uint8_t *const restrict r1 = ( uint8_t* )(rsp + dst);
+				const uint8_t *const restrict r2 = ( const uint8_t* )(rsp + src);
+				r1[i] &= r2[i];
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				uint16_t *const restrict r1 = ( uint16_t* )(rsp + dst);
+				const uint16_t *const restrict r2 = ( const uint16_t* )(rsp + src);
+				r1[i] &= r2[i];
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				uint32_t *const restrict r1 = ( uint32_t* )(rsp + dst);
+				const uint32_t *const restrict r2 = ( const uint32_t* )(rsp + src);
+				r1[i] &= r2[i];
+			} else {
+				uint64_t *const restrict r1 = ( uint64_t* )(rsp + dst);
+				const uint64_t *const restrict r2 = ( const uint64_t* )(rsp + src);
+				r1[i] &= r2[i];
+			}
+		}
+		DISPATCH();
+	}
+	exec_vor: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				uint8_t *const restrict r1 = ( uint8_t* )(rsp + dst);
+				const uint8_t *const restrict r2 = ( const uint8_t* )(rsp + src);
+				r1[i] |= r2[i];
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				uint16_t *const restrict r1 = ( uint16_t* )(rsp + dst);
+				const uint16_t *const restrict r2 = ( const uint16_t* )(rsp + src);
+				r1[i] |= r2[i];
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				uint32_t *const restrict r1 = ( uint32_t* )(rsp + dst);
+				const uint32_t *const restrict r2 = ( const uint32_t* )(rsp + src);
+				r1[i] |= r2[i];
+			} else {
+				uint64_t *const restrict r1 = ( uint64_t* )(rsp + dst);
+				const uint64_t *const restrict r2 = ( const uint64_t* )(rsp + src);
+				r1[i] |= r2[i];
+			}
+		}
+		DISPATCH();
+	}
+	exec_vxor: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				uint8_t *const restrict r1 = ( uint8_t* )(rsp + dst);
+				const uint8_t *const restrict r2 = ( const uint8_t* )(rsp + src);
+				r1[i] ^= r2[i];
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				uint16_t *const restrict r1 = ( uint16_t* )(rsp + dst);
+				const uint16_t *const restrict r2 = ( const uint16_t* )(rsp + src);
+				r1[i] ^= r2[i];
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				uint32_t *const restrict r1 = ( uint32_t* )(rsp + dst);
+				const uint32_t *const restrict r2 = ( const uint32_t* )(rsp + src);
+				r1[i] ^= r2[i];
+			} else {
+				uint64_t *const restrict r1 = ( uint64_t* )(rsp + dst);
+				const uint64_t *const restrict r2 = ( const uint64_t* )(rsp + src);
+				r1[i] ^= r2[i];
+			}
+		}
+		DISPATCH();
+	}
+	exec_vshl: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				uint8_t *const restrict r1 = ( uint8_t* )(rsp + dst);
+				const uint8_t *const restrict r2 = ( const uint8_t* )(rsp + src);
+				r1[i] <<= r2[i];
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				uint16_t *const restrict r1 = ( uint16_t* )(rsp + dst);
+				const uint16_t *const restrict r2 = ( const uint16_t* )(rsp + src);
+				r1[i] <<= r2[i];
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				uint32_t *const restrict r1 = ( uint32_t* )(rsp + dst);
+				const uint32_t *const restrict r2 = ( const uint32_t* )(rsp + src);
+				r1[i] <<= r2[i];
+			} else {
+				uint64_t *const restrict r1 = ( uint64_t* )(rsp + dst);
+				const uint64_t *const restrict r2 = ( const uint64_t* )(rsp + src);
+				r1[i] <<= r2[i];
+			}
+		}
+		DISPATCH();
+	}
+	exec_vshr: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				uint8_t *const restrict r1 = ( uint8_t* )(rsp + dst);
+				const uint8_t *const restrict r2 = ( const uint8_t* )(rsp + src);
+				r1[i] >>= r2[i];
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				uint16_t *const restrict r1 = ( uint16_t* )(rsp + dst);
+				const uint16_t *const restrict r2 = ( const uint16_t* )(rsp + src);
+				r1[i] >>= r2[i];
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				uint32_t *const restrict r1 = ( uint32_t* )(rsp + dst);
+				const uint32_t *const restrict r2 = ( const uint32_t* )(rsp + src);
+				r1[i] >>= r2[i];
+			} else {
+				uint64_t *const restrict r1 = ( uint64_t* )(rsp + dst);
+				const uint64_t *const restrict r2 = ( const uint64_t* )(rsp + src);
+				r1[i] >>= r2[i];
+			}
+		}
+		DISPATCH();
+	}
+	exec_vshar: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				int8_t *const restrict r1 = ( int8_t* )(rsp + dst);
+				const int8_t *const restrict r2 = ( const int8_t* )(rsp + src);
+				r1[i] >>= r2[i];
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				int16_t *const restrict r1 = ( int16_t* )(rsp + dst);
+				const int16_t *const restrict r2 = ( const int16_t* )(rsp + src);
+				r1[i] >>= r2[i];
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				int32_t *const restrict r1 = ( int32_t* )(rsp + dst);
+				const int32_t *const restrict r2 = ( const int32_t* )(rsp + src);
+				r1[i] >>= r2[i];
+			} else {
+				int64_t *const restrict r1 = ( int64_t* )(rsp + dst);
+				const int64_t *const restrict r2 = ( const int64_t* )(rsp + src);
+				r1[i] >>= r2[i];
+			}
+		}
+		DISPATCH();
+	}
+	exec_vnot: { /// u8: opcode | u8: regid
+		const uint32_t regid = *pc.uint8++;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )vm->osp;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				uint8_t *const restrict r = ( uint8_t* )(rsp + regid);
+				r[i] = ~r[i];
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				uint16_t *const restrict r = ( uint16_t* )(rsp + regid);
+				r[i] = ~r[i];
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				uint32_t *const restrict r = ( uint32_t* )(rsp + regid);
+				r[i] = ~r[i];
+			} else {
+				uint64_t *const restrict r = ( uint64_t* )(rsp + regid);
+				r[i] = ~r[i];
+			}
+		}
+		DISPATCH();
+	}
+	exec_vcmp: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		const union TaghaVal *const restrict rsp = ( const union TaghaVal* )vm->osp;
+		vm->cond = !memcmp(&rsp[dst], &rsp[src], vm->vec_len * vm->elem_len);
+		DISPATCH();
+	}
+	exec_vilt: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		const union TaghaVal *const restrict rsp = ( const union TaghaVal* )vm->osp;
+		int c = 0;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				const int8_t *const restrict r1 = ( const int8_t* )(rsp + dst);
+				const int8_t *const restrict r2 = ( const int8_t* )(rsp + src);
+				c = r1[i] < r2[i];
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				const int16_t *const restrict r1 = ( const int16_t* )(rsp + dst);
+				const int16_t *const restrict r2 = ( const int16_t* )(rsp + src);
+				c = r1[i] < r2[i];
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				const int32_t *const restrict r1 = ( const int32_t* )(rsp + dst);
+				const int32_t *const restrict r2 = ( const int32_t* )(rsp + src);
+				c = r1[i] < r2[i];
+			} else {
+				const int64_t *const restrict r1 = ( const int64_t* )(rsp + dst);
+				const int64_t *const restrict r2 = ( const int64_t* )(rsp + src);
+				c = r1[i] < r2[i];
+			}
+		}
+		vm->cond = c;
+		DISPATCH();
+	}
+	exec_vile: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		const union TaghaVal *const restrict rsp = ( const union TaghaVal* )vm->osp;
+		int c = 0;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				const int8_t *const restrict r1 = ( const int8_t* )(rsp + dst);
+				const int8_t *const restrict r2 = ( const int8_t* )(rsp + src);
+				c = r1[i] <= r2[i];
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				const int16_t *const restrict r1 = ( const int16_t* )(rsp + dst);
+				const int16_t *const restrict r2 = ( const int16_t* )(rsp + src);
+				c = r1[i] <= r2[i];
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				const int32_t *const restrict r1 = ( const int32_t* )(rsp + dst);
+				const int32_t *const restrict r2 = ( const int32_t* )(rsp + src);
+				c = r1[i] <= r2[i];
+			} else {
+				const int64_t *const restrict r1 = ( const int64_t* )(rsp + dst);
+				const int64_t *const restrict r2 = ( const int64_t* )(rsp + src);
+				c = r1[i] <= r2[i];
+			}
+		}
+		vm->cond = c;
+		DISPATCH();
+	}
+	exec_vult: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		const union TaghaVal *const restrict rsp = ( const union TaghaVal* )vm->osp;
+		int c = 0;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				const uint8_t *const restrict r1 = ( const uint8_t* )(rsp + dst);
+				const uint8_t *const restrict r2 = ( const uint8_t* )(rsp + src);
+				c = r1[i] < r2[i];
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				const uint16_t *const restrict r1 = ( const uint16_t* )(rsp + dst);
+				const uint16_t *const restrict r2 = ( const uint16_t* )(rsp + src);
+				c = r1[i] < r2[i];
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				const uint32_t *const restrict r1 = ( const uint32_t* )(rsp + dst);
+				const uint32_t *const restrict r2 = ( const uint32_t* )(rsp + src);
+				c = r1[i] < r2[i];
+			} else {
+				const uint64_t *const restrict r1 = ( const uint64_t* )(rsp + dst);
+				const uint64_t *const restrict r2 = ( const uint64_t* )(rsp + src);
+				c = r1[i] < r2[i];
+			}
+		}
+		vm->cond = c;
+		DISPATCH();
+	}
+	exec_vule: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		const union TaghaVal *const restrict rsp = ( const union TaghaVal* )vm->osp;
+		int c = 0;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				const uint8_t *const restrict r1 = ( const uint8_t* )(rsp + dst);
+				const uint8_t *const restrict r2 = ( const uint8_t* )(rsp + src);
+				c = r1[i] <= r2[i];
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				const uint16_t *const restrict r1 = ( const uint16_t* )(rsp + dst);
+				const uint16_t *const restrict r2 = ( const uint16_t* )(rsp + src);
+				c = r1[i] <= r2[i];
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				const uint32_t *const restrict r1 = ( const uint32_t* )(rsp + dst);
+				const uint32_t *const restrict r2 = ( const uint32_t* )(rsp + src);
+				c = r1[i] <= r2[i];
+			} else {
+				const uint64_t *const restrict r1 = ( const uint64_t* )(rsp + dst);
+				const uint64_t *const restrict r2 = ( const uint64_t* )(rsp + src);
+				c = r1[i] <= r2[i];
+			}
+		}
+		vm->cond = c;
+		DISPATCH();
+	}
+	exec_vflt: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+#	if defined(TAGHA_FLOAT32_DEFINED) && defined(TAGHA_FLOAT64_DEFINED)
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		const union TaghaVal *const restrict rsp = ( const union TaghaVal* )vm->osp;
+		int c = 0;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(float32_t) ) {
+				const float32_t *const restrict r1 = ( const float32_t* )(rsp + dst);
+				const float32_t *const restrict r2 = ( const float32_t* )(rsp + src);
+				c = r1[i] < r2[i];
+			} else {
+				const float64_t *const restrict r1 = ( const float64_t* )(rsp + dst);
+				const float64_t *const restrict r2 = ( const float64_t* )(rsp + src);
+				c = r1[i] < r2[i];
+			}
+		}
+		vm->cond = c;
+#else
+		( void )instr;
+#endif
+		DISPATCH();
+	}
+	exec_vfle: { /// u8: opcode | u8: reg 1 | u8: reg 2
+		const uint32_t instr = *pc.uint16++;
+#	if defined(TAGHA_FLOAT32_DEFINED) && defined(TAGHA_FLOAT64_DEFINED)
+		const uint32_t dst   = instr & 0xff;
+		const uint32_t src   = instr >> 8;
+		const union TaghaVal *const restrict rsp = ( const union TaghaVal* )vm->osp;
+		int c = 0;
+		for( size_t i=0; i<vm->vec_len; i++ ) {
+			if( vm->elem_len==sizeof(float32_t) ) {
+				const float32_t *const restrict r1 = ( const float32_t* )(rsp + dst);
+				const float32_t *const restrict r2 = ( const float32_t* )(rsp + src);
+				c = r1[i] <= r2[i];
+			} else {
+				const float64_t *const restrict r1 = ( const float64_t* )(rsp + dst);
+				const float64_t *const restrict r2 = ( const float64_t* )(rsp + src);
+				c = r1[i] <= r2[i];
+			}
+		}
+		vm->cond = c;
+#else
+		( void )instr;
+#endif
 		DISPATCH();
 	}
 }

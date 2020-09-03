@@ -31,10 +31,24 @@
 #		endif
 #	endif
 
-/* Check if Macintosh/MacOS */
+/* Check if Macintosh/MacOS/iOS */
 #elif defined(macintosh) || defined(Macintosh) || defined(__APPLE__)
-#	ifndef OS_MAC
-#		define OS_MAC 1
+#	include "TargetConditionals.h"
+#	if TARGET_OS_IPHONE && TARGET_IPHONE_SIMULATOR
+#		ifndef OS_IPHONE_SIM
+#			define OS_IPHONE_SIM 1
+#		endif
+#		ifndef OS_IPHONE
+#			define OS_IPHONE 1
+#		endif
+#	elif TARGET_OS_IPHONE
+#		ifndef OS_IPHONE
+#			define OS_IPHONE 1
+#		endif
+#	else
+#		ifndef OS_MAC
+#			define OS_MAC 1
+#		endif
 #	endif
 
 #endif /* end OS checks */
@@ -57,6 +71,51 @@
 #		define COMPILER_INTEL
 #	endif
 #endif /* end compiler check macros */
+
+/* check arch platform. */
+#if defined(__x86_64__) || defined(__x86_64) || defined(__amd64__) || defined(__amd64) || defined(_M_AMD64)
+#	ifndef PLATFORM_AMD64
+#		define PLATFORM_AMD64
+#	endif
+#	ifndef PLATFORM_x64
+#		define PLATFORM_x64
+#	endif
+#elif defined(i386) || defined(__i386) || defined(__i386__) || defined(__i486__) || defined(__i586__) || defined(__i686__) || defined(__IA32__) || defined(_M_IX86) || defined(__X86__) || defined(_X86_) || defined(__I86__) || defined(__386)
+#	ifndef PLATFORM_IA32
+#		define PLATFORM_IA32
+#	endif
+#	ifndef PLATFORM_x86
+#		define PLATFORM_x86
+#	endif
+#elif defined(__ia64__) || defined(_IA64) || defined(__IA64__) || defined(__ia64) || defined(_M_IA64) || defined(__itanium__)
+#	ifndef PLATFORM_IA64
+#		define PLATFORM_IA64
+#	endif
+#	ifndef PLATFORM_ITANIUM
+#		define PLATFORM_ITANIUM
+#	endif
+#elif defined(__arm__) || defined(_ARM) || defined(_M_ARM) || defined(__arm)
+#	ifndef PLATFORM_ARM32
+#		define PLATFORM_ARM32
+#	endif
+#elif defined(__aarch64__)
+#	ifndef PLATFORM_ARM64
+#		define PLATFORM_ARM64
+#	endif
+#elif defined(__riscv) || defined(_riscv) || defined(__riscv__)
+#	ifndef PLATFORM_RISCV
+#		define PLATFORM_RISCV
+#	endif
+#	if defined(__riscv_xlen) && __riscv_xlen==32
+#		ifndef PLATFORM_RISCV32
+#			define PLATFORM_RISCV32
+#		endif
+#	elif defined(__riscv_xlen) && __riscv_xlen==64
+#		ifndef PLATFORM_RISCV64
+#			define PLATFORM_RISCV64
+#		endif
+#	endif
+#endif /* end platform arch defines. */
 
 /* set up the C standard macros! */
 #ifdef __STDC__
@@ -225,34 +284,6 @@
 #	endif
 #endif
 
-/* setup macro to define the data type mode.
- * available modes:
- * -- __byte__ -> type is one byte integer.
- * -- __word__ -> type is word-sized (native integer width) integer.
- * -- __pointer__ -> type is size of pointer integer.
- * 
- * -- __QI__ -> type is 1 byte integer.
- * -- __HI__ -> type is 2 bytes integer.
- * -- __SI__ -> type is 4 bytes integer.
- * -- __DI__ -> type is 8 bytes integer.
- * -- __TI__ -> type is 16 bytes integer.
- * -- __OI__ -> type is 32 bytes integer.
- * -- __XI__ -> type is 64 bytes integer.
- * 
- * -- __QF__ -> type is 1 byte float.
- * -- __HF__ -> type is 2 bytes float.
- * -- __SF__ -> type is 4 bytes float.
- * -- __DF__ -> type is 8 bytes float.
- * -- __XF__ -> type is 10 or 12 or 16 bytes float.
- * -- __TF__ -> type is 16 bytes float.
- */
-#ifndef TYPE_MODE
-#	if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
-#		define TYPE_MODE(mode) __attribute__ ((__mode__ (mode)))
-#	else
-#		define TYPE_MODE(mode)
-#	endif
-#endif
 
 /* DLL crap to deal with Windows asinine poppycock DLL construction. */
 #ifdef HARBOL_DLL

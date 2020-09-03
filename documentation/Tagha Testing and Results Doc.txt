@@ -13,7 +13,7 @@ test_fib.tbc - purpose: test recursive calling speed
 
 test_global.tbc - purpose: calling a native and testing a host app-side variable being modified by the script.
 	accurate result:
-		op stack : 0            - '0x43960000' <-- 300.000000
+		op stack : 0            - '0x43960000' <-- 300.f
 		op stack : 1            - '0x64' <-- 100
 		op stack : 2            - '0x20' <-- 32
 
@@ -48,3 +48,10 @@ test_loop.tbc - purpose: test a simple loop iterating 100M times.
 		op stack : 0            - '0'
 		op stack : 1            - '0x1'
 		op stack : 2            - '0x5f5e100'
+
+test_simd.tbc - purpose: test vector/SIMD opcodes.
+	accurate result:
+		result => 1082130432 | err? 'None'
+		op stack : 0            - '0x55cdee83185c'
+		op stack : 1            - '0xc0400000c0000000' <-- float32 packed into 8 bytes.
+		op stack : 2            - '0xc0800000' <-- remaining float32 value within packed vec of 12 bytes (float32 * 3)

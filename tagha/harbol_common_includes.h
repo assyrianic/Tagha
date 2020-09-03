@@ -40,9 +40,9 @@ typedef intptr_t ssize_t;
 #	define __ssize_t_defined
 #endif
 
-#ifndef __cstring_t_defined
-#	define __cstring_t_defined
-typedef char cstring_t[];
+#ifndef __cstring_defined
+#	define __cstring_defined
+typedef char cstring[];
 #endif
 
 
@@ -265,8 +265,8 @@ static inline size_t harbol_align_size(const size_t size, const size_t align)
 static inline NO_NULL size_t string_hash(const char key[])
 {
 	size_t h = 0;
-	while( *key != '\0' )
-		h = (h<<6) ^ (h>>26) ^ *key++;
+	for( size_t i=0; key[i] != 0; i++ )
+		h = (h<<6) ^ (h>>26) ^ key[i];
 	return h;
 }
 
@@ -359,7 +359,7 @@ static inline NO_NULL uint8_t *make_buffer_from_binary(const char file_name[rest
 			const size_t bytes_read = fread(stream, sizeof *stream, filesize, file);
 			fclose(file), file=NULL;
 			
-			if( bytes_read != (size_t)filesize ) {
+			if( bytes_read != ( size_t )filesize ) {
 				harbol_free(stream), stream=NULL;
 				return NULL;
 			}
@@ -383,7 +383,7 @@ static inline NO_NULL char *make_buffer_from_text(const char file_name[restrict]
 			const size_t bytes_read = fread(stream, sizeof *stream, filesize, file);
 			fclose(file), file=NULL;
 			
-			if( bytes_read != (size_t)filesize ) {
+			if( bytes_read != ( size_t )filesize ) {
 				harbol_free(stream), stream=NULL;
 				return NULL;
 			}
@@ -395,8 +395,9 @@ static inline NO_NULL char *make_buffer_from_text(const char file_name[restrict]
 
 static inline bool is_aligned(const void *const ptr, const size_t bytes)
 {
-	return ((uintptr_t)ptr & (bytes-1))==0;
+	return (( uintptr_t )ptr & (bytes-1))==0;
 }
 
+#define NIL    ( uintptr_t )NULL
 
 #endif /* HARBOL_COMMON_INCLUDES_INCLUDED */

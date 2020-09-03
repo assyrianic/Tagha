@@ -592,7 +592,7 @@ static void tagha_asm_assemble(void)
 				_tagha_asm_skip_whitespace();
 				switch( *opcode ) {
 					/// one uint8 immediate.
-					case alloc: case redux: {
+					case alloc: case redux: case setvlen: {
 						uint64_t imm = 0;
 						if( string_to_int(&tagha_asm.lexeme, ( int64_t* )&imm) && imm < 256 ) {
 						#ifdef TAGHA_ASM_DEBUG
@@ -606,13 +606,42 @@ static void tagha_asm_assemble(void)
 						break;
 					}
 					
+					case setelen: {
+						_tagha_asm_skip_whitespace();
+						if( lex_id(tagha_asm.iter, &tagha_asm.iter, &tagha_asm.lexeme) ) {
+							int id = 0;
+							if( !harbol_string_cmpcstr(&tagha_asm.lexeme, "byte") ) {
+								id = sizeof(int8_t);
+							} else if( !harbol_string_cmpcstr(&tagha_asm.lexeme, "half") ) {
+								id = sizeof(int16_t);
+							} else if( !harbol_string_cmpcstr(&tagha_asm.lexeme, "long") ) {
+								id = sizeof(int32_t);
+							} else if( !harbol_string_cmpcstr(&tagha_asm.lexeme, "word") ) {
+								id = sizeof(int64_t);
+							} else {
+								_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' invalid type name '%s'", op_to_cstr[*opcode], tagha_asm.lexeme.cstr);
+								goto tagha_asm_err;
+							}
+						#ifdef TAGHA_ASM_DEBUG
+							printf("opcode value: %s (%u)\n", tagha_asm.lexeme.cstr, ( uint8_t )id);
+						#endif
+							tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, id);
+						} else {
+							_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' requires a machine type name ('byte' [8 bits], 'half' [16 bits], 'long' [32 bits], and 'word' [64 bits]) as first operand", op_to_cstr[*opcode]);
+							goto tagha_asm_err;
+						}
+						break;
+					}
+					
 					/// one uint8 register operand.
 					case neg: case fneg:
 					case bit_not: case setc:
 					case callr:
 					case f32tof64: case f64tof32:
 					case itof64: case itof32:
-					case f64toi: case f32toi: {
+					case f64toi: case f32toi:
+					case vneg: case vfneg:
+					case vnot: {
 						uint64_t reg = 0;
 						if( *tagha_asm.iter=='r' || *tagha_asm.iter=='R' )
 							tagha_asm.iter++;
@@ -634,7 +663,12 @@ static void tagha_asm_assemble(void)
 					case add: case sub: case mul: case idiv: case mod:
 					case fadd: case fsub: case fmul: case fdiv:
 					case bit_and: case bit_or: case bit_xor: case shl: case shr: case shar:
-					case ilt: case ile: case ult: case ule: case cmp: case flt: case fle: {
+					case ilt: case ile: case ult: case ule: case cmp: case flt: case fle:
+					case vmov:
+					case vadd: case vsub: case vmul: case vdiv: case vmod:
+					case vfadd: case vfsub: case vfmul: case vfdiv:
+					case vand: case vor: case vxor: case vshl: case vshr: case vshar:
+					case vcmp: case vilt: case vile: case vult: case vule: case vflt: case vfle: {
 						uint64_t
 							reg1 = 0,
 							reg2 = 0

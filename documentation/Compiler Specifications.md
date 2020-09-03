@@ -14,4 +14,4 @@ The Tagha Runtime Environment is not meant to be tied down to a single compiler.
 
 * `argc` and `argv` are implementation-defined for Tagha, so `main` could have any type of parameters as necessary to script devs.
 
-* if `argv` contains pointers that are not owned by the script's memory allocator, then **the VM _will_ throw a runtime exception if the bytecode dereferences them**. Keep this in mind when passing objects to the scripts. A workaround for this is to allocate from the script's own runtime heap, copy data to it, and pass that to `main`.
+* if `argv` contains pointers that are not owned by the script's memory allocator, then **the VM _will_ throw a runtime exception if the bytecode dereferences them**. Keep this in mind when passing objects to the scripts. A workaround for this is to allocate from the script's own runtime heap, copy data to it, and pass that to `main` (check example in API.md).

@@ -2,7 +2,7 @@
 #	define TAGHA_INCLUDED
 
 #define TAGHA_VERSION_MAJOR    1
-#define TAGHA_VERSION_MINOR    1
+#define TAGHA_VERSION_MINOR    2
 #define TAGHA_VERSION_PATCH    0
 #define TAGHA_VERSION_PHASE    "beta"
 #define TAGHA_STR_HELPER(x)    #x
@@ -20,12 +20,6 @@ extern "C" {
 
 #define TAGHA_FLOAT32_DEFINED    /// allow tagha to use 32-bit floats
 #define TAGHA_FLOAT64_DEFINED    /// allow tagha to use 64-bit floats
-
-/// nil value for pointers masked as uintptr_t.
-#ifndef NIL
-#	define NIL    ( uintptr_t )NULL
-#endif
-
 
 #if defined(TAGHA_FLOAT32_DEFINED) || defined(TAGHA_FLOAT64_DEFINED)
 #	ifndef TAGHA_FLOATS_ENABLED
@@ -123,7 +117,15 @@ union TaghaPtr {
 	X(jmp) X(jz) X(jnz) \
 	\
 	/** function ops. */ \
-	X(pushlr) X(poplr) X(call) X(callr) X(ret)
+	X(pushlr) X(poplr) X(call) X(callr) X(ret) \
+	\
+	/** vector extension. */ \
+	X(setvlen) X(setelen) \
+	X(vmov) \
+	X(vadd)  X(vsub)  X(vmul)  X(vdiv)  X(vmod) X(vneg) \
+	X(vfadd) X(vfsub) X(vfmul) X(vfdiv) X(vfneg) \
+	X(vand)  X(vor)   X(vxor)  X(vshl)  X(vshr) X(vshar) X(vnot) \
+	X(vcmp)  X(vilt)  X(vile)  X(vult)  X(vule) X(vflt)  X(vfle)
 
 #define X(x) x,
 enum TaghaInstrSet { TAGHA_INSTR_SET MaxOps };
@@ -234,9 +236,7 @@ struct TaghaItem {
 typedef const struct TaghaItem *TaghaFunc;
 
 
-enum {
-	TAGHA_SYM_BUCKETS = 32
-};
+enum { TAGHA_SYM_BUCKETS = 32 };
 struct TaghaSymTable {
 	const char **keys;             /// array of string names of each item.
 	struct TaghaItem *table;       /// table of items.
@@ -263,7 +263,7 @@ enum TaghaErrCode {
 /// Script/Module Structure.
 struct TaghaModule {
 	struct HarbolMemPool heap;   /// holds ALL memory in a script.
-	struct TaghaSymTable *funcs, *vars;
+	const struct TaghaSymTable *funcs, *vars;
 	uintptr_t
 		script,     /// ptr to base address of script (uint8_t*)
 		ip,         /// instruction ptr (uint8_t*)
@@ -275,7 +275,7 @@ struct TaghaModule {
 		csp,        /// call stack ptr (uintptr_t*)
 		lr          /// link register.
 	;
-	size_t    opstack_size, callstack_size;
+	size_t opstack_size, callstack_size, vec_len, elem_len;
 	uint32_t  flags;
 	int       err, cond;
 };
