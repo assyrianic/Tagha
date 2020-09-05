@@ -22,7 +22,7 @@ static inline size_t tagha_instr_gen(struct HarbolByteBuf *const tbc, const enum
 	va_list ap; va_start(ap, op);
 	switch( op ) {
 		/// one byte operand.
-		case alloc: case redux:  case setvlen: case setelen:
+		case alloc: case redux: case setelen:
 		case neg: case fneg:
 		case bit_not: case setc:
 		case callr:
@@ -60,7 +60,7 @@ static inline size_t tagha_instr_gen(struct HarbolByteBuf *const tbc, const enum
 			break;
 		}
 		
-		case call: {
+		case call: case setvlen: {
 			if( tbc != NULL ) {
 				const int oper1 = va_arg(ap, int);
 				harbol_bytebuffer_insert_int16(tbc, ( uint16_t )oper1);

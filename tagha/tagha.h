@@ -313,10 +313,10 @@ TAGHA_EXPORT NO_NULL bool tagha_module_link_ptr(struct TaghaModule *module, cons
 TAGHA_EXPORT NO_NULL void tagha_module_link_module(struct TaghaModule *module, const struct TaghaModule *lib);
 
 /** I like Golang.
-type TaghaSys struct {
-	modules map[string]*TaghaModule // map[string]TaghaFunc
-	natives map[string]TaghaCFunc
-}
+	type TaghaSys struct {
+		modules map[string]*TaghaModule // map[string]TaghaFunc
+		natives map[string]TaghaCFunc
+	}
  */
 
 #ifdef __cplusplus

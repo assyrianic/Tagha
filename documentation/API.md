@@ -5,61 +5,61 @@
 ## Union TaghaVal
 
 ### b00l
-bool value.
+`bool` value.
 
 ### int8
-signed char value.
+`signed char` value.
 
 ### int8a
-signed char[8] value.
+`signed char[8]` value.
 
 ### int16
-signed short value.
+`signed short` value.
 
 ### int16a
-signed short[4] value.
+`signed short[4]` value.
 
 ### int32
-signed int value.
+`signed int` value.
 
 ### int32a
-signed int[2] value.
+`signed int[2]` value.
 
 ### int64
-signed long long value.
+`signed long long` value.
 
 ### uint8
-unsigned char value.
+`unsigned char` value.
 
 ### uint8a
-unsigned char[8] value.
+`unsigned char[8]` value.
 
 ### uint16
-unsigned short value.
+`unsigned short` value.
 
 ### uint16a
-unsigned short[4] value.
+`unsigned short[4]` value.
 
 ### uint32
-unsigned int value.
+`unsigned int` value.
 
 ### uint32a
-unsigned int[2] value.
+`unsigned int[2]` value.
 
 ### uint64
-unsigned long long value.
+`unsigned long long` value.
 
 ### size
-size_t value.
+`size_t` value.
 
 ### ssize
-ssize_t value.
+`ssize_t` value.
 
 ### uintptr
-uintptr_t value.
+`uintptr_t` value.
 
 ### intptr
-intptr_t value.
+`intptr_t` value.
 
 ### float32
 32-bit float value. exists only if `TAGHA_FLOAT32_DEFINED` is defined.
@@ -74,7 +74,7 @@ intptr_t value.
 ## struct TaghaNative
 
 ### name
-constant C string (const char*) of the name of the native function.
+constant C string (`const char*`) of the name of the native function.
 
 ### cfunc
 pointer to native C function.

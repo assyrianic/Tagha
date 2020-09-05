@@ -1196,8 +1196,8 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 	}
 	
 	/** Vector Extension */
-	exec_setvlen: { /// u8: opcode | u8: vector width
-		vm->vec_len = *pc.uint8++;
+	exec_setvlen: { /// u8: opcode | u16: vector width
+		vm->vec_len = *pc.uint16++;
 		DISPATCH();
 	}
 	exec_setelen: { /// u8: opcode | u8: element width
@@ -1662,22 +1662,22 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 			if( vm->elem_len==sizeof(uint8_t) ) {
 				const int8_t *const restrict r1 = ( const int8_t* )(rsp + dst);
 				const int8_t *const restrict r2 = ( const int8_t* )(rsp + src);
-				c = r1[i] < r2[i];
+				c += r1[i] < r2[i];
 			} else if( vm->elem_len==sizeof(uint16_t) ) {
 				const int16_t *const restrict r1 = ( const int16_t* )(rsp + dst);
 				const int16_t *const restrict r2 = ( const int16_t* )(rsp + src);
-				c = r1[i] < r2[i];
+				c += r1[i] < r2[i];
 			} else if( vm->elem_len==sizeof(uint32_t) ) {
 				const int32_t *const restrict r1 = ( const int32_t* )(rsp + dst);
 				const int32_t *const restrict r2 = ( const int32_t* )(rsp + src);
-				c = r1[i] < r2[i];
+				c += r1[i] < r2[i];
 			} else {
 				const int64_t *const restrict r1 = ( const int64_t* )(rsp + dst);
 				const int64_t *const restrict r2 = ( const int64_t* )(rsp + src);
-				c = r1[i] < r2[i];
+				c += r1[i] < r2[i];
 			}
 		}
-		vm->cond = c;
+		vm->cond = !!c;
 		DISPATCH();
 	}
 	exec_vile: { /// u8: opcode | u8: reg 1 | u8: reg 2
@@ -1690,22 +1690,22 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 			if( vm->elem_len==sizeof(uint8_t) ) {
 				const int8_t *const restrict r1 = ( const int8_t* )(rsp + dst);
 				const int8_t *const restrict r2 = ( const int8_t* )(rsp + src);
-				c = r1[i] <= r2[i];
+				c += r1[i] <= r2[i];
 			} else if( vm->elem_len==sizeof(uint16_t) ) {
 				const int16_t *const restrict r1 = ( const int16_t* )(rsp + dst);
 				const int16_t *const restrict r2 = ( const int16_t* )(rsp + src);
-				c = r1[i] <= r2[i];
+				c += r1[i] <= r2[i];
 			} else if( vm->elem_len==sizeof(uint32_t) ) {
 				const int32_t *const restrict r1 = ( const int32_t* )(rsp + dst);
 				const int32_t *const restrict r2 = ( const int32_t* )(rsp + src);
-				c = r1[i] <= r2[i];
+				c += r1[i] <= r2[i];
 			} else {
 				const int64_t *const restrict r1 = ( const int64_t* )(rsp + dst);
 				const int64_t *const restrict r2 = ( const int64_t* )(rsp + src);
-				c = r1[i] <= r2[i];
+				c += r1[i] <= r2[i];
 			}
 		}
-		vm->cond = c;
+		vm->cond = !!c;
 		DISPATCH();
 	}
 	exec_vult: { /// u8: opcode | u8: reg 1 | u8: reg 2
@@ -1718,22 +1718,22 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 			if( vm->elem_len==sizeof(uint8_t) ) {
 				const uint8_t *const restrict r1 = ( const uint8_t* )(rsp + dst);
 				const uint8_t *const restrict r2 = ( const uint8_t* )(rsp + src);
-				c = r1[i] < r2[i];
+				c += r1[i] < r2[i];
 			} else if( vm->elem_len==sizeof(uint16_t) ) {
 				const uint16_t *const restrict r1 = ( const uint16_t* )(rsp + dst);
 				const uint16_t *const restrict r2 = ( const uint16_t* )(rsp + src);
-				c = r1[i] < r2[i];
+				c += r1[i] < r2[i];
 			} else if( vm->elem_len==sizeof(uint32_t) ) {
 				const uint32_t *const restrict r1 = ( const uint32_t* )(rsp + dst);
 				const uint32_t *const restrict r2 = ( const uint32_t* )(rsp + src);
-				c = r1[i] < r2[i];
+				c += r1[i] < r2[i];
 			} else {
 				const uint64_t *const restrict r1 = ( const uint64_t* )(rsp + dst);
 				const uint64_t *const restrict r2 = ( const uint64_t* )(rsp + src);
-				c = r1[i] < r2[i];
+				c += r1[i] < r2[i];
 			}
 		}
-		vm->cond = c;
+		vm->cond = !!c;
 		DISPATCH();
 	}
 	exec_vule: { /// u8: opcode | u8: reg 1 | u8: reg 2
@@ -1746,22 +1746,22 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 			if( vm->elem_len==sizeof(uint8_t) ) {
 				const uint8_t *const restrict r1 = ( const uint8_t* )(rsp + dst);
 				const uint8_t *const restrict r2 = ( const uint8_t* )(rsp + src);
-				c = r1[i] <= r2[i];
+				c += r1[i] <= r2[i];
 			} else if( vm->elem_len==sizeof(uint16_t) ) {
 				const uint16_t *const restrict r1 = ( const uint16_t* )(rsp + dst);
 				const uint16_t *const restrict r2 = ( const uint16_t* )(rsp + src);
-				c = r1[i] <= r2[i];
+				c += r1[i] <= r2[i];
 			} else if( vm->elem_len==sizeof(uint32_t) ) {
 				const uint32_t *const restrict r1 = ( const uint32_t* )(rsp + dst);
 				const uint32_t *const restrict r2 = ( const uint32_t* )(rsp + src);
-				c = r1[i] <= r2[i];
+				c += r1[i] <= r2[i];
 			} else {
 				const uint64_t *const restrict r1 = ( const uint64_t* )(rsp + dst);
 				const uint64_t *const restrict r2 = ( const uint64_t* )(rsp + src);
-				c = r1[i] <= r2[i];
+				c += r1[i] <= r2[i];
 			}
 		}
-		vm->cond = c;
+		vm->cond = !!c;
 		DISPATCH();
 	}
 	exec_vflt: { /// u8: opcode | u8: reg 1 | u8: reg 2
@@ -1775,14 +1775,14 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 			if( vm->elem_len==sizeof(float32_t) ) {
 				const float32_t *const restrict r1 = ( const float32_t* )(rsp + dst);
 				const float32_t *const restrict r2 = ( const float32_t* )(rsp + src);
-				c = r1[i] < r2[i];
+				c += r1[i] < r2[i];
 			} else {
 				const float64_t *const restrict r1 = ( const float64_t* )(rsp + dst);
 				const float64_t *const restrict r2 = ( const float64_t* )(rsp + src);
-				c = r1[i] < r2[i];
+				c += r1[i] < r2[i];
 			}
 		}
-		vm->cond = c;
+		vm->cond = !!c;
 #else
 		( void )instr;
 #endif
@@ -1799,14 +1799,14 @@ static void _tagha_module_exec(struct TaghaModule *const vm)
 			if( vm->elem_len==sizeof(float32_t) ) {
 				const float32_t *const restrict r1 = ( const float32_t* )(rsp + dst);
 				const float32_t *const restrict r2 = ( const float32_t* )(rsp + src);
-				c = r1[i] <= r2[i];
+				c += r1[i] <= r2[i];
 			} else {
 				const float64_t *const restrict r1 = ( const float64_t* )(rsp + dst);
 				const float64_t *const restrict r2 = ( const float64_t* )(rsp + src);
-				c = r1[i] <= r2[i];
+				c += r1[i] <= r2[i];
 			}
 		}
-		vm->cond = c;
+		vm->cond = !!c;
 #else
 		( void )instr;
 #endif

@@ -55,3 +55,7 @@ test_simd.tbc - purpose: test vector/SIMD opcodes.
 		op stack : 0            - '0x55cdee83185c'
 		op stack : 1            - '0xc0400000c0000000' <-- float32 packed into 8 bytes.
 		op stack : 2            - '0xc0800000' <-- remaining float32 value within packed vec of 12 bytes (float32 * 3)
+		
+test_str_cmp.tbc - purpose: test vector (of a string) comparisons.
+	accurate result:
+			result => 1 | err? 'None' <-- `result` must be `1`.

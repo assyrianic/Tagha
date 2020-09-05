@@ -592,7 +592,7 @@ static void tagha_asm_assemble(void)
 				_tagha_asm_skip_whitespace();
 				switch( *opcode ) {
 					/// one uint8 immediate.
-					case alloc: case redux: case setvlen: {
+					case alloc: case redux: {
 						uint64_t imm = 0;
 						if( string_to_int(&tagha_asm.lexeme, ( int64_t* )&imm) && imm < 256 ) {
 						#ifdef TAGHA_ASM_DEBUG
@@ -601,6 +601,20 @@ static void tagha_asm_assemble(void)
 							tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )imm);
 						} else {
 							_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' requires 0-255 number operand", op_to_cstr[*opcode]);
+							goto tagha_asm_err;
+						}
+						break;
+					}
+					
+					case setvlen: {
+						uint64_t imm = 0;
+						if( string_to_int(&tagha_asm.lexeme, ( int64_t* )&imm) && imm < 0x10000 ) {
+						#ifdef TAGHA_ASM_DEBUG
+							printf("opcode value: %u\n", ( uint16_t )imm);
+						#endif
+							tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )imm);
+						} else {
+							_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' requires 0-65535 number operand", op_to_cstr[*opcode]);
 							goto tagha_asm_err;
 						}
 						break;

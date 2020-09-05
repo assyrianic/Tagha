@@ -1,0 +1,64 @@
+$opstack_size   128   ;; 128 stack cells so 128 registers
+
+$global str1    "this is a giant string because I really want to make sure this operation isn't messed up. So I'm writing up a random and rather incoherent type of test string just to fill out the space and get as many characters in this quotation as much as possible. Golly gee I hope the vector comparison is fast for a string of this size because I want people to consider using tagha as a bytecode runtime compared to other bytecode runtimes."
+
+
+$native puts      ;; int puts(const char *str);
+
+/**
+int main(void)
+{
+	char n[] = "this is a giant string because I really want to make sure this operation isn't messed up. So I'm writing up a random and rather incoherent type of test string just to fill out the space and get as many characters in this quotation as much as possible. Golly gee I hope the vector comparison is fast for a string of this size because I want people to consider using tagha as a bytecode runtime compared to other bytecode runtimes.";
+	
+	char x[] = n;
+	return x == n; /// string cmp.
+}
+ */
+
+main {
+        setelen  byte       ;; set our vector data size to bytes.
+        setvlen  430        ;; set the vector width to fit the entire array.
+        
+        pushlr              ;; preserve calls.
+        alloc    110        ;; rsp -= 880;
+        
+        ldvar    r2, str1
+        lra      r1, 3      ;; char n[430];
+        call     strcopy    ;; strcopy(n, str1);
+        call     puts       ;; puts(x);
+        
+        vmov     r57, r3    ;; copy the entire char array.
+        vcmp     r3, r57    ;; test if copy was correct.
+        setc     r0         ;; return x==n;
+        
+        poplr
+        ret
+}
+
+
+
+/** This implementation of strcopy is just for testing purposes, preferable that this be implemented as a C native under the name 'strcpy'.
+void strcopy(char str1[restrict static 1], const char str2[restrict static 1]) {
+	while( (*str1++ = *str2++) != 0 );
+}
+ */
+
+strcopy {
+        alloc    5          ;; r5 is old r0, r6 is dest, r7 is src.
+        mov      r4, r7     ;; copy of ptrs.
+        mov      r3, r6
+        
+        movi     r0, 1
+        xor      r1, r1
+        
+    .L3:
+        ldu1     r2, [r4]
+        st1      [r3], r2
+        add      r4, r0
+        add      r3, r0
+        cmp      r2, r1
+        jz       .L3
+        
+        redux    5
+        ret
+}

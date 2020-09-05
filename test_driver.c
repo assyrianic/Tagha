@@ -48,14 +48,44 @@ static NO_NULL union TaghaVal native_add_one(struct TaghaModule *const module, c
 	return ( union TaghaVal ){ .int32 = params[0].int32 + 1 };
 }
 
+/*
+/// int strcpy(char *str1, const char *str2);
+static NO_NULL union TaghaVal native_strcpy(struct TaghaModule *const restrict module, const union TaghaVal params[const restrict static 2])
+{
+	( void )module;
+	char *restrict str1 = ( char* )params[0].uintptr;
+	const char *restrict str2 = ( const char* )params[1].uintptr;
+	
+	int i=0;
+	while( (str1[i] = str2[i]) != 0 )
+		i++;
+	
+	return ( union TaghaVal ){ .int32 = i };
+}
+*/
+
 /// void tagha_module_link_module(struct TaghaModule *module, struct TaghaModule *lib);
 static NO_NULL union TaghaVal native_tagha_module_link_module(struct TaghaModule *const restrict module, const union TaghaVal params[const static 2])
 {
-	( void )module;
 	struct TaghaModule       *const restrict caller = ( struct TaghaModule* )params[0].uintptr;
 	const struct TaghaModule *const restrict lib    = ( const struct TaghaModule* )params[1].uintptr;
-	tagha_module_link_module(caller==NULL ? module : caller, lib);
+	tagha_module_link_module((caller==NULL ? module : caller), lib);
 	return ( union TaghaVal ){ 0 };
+}
+
+/**
+ * POTENTIALLY DANGEROUS though not sure how.
+ * If a dev uses `alloca`, compiler could possibly allocate its data that is already in use.
+ * Whole point of `alloca` is to have a form of dynamic allocation without resorting to `malloc` + friends and then having to free.
+ * This implementation of `alloca` does NOT modify the (operand) stack pointer but can cause issues if `alloca` is called and the compiler then allocates additional registers or if a callee function needs registers itself as well which could corrupt data.
+ */
+/// void *alloca(size_t len);
+static NO_NULL union TaghaVal native_alloca(struct TaghaModule *const module, const union TaghaVal params[const static 1])
+{
+	const size_t len = params[0].size;
+	const size_t aligned_len = (len + (sizeof(union TaghaVal)-1)) & -sizeof(union TaghaVal);
+	const uintptr_t alloc_space = module->osp - aligned_len;
+	return ( union TaghaVal ){ .uintptr = (alloc_space < module->opstack) ? NIL : alloc_space };
 }
 
 
@@ -75,6 +105,7 @@ NO_NULL int main(const int argc, char *argv[const restrict static 1])
 				{"tagha_module_link_module",   &native_tagha_module_link_module},
 				{"puts",                       &native_puts},
 				{"fgets",                      &native_fgets},
+				{"strcpy",                     &native_strcpy},
 				{"add_one",                    &native_add_one},
 				{NULL, NULL}
 			});
