@@ -105,7 +105,7 @@ NO_NULL int main(const int argc, char *argv[const restrict static 1])
 				{"tagha_module_link_module",   &native_tagha_module_link_module},
 				{"puts",                       &native_puts},
 				{"fgets",                      &native_fgets},
-				{"strcpy",                     &native_strcpy},
+				//{"strcpy",                     &native_strcpy},
 				{"add_one",                    &native_add_one},
 				{NULL, NULL}
 			});
