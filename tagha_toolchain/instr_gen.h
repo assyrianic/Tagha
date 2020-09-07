@@ -129,6 +129,9 @@ static inline size_t tagha_instr_gen(struct HarbolByteBuf *const tbc, const enum
 	return bytes;
 }
 
+
+
+
 #ifdef __cplusplus
 } /** extern "C" */
 #endif

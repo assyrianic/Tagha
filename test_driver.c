@@ -117,8 +117,8 @@ NO_NULL int main(const int argc, char *argv[const restrict static 1])
 			
 			const int r = tagha_module_run(module, 0, NULL);
 			printf("result => %i | err? '%s'\n", r, tagha_module_get_err(module));
-			tagha_module_print_opstack(module);
-			tagha_module_print_callstack(module);
+			tagha_module_print_opstack(module, stdout);
+			tagha_module_print_callstack(module, stdout);
 			
 			tagha_module_free(&module);
 		}
