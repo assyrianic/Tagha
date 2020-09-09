@@ -56,7 +56,7 @@ void label_free(void **const p)
 }
 
 
-struct {
+static struct {
 	struct HarbolLinkMap
 		labels,
 		funcs,
@@ -521,7 +521,7 @@ static void tagha_asm_assemble(void)
 	
 #define X(x) #x ,
 	/** for debugging purposes. */
-	static const char *op_to_cstr[] = { TAGHA_INSTR_SET };
+	const char *restrict op_to_cstr[] = { TAGHA_INSTR_SET };
 #undef X
 	
 #ifdef TAGHA_ASM_DEBUG
@@ -905,7 +905,7 @@ static void tagha_asm_assemble(void)
 									_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' label ('%s') doesn't exist", op_to_cstr[*opcode], tagha_asm.lexeme.cstr);
 									goto tagha_asm_err;
 								}
-								Label *const label = harbol_linkmap_key_get(&tagha_asm.labels, tagha_asm.lexeme.cstr);
+								const Label *const label = harbol_linkmap_key_get(&tagha_asm.labels, tagha_asm.lexeme.cstr);
 							#ifdef TAGHA_ASM_DEBUG
 								printf("label value: %s (%i)\n", tagha_asm.lexeme.cstr, ( int32_t )label->offset);
 							#endif
@@ -987,8 +987,8 @@ static void tagha_asm_assemble(void)
 	tagha_mod_gen_write_header(&modgen, tagha_asm.opstacksize, tagha_asm.callstacksize, tagha_asm.heapsize+ ( uint32_t )harbol_align_size(mem_region_size, 8), 0);
 	
 	for( size_t i=0; i<tagha_asm.funcs.map.count; i++ ) {
-		struct HarbolKeyVal *node = harbol_linkmap_index_get_kv(&tagha_asm.funcs, i);
-		Label *const label = harbol_linkmap_index_get(&tagha_asm.funcs, i);
+		const struct HarbolKeyVal *node = harbol_linkmap_index_get_kv(&tagha_asm.funcs, i);
+		const Label *const label = harbol_linkmap_index_get(&tagha_asm.funcs, i);
 		if( label==NULL )
 			continue;
 		
@@ -1009,8 +1009,8 @@ static void tagha_asm_assemble(void)
 	}
 	
 	for( size_t i=0; i<tagha_asm.vars.map.count; i++ ) {
-		struct HarbolKeyVal *const node = harbol_linkmap_index_get_kv(&tagha_asm.vars, i);
-		struct HarbolByteBuf *const bytedata = harbol_linkmap_index_get(&tagha_asm.vars, i);
+		const struct HarbolKeyVal *const node = harbol_linkmap_index_get_kv(&tagha_asm.vars, i);
+		const struct HarbolByteBuf *const bytedata = harbol_linkmap_index_get(&tagha_asm.vars, i);
 		if( bytedata==NULL )
 			continue;
 		

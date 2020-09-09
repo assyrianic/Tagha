@@ -371,36 +371,32 @@ TAGHA_EXPORT inline int tagha_module_run(struct TaghaModule *const module, const
 
 static bool _tagha_module_start(struct TaghaModule *const module, const TaghaFunc func, const size_t args, const union TaghaVal params[const restrict], union TaghaVal *const restrict retval)
 {
-	const size_t bytes = sizeof(union TaghaVal) * args;
-	const size_t arg_bytes = sizeof(union TaghaVal) + bytes; /// one more for ret value.
-	if( module->osp - arg_bytes < module->opstack ) {
-		module->err = TaghaErrOpStackOF;
-		return false;
-	} else {
-		module->osp -= arg_bytes;
-		union TaghaVal *const restrict rsp = ( union TaghaVal* )module->osp;
-		memcpy(rsp + 1, params, bytes);
-		
-		if( func->flags & TAGHA_FLAG_NATIVE ) {
-			if( func->flags & TAGHA_FLAG_LINKED ) {
-				TaghaCFunc *const cfunc = ( TaghaCFunc* )func->item;
-				const union TaghaVal ret = (*cfunc)(module, rsp + 1);
-				if( retval != NULL )
-					*retval = ret;
-				module->osp += arg_bytes;
-				return module->err==TaghaErrNone;
-			} else {
-				module->err = TaghaErrBadNative;
-				module->osp += arg_bytes;
-				return false;
-			}
+	if( func->flags & TAGHA_FLAG_NATIVE ) {
+		if( func->flags & TAGHA_FLAG_LINKED ) {
+			TaghaCFunc *const cfunc = ( TaghaCFunc* )func->item;
+			const union TaghaVal ret = (*cfunc)(module, params);
+			if( retval != NULL )
+				*retval = ret;
+			return module->err==TaghaErrNone;
 		} else {
+			module->err = TaghaErrBadNative;
+			return false;
+		}
+	} else {
+		const size_t bytes = sizeof(union TaghaVal) * (args + 1); /// one more for ret value.
+		if( module->osp - bytes < module->opstack ) {
+			module->err = TaghaErrOpStackOF;
+			return false;
+		} else {
+			module->osp -= bytes;
+			union TaghaVal *const restrict rsp = ( union TaghaVal* )module->osp;
+			memcpy(rsp + 1, params, bytes - sizeof(union TaghaVal));
 			module->ip = func->item;
 			module->lr = NIL;
 			_tagha_module_exec(module);
 			if( retval != NULL )
 				*retval = *( const union TaghaVal* )module->osp;
-			module->osp += arg_bytes;
+			module->osp += bytes;
 			return module->err==TaghaErrNone;
 		}
 	}

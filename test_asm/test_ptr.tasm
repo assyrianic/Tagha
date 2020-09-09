@@ -11,12 +11,12 @@ int main()
  */
 
 incr {
-	alloc  2
-	movi   r1, 1
-	ld4    r0, [r2]
-	add    r0, r1
-	st4    [r2], r1
-	redux  2
+	alloc    2
+	movi     r1, 1
+	ld4      r0, [r2]
+	add      r0, r1
+	st4      [r2], r1
+	redux    2
 	ret
 }
 
