@@ -71,5 +71,3 @@ void tagha_module_print_header(const struct TaghaModule *mod, FILE *stream);
 void tagha_module_print_opstack(const struct TaghaModule *mod, FILE *stream);
 void tagha_module_print_callstack(const struct TaghaModule *mod, FILE *stream);
 ```
-
-

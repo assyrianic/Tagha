@@ -1,0 +1,53 @@
+main {
+    alloc   1
+    pushlr
+    movi    r0, 40
+    call    fib
+    poplr
+    ret
+}
+
+/**
+/// O(2^n) algorithm
+int fib(const int n) {
+	return (n<2) ? n : fib(n-1)+fib(n-2);
+}
+*/
+
+fib {
+    pushlr
+    alloc   6
+    movi    r3, 1
+    movi    r1, 2
+    ilt     r6, r1 ;; if( n<2 )
+    jz      .calc
+    
+    ;; return 1;
+    movi    r0, 1
+    poplr
+    redux   6
+    ret
+    
+.calc
+    ;; temp1 = fib(n - 1)
+    mov     r2, r6  ;; _temp1 = n;
+    sub     r2, r3  ;; _temp1 -= 1;
+    mov     r0, r2  ;; temp = _temp1;
+    call    fib     ;; res1 = factorial(temp);
+    mov     r4, r0  ;; __temp1 = res1;
+    
+    ;; temp2 = fib(n - 2)
+    mov     r2, r6  ;; _temp2 = n;
+    sub     r2, r1  ;; _temp2 -= 2;
+    mov     r0, r2  ;; temp = _temp2;
+    call    fib     ;; res2 = factorial(temp);
+    mov     r5, r0  ;; __temp2 = res2;
+    
+    ;; return temp1 + temp2
+    add     r4, r5  ;; __temp1 += __temp2;
+    mov     r6, r4  ;; n = __temp1;
+    
+    poplr
+    redux   6
+    ret
+}

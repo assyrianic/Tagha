@@ -1,0 +1,2 @@
+$native puts      ;; int puts(const char *str);
+

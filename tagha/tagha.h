@@ -68,24 +68,24 @@ union TaghaVal {
 
 
 union TaghaPtr {
-	const uint64_t       *restrict uint64;
-	const uint32_t       *restrict uint32;
-	const uint16_t       *restrict uint16;
-	const uint8_t        *restrict uint8;
+	const uint64_t       *uint64;
+	const uint32_t       *uint32;
+	const uint16_t       *uint16;
+	const uint8_t        *uint8;
 	
-	const int64_t        *restrict int64;
-	const int32_t        *restrict int32;
-	const int16_t        *restrict int16;
-	const int8_t         *restrict int8;
+	const int64_t        *int64;
+	const int32_t        *int32;
+	const int16_t        *int16;
+	const int8_t         *int8;
 	
 #ifdef TAGHA_FLOAT32_DEFINED
-	const float32_t      *restrict float32;
+	const float32_t      *float32;
 #endif
 #ifdef TAGHA_FLOAT64_DEFINED
-	const float64_t      *restrict float64;
+	const float64_t      *float64;
 #endif
-	const char           *restrict cstr;
-	const union TaghaVal *restrict val;
+	const char           *cstr;
+	const union TaghaVal *val;
 };
 
 
@@ -238,13 +238,13 @@ typedef const struct TaghaItem *TaghaFunc;
 
 enum { TAGHA_SYM_BUCKETS = 32 };
 struct TaghaSymTable {
-	const char **keys;             /// array of string names of each item.
-	struct TaghaItem *table;       /// table of items.
+	const char **keys;              /// array of string names of each item.
+	struct TaghaItem *table;        /// table of items.
 	size_t
-		len,                       /// table's len.
-		buckets[TAGHA_SYM_BUCKETS],/// hash index bucket for each index. SIZE_MAX if invalid.
-		*hashes,                   /// hash value for each item index.
-		*chain                     /// index chain to resolve collisions. SIZE_MAX if invalid.
+		len,                        /// table's len.
+		buckets[TAGHA_SYM_BUCKETS], /// hash index bucket for each index. SIZE_MAX if invalid.
+		*hashes,                    /// hash value for each item index.
+		*chain                      /// index chain to resolve collisions. SIZE_MAX if invalid.
 	;
 };
 
@@ -271,13 +271,15 @@ struct TaghaModule {
 		high_seg,   /// higher memory segment (uint8_t*)
 		opstack,    /// ptr to base of operand stack (union TaghaVal*)
 		callstack,  /// ptr to base of call stack (uintptr_t*)
-		osp,        /// opstack ptr (union TaghaVal*)
+		osp,        /// operand stack ptr (union TaghaVal*)
+		ofp,        /// operand frame ptr (union TaghaVal*)
 		csp,        /// call stack ptr (uintptr_t*)
 		lr          /// link register.
 	;
-	size_t opstack_size, callstack_size, vec_len, elem_len;
-	uint32_t  flags;
-	int       err, cond;
+	size_t        opstack_size, callstack_size;
+	uint_fast16_t vec_len, elem_len;
+	uint32_t      flags;
+	int           err, cond;
 };
 
 /// Module Constructors.

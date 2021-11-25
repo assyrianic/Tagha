@@ -1,13 +1,13 @@
 CC = gcc
 #CC = clang-9
-CFLAGS = -Wextra -Wall -Wrestrict -std=c99 -s  -O2 -mtune=native -march=native
+CFLAGS = -Wextra -Wall -Wrestrict -std=c99 -static -s  -O2 -mtune=native -march=native
 TFLAGS = -Wextra -Wall -Wrestrict -std=c99 -g  -O2 -mtune=native -march=native
 PFlAGS = -Wextra -Wall -Wrestrict -std=c99 -pg -O2 -mtune=native -march=native
 
 # -static
 
-SRCS = allocators/cache/cache.c allocators/mempool/mempool.c tagha.c
-OBJS = cache.o mempool.o tagha.o
+SRCS = allocators/region/region.c allocators/mempool/mempool.c tagha.c
+OBJS = region.o mempool.o tagha.o
 
 LIBNAME = libtagha
 

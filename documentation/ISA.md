@@ -3,6 +3,7 @@
 Tagha is a little-endian, 64-bit stack & register based VM. Tagha employs both an operand stack and a callstack. Tagha utilizes 3 registers: `osp`, `csp`, and `lr`.
 
 `osp` - **O**perand **S**tack **P**ointer.
+`ofp` - **O**perand **F**rame **P**ointer.
 `csp` - **C**all **S**tack **P**ointer.
 `lr`  - **L**ink **R**egister.
 
@@ -138,36 +139,36 @@ same as `idiv` but for floating point values. Math is done for the largest data 
 same as `neg` but for floating point values. Math is done for the largest data width that's enabled (meaning if both doubles and floats are used, `fneg` will perform on doubles, regardless whether floats are defined or not).
 
 
-## bit_and
+## _and
 peforms bitwise AND of the integer value of a source register to a destination register.
-Assembler can use `and` & `bit_and` naming of opcode.
+Assembler can use `and` & `_and` naming of opcode.
 
 
-## bit_or
+## _or
 peforms bitwise OR of the integer value of a source register to a destination register.
-Assembler can use `or` & `bit_or` naming of opcode.
+Assembler can use `or` & `_or` naming of opcode.
 
 
-## bit_xor
+## _xor
 peforms bitwise XOR of the integer value of a source register to a destination register.
-Assembler can use `xor` & `bit_xor` naming of opcode.
+Assembler can use `xor` & `_xor` naming of opcode.
 
 
-## shl
+## sll
 peforms logical leftward bit shift of the integer value of a source register to a destination register.
 
 
-## shr
+## srl
 peforms logical rightward bit shift of the integer value of a source register to a destination register.
 
 
-## shar
+## sra
 peforms arithmetic rightward bit shift of the integer value of a source register to a destination register.
 
 
-## bit_not
+## _not
 peforms bitwise NOT to a register.
-Assembler can use `not` & `bit_not` naming of opcode.
+Assembler can use `not` & `_not` naming of opcode.
 
 
 ## ilt
@@ -196,10 +197,6 @@ same as `ilt` but for floating point values. Math is done for the largest data w
 
 ## fle
 same as `ile` but for floating point values. Math is done for the largest data width that's enabled (meaning if both doubles and floats are used, `fle` will perform on doubles, regardless whether floats are defined or not).
-
-
-## setc
-stores the conditional flag to a register.
 
 
 ## f32tof64
@@ -266,11 +263,8 @@ Vectors are basically packed registers that can be larger than 8 bytes but can b
 When using a register as a vector, any element size less than word (64-bits) must be packed. For float-based vector operations, both `float32_t` and `float64_t` MUST BE DEFINED AND USEABLE, otherwise it's entirely a nop.
 
 
-## setvlen
-sets the operational width of vectors that are used for the vector opcodes.
-
-## setelen
-sets the element size of vectors. Valid sizes are `byte`, `half`, `long`, and `word`. For float-based vector operations, only `long` and `word` are valid. If the element size is invalid, `word` size is used.
+## setvinfo
+sets the operational width and element length of vectors that are used for the vector opcodes. Valid element sizes are `byte`, `half`, `long`, and `word`. For float-based vector operations, only `long` and `word` are valid. If the element size is invalid, `word` size is used.
 
 ## vmov
 copies a source register's contents as a vector (element size multiplied by vector width) to a destination register, destination registers is also used as a vector.
@@ -309,25 +303,25 @@ Same as `vdiv` but with floats.
 Same as `vneg` but with floats.
 
 ## vand
-same as `bit_and` but source + destination registers are vectors.
+same as `_and` but source + destination registers are vectors.
 
 ## vor
-same as `bit_or` but source + destination registers are vectors.
+same as `_or` but source + destination registers are vectors.
 
 ## vxor
-same as `bit_xor` but source + destination registers are vectors.
+same as `_xor` but source + destination registers are vectors.
 
 ## vshl
-same as `shl` but source + destination registers are vectors.
+same as `sll` but source + destination registers are vectors.
 
 ## vshr
-same as `shr` but source + destination registers are vectors.
+same as `srl` but source + destination registers are vectors.
 
 ## vshar
-same as `shar` but source + destination registers are vectors.
+same as `sra` but source + destination registers are vectors.
 
 ## vnot
-same as `bit_not` but source + destination registers are vectors.
+same as `_not` but source + destination registers are vectors.
 
 ## vcmp
 same as `cmp` but source + destination registers are vectors.

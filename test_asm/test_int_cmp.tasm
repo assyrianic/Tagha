@@ -1,0 +1,37 @@
+$opstack_size   16   ;; 16 registers
+
+/**
+int main(void)
+{
+	int v1[] = { 1, 2, 3 };
+	int v2[] = { 1, 3, 2 };
+	return v1==v2; /// int cmp.
+}
+ */
+
+main {
+	setelen  long
+	setvlen  3
+	
+	pushlr
+	alloc    6
+	
+	movi     r1, 1
+	mov      r2, r1
+	mov      r4, r1
+	
+	movi     r1, 2
+	movi     r0, 0x200000000
+	or       r2, r0
+	movi     r3, 3
+	
+	movi     r0, 0x200000000 ;0x300000000
+	or       r4, r0
+	movi     r5, 3 ;2
+	
+	vcmp     r2, r4    ;; test if equal.
+	setc     r0        ;; return v1==v2;
+	
+	poplr
+	ret
+}

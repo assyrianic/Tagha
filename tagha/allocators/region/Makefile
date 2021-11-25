@@ -2,19 +2,18 @@ CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -std=c99 -s -O2
 TFLAGS = -Wall -Wextra -pedantic -std=c99 -g -O2
 
-SRCS = mempool.c
-SRCS += ../region/region.c
+SRCS = region.c
 OBJS = $(SRCS:.c=.o)
 
-harbol_mempool:
+harbol_region:
 	$(CC) $(CFLAGS) -c $(SRCS)
 
 debug:
 	$(CC) $(TFLAGS) -c $(SRCS)
 
 test:
-	$(CC) $(TFLAGS) $(SRCS) test_mempool.c -o harbol_mempool_test
+	$(CC) $(TFLAGS) $(SRCS) test_region.c -o harbol_region_test
 
 clean:
 	$(RM) *.o
-	$(RM) harbol_mempool_test
+	$(RM) harbol_region_test

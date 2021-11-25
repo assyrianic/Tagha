@@ -1057,9 +1057,9 @@ NO_NULL int main(const int argc, char *argv[restrict static 1])
 	} else {
 		for( int i=1; i<argc; i++ ) {
 			FILE *restrict tasmfile = fopen(argv[i], "r");
-			if( tasmfile==NULL )
+			if( tasmfile==NULL ) {
 				continue;
-			else if( harbol_string_read_file(&tagha_asm.src, tasmfile) ) {
+			} else if( harbol_string_read_file(&tagha_asm.src, tasmfile) ) {
 			#ifdef TAGHA_ASM_DEBUG
 				printf("read file called: '%s'\n", argv[i]);
 			#endif

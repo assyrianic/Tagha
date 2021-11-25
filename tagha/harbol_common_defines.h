@@ -1,25 +1,25 @@
 #ifndef HARBOL_COMMON_DEFINES_INCLUDED
 #	define HARBOL_COMMON_DEFINES_INCLUDED
 
-/* Check if Windows */
+/** Check if Windows */
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #	ifndef OS_WINDOWS
 #		define OS_WINDOWS 1
 #	endif
 
-/* Check if Linux/UNIX & FreeBSD */
+/** Check if Linux/UNIX & FreeBSD */
 #elif defined(unix) || defined(__unix) || defined(__unix__) || defined(__linux__) || defined(linux) || defined(__linux) || defined(__freeBSD__)
 #	ifndef OS_LINUX_UNIX
 #		define OS_LINUX_UNIX 1
 #	endif
 
-/* Check if Android */
+/** Check if Android */
 #elif defined(__ANDROID__)
 #	ifndef OS_ANDROID
 #		define OS_ANDROID 1
 #	endif
 
-/* Check if Solaris/SunOS */
+/** Check if Solaris/SunOS */
 #elif defined(sun) || defined(__sun)
 #	if defined(__SVR4) || defined(__svr4__)
 #		ifndef OS_SOLARIS
@@ -31,7 +31,7 @@
 #		endif
 #	endif
 
-/* Check if Macintosh/MacOS/iOS */
+/** Check if Macintosh/MacOS/iOS */
 #elif defined(macintosh) || defined(Macintosh) || defined(__APPLE__)
 #	include "TargetConditionals.h"
 #	if TARGET_OS_IPHONE && TARGET_IPHONE_SIMULATOR
@@ -51,9 +51,9 @@
 #		endif
 #	endif
 
-#endif /* end OS checks */
+#endif /** end OS checks */
 
-/* check what compiler we got */
+/** check what compiler we got */
 #if defined(__clang__)
 #	ifndef COMPILER_CLANG
 #		define COMPILER_CLANG
@@ -70,9 +70,9 @@
 #	ifndef COMPILER_INTEL
 #		define COMPILER_INTEL
 #	endif
-#endif /* end compiler check macros */
+#endif /** end compiler check macros */
 
-/* check arch platform. */
+/** check arch platform. */
 #if defined(__x86_64__) || defined(__x86_64) || defined(__amd64__) || defined(__amd64) || defined(_M_AMD64)
 #	ifndef PLATFORM_AMD64
 #		define PLATFORM_AMD64
@@ -115,9 +115,9 @@
 #			define PLATFORM_RISCV64
 #		endif
 #	endif
-#endif /* end platform arch defines. */
+#endif /** end platform arch defines. */
 
-/* set up the C standard macros! */
+/** set up the C standard macros! */
 #ifdef __STDC__
 #	ifndef C89
 #		define C89
@@ -149,8 +149,36 @@
 #	endif
 #endif
 
+#ifdef __cplusplus
+#	if( __cplusplus >= 199711L )
+#		ifndef CPP03
+#			define CPP03
+#		endif
+#	endif
+#	if( __cplusplus >= 201103L )
+#		ifndef CPP11
+#			define CPP11
+#		endif
+#	endif
+#	if( __cplusplus >= 201402L )
+#		ifndef CPP14
+#			define CPP14
+#		endif
+#	endif
+#	if( __cplusplus >= 201703L )
+#		ifndef CPP17
+#			define CPP17
+#		endif
+#	endif
+#	if( __cplusplus >= 202002L )
+#		ifndef CPP20
+#			define CPP20
+#		endif
+#	endif
+#endif
 
-/* setup RAII destructor macro if possibru to mark functions as cleaner-uppers. */
+
+/** setup RAII destructor macro if possibru to mark functions as cleaner-uppers. */
 #ifndef RAII_DTOR
 #	if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
 #		define RAII_DTOR(func) __attribute__ ((cleanup((func))))
@@ -159,7 +187,7 @@
 #	endif
 #endif
 
-/* setup macro to mark a param as "cannot or can never be NULL". */
+/** setup macro to mark a param as "cannot or can never be NULL". */
 #ifndef NEVER_NULL
 #	if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
 #		define NEVER_NULL(...) __attribute__( (nonnull(__VA_ARGS__)) )
@@ -168,7 +196,7 @@
 #	endif
 #endif
 
-/* setup macro that declares all params to never be NULL. */
+/** setup macro that declares all params to never be NULL. */
 #ifndef NO_NULL
 #	if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
 #		define NO_NULL __attribute__((nonnull))
@@ -177,7 +205,7 @@
 #	endif
 #endif
 
-/* setup macro to mark a function as never returning a null pointer. */
+/** setup macro to mark a function as never returning a null pointer. */
 #ifndef NONNULL_RET
 #	if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
 #		define NONNULL_RET __attribute__((returns_nonnull))
@@ -186,7 +214,7 @@
 #	endif
 #endif
 
-/* setup macro that marks a function as deprecated. */
+/** setup macro that marks a function as deprecated. */
 #ifndef DEPRECATED
 #	if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
 #		define DEPRECATED(func) func __attribute__ ((deprecated))
@@ -197,7 +225,7 @@
 #	endif
 #endif
 
-/* setup macro that defines a var that it may be aliased by other data. */
+/** setup macro that defines a var that it may be aliased by other data. */
 #ifndef PTR_ALIAS
 #	if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
 #		define PTR_ALIAS __attribute__ ((__may_alias__))
@@ -206,7 +234,7 @@
 #	endif
 #endif
 
-/* setup macro that marks a function as having hidden visibility. */
+/** setup macro that marks a function as having hidden visibility. */
 #ifndef VIS_HIDDEN
 #	if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
 #		define VIS_HIDDEN __attribute__ ((visibility ("hidden")))
@@ -215,7 +243,7 @@
 #	endif
 #endif
 
-/* setup macro that marks a function as having internal visibility. */
+/** setup macro that marks a function as having internal visibility. */
 #ifndef VIS_INTERNAL
 #	if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
 #		define VIS_INTERNAL __attribute__ ((visibility ("internal")))
@@ -224,7 +252,7 @@
 #	endif
 #endif
 
-/* setup macro that marks a function as having protected visibility. */
+/** setup macro that marks a function as having protected visibility. */
 #ifndef VIS_PROTECTED
 #	if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
 #		define VIS_PROTECTED __attribute__ ((visibility ("protected")))
@@ -233,7 +261,7 @@
 #	endif
 #endif
 
-/* setup macro that gives a warning if a function's result is unused. */
+/** setup macro that gives a warning if a function's result is unused. */
 #ifndef WARN_UNUSED_RESULT
 #	if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
 #		define WARN_UNUSED_RESULT __attribute__ ((warn_unused_result))
@@ -242,7 +270,7 @@
 #	endif
 #endif
 
-/* setup macro to mark a function or variable as unused and ignore unused warnings. */
+/** setup macro to mark a function or variable as unused and ignore unused warnings. */
 #ifndef UNUSED
 #	if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
 #		define UNUSED __attribute__ ((unused))
@@ -251,7 +279,7 @@
 #	endif
 #endif
 
-/* setup macro to mark a function as a hot spot, thus requiring aggressive optimizations. */
+/** setup macro to mark a function as a hot spot, thus requiring aggressive optimizations. */
 #ifndef HOT
 #	if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
 #		define HOT __attribute__ ((hot))
@@ -260,7 +288,7 @@
 #	endif
 #endif
 
-/* setup macro to make vector types. Argument must be power of 2.
+/** setup macro to make vector types. Argument must be power of 2.
  * Example:
 	typedef __attribute__ ((vector_size (32))) int int_vec32_t; which makes int_vec32_t as 32-bytes.
  * 
@@ -268,24 +296,23 @@
  * +, -, *, /, unary minus, ^, |, &, ~, %. are the only operators allowed.
  * 
  * Bigger Example:
-	typedef int v4si __attribute__ ((vector_size (16)));
+	typedef int v4si SIMD_VEC(16);
 	v4si a = {1,2,3,4};
 	v4si b = {3,2,1,4};
 	v4si c;
 	
-	c = a >  b;     // The result would be {0, 0,-1, 0}
-	c = a == b;     // The result would be {0,-1, 0,-1}
+	c = a >  b;     /// The result would be {0, 0,-1, 0}
+	c = a == b;     /// The result would be {0,-1, 0,-1}
  */
-#ifndef SIMD_VECTOR
+#ifndef SIMD_VEC
 #	if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
-#		define SIMD_VECTOR(bytes) __attribute__ ((vector_size ((bytes))))
+#		define SIMD_VEC(bytes) __attribute__ ((vector_size ((bytes))))
 #	else
-#		define SIMD_VECTOR(bytes)
+#		define SIMD_VEC(bytes)
 #	endif
 #endif
 
 
-/* DLL crap to deal with Windows asinine poppycock DLL construction. */
 #ifdef HARBOL_DLL
 #	ifndef HARBOL_LIB 
 #		define HARBOL_EXPORT __declspec(dllimport)
@@ -321,9 +348,20 @@
 
 
 #ifdef C11
-#	ifndef harbol_is_type
-#		define harbol_is_type(n, T)    _Generic((n), T:true, default:false)
+#	ifndef IS_VAR_OF_TYPE
+#		define IS_VAR_OF_TYPE(n, T)    _Generic((n), T:true, default:false)
 #	endif
 #endif
 
-#endif /* HARBOL_COMMON_DEFINES_INCLUDED */
+#ifndef IN_BOUNDS
+#	ifdef __cplusplus
+		template< typename T > static inline T _in_bounds(T val, T max, T min) {
+			return (val - min) <= (max - min);
+		}
+#		define IN_BOUNDS    _in_bounds
+#	else
+#		define IN_BOUNDS(val, max, min)    ( ((val) - (min)) <= ((max) - (min)) )
+#	endif
+#endif
+
+#endif /** HARBOL_COMMON_DEFINES_INCLUDED */

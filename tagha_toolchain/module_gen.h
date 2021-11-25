@@ -34,7 +34,11 @@ static inline NO_NULL void tagha_mod_gen_write_header(struct TaghaModGen *const 
 	mod->hdr.flags = flags;
 }
 
-static inline NEVER_NULL(1,3) void tagha_mod_gen_write_func(struct TaghaModGen *const restrict mod, const uint32_t flags, const char name[restrict static 1], const struct HarbolByteBuf *const restrict bytecode)
+#ifdef __cplusplus
+static inline NEVER_NULL(1,3) void tagha_mod_gen_write_func(struct TaghaModGen *const restrict mod, const uint32_t flags, const char *name, const struct HarbolByteBuf *const bytecode)
+#else
+static inline NEVER_NULL(1,3) void tagha_mod_gen_write_func(struct TaghaModGen *const restrict mod, const uint32_t flags, const char name[static 1], const struct HarbolByteBuf *const bytecode)
+#endif
 {
 	uint32_t entry_size = sizeof(struct TaghaItemEntry);
 	const uint32_t name_len = ( uint32_t )strlen(name) + 1;
@@ -70,7 +74,11 @@ static inline NEVER_NULL(1,3) void tagha_mod_gen_write_func(struct TaghaModGen *
 	mod->hdr.func_count++;
 }
 
-static inline NEVER_NULL(1,3,4) void tagha_mod_gen_write_var(struct TaghaModGen *const restrict mod, const uint32_t flags, const char name[restrict static 1], const struct HarbolByteBuf *const restrict datum)
+#ifdef __cplusplus
+static inline NEVER_NULL(1,3,4) void tagha_mod_gen_write_var(struct TaghaModGen *const restrict mod, const uint32_t flags, const char *name, const struct HarbolByteBuf *const datum)
+#else
+static inline NEVER_NULL(1,3,4) void tagha_mod_gen_write_var(struct TaghaModGen *const restrict mod, const uint32_t flags, const char name[static 1], const struct HarbolByteBuf *const datum)
+#endif
 {
 	uint32_t entry_size = sizeof(struct TaghaItemEntry);
 	const uint32_t name_len = ( uint32_t )strlen(name) + 1;
@@ -128,7 +136,11 @@ static inline NO_NULL struct HarbolByteBuf __tagha_mod_gen_finalize(struct Tagha
 	return final_tbc;
 }
 
-static inline NO_NULL bool tagha_mod_gen_create_file(struct TaghaModGen *const restrict mod, const char filename[restrict static 1])
+#ifdef __cplusplus
+static inline NO_NULL bool tagha_mod_gen_create_file(struct TaghaModGen *const restrict mod, const char *filename)
+#else
+static inline NO_NULL bool tagha_mod_gen_create_file(struct TaghaModGen *const restrict mod, const char filename[static 1])
+#endif
 {
 	bool result = false;
 	FILE *restrict tbcfile = fopen(filename, "w");
@@ -137,7 +149,7 @@ static inline NO_NULL bool tagha_mod_gen_create_file(struct TaghaModGen *const r
 	
 	struct HarbolByteBuf final_tbc = __tagha_mod_gen_finalize(mod);
 	result = harbol_bytebuffer_to_file(&final_tbc, tbcfile);
-	fclose(tbcfile), tbcfile=NULL;
+	fclose(tbcfile); tbcfile = NULL;
 	harbol_bytebuffer_clear(&final_tbc);
 	
 null_file_err:

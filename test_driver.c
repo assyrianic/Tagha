@@ -115,10 +115,13 @@ NO_NULL int main(const int argc, char *argv[const restrict static 1])
 			tagha_module_link_ptr(module, "stdout", ( uintptr_t )stdout);
 			tagha_module_link_ptr(module, "self",   ( uintptr_t )module);
 			
+			const clock_t start = clock();
 			const int r = tagha_module_run(module, 0, NULL);
-			printf("result => %i | err? '%s'\n", r, tagha_module_get_err(module));
-			tagha_module_print_opstack(module, stdout);
-			tagha_module_print_callstack(module, stdout);
+			const clock_t end = clock();
+			const double elapsed_time = ( double )(end - start)/(CLOCKS_PER_SEC);
+			printf("result => %i | err? '%s' | elapsed => %f\n", r, tagha_module_get_err(module), elapsed_time);
+			//tagha_module_print_opstack(module, stdout);
+			//tagha_module_print_callstack(module, stdout);
 			
 			tagha_module_free(&module);
 		}
