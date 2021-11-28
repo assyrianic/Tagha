@@ -11,7 +11,7 @@ extern "C" {
 
 struct TaghaModGen {
 	struct TaghaModuleHeader hdr;
-	struct HarbolByteBuf var_data, func_data;
+	struct HarbolByteBuf     var_data, func_data;
 };
 
 
@@ -41,10 +41,10 @@ static inline NEVER_NULL(1,3) void tagha_mod_gen_write_func(struct TaghaModGen *
 #endif
 {
 	uint32_t entry_size = sizeof(struct TaghaItemEntry);
-	const uint32_t name_len = ( uint32_t )strlen(name) + 1;
-	const uint32_t name_len_diff = ( uint32_t )harbol_align_size(name_len, 4) - name_len;
-	const uint32_t data_len = ( uint32_t )bytecode->count;
-	const uint32_t data_len_diff = ( uint32_t )harbol_align_size(data_len, 4) - data_len;
+	const uint32_t name_len = ( uint32_t )(strlen(name)) + 1;
+	const uint32_t name_len_diff = ( uint32_t )(harbol_align_size(name_len, 4)) - name_len;
+	const uint32_t data_len = ( uint32_t )(bytecode->count);
+	const uint32_t data_len_diff = ( uint32_t )(harbol_align_size(data_len, 4)) - data_len;
 	entry_size += name_len + name_len_diff;
 	entry_size += ( flags != 0 ) ? 8 : data_len + data_len_diff;
 	
@@ -81,10 +81,10 @@ static inline NEVER_NULL(1,3,4) void tagha_mod_gen_write_var(struct TaghaModGen 
 #endif
 {
 	uint32_t entry_size = sizeof(struct TaghaItemEntry);
-	const uint32_t name_len = ( uint32_t )strlen(name) + 1;
-	const uint32_t data_len = ( uint32_t )datum->count;
-	const uint32_t name_len_diff = ( uint32_t )harbol_align_size(name_len, 4) - name_len;
-	const uint32_t data_len_diff = ( uint32_t )harbol_align_size(data_len, 4) - data_len;
+	const uint32_t name_len = ( uint32_t )(strlen(name)) + 1;
+	const uint32_t data_len = ( uint32_t )(datum->count);
+	const uint32_t name_len_diff = ( uint32_t )(harbol_align_size(name_len, 4)) - name_len;
+	const uint32_t data_len_diff = ( uint32_t )(harbol_align_size(data_len, 4)) - data_len;
 	entry_size += name_len + data_len + name_len_diff + data_len_diff;
 	
 	/// entry size

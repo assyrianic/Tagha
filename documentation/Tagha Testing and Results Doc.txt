@@ -7,9 +7,13 @@ test_factorial.tbc - purpose: test stack and recursive call frames.
 	accurate result:
 		result => 120 | err? 'None' <-- factorial of 5
 
-test_fib.tbc - purpose: test recursive calling speed
+test_fib34.tbc - purpose: test recursive calling speed
 	accurate result:
 		result => 5702887 | err? 'None' <-- fibonacci of 34
+		
+test_fib40.tbc - purpose: test recursive calling speed
+	accurate result:
+		result => 102334155 | err? 'None' <-- fibonacci of 40
 
 test_global.tbc - purpose: calling a native and testing a host app-side variable being modified by the script.
 	accurate result:
@@ -57,5 +61,9 @@ test_simd.tbc - purpose: test vector/SIMD opcodes.
 		op stack : 2            - '0xc0800000' <-- remaining float32 value within packed vec of 12 bytes (float32 * 3)
 		
 test_str_cmp.tbc - purpose: test vector (of a string) comparisons.
+	accurate result:
+			result => 1 | err? 'None' <-- `result` must be `1`.
+
+test_int_cmp.tbc - purpose: test vector (of an int) comparisons.
 	accurate result:
 			result => 1 | err? 'None' <-- `result` must be `1`.

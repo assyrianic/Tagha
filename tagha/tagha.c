@@ -7,8 +7,8 @@
 
 #include "tagha.h"
 
-static NO_NULL HOT void _tagha_module_exec(struct TaghaModule *module);
-static NEVER_NULL(1,2) bool _tagha_module_start(struct TaghaModule *module, const TaghaFunc func, size_t args, const union TaghaVal params[], union TaghaVal *retval);
+static NO_NULL HOT void _tagha_module_exec(struct TaghaModule *module, uintptr_t ip);
+static NEVER_NULL(1,2) bool _tagha_module_start(struct TaghaModule *module, const struct TaghaItem *func, size_t args, const union TaghaVal params[], union TaghaVal *retval);
 
 
 static NO_NULL struct TaghaItem *_tagha_key_get_item(const struct TaghaSymTable *const syms, const char key[static 1])
@@ -16,21 +16,26 @@ static NO_NULL struct TaghaItem *_tagha_key_get_item(const struct TaghaSymTable 
 	if( syms->len==0 ) {
 		return NULL;
 	} else {
-		const size_t hash = string_hash(key);
+		const size_t hash  = string_hash(key);
 		const size_t index = hash % TAGHA_SYM_BUCKETS;
 		for( size_t i=syms->buckets[index]; i != SIZE_MAX; i = syms->chain[i] ) {
 			if( syms->hashes[i]==hash || !strcmp(syms->keys[i], key) ) {
-				return syms->table + i;
+				return &syms->table[i];
 			}
 		}
 		return NULL;
 	}
 }
 
+static NO_NULL size_t _tagha_item_index(const struct TaghaSymTable *const syms, const struct TaghaItem *const item)
+{
+	return ( size_t )(item - syms->table);
+}
+
 
 static NO_NULL bool _setup_memory(struct TaghaModule *const module)
 {
-	const struct TaghaModuleHeader *const hdr = ( const struct TaghaModuleHeader* )module->script;
+	const struct TaghaModuleHeader *const hdr = ( const struct TaghaModuleHeader* )(module->script);
 	bool res = false;
 	module->heap = harbol_mempool_make_from_buffer(( uint8_t* )(module->script + hdr->mem_offset), hdr->memsize, &res);
 	if( !res ) {
@@ -65,7 +70,9 @@ static NO_NULL bool _setup_func_table(struct TaghaModule *const module)
 		return false;
 	}
 	funcs->len    = hdr->func_count;
+	
 	funcs->table  = harbol_mempool_alloc(&module->heap, sizeof *funcs->table  * funcs->len);
+	funcs->bytes  = harbol_mempool_alloc(&module->heap, sizeof *funcs->bytes  * funcs->len);
 	funcs->keys   = harbol_mempool_alloc(&module->heap, sizeof *funcs->keys   * funcs->len);
 	funcs->hashes = harbol_mempool_alloc(&module->heap, sizeof *funcs->hashes * funcs->len);
 	
@@ -78,22 +85,21 @@ static NO_NULL bool _setup_func_table(struct TaghaModule *const module)
 		funcs->chain[i] = SIZE_MAX;
 	}
 	
-	union HarbolIter iter = { .uint8 = ( uint8_t* )(module->script + hdr->funcs_offset) };
+	union HarbolIter iter = { .uint8 = ( const uint8_t* )(module->script + hdr->funcs_offset) };
 	for( uint32_t i=0; i<hdr->func_count; i++ ) {
 		const struct TaghaItemEntry *const entry = iter.ptr;
 		iter.uint8 += sizeof *entry;
 		const uint32_t flag = entry->flags;
-		const char *cstr    = iter.string;
-		const size_t hash   = string_hash(cstr);
+		const char    *cstr = iter.string;
+		const size_t   hash = string_hash(cstr);
 		iter.uint8 += entry->name_len;
-		const struct TaghaItem funcitem = {
-			.owner = flag & TAGHA_FLAG_EXTERN ? NIL : ( uintptr_t )(module),
-			.bytes = entry->data_len,
-			.flags = flag,
-			.item  = (!flag) ? ( uintptr_t )(iter.uint8) : NIL
-		};
 		
-		funcs->table[i]  = funcitem;
+		struct TaghaItem *const fn = (funcs->table + i);
+		fn->item  = (!flag)? ( uintptr_t )(iter.uint8) : NIL;
+		fn->owner = (flag & TAGHA_FLAG_EXTERN)? NIL : ( uintptr_t )(module);
+		fn->flags = flag;
+		
+		funcs->bytes[i]  = entry->data_len;
 		funcs->keys[i]   = cstr;
 		funcs->hashes[i] = hash;
 		
@@ -124,7 +130,9 @@ static NO_NULL bool _setup_var_table(struct TaghaModule *const module)
 		return false;
 	}
 	vars->len    = hdr->var_count;
+	
 	vars->table  = harbol_mempool_alloc(&module->heap, sizeof *vars->table  * vars->len);
+	vars->bytes  = harbol_mempool_alloc(&module->heap, sizeof *vars->bytes  * vars->len);
 	vars->keys   = harbol_mempool_alloc(&module->heap, sizeof *vars->keys   * vars->len);
 	vars->hashes = harbol_mempool_alloc(&module->heap, sizeof *vars->hashes * vars->len);
 	
@@ -143,16 +151,16 @@ static NO_NULL bool _setup_var_table(struct TaghaModule *const module)
 		const struct TaghaItemEntry *const entry = iter.ptr;
 		iter.uint8 += sizeof *entry;
 		const uint32_t flag = entry->flags;
-		const char *cstr = iter.string;
-		const size_t hash = string_hash(cstr);
+		const char    *cstr = iter.string;
+		const size_t   hash = string_hash(cstr);
 		iter.uint8 += entry->name_len;
-		const struct TaghaItem varitem = {
-			.owner = flag & TAGHA_FLAG_EXTERN ? NIL : ( uintptr_t )(module),
-			.bytes = entry->data_len,
-			.flags = flag,
-			.item  = ( uintptr_t )(iter.uint8)
-		};
-		vars->table[i]  = varitem;
+		
+		struct TaghaItem *const v = (vars->table + i);
+		v->item  = ( uintptr_t )(iter.uint8);
+		v->owner = (flag & TAGHA_FLAG_EXTERN)? NIL : ( uintptr_t )(module);
+		v->flags = flag;
+		
+		vars->bytes[i]  = entry->data_len;
 		vars->keys[i]   = cstr;
 		vars->hashes[i] = hash;
 		
@@ -252,10 +260,10 @@ TAGHA_EXPORT bool tagha_module_free(struct TaghaModule **const modref)
 TAGHA_EXPORT void *tagha_module_get_var(const struct TaghaModule *const module, const char name[static 1])
 {
 	const struct TaghaItem *const var = _tagha_key_get_item(module->vars, name);
-	return( var != NULL ) ? ( void* )(var->item) : NULL;
+	return( var != NULL )? ( void* )(var->item) : NULL;
 }
 
-TAGHA_EXPORT TaghaFunc tagha_module_get_func(const struct TaghaModule *const module, const char name[static 1])
+TAGHA_EXPORT const struct TaghaItem *tagha_module_get_func(const struct TaghaModule *const module, const char name[static 1])
 {
 	return _tagha_key_get_item(module->funcs, name);
 }
@@ -265,12 +273,12 @@ TAGHA_EXPORT uint32_t tagha_module_get_flags(const struct TaghaModule *const mod
 	return module->flags;
 }
 
-TAGHA_EXPORT inline uintptr_t tagha_module_heap_alloc(struct TaghaModule *const module, const size_t size)
+TAGHA_EXPORT uintptr_t tagha_module_heap_alloc(struct TaghaModule *const module, const size_t size)
 {
 	return ( uintptr_t )(harbol_mempool_alloc(&module->heap, size));
 }
 
-TAGHA_EXPORT inline bool tagha_module_heap_free(struct TaghaModule *const module, const uintptr_t ptr)
+TAGHA_EXPORT bool tagha_module_heap_free(struct TaghaModule *const module, const uintptr_t ptr)
 {
 	return harbol_mempool_free(&module->heap, ( void* )(ptr));
 }
@@ -290,7 +298,7 @@ TAGHA_EXPORT const char *tagha_module_get_err(const struct TaghaModule *const mo
 	}
 }
 
-TAGHA_EXPORT inline void tagha_module_throw_err(struct TaghaModule *const module, const enum TaghaErrCode err)
+TAGHA_EXPORT void tagha_module_throw_err(struct TaghaModule *const module, const enum TaghaErrCode err)
 {
 	module->err = err;
 }
@@ -302,7 +310,7 @@ TAGHA_EXPORT void tagha_module_link_natives(struct TaghaModule *const module, co
 		if( func==NULL || func->flags != TAGHA_FLAG_NATIVE ) {
 			continue;
 		} else {
-			func->item = ( uintptr_t )(natives[i].cfunc);
+			func->item  = ( uintptr_t )(natives[i].cfunc);
 			func->flags = TAGHA_FLAG_NATIVE | TAGHA_FLAG_LINKED;
 		}
 	}
@@ -327,21 +335,24 @@ TAGHA_EXPORT void tagha_module_link_module(struct TaghaModule *const restrict mo
 	} else {
 		const struct TaghaSymTable *const funcs = module->funcs;
 		for( size_t i=0; i<funcs->len; i++ ) {
-			struct TaghaItem *const func = &funcs->table[i];
+			struct TaghaItem *const restrict func = &funcs->table[i];
 			if( func->flags != TAGHA_FLAG_EXTERN ) {
 				continue;    /// skip non-extern and already-linked extern funcs.
 			} else {
-				struct TaghaItem *const extern_func = _tagha_key_get_item(lib->funcs, funcs->keys[i]);
+				const struct TaghaSymTable *const libfuncs = lib->funcs;
+				const struct TaghaItem *const extern_func = _tagha_key_get_item(libfuncs, funcs->keys[i]);
 				if( extern_func==NULL
 						|| extern_func->flags & TAGHA_FLAG_NATIVE /// don't link natives, could cause potential problems.
-						|| extern_func->item==0
-				  ) { /// allow getting the extern of an extern but the inner extern must be resolved.
+						|| extern_func->item==NIL /// allow getting the extern of an extern but the inner extern must be resolved.
+				  ) {
 					continue;
 				} else {
 					func->owner = extern_func->owner;
 					func->item  = extern_func->item;
 					func->flags = TAGHA_FLAG_EXTERN | TAGHA_FLAG_LINKED;
-					func->bytes = extern_func->bytes;
+					
+					const size_t index = _tagha_item_index(libfuncs, extern_func);
+					funcs->bytes[i] = libfuncs->bytes[index];
 				}
 			}
 		}
@@ -356,7 +367,7 @@ TAGHA_EXPORT bool tagha_module_call(struct TaghaModule *const restrict module,
 										union TaghaVal *const restrict retval
 )
 {
-	const TaghaFunc func = _tagha_key_get_item(module->funcs, name);
+	const struct TaghaItem *const func = _tagha_key_get_item(module->funcs, name);
 	if( func==NULL || func->item==NIL ) {
 		module->err = TaghaErrBadFunc;
 		return false;
@@ -366,7 +377,7 @@ TAGHA_EXPORT bool tagha_module_call(struct TaghaModule *const restrict module,
 }
 
 TAGHA_EXPORT bool tagha_module_invoke(struct TaghaModule *const module,
-											const TaghaFunc f,
+											const struct TaghaItem *const f,
 											const size_t args,
 											const union TaghaVal params[const],
 											union TaghaVal *const restrict retval
@@ -380,14 +391,14 @@ TAGHA_EXPORT bool tagha_module_invoke(struct TaghaModule *const module,
 	}
 }
 
-TAGHA_EXPORT inline int tagha_module_run(struct TaghaModule *const module, const size_t argc, const union TaghaVal argv[const])
+TAGHA_EXPORT int tagha_module_run(struct TaghaModule *const module, const size_t argc, const union TaghaVal argv[const])
 {
 	union TaghaVal res = {1};
 	tagha_module_call(module, "main", argc, argv, &res);
 	return res.int32;
 }
 
-static bool _tagha_module_start(struct TaghaModule *const module, const TaghaFunc func, const size_t args, const union TaghaVal params[const], union TaghaVal *const restrict retval)
+static bool _tagha_module_start(struct TaghaModule *const module, const struct TaghaItem *const func, const size_t args, const union TaghaVal params[const], union TaghaVal *const restrict retval)
 {
 	if( func->flags & TAGHA_FLAG_NATIVE ) {
 		if( func->flags & TAGHA_FLAG_LINKED ) {
@@ -410,9 +421,8 @@ static bool _tagha_module_start(struct TaghaModule *const module, const TaghaFun
 			module->osp -= bytes;
 			union TaghaVal *const restrict rsp = ( union TaghaVal* )(module->osp);
 			memcpy(rsp + 1, params, bytes - sizeof(union TaghaVal));
-			module->ip = func->item;
 			module->lr = NIL;
-			_tagha_module_exec(module);
+			_tagha_module_exec(module, func->item);
 			if( retval != NULL ) {
 				*retval = *( const union TaghaVal* )(module->osp);
 			}
@@ -442,7 +452,7 @@ static union TaghaVal read_opstack(const uintptr_t ptr, const int_fast8_t regid)
 	return ( regid==0 )? ( union TaghaVal ){0} : p[regid];
 }
 
-static void write_opstack(const uintptr_t ptr, const uint_fast8_t regid, const union TaghaVal val) {
+static void write_opstack(const uintptr_t ptr, const int_fast8_t regid, const union TaghaVal val) {
 	union TaghaVal *const restrict p = ( union TaghaVal* )(ptr);
 	if( regid==0 ) {
 		p[0] = p[0];
@@ -452,10 +462,10 @@ static void write_opstack(const uintptr_t ptr, const uint_fast8_t regid, const u
 }
 
 
-static void _tagha_module_exec(struct TaghaModule *const restrict vm)
+static void _tagha_module_exec(struct TaghaModule *const restrict vm, const uintptr_t ip)
 {
 	/// pc is restricted and must not access beyond the function table!
-	union TaghaPtr pc = { ( const uint64_t* )(vm->ip) };
+	union TaghaPtr pc = { ( const uint64_t* )(ip) };
 	const uintptr_t mem_bnds_diff = vm->high_seg - vm->low_seg;
 	
 #define X(x) #x ,
@@ -471,14 +481,14 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 	
 #	define DBG_JMP \
 		do { \
-			const uint_fast8_t instr = *pc.uint8; pc.uint8++; \
+			const uint_fast8_t instr = *pc.uint8++; \
 			if( instr>=MaxOps ) { \
 				printf("instr : '%#x' '%u' | offset: %zu\n", instr, instr, ( uintptr_t )(pc.uint8) - vm->script); \
 				vm->err = TaghaErrOpcodeOOB; \
 				return; \
 			} else { \
-				/*usleep(100);*/ \
-				printf("dispatching to '%s'\n", op_to_cstr[instr]); \
+				/*sleep(1);*/ \
+				printf("dispatching to '%s' | vm: %p\n", op_to_cstr[instr], vm); \
 				goto *dispatch[instr]; \
 			} \
 		} while( 0 )
@@ -489,6 +499,50 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 	
 	/// nop being first will make sure our vm starts with a dispatch!
 	exec_nop: { /// u8: opcode
+		DISPATCH();
+	}
+	exec_enter: { /// u8: opcode | u8: cells
+		_tagha_push_lr(vm);
+		goto exec_alloc;
+	}
+	
+	exec_pushlr: { /// u8: opcode
+		_tagha_push_lr(vm);
+		DISPATCH();
+	}
+	exec_poplr: { /// u8: opcode
+		_tagha_pop_lr(vm);
+		DISPATCH();
+	}
+	exec_restore: { /// u8: opcode
+		_tagha_pop_lr(vm);
+		goto exec_ret;
+	}
+	exec_leave: { /// u8: opcode | u8: cells
+		_tagha_pop_lr(vm);
+		goto exec_remit;
+	}
+	exec_ret: { /// u8: opcode
+		pc.uint8 = ( const uint8_t* )(vm->lr);
+		if( pc.uint8==NULL ) {
+	exec_halt:
+			return;
+		} else {
+			DISPATCH();
+		}
+	}
+	exec_movi: { /// u8: opcode | u8: dest reg | u64: imm
+		const uint_fast8_t regid = *pc.uint8++;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vm->osp);
+		rsp[regid] = *pc.val++;
+		DISPATCH();
+	}
+	exec_mov: { /// u8: opcode | u8: dest reg | u8: src reg
+		const uint_fast16_t instr = *pc.uint16++;
+		const uint_fast8_t  dst   = instr & 0xff;
+		const uint_fast8_t  src   = instr >> 8;
+		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vm->osp);
+		rsp[dst] = rsp[src];
 		DISPATCH();
 	}
 	
@@ -517,37 +571,36 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 			DISPATCH();
 		}
 	}
-	exec_movi: { /// u8: opcode | u8: dest reg | u64: imm
-		const uint_fast8_t regid = *pc.uint8++;
-		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vm->osp);
-		rsp[regid] = *pc.val++;
-		DISPATCH();
+	
+	exec_remit: { /// u8: opcode | u8: cells
+		const uint_fast8_t cells  = *pc.uint8++;
+		const size_t dealloc_size = sizeof(union TaghaVal) * cells;
+		if( vm->osp + dealloc_size > vm->opstack + vm->opstack_size ) {
+			vm->osp = vm->opstack + vm->opstack_size;
+			goto exec_ret;
+		} else {
+			vm->osp += dealloc_size;
+			goto exec_ret;
+		}
 	}
-	exec_mov: { /// u8: opcode | u8: dest reg | u8: src reg
-		const uint_fast16_t instr = *pc.uint16++;
-		const uint_fast8_t  dst   = instr & 0xff;
-		const uint_fast8_t  src   = instr >> 8;
-		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vm->osp);
-		rsp[dst] = rsp[src];
-		DISPATCH();
-	}
+	
 	exec_lra: { /// u8: opcode | u8: regid | u16: offset
 		const uint_fast8_t  regid  = *pc.uint8++;
 		const uint_fast16_t offset = *pc.uint16++;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vm->osp);
-		//rsp[regid].uintptr = vm->osp + offset;
 		rsp[regid].uintptr = ( uintptr_t )(rsp + offset);
 		DISPATCH();
 	}
 	exec_lea: { /// u8: opcode | u8: dest | u8: src | i16: offset
 		const uint32_t instr = *pc.uint32++;
-		const uint_fast8_t  dst   = instr & 0xff;
-		const uint_fast8_t  src   = (instr & 0xffff) >> 8;
+		const uint_fast8_t dst   = instr & 0xff;
+		const uint_fast8_t src   = (instr & 0xffff) >> 8;
 		const int32_t offset = ( int32_t )(instr) >> 16;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vm->osp);
 		rsp[dst].uintptr = rsp[src].uintptr + offset;
 		DISPATCH();
 	}
+	
 	/// load global variable.
 	exec_ldvar: { /// u8: opcode | u8: regid | u16: index
 		const uint_fast8_t  regid = *pc.uint8++;
@@ -873,7 +926,7 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 		DISPATCH();
 	}
 	
-	exec_bit_and: { /// u8: opcode | u8: dest reg | u8: src reg
+	exec__and: { /// u8: opcode | u8: dest reg | u8: src reg
 		const uint_fast16_t instr = *pc.uint16++;
 		const uint_fast8_t  dst   = instr & 0xff;
 		const uint_fast8_t  src   = instr >> 8;
@@ -882,7 +935,7 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 		DISPATCH();
 	}
 	
-	exec_bit_or: { /// u8: opcode | u8: dest reg | u8: src reg
+	exec__or: { /// u8: opcode | u8: dest reg | u8: src reg
 		const uint_fast16_t instr = *pc.uint16++;
 		const uint_fast8_t  dst   = instr & 0xff;
 		const uint_fast8_t  src   = instr >> 8;
@@ -891,7 +944,7 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 		DISPATCH();
 	}
 	
-	exec_bit_xor: { /// u8: opcode | u8: dest reg | u8: src reg
+	exec__xor: { /// u8: opcode | u8: dest reg | u8: src reg
 		const uint_fast16_t instr = *pc.uint16++;
 		const uint_fast8_t  dst   = instr & 0xff;
 		const uint_fast8_t  src   = instr >> 8;
@@ -900,7 +953,7 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 		DISPATCH();
 	}
 	
-	exec_shl: { /// u8: opcode | u8: dest reg | u8: src reg
+	exec_sll: { /// u8: opcode | u8: dest reg | u8: src reg
 		const uint_fast16_t instr = *pc.uint16++;
 		const uint_fast8_t  dst   = instr & 0xff;
 		const uint_fast8_t  src   = instr >> 8;
@@ -909,7 +962,7 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 		DISPATCH();
 	}
 	
-	exec_shr: { /// u8: opcode | u8: dest reg | u8: src reg
+	exec_srl: { /// u8: opcode | u8: dest reg | u8: src reg
 		const uint_fast16_t instr = *pc.uint16++;
 		const uint_fast8_t  dst   = instr & 0xff;
 		const uint_fast8_t  src   = instr >> 8;
@@ -918,7 +971,7 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 		DISPATCH();
 	}
 	
-	exec_shar: { /// u8: opcode | u8: dest reg | u8: src reg
+	exec_sra: { /// u8: opcode | u8: dest reg | u8: src reg
 		const uint_fast16_t instr = *pc.uint16++;
 		const uint_fast8_t  dst   = instr & 0xff;
 		const uint_fast8_t  src   = instr >> 8;
@@ -927,7 +980,7 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 		DISPATCH();
 	}
 	
-	exec_bit_not: { /// u8: opcode | u8: regid
+	exec__not: { /// u8: opcode | u8: regid
 		const uint_fast8_t regid = *pc.uint8++;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vm->osp);
 		rsp[regid].uint64 = ~rsp[regid].uint64;
@@ -1040,21 +1093,13 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 		}
 	}
 	
-	exec_pushlr: { /// u8: opcode
-		_tagha_push_lr(vm);
-		DISPATCH();
-	}
-	exec_poplr: { /// u8: opcode
-		_tagha_pop_lr(vm);
-		DISPATCH();
-	}
-	
 	exec_call: { /// u8: opcode | u16: index
 		const uint_fast16_t index = *pc.uint16++;
-		const TaghaFunc     func  = vm->funcs->table + (index - 1);
+		const struct TaghaItem *const func = &vm->funcs->table[index - 1];
 		const uintptr_t     item  = func->item;
-		const uint32_t      flags = func->flags;
-		if( item==NIL || func->owner==NIL ) {
+		const uintptr_t     owner = func->owner;
+		const uint_fast32_t flags = func->flags;
+		if( item==NIL || owner==NIL ) {
 			vm->err = flags;
 			return;
 		} else if( flags & TAGHA_FLAG_NATIVE ) {
@@ -1067,7 +1112,7 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 				DISPATCH();
 			}
 		} else if( flags & TAGHA_FLAG_EXTERN ) {
-			const struct TaghaModule *const lib = ( const struct TaghaModule* )(func->owner);
+			const struct TaghaModule *const lib = ( const struct TaghaModule* )(owner);
 			/// save old symbol tables.
 			const uintptr_t
 				saved_funcs = ( uintptr_t )(vm->funcs),
@@ -1077,16 +1122,15 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 			vm->vars  = lib->vars;
 			
 			_tagha_push_lr(vm);
-			vm->ip = item;
 			vm->lr = NIL;
-			_tagha_module_exec(vm);
-			
+			_tagha_module_exec(vm, item);
 			_tagha_pop_lr(vm);
+			
 			vm->funcs = ( const struct TaghaSymTable* )(saved_funcs);
 			vm->vars  = ( const struct TaghaSymTable* )(saved_vars);
 			DISPATCH();
 		} else {
-			vm->lr = ( uintptr_t )(pc.uint8);
+			vm->lr   = ( uintptr_t )(pc.uint8);
 			pc.uint8 = ( const uint8_t* )(item);
 			DISPATCH();
 		}
@@ -1094,7 +1138,7 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 	exec_callr: { /// u8: opcode | u8: regid
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vm->osp);
 		const uint_fast8_t regid = *pc.uint8++;
-		const TaghaFunc func = ( TaghaFunc )(rsp[regid].uintptr);
+		const struct TaghaItem *const func = ( const struct TaghaItem* )(rsp[regid].uintptr);
 		if( func==NULL ) {
 			vm->err = TaghaErrBadFunc;
 			return;
@@ -1129,30 +1173,19 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 					vm->vars  = lib->vars;
 					
 					_tagha_push_lr(vm);
-					vm->ip = item;
 					vm->lr = NIL;
-					_tagha_module_exec(vm);
-					
+					_tagha_module_exec(vm, item);
 					_tagha_pop_lr(vm);
+					
 					vm->funcs = ( const struct TaghaSymTable* )(saved_funcs);
 					vm->vars  = ( const struct TaghaSymTable* )(saved_vars);
 					DISPATCH();
 				}
 			} else {
-				vm->lr = ( uintptr_t )(pc.uint8);
+				vm->lr   = ( uintptr_t )(pc.uint8);
 				pc.uint8 = ( const uint8_t* )(item);
 				DISPATCH();
 			}
-		}
-	}
-	
-	exec_ret: { /// u8: opcode
-		pc.uint8 = ( const uint8_t* )(vm->lr);
-		if( pc.uint8==NULL ) {
-	exec_halt:
-			return;
-		} else {
-			DISPATCH();
 		}
 	}
 	
@@ -1172,8 +1205,8 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 		const uint_fast8_t regid = *pc.uint8++;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vm->osp);
 #	if defined(TAGHA_FLOAT32_DEFINED) && defined(TAGHA_FLOAT64_DEFINED)
-		const float64_t d = rsp[regid].float64;
-		rsp[regid].int64 = 0;
+		const float64_t d  = rsp[regid].float64;
+		rsp[regid].int64   = 0;
 		rsp[regid].float32 = ( float32_t )(d);
 #	else
 		( void )(regid); ( void )(rsp);
@@ -1184,7 +1217,7 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 		const uint_fast8_t regid = *pc.uint8++;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vm->osp);
 #	ifdef TAGHA_FLOAT64_DEFINED
-		const int64_t i = rsp[regid].int64;
+		const int64_t i    = rsp[regid].int64;
 		rsp[regid].float64 = ( float64_t )(i);
 #	else
 		( void )(regid); ( void )(rsp);
@@ -1195,8 +1228,8 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 		const uint_fast8_t regid = *pc.uint8++;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vm->osp);
 #	ifdef TAGHA_FLOAT32_DEFINED
-		const int64_t i = rsp[regid].int64;
-		rsp[regid].int64 = 0;
+		const int64_t i    = rsp[regid].int64;
+		rsp[regid].int64   = 0;
 		rsp[regid].float32 = ( float32_t )(i);
 #	else
 		( void )(regid); ( void )(rsp);
@@ -1208,7 +1241,7 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vm->osp);
 #	ifdef TAGHA_FLOAT64_DEFINED
 		const float64_t i = rsp[regid].float64;
-		rsp[regid].int64 = ( int64_t )(i);
+		rsp[regid].int64  = ( int64_t )(i);
 #	else
 		( void )(regid); ( void )(rsp);
 #	endif
@@ -1219,7 +1252,7 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vm->osp);
 #	ifdef TAGHA_FLOAT32_DEFINED
 		const float32_t i = rsp[regid].float32;
-		rsp[regid].int64 = ( int64_t )(i);
+		rsp[regid].int64  = ( int64_t )(i);
 #	else
 		( void )(regid); ( void )(rsp);
 #	endif
@@ -1577,7 +1610,7 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 		}
 		DISPATCH();
 	}
-	exec_vshl: { /// u8: opcode | u8: reg 1 | u8: reg 2
+	exec_vsll: { /// u8: opcode | u8: reg 1 | u8: reg 2
 		const uint_fast16_t instr = *pc.uint16++;
 		const uint_fast8_t  dst   = instr & 0xff;
 		const uint_fast8_t  src   = instr >> 8;
@@ -1603,7 +1636,7 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 		}
 		DISPATCH();
 	}
-	exec_vshr: { /// u8: opcode | u8: reg 1 | u8: reg 2
+	exec_vsrl: { /// u8: opcode | u8: reg 1 | u8: reg 2
 		const uint_fast16_t instr = *pc.uint16++;
 		const uint_fast8_t  dst   = instr & 0xff;
 		const uint_fast8_t  src   = instr >> 8;
@@ -1629,7 +1662,7 @@ static void _tagha_module_exec(struct TaghaModule *const restrict vm)
 		}
 		DISPATCH();
 	}
-	exec_vshar: { /// u8: opcode | u8: reg 1 | u8: reg 2
+	exec_vsra: { /// u8: opcode | u8: reg 1 | u8: reg 2
 		const uint_fast16_t instr = *pc.uint16++;
 		const uint_fast8_t  dst   = instr & 0xff;
 		const uint_fast8_t  src   = instr >> 8;

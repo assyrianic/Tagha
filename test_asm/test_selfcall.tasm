@@ -17,32 +17,26 @@ prior_func {
 	alloc       2
 	ldvar       r1, flwr_str
 	call        puts
-	redux       2
-	ret
+	remit       2
 }
 
 func {
-	pushlr
-	alloc       2
+	enter       2
 	ldvar       r1, nude_str
 	call        puts
 	call        prior_func
-	redux       2
-	poplr
-	ret
+	leave       2
 }
 
 another_func {
 	alloc       1
 	ldvar       r1, kek_str
 	call        puts
-	redux       1
-	ret
+	remit       1
 }
 
 main {
-	pushlr
-	alloc       4
+	enter       4
 	call        prior_func
 	
 	ldvar       r2, func_str
@@ -52,7 +46,5 @@ main {
 	
 	callr       r3
 	call        another_func
-	redux       3
-	poplr
-	ret
+	leave       3
 }

@@ -3,7 +3,7 @@
 #include "../instr_gen.h"
 #include "../module_gen.h"
 
-//#define TAGHA_ASM_DEBUG
+#define TAGHA_ASM_DEBUG
 
 #define COLOR_RED       "\x1B[31m"
 #define COLOR_MAGENTA   "\x1B[35m"
@@ -11,8 +11,7 @@
 #define COLOR_RESET     "\033[0m"
 
 
-static inline bool is_possible_ident(const int c)
-{
+static inline bool is_possible_ident(const int c) {
 	return( (c >= 'a' && c <= 'z')
 		|| (c >= 'A' && c <= 'Z')
 		|| c=='_' || c=='@' || c=='$'
@@ -20,8 +19,7 @@ static inline bool is_possible_ident(const int c)
 		|| c < -1 );
 }
 
-static inline bool is_alphabetical(const int c)
-{
+static inline bool is_alphabetical(const int c) {
 	return( (c >= 'a' && c <= 'z')
 		|| (c >= 'A' && c <= 'Z')
 		|| c=='_' || c=='@' || c=='$'
@@ -73,29 +71,31 @@ static struct {
 static void _tagha_asm_setup_opcodes(void)
 {
 	tagha_asm.opcodes = harbol_linkmap_create(sizeof(uint8_t));
-#define X(x)    harbol_linkmap_insert(&tagha_asm.opcodes, #x, &(uint8_t){x});
+#define X(x)    harbol_linkmap_insert(&tagha_asm.opcodes, #x, &( uint8_t ){x});
 	TAGHA_INSTR_SET;
 #undef X
-	harbol_linkmap_insert(&tagha_asm.opcodes, "and", &(uint8_t){bit_and});
-	harbol_linkmap_insert(&tagha_asm.opcodes, "or",  &(uint8_t){bit_or});
-	harbol_linkmap_insert(&tagha_asm.opcodes, "xor", &(uint8_t){bit_xor});
-	harbol_linkmap_insert(&tagha_asm.opcodes, "not", &(uint8_t){bit_not});
+	harbol_linkmap_insert(&tagha_asm.opcodes, "and", &( uint8_t ){_and});
+	harbol_linkmap_insert(&tagha_asm.opcodes, "or",  &( uint8_t ){_or});
+	harbol_linkmap_insert(&tagha_asm.opcodes, "xor", &( uint8_t ){_xor});
+	harbol_linkmap_insert(&tagha_asm.opcodes, "not", &( uint8_t ){_not});
 }
+
 static void _tagha_asm_setup_data(void)
 {
 	tagha_asm.labels = harbol_linkmap_create(sizeof(Label));
-	tagha_asm.funcs = harbol_linkmap_create(sizeof(Label));
-	tagha_asm.vars = harbol_linkmap_create(sizeof(struct HarbolByteBuf));
+	tagha_asm.funcs  = harbol_linkmap_create(sizeof(Label));
+	tagha_asm.vars   = harbol_linkmap_create(sizeof(struct HarbolByteBuf));
 }
 
 static void _tagha_asm_clear_data(void)
 {
 	harbol_linkmap_clear(&tagha_asm.labels, label_free);
 	harbol_linkmap_clear(&tagha_asm.funcs, label_free);
-	harbol_linkmap_clear(&tagha_asm.vars, ( void(*)(void**) )harbol_bytebuffer_free);
+	harbol_linkmap_clear(&tagha_asm.vars, ( void(*)(void**) )(( void* )(&harbol_bytebuffer_free)));
 	harbol_string_clear(&tagha_asm.outfile);
 	harbol_string_clear(&tagha_asm.src);
 }
+
 static void _tagha_asm_zero_out(void)
 {
 	harbol_linkmap_clear(&tagha_asm.opcodes, NULL);
@@ -110,8 +110,9 @@ static void _tagha_asm_skip_whitespace(void)
 static void _tagha_asm_skip_delim(const int c)
 {
 	_tagha_asm_skip_whitespace();
-	if( *tagha_asm.iter==c )
+	if( *tagha_asm.iter==c ) {
 		tagha_asm.iter++;
+	}
 	_tagha_asm_skip_whitespace();
 }
 
@@ -136,10 +137,12 @@ static bool string_to_int(struct HarbolString *const str, int64_t *const i)
 	const bool res = lex_c_style_number(tagha_asm.iter, &ender, str, &isfloat);
 	if( res ) {
 		const bool is_binary = !harbol_string_cmpcstr(str, "0b") || !harbol_string_cmpcstr(str, "0B") ? true : false;
-		*i = isfloat ? ( int64_t )strtod(str->cstr, NULL) : strtoll(is_binary ? str->cstr+2 : str->cstr, NULL, 0);
-		if( ender != NULL )
+		*i = isfloat ? ( int64_t )(strtod(str->cstr, NULL)) : strtoll(is_binary ? str->cstr+2 : str->cstr, NULL, 0);
+		if( ender != NULL ) {
 			tagha_asm.iter = ender;
-		else tagha_asm.iter++;
+		} else {
+			tagha_asm.iter++;
+		}
 	} else {
 		_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "bad number string.");
 	}
@@ -156,9 +159,9 @@ static void tagha_asm_parse_opstacksize(void)
 	}
 	
 	int64_t num = 0;
-	if( string_to_int(&tagha_asm.lexeme, &num) )
+	if( string_to_int(&tagha_asm.lexeme, &num) ) {
 		tagha_asm.opstacksize = ( uint32_t )(num * sizeof(union TaghaVal));
-	else {
+	} else {
 		_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "bad opstack_size value: '%s'", tagha_asm.lexeme.cstr);
 	}
 	
@@ -177,9 +180,9 @@ static void tagha_asm_parse_callstacksize(void)
 	}
 	
 	int64_t num = 0;
-	if( string_to_int(&tagha_asm.lexeme, &num) )
+	if( string_to_int(&tagha_asm.lexeme, &num) ) {
 		tagha_asm.callstacksize = ( uint32_t )(num * sizeof(uintptr_t));
-	else {
+	} else {
 		_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "bad callstack_size value: '%s'", tagha_asm.lexeme.cstr);
 	}
 	
@@ -198,9 +201,9 @@ static void tagha_asm_parse_heapsize(void)
 	}
 	
 	int64_t num = 0;
-	if( string_to_int(&tagha_asm.lexeme, &num) )
-		tagha_asm.heapsize = ( uint32_t )num;
-	else {
+	if( string_to_int(&tagha_asm.lexeme, &num) ) {
+		tagha_asm.heapsize = ( uint32_t )(num);
+	} else {
 		_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "bad heap_size value: '%s'", tagha_asm.lexeme.cstr);
 	}
 #ifdef TAGHA_ASM_DEBUG
@@ -254,7 +257,7 @@ static void tagha_asm_parse_global(void)
 			_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "invalid byte size in global directive '%" PRIi64 "'", num);
 			goto tagha_asm_global_err;
 		}
-		size_t bytes = ( size_t )num;
+		size_t bytes = ( size_t )(num);
 	#ifdef TAGHA_ASM_DEBUG
 		printf("bytesize: '%zu'\n", bytes);
 	#endif
@@ -263,7 +266,6 @@ static void tagha_asm_parse_global(void)
 		
 		while( bytes != 0 ) {
 			_tagha_asm_skip_delim(',');
-			
 			if( is_decimal(*tagha_asm.iter) ) {
 				int64_t arg = 0; string_to_int(&tagha_asm.lexeme, &arg);
 				if( arg != 0LL ) {
@@ -290,9 +292,9 @@ static void tagha_asm_parse_global(void)
 						goto tagha_asm_global_err;
 					}
 				#ifdef TAGHA_ASM_DEBUG
-					printf("data size byte: '%u'\n", ( uint8_t )num);
+					printf("data size byte: '%u'\n", ( uint8_t )(num));
 				#endif
-					harbol_bytebuffer_insert_byte(&vardata, ( uint8_t )num);
+					harbol_bytebuffer_insert_byte(&vardata, ( uint8_t )(num));
 					bytes--;
 				} else if( !harbol_string_cmpcstr(&tagha_asm.lexeme, "half") ) {
 					_tagha_asm_skip_whitespace();
@@ -301,9 +303,9 @@ static void tagha_asm_parse_global(void)
 						goto tagha_asm_global_err;
 					}
 				#ifdef TAGHA_ASM_DEBUG
-					printf("data size half: '%u'\n", ( uint16_t )num);
+					printf("data size half: '%u'\n", ( uint16_t )(num));
 				#endif
-					harbol_bytebuffer_insert_int16(&vardata, ( uint16_t )num);
+					harbol_bytebuffer_insert_int16(&vardata, ( uint16_t )(num));
 					bytes -= sizeof(uint16_t);
 				} else if( !harbol_string_cmpcstr(&tagha_asm.lexeme, "long") ) {
 					_tagha_asm_skip_whitespace();
@@ -312,9 +314,9 @@ static void tagha_asm_parse_global(void)
 						goto tagha_asm_global_err;
 					}
 				#ifdef TAGHA_ASM_DEBUG
-					printf("data size long: '%u'\n", ( uint32_t )num);
+					printf("data size long: '%u'\n", ( uint32_t )(num));
 				#endif
-					harbol_bytebuffer_insert_int32(&vardata, ( uint32_t )num);
+					harbol_bytebuffer_insert_int32(&vardata, ( uint32_t )(num));
 					bytes -= sizeof(uint32_t);
 				} else if( !harbol_string_cmpcstr(&tagha_asm.lexeme, "word") ) {
 					_tagha_asm_skip_whitespace();
@@ -325,7 +327,7 @@ static void tagha_asm_parse_global(void)
 				#ifdef TAGHA_ASM_DEBUG
 					printf("data size long: '%" PRIu64 "'\n", num);
 				#endif
-					harbol_bytebuffer_insert_int64(&vardata, ( uint64_t )num);
+					harbol_bytebuffer_insert_int64(&vardata, ( uint64_t )(num));
 					bytes -= sizeof(uint64_t);
 				}
 			} else {
@@ -392,7 +394,6 @@ static void tagha_asm_parse_extern(void)
 static void tagha_asm_assemble(void)
 {
 	_tagha_asm_setup_data();
-	
 	struct HarbolString _active = {0};
 	
 #ifdef TAGHA_ASM_DEBUG
@@ -483,7 +484,7 @@ static void tagha_asm_assemble(void)
 			#ifdef TAGHA_ASM_DEBUG
 				printf("opcode definition: %s\n", tagha_asm.lexeme.cstr);
 			#endif
-				const uint8_t opcode = *( const uint8_t* )harbol_linkmap_key_get(&tagha_asm.opcodes, tagha_asm.lexeme.cstr);
+				const uint8_t opcode = *( const uint8_t* )(harbol_linkmap_key_get(&tagha_asm.opcodes, tagha_asm.lexeme.cstr));
 				tagha_asm.pc += tagha_instr_gen(NULL, opcode);
 				
 				/// ignore opcode args until second pass.
@@ -592,13 +593,13 @@ static void tagha_asm_assemble(void)
 				_tagha_asm_skip_whitespace();
 				switch( *opcode ) {
 					/// one uint8 immediate.
-					case alloc: case redux: {
+					case alloc: case redux: case leave: case remit: case enter: {
 						uint64_t imm = 0;
-						if( string_to_int(&tagha_asm.lexeme, ( int64_t* )&imm) && imm < 256 ) {
+						if( string_to_int(&tagha_asm.lexeme, ( int64_t* )(&imm)) && imm < 256 ) {
 						#ifdef TAGHA_ASM_DEBUG
-							printf("opcode value: %u\n", ( uint8_t )imm);
+							printf("opcode value: %u\n", ( uint8_t )(imm));
 						#endif
-							tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )imm);
+							tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )(imm));
 						} else {
 							_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' requires 0-255 number operand", op_to_cstr[*opcode]);
 							goto tagha_asm_err;
@@ -608,11 +609,11 @@ static void tagha_asm_assemble(void)
 					
 					case setvlen: {
 						uint64_t imm = 0;
-						if( string_to_int(&tagha_asm.lexeme, ( int64_t* )&imm) && imm < 0x10000 ) {
+						if( string_to_int(&tagha_asm.lexeme, ( int64_t* )(&imm)) && imm < 0x10000 ) {
 						#ifdef TAGHA_ASM_DEBUG
-							printf("opcode value: %u\n", ( uint16_t )imm);
+							printf("opcode value: %u\n", ( uint16_t )(imm));
 						#endif
-							tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )imm);
+							tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )(imm));
 						} else {
 							_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' requires 0-65535 number operand", op_to_cstr[*opcode]);
 							goto tagha_asm_err;
@@ -637,7 +638,7 @@ static void tagha_asm_assemble(void)
 								goto tagha_asm_err;
 							}
 						#ifdef TAGHA_ASM_DEBUG
-							printf("opcode value: %s (%u)\n", tagha_asm.lexeme.cstr, ( uint8_t )id);
+							printf("opcode value: %s (%u)\n", tagha_asm.lexeme.cstr, ( uint8_t )(id));
 						#endif
 							tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, id);
 						} else {
@@ -649,7 +650,7 @@ static void tagha_asm_assemble(void)
 					
 					/// one uint8 register operand.
 					case neg: case fneg:
-					case bit_not: case setc:
+					case _not: case setc:
 					case callr:
 					case f32tof64: case f64tof32:
 					case itof64: case itof32:
@@ -660,11 +661,11 @@ static void tagha_asm_assemble(void)
 						if( *tagha_asm.iter=='r' || *tagha_asm.iter=='R' )
 							tagha_asm.iter++;
 						
-						if( string_to_int(&tagha_asm.lexeme, ( int64_t* )&reg) && reg < 256 ) {
+						if( string_to_int(&tagha_asm.lexeme, ( int64_t* )(&reg)) && reg < 256 ) {
 						#ifdef TAGHA_ASM_DEBUG
-							printf("opcode reg: r%u\n", ( uint8_t )reg);
+							printf("opcode reg: r%u\n", ( uint8_t )(reg));
 						#endif
-							tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )reg);
+							tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )(reg));
 						} else {
 							_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' requires a single r0-r255 register operand", op_to_cstr[*opcode]);
 							goto tagha_asm_err;
@@ -676,12 +677,12 @@ static void tagha_asm_assemble(void)
 					case mov:
 					case add: case sub: case mul: case idiv: case mod:
 					case fadd: case fsub: case fmul: case fdiv:
-					case bit_and: case bit_or: case bit_xor: case shl: case shr: case shar:
+					case _and: case _or: case _xor: case sll: case srl: case sra:
 					case ilt: case ile: case ult: case ule: case cmp: case flt: case fle:
 					case vmov:
 					case vadd: case vsub: case vmul: case vdiv: case vmod:
 					case vfadd: case vfsub: case vfmul: case vfdiv:
-					case vand: case vor: case vxor: case vshl: case vshr: case vshar:
+					case vand: case vor: case vxor: case vsll: case vsrl: case vsra:
 					case vcmp: case vilt: case vile: case vult: case vule: case vflt: case vfle: {
 						uint64_t
 							reg1 = 0,
@@ -690,19 +691,19 @@ static void tagha_asm_assemble(void)
 						if( *tagha_asm.iter=='r' || *tagha_asm.iter=='R' )
 							tagha_asm.iter++;
 						
-						const bool res1 = string_to_int(&tagha_asm.lexeme, ( int64_t* )&reg1);
+						const bool res1 = string_to_int(&tagha_asm.lexeme, ( int64_t* )(&reg1));
 						_tagha_asm_skip_delim(',');
 						
 						if( *tagha_asm.iter=='r' || *tagha_asm.iter=='R' )
 							tagha_asm.iter++;
 						
-						const bool res2 = string_to_int(&tagha_asm.lexeme, ( int64_t* )&reg2);
+						const bool res2 = string_to_int(&tagha_asm.lexeme, ( int64_t* )(&reg2));
 						
 						if( res1 && res2 && reg1 < 256 && reg2 < 256 ) {
 						#ifdef TAGHA_ASM_DEBUG
-							printf("opcode reg: r%u, r%u\n", ( uint8_t )reg1, ( uint8_t )reg2);
+							printf("opcode reg: r%u, r%u\n", ( uint8_t )(reg1), ( uint8_t )(reg2));
 						#endif
-							tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )reg1, ( int )reg2);
+							tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )(reg1), ( int )(reg2));
 						} else {
 							_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' requires two r0-r255 register operands", op_to_cstr[*opcode]);
 							goto tagha_asm_err;
@@ -716,16 +717,16 @@ static void tagha_asm_assemble(void)
 						if( *tagha_asm.iter=='r' || *tagha_asm.iter=='R' )
 							tagha_asm.iter++;
 						
-						const bool res1 = string_to_int(&tagha_asm.lexeme, ( int64_t* )&reg);
+						const bool res1 = string_to_int(&tagha_asm.lexeme, ( int64_t* )(&reg));
 						if( res1 && reg < 256 ) {
 							_tagha_asm_skip_delim(',');
 							uint64_t offset = 0;
-							const bool res2 = string_to_int(&tagha_asm.lexeme, ( int64_t* )&offset);
+							const bool res2 = string_to_int(&tagha_asm.lexeme, ( int64_t* )(&offset));
 							if( res2 && offset<0xFFFF ) {
 							#ifdef TAGHA_ASM_DEBUG
-								printf("opcode value: r%u, %u\n", ( uint8_t )reg, ( uint16_t )offset);
+								printf("opcode value: r%u, %u\n", ( uint8_t )(reg), ( uint16_t )(offset));
 							#endif
-								tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )reg, ( int )offset);
+								tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )(reg), ( int )(offset));
 							} else {
 								_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' requires a 2-byte immediate as second operand", op_to_cstr[*opcode]);
 								goto tagha_asm_err;
@@ -743,7 +744,7 @@ static void tagha_asm_assemble(void)
 						if( *tagha_asm.iter=='r' || *tagha_asm.iter=='R' )
 							tagha_asm.iter++;
 						
-						const bool res1 = string_to_int(&tagha_asm.lexeme, ( int64_t* )&reg);
+						const bool res1 = string_to_int(&tagha_asm.lexeme, ( int64_t* )(&reg));
 						if( res1 && reg < 256 ) {
 							_tagha_asm_skip_delim(',');
 							const bool use_vars = ( *opcode != ldfn );
@@ -754,9 +755,9 @@ static void tagha_asm_assemble(void)
 								}
 								const index_t id = harbol_linkmap_get_key_index(use_vars ? &tagha_asm.vars : &tagha_asm.funcs, tagha_asm.lexeme.cstr);
 							#ifdef TAGHA_ASM_DEBUG
-								printf("opcode value: r%u, %s (%u)\n", ( uint8_t )reg, tagha_asm.lexeme.cstr, ( uint16_t )id);
+								printf("opcode value: r%u, %s (%u)\n", ( uint8_t )(reg), tagha_asm.lexeme.cstr, ( uint16_t )(id));
 							#endif
-								tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )reg, ( int )id);
+								tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )(reg), ( int )(id));
 							} else {
 								_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' requires a %s name as second operand", op_to_cstr[*opcode], use_vars ? "global var" : "func");
 								goto tagha_asm_err;
@@ -778,9 +779,9 @@ static void tagha_asm_assemble(void)
 							}
 							const index_t id = harbol_linkmap_get_key_index(&tagha_asm.funcs, tagha_asm.lexeme.cstr) + 1;
 						#ifdef TAGHA_ASM_DEBUG
-							printf("opcode value: %s (%u)\n", tagha_asm.lexeme.cstr, ( uint16_t )id);
+							printf("opcode value: %s (%u)\n", tagha_asm.lexeme.cstr, ( uint16_t )(id));
 						#endif
-							tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )id);
+							tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )(id));
 						} else {
 							_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' requires a func name as first operand", op_to_cstr[*opcode]);
 							goto tagha_asm_err;
@@ -798,16 +799,16 @@ static void tagha_asm_assemble(void)
 						if( *tagha_asm.iter=='r' || *tagha_asm.iter=='R' )
 							tagha_asm.iter++;
 						
-						const bool res1 = string_to_int(&tagha_asm.lexeme, ( int64_t* )&reg1);
+						const bool res1 = string_to_int(&tagha_asm.lexeme, ( int64_t* )(&reg1));
 						_tagha_asm_skip_delim(',');
 						_tagha_asm_skip_delim('[');
 						
 						if( *tagha_asm.iter=='r' || *tagha_asm.iter=='R' )
 							tagha_asm.iter++;
 						
-						const bool res2 = string_to_int(&tagha_asm.lexeme, ( int64_t* )&reg2);
+						const bool res2 = string_to_int(&tagha_asm.lexeme, ( int64_t* )(&reg2));
 					#ifdef TAGHA_ASM_DEBUG
-						printf("opcode regs: r%u, [r%u]\n", ( uint8_t )reg1, ( uint8_t )reg2);
+						printf("opcode regs: r%u, [r%u]\n", ( uint8_t )(reg1), ( uint8_t )(reg2));
 					#endif
 						if( !res1 || !res2 || reg1 > 255 || reg2 > 255 ) {
 							_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' requires r0-r255 register first operand and r0-255 register + offset dereference second operand", op_to_cstr[*opcode]);
@@ -824,15 +825,16 @@ static void tagha_asm_assemble(void)
 								goto tagha_asm_err;
 							}
 							string_to_int(&tagha_asm.lexeme, &offset);
-							if( neg )
+							if( neg ) {
 								offset = -offset;
+							}
 						}
 						_tagha_asm_skip_delim(']');
 						
 					#ifdef TAGHA_ASM_DEBUG
-						printf("opcode reg: r%u, [r%u%s%u]\n", ( uint8_t )reg1, ( uint8_t )reg2, offset<0 ? "-" : "+", ( int16_t )offset);
+						printf("opcode reg: r%u, [r%u%s%u]\n", ( uint8_t )(reg1), ( uint8_t )(reg2), offset<0 ? "-" : "+", ( int16_t )(offset));
 					#endif
-						tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )reg1, ( int )reg2, ( int )offset);
+						tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )(reg1), ( int )(reg2), ( int )(offset));
 						break;
 					}
 					
@@ -846,7 +848,7 @@ static void tagha_asm_assemble(void)
 						if( *tagha_asm.iter=='r' || *tagha_asm.iter=='R' )
 							tagha_asm.iter++;
 						
-						const bool res1 = string_to_int(&tagha_asm.lexeme, ( int64_t* )&reg1);
+						const bool res1 = string_to_int(&tagha_asm.lexeme, ( int64_t* )(&reg1));
 						if( !res1 || reg1 > 255 ) {
 							_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' requires r0-255 register + offset dereference first operand and r0-r255 register second operand", op_to_cstr[*opcode]);
 							goto tagha_asm_err;
@@ -861,33 +863,33 @@ static void tagha_asm_assemble(void)
 								goto tagha_asm_err;
 							}
 							string_to_int(&tagha_asm.lexeme, &offset);
-							if( neg )
+							if( neg ) {
 								offset = -offset;
+							}
 						}
 						_tagha_asm_skip_delim(']');
-						
 						_tagha_asm_skip_delim(',');
 						
 						if( *tagha_asm.iter=='r' || *tagha_asm.iter=='R' )
 							tagha_asm.iter++;
 						
-						const bool res2 = string_to_int(&tagha_asm.lexeme, ( int64_t* )&reg2);
+						const bool res2 = string_to_int(&tagha_asm.lexeme, ( int64_t* )(&reg2));
 					#ifdef TAGHA_ASM_DEBUG
-						printf("opcode regs: [r%u], r%u\n", ( uint8_t )reg1, ( uint8_t )reg2);
+						printf("opcode regs: [r%u], r%u\n", ( uint8_t )(reg1), ( uint8_t )(reg2));
 					#endif
 						if( !res2 || reg2 > 255 ) {
 							_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' requires r0-255 register + offset dereference first operand and r0-r255 register second operand", op_to_cstr[*opcode]);
 							goto tagha_asm_err;
 						} else if( !is_whitespace(*tagha_asm.iter) ) {
-							_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' has too many items", op_to_cstr[*opcode]);
+							_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' has too many table", op_to_cstr[*opcode]);
 							goto tagha_asm_err;
 						}
 						_tagha_asm_skip_whitespace();
 						
 					#ifdef TAGHA_ASM_DEBUG
-						printf("opcode reg: [r%u%s%u], r%u\n", ( uint8_t )reg1, offset<0 ? "-" : "+", ( int16_t )offset, ( uint8_t )reg2);
+						printf("opcode reg: [r%u%s%u], r%u\n", ( uint8_t )(reg1), offset<0 ? "-" : "+", ( int16_t )(offset), ( uint8_t )(reg2));
 					#endif
-						tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )reg1, ( int )reg2, ( int )offset);
+						tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )(reg1), ( int )(reg2), ( int )(offset));
 						break;
 					}
 					
@@ -907,10 +909,10 @@ static void tagha_asm_assemble(void)
 								}
 								const Label *const label = harbol_linkmap_key_get(&tagha_asm.labels, tagha_asm.lexeme.cstr);
 							#ifdef TAGHA_ASM_DEBUG
-								printf("label value: %s (%i)\n", tagha_asm.lexeme.cstr, ( int32_t )label->offset);
+								printf("label value: %s (%i)\n", tagha_asm.lexeme.cstr, ( int32_t )(label->offset));
 							#endif
 								tagha_asm.pc += tagha_instr_gen(NULL, *opcode);
-								const int32_t offs = ( ssize_t )label->offset - ( ssize_t )tagha_asm.pc;
+								const int32_t offs = ( ssize_t )(label->offset) - ( ssize_t )(tagha_asm.pc);
 								tagha_instr_gen(&func->data, *opcode, offs);
 							} else {
 								_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' requires a label name as first operand", op_to_cstr[*opcode]);
@@ -925,7 +927,7 @@ static void tagha_asm_assemble(void)
 						if( *tagha_asm.iter=='r' || *tagha_asm.iter=='R' )
 							tagha_asm.iter++;
 						
-						if( !string_to_int(&tagha_asm.lexeme, ( int64_t* )&reg) || reg > 256 ) {
+						if( !string_to_int(&tagha_asm.lexeme, ( int64_t* )(&reg)) || reg > 256 ) {
 							_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "opcode '%s' requires r0-r255 register as first operand", op_to_cstr[*opcode]);
 							goto tagha_asm_err;
 						} else {
@@ -935,14 +937,14 @@ static void tagha_asm_assemble(void)
 								_tagha_asm_err(tagha_asm.outfile.cstr, "error", tagha_asm.line, 0, "invalid immediate value ('%s') in second operand of opcode '%s'", op_to_cstr[*opcode], tagha_asm.lexeme.cstr);
 								goto tagha_asm_err;
 							} else {
-								tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )reg, val);
+								tagha_asm.pc += tagha_instr_gen(&func->data, *opcode, ( int )(reg), val);
 							}
 						}
 						break;
 					}
 					
 					/// no operands
-					case ret: case halt: case nop: case pushlr: case poplr: {
+					case ret: case halt: case nop: case pushlr: case poplr: case restore: {
 						tagha_asm.pc += tagha_instr_gen(&func->data, *opcode);
 					}
 					default: break;
@@ -960,31 +962,35 @@ static void tagha_asm_assemble(void)
 		TAGHA_ASM_DEFAULT_MEMSIZE = 0x1000
 	};
 	
-	if( tagha_asm.callstacksize == 0 )
+	if( tagha_asm.callstacksize == 0 ) {
 		tagha_asm.callstacksize = TAGHA_ASM_DEFAULT_MEMSIZE;
-	if( tagha_asm.opstacksize == 0 )
+	}
+	if( tagha_asm.opstacksize == 0 ) {
 		tagha_asm.opstacksize = TAGHA_ASM_DEFAULT_MEMSIZE;
-	if( tagha_asm.heapsize == 0 )
+	}
+	if( tagha_asm.heapsize == 0 ) {
 		tagha_asm.heapsize = TAGHA_ASM_DEFAULT_MEMSIZE;
+	}
 	
 	/// calculate extra heap size for internal tagha data.
-	const bool is_64_bit = sizeof(intptr_t)==8;
+	const bool   is_64_bit      = sizeof(intptr_t)==8;
 	const size_t tagha_ptr_size = (is_64_bit) ? sizeof(intptr_t) : sizeof(intptr_t) << 1;
-	const size_t memnode_size = harbol_align_size(sizeof(struct HarbolMemNode), tagha_ptr_size);
+	const size_t memnode_size   = harbol_align_size(sizeof(struct HarbolMemNode), tagha_ptr_size);
 	
 	const struct TaghaSymTable syms = {0};
 	const size_t tagha_sym_arr_size = harbol_align_size(sizeof *syms.table, tagha_ptr_size);
+	const size_t num_tables         = 5; /// how many pointer-tables in TaghaSymTable.
 	
 	uint32_t mem_region_size = memnode_size + tagha_ptr_size * 2;
 	
 	mem_region_size += (tagha_sym_arr_size * tagha_asm.funcs.map.count + memnode_size);
-	mem_region_size += ((tagha_ptr_size * tagha_asm.funcs.map.count * 3) + (memnode_size * 3));
+	mem_region_size += ((tagha_ptr_size * tagha_asm.funcs.map.count * num_tables) + (memnode_size * num_tables));
 	
 	mem_region_size += (tagha_sym_arr_size * tagha_asm.vars.map.count + memnode_size);
-	mem_region_size += ((tagha_ptr_size * tagha_asm.vars.map.count * 3) + (memnode_size * 3));
+	mem_region_size += ((tagha_ptr_size * tagha_asm.vars.map.count * num_tables) + (memnode_size * num_tables));
 	
 	struct TaghaModGen modgen = tagha_mod_gen_create();
-	tagha_mod_gen_write_header(&modgen, tagha_asm.opstacksize, tagha_asm.callstacksize, tagha_asm.heapsize+ ( uint32_t )harbol_align_size(mem_region_size, 8), 0);
+	tagha_mod_gen_write_header(&modgen, tagha_asm.opstacksize, tagha_asm.callstacksize, tagha_asm.heapsize + ( uint32_t )(harbol_align_size(mem_region_size, tagha_ptr_size)), 0);
 	
 	for( size_t i=0; i<tagha_asm.funcs.map.count; i++ ) {
 		const struct HarbolKeyVal *node = harbol_linkmap_index_get_kv(&tagha_asm.funcs, i);
@@ -997,19 +1003,22 @@ static void tagha_asm_assemble(void)
 			flags |= TAGHA_FLAG_NATIVE;
 		if( label->is_extern )
 			flags |= TAGHA_FLAG_EXTERN;
+		
 		tagha_mod_gen_write_func(&modgen, flags, node->key.cstr, &label->data);
 		
 	#ifdef TAGHA_ASM_DEBUG
 		printf("func label: %s\nData:\n", node->key.cstr);
-		if( !label->is_native )
-			for( size_t i=0; i<label->data.count; i++ )
+		if( !label->is_native ) {
+			for( size_t i=0; i<label->data.count; i++ ) {
 				printf("bytecode[%zu] == %u\n", i, label->data.table[i]);
+			}
+		}
 		puts("\n");
 	#endif
 	}
 	
 	for( size_t i=0; i<tagha_asm.vars.map.count; i++ ) {
-		const struct HarbolKeyVal *const node = harbol_linkmap_index_get_kv(&tagha_asm.vars, i);
+		const struct HarbolKeyVal  *const node     = harbol_linkmap_index_get_kv(&tagha_asm.vars, i);
 		const struct HarbolByteBuf *const bytedata = harbol_linkmap_index_get(&tagha_asm.vars, i);
 		if( bytedata==NULL )
 			continue;
@@ -1063,7 +1072,7 @@ NO_NULL int main(const int argc, char *argv[restrict static 1])
 			#ifdef TAGHA_ASM_DEBUG
 				printf("read file called: '%s'\n", argv[i]);
 			#endif
-				fclose(tasmfile), tasmfile=NULL;
+				fclose(tasmfile), tasmfile = NULL;
 				tagha_asm.outfile = harbol_string_create(argv[i]);
 				_tagha_asm_setup_opcodes();
 				tagha_asm_assemble();

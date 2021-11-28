@@ -190,15 +190,24 @@ factorial: {
 
 So far both functions do nothing. We'll implement factorial as a function that takes a single int32 parameter and returns an int32 as well.
 
-the implementation of the factorial looks like this in C and Python respectively:
+the implementation of the factorial looks like this in C, Golang, and Python respectively:
 ```c
 uint32_t factorial(const uint32_t i) {
-  return i<=1 ? 1 : i * factorial(i-1);
+  return (i<=1)? 1 : i * factorial(i-1);
+}
+```
+
+```go
+func factorial(i int) int {
+    if i <= 1 {
+        return i
+    }
+    return i * factorial(i-1)
 }
 ```
 
 ```python
-def factorial(i:int) -> int:
+def factorial(i: int) -> int:
     if i<=1:
         return i
     return i * factorial(i-1)

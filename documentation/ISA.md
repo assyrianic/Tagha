@@ -1,13 +1,13 @@
 # Introduction
 
-Tagha is a little-endian, 64-bit stack & register based VM. Tagha employs both an operand stack and a callstack. Tagha utilizes 3 registers: `osp`, `csp`, and `lr`.
+Tagha is a little-endian, 64-bit stack-register based VM. Tagha employs an operand stack and a callstack. Tagha utilizes 4 registers: `osp`, `ofp`, `csp`, and `lr`.
 
 `osp` - **O**perand **S**tack **P**ointer.
 `ofp` - **O**perand **F**rame **P**ointer.
 `csp` - **C**all **S**tack **P**ointer.
 `lr`  - **L**ink **R**egister.
 
-Through the opcodes & operand stack, the instruction set can allocate up to 256 registers per `alloc` opcode, access up to 256 registers per register-based opcodes, and address up to 32,000+ register addresses.
+Through the opcodes & operand stack, the instruction set can allocate up to 256 registers per `alloc` opcode, access up to 256 live registers per register-based opcodes, and address up to 32,000+ register addresses.
 
 # VM Opcodes
 
@@ -224,15 +224,15 @@ converts a register's float32 value to a int, does nothing if floats values aren
 
 
 ## jmp
-local instruction jump using a signed 8 byte immediate value.
+local instruction jump using a signed 4 byte immediate value.
 
 
 ## jz
-**J**ump if **Z**ero by a comparison result using a signed 8 byte immediate value.
+**J**ump if **Z**ero by a comparison result using a signed 4 byte immediate value.
 
 
 ## jnz
-**J**ump if **N**ot **Z**ero by a comparison result using a signed 8 byte immediate value.
+**J**ump if **N**ot **Z**ero by a comparison result using a signed 4 byte immediate value.
 
 
 ## pushlr
@@ -311,13 +311,13 @@ same as `_or` but source + destination registers are vectors.
 ## vxor
 same as `_xor` but source + destination registers are vectors.
 
-## vshl
+## vsll
 same as `sll` but source + destination registers are vectors.
 
-## vshr
+## vsrl
 same as `srl` but source + destination registers are vectors.
 
-## vshar
+## vsra
 same as `sra` but source + destination registers are vectors.
 
 ## vnot
@@ -345,6 +345,20 @@ same as `flt` but source + destination registers are vectors.
 same as `fle` but source + destination registers are vectors.
 
 
+### Super Instructions
+These are instructions that are a combination of other, often used instructions.
+
+## restore
+combination of `poplr` and `ret` opcodes.
+
+## leave
+combination of `poplr`, `redux`, and `ret` opcodes.
+
+## remit
+combination of `redux` and `ret` opcodes.
+
+## enter
+combination of `alloc` and `pushlr` opcodes.
 
 
 # VM Instruction Encoding

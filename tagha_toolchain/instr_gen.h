@@ -22,15 +22,16 @@ static inline size_t tagha_instr_gen(struct HarbolByteBuf *const tbc, const enum
 	va_list ap; va_start(ap, op);
 	switch( op ) {
 		/// one byte operand.
-		case alloc: case redux: case setelen:
+		case alloc: case redux: case setelen: case enter:
 		case neg: case fneg:
-		case bit_not: case setc:
+		case _not: case setc:
 		case callr:
 		case f32tof64: case f64tof32:
 		case itof64: case itof32:
 		case f64toi: case f32toi:
 		case vneg: case vfneg:
-		case vnot: {
+		case vnot:
+		case leave: case remit: {
 			if( tbc != NULL ) {
 				const int oper1 = va_arg(ap, int);
 				harbol_bytebuffer_insert_byte(tbc, oper1);
@@ -43,12 +44,12 @@ static inline size_t tagha_instr_gen(struct HarbolByteBuf *const tbc, const enum
 		case mov:
 		case add: case sub: case mul: case idiv: case mod:
 		case fadd: case fsub: case fmul: case fdiv:
-		case bit_and: case bit_or: case bit_xor: case shl: case shr: case shar:
+		case _and: case _or: case _xor: case sll: case srl: case sra:
 		case ilt: case ile: case ult: case ule: case cmp: case flt: case fle:
 		case vmov:
 		case vadd: case vsub: case vmul: case vdiv: case vmod:
 		case vfadd: case vfsub: case vfmul: case vfdiv:
-		case vand: case vor: case vxor: case vshl: case vshr: case vshar:
+		case vand: case vor: case vxor: case vsll: case vsrl: case vsra:
 		case vcmp: case vilt: case vile: case vult: case vule: case vflt: case vfle: {
 			if( tbc != NULL ) {
 				const int oper1 = va_arg(ap, int);
@@ -121,7 +122,7 @@ static inline size_t tagha_instr_gen(struct HarbolByteBuf *const tbc, const enum
 		}
 		
 		/// no operands.
-		case ret: case halt: case nop: case pushlr: case poplr: case MaxOps: {
+		case ret: case halt: case nop: case pushlr: case poplr: case restore: case MaxOps: {
 			break;
 		}
 	}

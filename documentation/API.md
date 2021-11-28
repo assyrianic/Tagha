@@ -70,6 +70,30 @@
 ### float64
 64-bit float value. exists only if `TAGHA_FLOAT64_DEFINED` is defined.
 
+### ufast64
+`uint_fast64_t` value.
+
+### fast64
+`int_fast64_t` value.
+
+### ufast32
+`uint_fast32_t` value.
+
+### fast32
+`int_fast32_t` value.
+
+### ufast16
+`uint_fast16_t` value.
+
+### fast16
+`int_fast16_t` value.
+
+### ufast8
+`uint_fast8_t` value.
+
+### fast8
+`int_fast8_t` value.
+
 
 ## struct TaghaNative
 
@@ -257,8 +281,8 @@ None.
 /// int puts(const char *str);
 static NO_NULL union TaghaVal native_puts(struct TaghaModule *const restrict ctxt, const union TaghaVal params[const static 1])
 {
-	( void )ctxt;
-	return ( union TaghaVal ){ .int32 = puts(( const char* )params[0].uintptr) };
+	( void )(ctxt);
+	return ( union TaghaVal ){ .int32 = puts(( const char* )(params[0].uintptr)) };
 }
 
 bool setup_rt_natives(void *const restrict sys, struct TaghaModule *const restrict ctxt)
@@ -279,7 +303,7 @@ bool tagha_module_link_ptr(struct TaghaModule *module, const char name[], uintpt
 ### Description
 Registers a pointer to a script's global pointer variable by name. Example - registering 'stdin' standard input FILE*:
 ```c
-tagha_module_link_ptr(module, "stdin", ( uintptr_t )stdin);
+tagha_module_link_ptr(module, "stdin", ( uintptr_t )(stdin));
 ```
 Will crash the program if the variable name given is not a pointer on the script's side.
 
@@ -296,15 +320,15 @@ true or false if the operation was successful or not.
 /// int puts(const char *str);
 static NO_NULL union TaghaVal native_puts(struct TaghaModule *const restrict module, const union TaghaVal params[const static 1])
 {
-	( void )module;
-	return ( union TaghaVal ){ .int32 = puts(( const char* )params[0].uintptr) };
+	( void )(module);
+	return ( union TaghaVal ){ .int32 = puts(( const char* )(params[0].uintptr)) };
 }
 
 bool setup_rt_natives(void *const restrict sys, struct TaghaModule *const restrict ctxt)
 {
-	tagha_module_link_ptr(ctxt, "stdin",  ( uintptr_t )stdin);
-	tagha_module_link_ptr(ctxt, "stdout", ( uintptr_t )stdout);
-	tagha_module_link_ptr(ctxt, "g_sys",  ( uintptr_t )sys);
+	tagha_module_link_ptr(ctxt, "stdin",  ( uintptr_t )(stdin));
+	tagha_module_link_ptr(ctxt, "stdout", ( uintptr_t )(stdout));
+	tagha_module_link_ptr(ctxt, "g_sys",  ( uintptr_t )(sys));
 	return tagha_module_link_natives(ctxt, ( const struct TaghaNative[] ){
 		{"puts", &native_puts},
 		{NULL,   NULL}
@@ -333,8 +357,8 @@ pointer to the global variable, `NULL` if the variable doesn't exist or the modu
 ```c
 const char *get_ctxt_name(struct TaghaModule *const restrict ctxt)
 {
-	const char *restrict name = tagha_module_get_var(ctxt, "g_name");
-	return ( name != NULL ) ? name : "unknown";
+	const char *name = tagha_module_get_var(ctxt, "g_name");
+	return ( name != NULL )? name : "unknown";
 }
 ```
 
@@ -345,14 +369,14 @@ TaghaFunc tagha_module_get_func(const struct TaghaModule *module, const char nam
 ```
 
 ### Description
-Returns a pointer to a script-defined function.
+Returns an unsigned ID to a script-defined function.
 
 ### Parameters
 * `module` - pointer to a `const struct TaghaModule` object.
 * `name` - string name of the function to retrieve.
 
 ### Return Value
-returns a `TaghaFunc` object, NULL if error occurred.
+returns a `TaghaFunc` (size_t), SIZE_MAX if error occurred.
 
 ### Example
 ```c
@@ -424,16 +448,16 @@ void invoke_startup_with_argv(struct TaghaModule *ctxts[const restrict static 1]
 		
 		/// void on_start_args(const char *titles[static MAX_TITLES]);
 		union TaghaVal script_argv = { .uintptr = tagha_module_heap_alloc(ctxts[i], sizeof(union TaghaVal) * MAX_TITLES + 1) };
-		union TaghaVal *strs = ( union TaghaVal* )script_argv.uintptr;
+		union TaghaVal *strs = ( union TaghaVal* )(script_argv.uintptr);
 		for( size_t i=0; i<MAX_TITLES; i++ ) {
 			const size_t len = strlen(g_app_sys->titles[i]);
 			strs[i].uintptr = tagha_module_heap_alloc(ctxts[i], len + 1);
-			char *restrict title = ( char* )strs[i].uintptr;
+			char *restrict title = ( char* )(strs[i].uintptr);
 			strcpy(title, g_app_sys->titles[i]);
 		}
 		strs[MAX_TITLES].uintptr = NIL;
 		union TaghaVal main_args[2] = {
-			{.size = 2},
+			{.size    = 2},
 			{.uintptr = script_argv.uintptr}
 		};
 		tagha_module_invoke(ctxts[i], on_start, 2, main_args, NULL);
@@ -505,7 +529,7 @@ Designed to be used for natives that use a function pointer from bytecode as a p
 
 ### Parameters
 * `module` - pointer to a `struct TaghaModule` object.
-* `func` - `TaghaFunc` object.
+* `func` - `TaghaFunc` id.
 * `args` - amount of arguments to pass.
 * `params` - function params to be passed, as an array of `union TaghaVal`.
 * `ret_val` - pointer to `union TaghaVal` for use as a return value buffer.
@@ -518,10 +542,10 @@ true if successful AND no errors occurred, false otherwise.
 /** void array_destroy(array *a, void dtor(void *item)); */
 union TaghaVal native_array_destroy(struct TaghaModule *const restrict ctxt, const union TaghaVal params[const restrict static 1])
 {
-	(void)args;
-	array_type *const array = ( array_type* )params[0].uintptr;
-	const TaghaFunc dtor = ( TaghaFunc )params[1].uintptr;
-	if( dtor != NULL ) {
+	(void)(args);
+	array_type *const array = ( array_type* )(params[0].uintptr);
+	const TaghaFunc dtor    = params[1].size;
+	if( dtor != SIZE_MAX ) {
 		tagha_module_invoke(ctxt, dtor, 2, ( union TaghaVal[] ){ {.uintptr = ( uintptr_t )array->table}, {.size = array->len} }, NULL);
 	}
 	array_type_destroy(array);
@@ -578,7 +602,7 @@ None.
 /** void abort(void); */
 union TaghaVal native_abort(struct TaghaModule *const restrict ctxt, const union TaghaVal params[const restrict static 1])
 {
-	(void)args; (void)params;
+	(void)(args); (void)(params);
 	tagha_module_throw_err(ctxt, 0xff);
 	return ( union TaghaVal ){ 0 };
 }

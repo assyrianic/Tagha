@@ -18,7 +18,7 @@ main {
     ldvar       r1, module_str
     call        tagha_module_new_from_file
     
-    mov         r8, r0 ;; module ptr is in ralaf, copy the ptr to stack for later freeing.
+    mov         r8, r0 ;; module ptr is in r0, copy the ptr to stack for later freeing.
     ldvar       r2, factorial_str
     
     ;; int (*const factorial)(int) = dlsym(fact_module, "factorial");

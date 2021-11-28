@@ -20,7 +20,7 @@ main {
     movi        r1, 0
     call        tagha_module_link_module  ;; a system using Tagha would typically link modules to one another during loading.
     
-    ;; Manually linking from scripts is not really reccommended but to show it's possible to do so.
+    ;; Manually linking from scripts is not really recommended but to show it's possible to do so.
     
     ;; test dynamic linking function invocation overhead
     movi        r7, 1
@@ -38,6 +38,5 @@ main {
     lra         r1, 3             ;; rsp[1] = &rsp[3];
     call        tagha_module_free ;; tagha_module_free(&module);
     mov         r9, r4
-    redux       9
-    ret
+    remit       9
 }

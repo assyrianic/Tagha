@@ -7,17 +7,14 @@ uint32_t factorial(const uint32_t i) {
  */
 
 main {
-    alloc   1
-    pushlr
+    enter   1
     movi    r0, 5
     call    factorial
-    poplr
-    ret
+    restore
 }
 
 factorial {
-    pushlr
-    alloc   3
+    enter   3
     mov     r0, r3
     
 ;; if( i<=1 )
@@ -38,8 +35,5 @@ factorial {
     mul     r3, r0    ;; i * res;
     
 .L2
-    poplr
-    redux   3
-    
-    ret
+    leave   3
 }

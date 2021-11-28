@@ -2,7 +2,7 @@
 #	define TAGHA_INCLUDED
 
 #define TAGHA_VERSION_MAJOR    1
-#define TAGHA_VERSION_MINOR    2
+#define TAGHA_VERSION_MINOR    3
 #define TAGHA_VERSION_PATCH    0
 #define TAGHA_VERSION_PHASE    "beta"
 #define TAGHA_STR_HELPER(x)    #x
@@ -64,6 +64,11 @@ union TaghaVal {
 	uint8_t        uint8,   uint8a[sizeof(uint64_t) / sizeof(uint8_t)];
 	int8_t         int8,    int8a[sizeof(uint64_t) / sizeof(int8_t)];
 	bool           b00l,    boola[sizeof(uint64_t) / sizeof(bool)];
+	
+	uint_fast64_t  ufast64; int_fast64_t fast64;
+	uint_fast32_t  ufast32; int_fast32_t fast32;
+	uint_fast16_t  ufast16; int_fast16_t fast16;
+	uint_fast8_t   ufast8;  int_fast8_t  fast8;
 };
 
 
@@ -105,7 +110,7 @@ union TaghaPtr {
 	X(fadd) X(fsub) X(fmul) X(fdiv) X(fneg) \
 	\
 	/** bit-wise ops. */ \
-	X(bit_and) X(bit_or) X(bit_xor) X(shl) X(shr) X(shar) X(bit_not) \
+	X(_and) X(_or) X(_xor) X(sll) X(srl) X(sra) X(_not) \
 	\
 	/** comparison ops. */ \
 	X(ilt) X(ile) X(ult) X(ule) X(cmp) X(flt) X(fle) X(setc) \
@@ -124,8 +129,14 @@ union TaghaPtr {
 	X(vmov) \
 	X(vadd)  X(vsub)  X(vmul)  X(vdiv)  X(vmod) X(vneg) \
 	X(vfadd) X(vfsub) X(vfmul) X(vfdiv) X(vfneg) \
-	X(vand)  X(vor)   X(vxor)  X(vshl)  X(vshr) X(vshar) X(vnot) \
-	X(vcmp)  X(vilt)  X(vile)  X(vult)  X(vule) X(vflt)  X(vfle)
+	X(vand)  X(vor)   X(vxor)  X(vsll)  X(vsrl) X(vsra) X(vnot) \
+	X(vcmp)  X(vilt)  X(vile)  X(vult)  X(vule) X(vflt) X(vfle) \
+	\
+	/** extra, super-instrs */ \
+	X(restore) /** poplr + ret */ \
+	X(leave)   /** poplr + redux + ret */ \
+	X(remit)   /** redux + ret */ \
+	X(enter)   /** alloc + pushlr */
 
 #define X(x) x,
 enum TaghaInstrSet { TAGHA_INSTR_SET MaxOps };
@@ -182,13 +193,13 @@ struct TaghaItemEntry {
  *     4 bytes: flags: if bytecode func, a native, or extern.
  *     4 bytes: string size + '\0' of func string.
  *     4 bytes: instr len, 8 if native.
- *     n bytes: func string.
+ *     m bytes: func string.
  *     if bytecode func:
- *         n bytes - instructions.
+ *         x bytes - instructions.
  *     else if native func:
  *         8 bytes - function pointer to native.
  *     else if extern func:
- *         8 bytes - pointer to owning module.
+ *         8 bytes - pointer to owner module.
  * 
  * .vars table.
  * n bytes: global vars table. == low segment
@@ -225,28 +236,28 @@ enum {
 	TAGHA_FLAG_EXTERN = 2,  /// function is from different module.
 	TAGHA_FLAG_LINKED = 4,  /// ptr has been linked.
 };
+
 struct TaghaItem {
 	uintptr_t
-		item, /// data, as uint8_t*
+		item, /// data, as uint8_t*, cast as needed.
 		owner /// Add an owner so we can do dynamic linking & loading.
 	;
-	size_t    bytes;
-	uint32_t  flags;
-};
+	uint_fast32_t flags;
+}; /// 12 (32-bit) ~ 24 (64-bit) bytes
 typedef const struct TaghaItem *TaghaFunc;
-
 
 enum { TAGHA_SYM_BUCKETS = 32 };
 struct TaghaSymTable {
-	const char **keys;              /// array of string names of each item.
-	struct TaghaItem *table;        /// table of items.
+	const char      **keys;         /// array of string names of each item.
+	struct TaghaItem *table;
 	size_t
 		len,                        /// table's len.
 		buckets[TAGHA_SYM_BUCKETS], /// hash index bucket for each index. SIZE_MAX if invalid.
 		*hashes,                    /// hash value for each item index.
-		*chain                      /// index chain to resolve collisions. SIZE_MAX if invalid.
+		*chain,                     /// index chain to resolve collisions. SIZE_MAX if invalid.
+		*bytes                      /// byte of item data.
 	;
-};
+}; /// 148 (32-bit) ~ 296 (64-bit) bytes
 
 
 enum TaghaErrCode {
@@ -266,7 +277,7 @@ struct TaghaModule {
 	const struct TaghaSymTable *funcs, *vars;
 	uintptr_t
 		script,     /// ptr to base address of script (uint8_t*)
-		ip,         /// instruction ptr (uint8_t*)
+		//ip,         /// instruction ptr (uint8_t*)
 		low_seg,    /// lower  memory segment (uint8_t*)
 		high_seg,   /// higher memory segment (uint8_t*)
 		opstack,    /// ptr to base of operand stack (union TaghaVal*)
@@ -300,7 +311,7 @@ TAGHA_EXPORT NEVER_NULL(1) int tagha_module_run(struct TaghaModule *module, size
 /// Runtime Data API.
 TAGHA_EXPORT NO_NULL void *tagha_module_get_var(const struct TaghaModule *module, const char name[]);
 TAGHA_EXPORT NO_NULL TaghaFunc tagha_module_get_func(const struct TaghaModule *module, const char name[]);
-TAGHA_EXPORT NO_NULL uint32_t tagha_module_get_flags(const struct TaghaModule *module);
+TAGHA_EXPORT NO_NULL uint_fast32_t tagha_module_get_flags(const struct TaghaModule *module);
 
 TAGHA_EXPORT NO_NULL uintptr_t tagha_module_heap_alloc(struct TaghaModule *module, size_t size);
 TAGHA_EXPORT NO_NULL bool tagha_module_heap_free(struct TaghaModule *module, uintptr_t ptr);

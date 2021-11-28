@@ -17,6 +17,5 @@ main {
     cmp      r0, r2
     jz       .loop
     
-    redux    2
-    ret
+    remit    2
 }

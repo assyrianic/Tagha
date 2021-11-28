@@ -147,13 +147,13 @@ native_vec2d_create(struct TaghaModule *const ctxt, const union TaghaVal params[
 There are some cases where you will need to return pointers that are used by your host application such as dynamically allocated objects OR retrieving struct object pointers; assuming we're doing the latter, let's reuse our example from above but we'll modify the prototype to not only take in a struct Player pointer but to return a pointer to the unsigned int `health` struct member.
 ```c
 struct Player {
-	float speed;
+	float    speed;
 	uint32_t health, ammo;
 };
 
-/// uint32_t *ip(struct Player *p);
+/// uint32_t *get_hp_ptr(struct Player *p);
 static union TaghaVal
-native_ip(struct TaghaModule *const ctxt, const union TaghaVal params[const static 1])
+native_get_hp_ptr(struct TaghaModule *const ctxt, const union TaghaVal params[const static 1])
 {
 	struct Player *const player = ( struct Player* )params[0].uintptr;
 	/// return the address of the 4-byte int member "health" value.

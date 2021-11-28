@@ -18,7 +18,7 @@ The `tbc` "tagha bytecode" argument can optionally be `NULL` so as to just retur
 
 Arguments associated with `op` "opcode" will not be read/consumed if `tbc` is `NULL`, thus it's safe to simply pass a `NULL` argument and the opcode like so:
 ```c
-const size_t call_bytes = tagha_instr_gen(NULL, call);
+const size_t call_bytes  = tagha_instr_gen(NULL, call);
 const size_t redux_bytes = tagha_instr_gen(NULL, redux, 10); /// 10 is passed but won't be processed.
 ```
 

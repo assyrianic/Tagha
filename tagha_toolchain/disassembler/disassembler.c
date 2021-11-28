@@ -10,9 +10,9 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 		return false;
 	}
 	
-	const struct TaghaModuleHeader *const hdr = ( const struct TaghaModuleHeader* )filedata;
-	if( hdr->magic != 0x7A6AC0DE ) {
-		free(filedata), filedata=NULL;
+	const struct TaghaModuleHeader *const hdr = ( const struct TaghaModuleHeader* )(filedata);
+	if( hdr->magic != TAGHA_MAGIC_VERIFIER ) {
+		free(filedata); filedata=NULL;
 		fprintf(stderr, "Tagha Disassembler Error: **** Invalid Tagha Module file: '%s' ****\n", filename);
 		return false;
 	}
@@ -75,37 +75,37 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 			iter.uint8 += entry->name_len;
 			union HarbolBinIter pc = iter;
 			iter.uint8 += entry->data_len;
-			const uintptr_t offs = ( uintptr_t )pc.uint8 + 1;
+			const uintptr_t offs = ( uintptr_t )(pc.uint8) + 1;
 			while( *pc.uint8 != 0 && pc.uint8<iter.uint8 ) {
 				const uint8_t opcode = *pc.uint8++;
 				switch( opcode ) {
 					/// opcodes that have no operands.
-					case ret: case halt: case nop: case pushlr: case poplr: {
-						harbol_string_add_format(&bc_funcs, "    %-10s ;; offset: %" PRIuPTR "\n", opcode_strs[opcode], ( uintptr_t )pc.uint8 - offs);
+					case ret: case halt: case nop: case pushlr: case poplr: case restore: {
+						harbol_string_add_format(&bc_funcs, "    %-10s ;; offset: %" PRIuPTR "\n", opcode_strs[opcode], ( uintptr_t )(pc.uint8) - offs);
 						break;
 					}
 					
 					/// u8 operand.
-					case alloc: case redux: case setelen: {
-						const uintptr_t addr = ( uintptr_t )pc.uint8 - offs;
+					case alloc: case redux: case setelen: case leave: case remit: case enter: {
+						const uintptr_t addr = ( uintptr_t )(pc.uint8) - offs;
 						const uint32_t u8 = *pc.uint8++;
-						const uintptr_t addr2 = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr2 = ( uintptr_t )(pc.uint8) - offs;
 						harbol_string_add_format(&bc_funcs, "    %-10s %u ;; offset: %" PRIuPTR " - %" PRIuPTR "\n", opcode_strs[opcode], u8, addr, addr2);
 						break;
 					}
 					
 					/// u8 register operand.
 					case neg: case fneg:
-					case bit_not: case setc:
+					case _not: case setc:
 					case callr:
 					case f32tof64: case f64tof32:
 					case itof64: case itof32:
 					case f64toi: case f32toi:
 					case vneg: case vfneg:
 					case vnot: {
-						const uintptr_t addr = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr = ( uintptr_t )(pc.uint8) - offs;
 						const uint32_t reg = *pc.uint8++;
-						const uintptr_t addr2 = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr2 = ( uintptr_t )(pc.uint8) - offs;
 						harbol_string_add_format(&bc_funcs, "    %-10s r%u ;; offset: %" PRIuPTR " - %" PRIuPTR "\n", opcode_strs[opcode], reg, addr, addr2);
 						break;
 					}
@@ -114,17 +114,17 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 					case mov:
 					case add: case sub: case mul: case idiv: case mod:
 					case fadd: case fsub: case fmul: case fdiv:
-					case bit_and: case bit_or: case bit_xor: case shl: case shr: case shar:
+					case _and: case _or: case _xor: case sll: case srl: case sra:
 					case ilt: case ile: case ult: case ule: case cmp: case flt: case fle:
 					case vmov:
 					case vadd: case vsub: case vmul: case vdiv: case vmod:
 					case vfadd: case vfsub: case vfmul: case vfdiv:
-					case vand: case vor: case vxor: case vshl: case vshr: case vshar:
+					case vand: case vor: case vxor: case vsll: case vsrl: case vsra:
 					case vcmp: case vilt: case vile: case vult: case vule: case vflt: case vfle: {
-						const uintptr_t addr = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr = ( uintptr_t )(pc.uint8) - offs;
 						const uint32_t dst = *pc.uint8++;
 						const uint32_t src = *pc.uint8++;
-						const uintptr_t addr2 = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr2 = ( uintptr_t )(pc.uint8) - offs;
 						
 						harbol_string_add_format(&bc_funcs, "    %-10s r%u, r%u ;; offset: %" PRIuPTR " - %" PRIuPTR "\n", opcode_strs[opcode], dst, src, addr, addr2);
 						break;
@@ -132,9 +132,9 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 					
 					/// named u16 operand.
 					case call: {
-						const uintptr_t addr = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr = ( uintptr_t )(pc.uint8) - offs;
 						const uint32_t index = *pc.uint16++;
-						const uintptr_t addr2 = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr2 = ( uintptr_t )(pc.uint8) - offs;
 						
 						const struct HarbolString *const func_name = harbol_vector_get(&func_names, index - 1LL);
 						harbol_string_add_format(&bc_funcs, "    %-10s %s ;; offset: %" PRIuPTR " - %" PRIuPTR "\n", opcode_strs[opcode], func_name->cstr, addr, addr2);
@@ -143,29 +143,29 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 					
 					/// u16 imm
 					case setvlen: {
-						const uintptr_t addr = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr = ( uintptr_t )(pc.uint8) - offs;
 						const uint32_t width = *pc.uint16++;
-						const uintptr_t addr2 = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr2 = ( uintptr_t )(pc.uint8) - offs;
 						harbol_string_add_format(&bc_funcs, "    %-10s %u ;; offset: %" PRIuPTR " - %" PRIuPTR "\n", opcode_strs[opcode], width, addr, addr2);
 						break;
 					}
 					
 					/// u8 reg + u16 offset.
 					case lra: {
-						const uintptr_t addr = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr = ( uintptr_t )(pc.uint8) - offs;
 						const uint32_t reg = *pc.uint8++;
 						const uint32_t offset = *pc.uint16++;
-						const uintptr_t addr2 = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr2 = ( uintptr_t )(pc.uint8) - offs;
 						harbol_string_add_format(&bc_funcs, "    %-10s r%u, %u ;; offset: %" PRIuPTR " - %" PRIuPTR "\n", opcode_strs[opcode], reg, offset, addr, addr2);
 						break;
 					}
 					
 					/// u8 reg + named u16 offset.
 					case ldvar: case ldfn: {
-						const uintptr_t addr = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr = ( uintptr_t )(pc.uint8) - offs;
 						const uint32_t regid = *pc.uint8++;
 						const uint32_t label = *pc.uint16++;
-						const uintptr_t addr2 = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr2 = ( uintptr_t )(pc.uint8) - offs;
 						const struct HarbolString *const label_name = harbol_vector_get((opcode==ldvar) ? &var_names : &func_names, (opcode==ldvar) ? label : label - 1);
 						
 						harbol_string_add_format(&bc_funcs, "    %-10s r%u, %s ;; offset: %" PRIuPTR " - %" PRIuPTR "\n", opcode_strs[opcode], regid, label_name->cstr, addr, addr2);
@@ -174,11 +174,11 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 					
 					case lea:
 					case ld1: case ld2: case ld4: case ld8: case ldu1: case ldu2: case ldu4: {
-						const uintptr_t addr = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr = ( uintptr_t )(pc.uint8) - offs;
 						const uint32_t dst = *pc.uint8++;
 						const uint32_t src = *pc.uint8++;
 						const int32_t offset = *pc.int16++;
-						const uintptr_t addr2 = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr2 = ( uintptr_t )(pc.uint8) - offs;
 						const bool neg    = offset < 0;
 						
 						harbol_string_add_format(&bc_funcs, "    %-10s r%u, [r%u%s%d] ;; offset: %" PRIuPTR " - %" PRIuPTR "\n", opcode_strs[opcode], dst, src, !neg ? "+" : "", offset, addr, addr2);
@@ -186,20 +186,20 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 					}
 					
 					case st1: case st2: case st4: case st8: {
-						const uintptr_t addr = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr = ( uintptr_t )(pc.uint8) - offs;
 						const uint32_t dst = *pc.uint8++;
 						const uint32_t src = *pc.uint8++;
 						const int32_t offset = *pc.int16++;
-						const uintptr_t addr2 = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr2 = ( uintptr_t )(pc.uint8) - offs;
 						const bool neg    = offset < 0;
 						
 						harbol_string_add_format(&bc_funcs, "    %-10s [r%u%s%d], r%u ;; offset: %" PRIuPTR " - %" PRIuPTR "\n", opcode_strs[opcode], dst, !neg ? "+" : "", offset, src, addr, addr2);
 						break;
 					}
 					case jmp: case jz: case jnz: {
-						const uintptr_t addr = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr = ( uintptr_t )(pc.uint8) - offs;
 						const int32_t label = *pc.int32++;
-						const uintptr_t addr2 = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr2 = ( uintptr_t )(pc.uint8) - offs;
 						
 						const uintptr_t label_addr = ( uintptr_t )(( int32_t )addr2 + label + 1);
 						harbol_string_add_format(&bc_funcs, "    %-10s %d ;; label addr: %" PRIuPTR " | offset: %" PRIuPTR " - %" PRIuPTR "\n", opcode_strs[opcode], label, label_addr, addr, addr2);
@@ -207,10 +207,10 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 					}
 					
 					case movi: {
-						const uintptr_t addr = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr = ( uintptr_t )(pc.uint8) - offs;
 						const uint32_t reg = *pc.uint8++;
 						const int64_t imm = *pc.int64++;
-						const uintptr_t addr2 = ( uintptr_t )pc.uint8 - offs;
+						const uintptr_t addr2 = ( uintptr_t )(pc.uint8) - offs;
 						
 						harbol_string_add_format(&bc_funcs, "    %-10s r%u, %#" PRIx64 " ;; offset: %" PRIuPTR " - %" PRIuPTR "\n", opcode_strs[opcode], reg, imm, addr, addr2);
 						break;
@@ -220,10 +220,11 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 			}
 			harbol_string_add_format(&bc_funcs, "}\n\n");
 		} else {
-			if( entry->flags & TAGHA_FLAG_NATIVE )
+			if( entry->flags & TAGHA_FLAG_NATIVE ) {
 				harbol_string_add_format(&nbc_funcs, "$native    %s\n", iter.string);
-			else if( entry->flags & TAGHA_FLAG_EXTERN )
+			} else if( entry->flags & TAGHA_FLAG_EXTERN ) {
 				harbol_string_add_format(&nbc_funcs, "$extern    %s\n", iter.string);
+			}
 			iter.uint8 += entry->name_len;
 		}
 	}
@@ -258,7 +259,7 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 		harbol_string_add_format(&vars, "\n");
 	}
 	harbol_string_add_cstr(&vars, "\n");
-	free(filedata);
+	free(filedata); filedata=NULL;
 	
 	for( size_t i=0; i<func_names.count; i++ ) {
 		struct HarbolString *name = harbol_vector_get(&func_names, i);
@@ -276,10 +277,10 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 		final_output = harbol_string_create(NULL),
 		output_name  = harbol_string_create(filename)
 	;
-	harbol_string_add_str(&final_output, &header); harbol_string_clear(&header);
-	harbol_string_add_str(&final_output, &vars);   harbol_string_clear(&vars);
+	harbol_string_add_str(&final_output, &header);    harbol_string_clear(&header);
+	harbol_string_add_str(&final_output, &vars);      harbol_string_clear(&vars);
 	harbol_string_add_str(&final_output, &nbc_funcs); harbol_string_clear(&nbc_funcs);
-	harbol_string_add_str(&final_output, &bc_funcs); harbol_string_clear(&bc_funcs);
+	harbol_string_add_str(&final_output, &bc_funcs);  harbol_string_clear(&bc_funcs);
 	
 	harbol_string_add_cstr(&output_name, "_disasm.tasm");
 	FILE *disasm_output = fopen(output_name.cstr, "w");
@@ -296,7 +297,7 @@ bool tagha_disasm_module(const char filename[restrict static 1])
 
 static void tagha_disasm_parse_opts(const char arg[static 1])
 {
-	( void )arg;
+	( void )(arg);
 }
 
 int main(const int argc, char *argv[restrict static 1])

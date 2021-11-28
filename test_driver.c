@@ -8,43 +8,48 @@
 /// struct TaghaModule *tagha_module_new_from_file(const char filename[]);
 static NO_NULL union TaghaVal native_tagha_module_new_from_file(struct TaghaModule *const restrict module, const union TaghaVal params[const static 1])
 {
-	( void )module;
-	return ( union TaghaVal ){ .uintptr = ( uintptr_t )tagha_module_new_from_file(( const char* )params[0].uintptr) };
+	( void )(module);
+	const char *const filename = ( const char* )(params[0].uintptr);
+	return ( union TaghaVal ){ .uintptr = ( uintptr_t )(tagha_module_new_from_file(filename)) };
 }
 
 /// bool tagha_module_free(struct TaghaModule **modref);
 static NO_NULL union TaghaVal native_tagha_module_free(struct TaghaModule *const restrict module, const union TaghaVal params[const static 1])
 {
-	( void )module;
-	struct TaghaModule **const restrict modref = ( struct TaghaModule** )params[0].uintptr;
+	( void )(module);
+	struct TaghaModule **const restrict modref = ( struct TaghaModule** )(params[0].uintptr);
 	return ( union TaghaVal ){ .b00l = tagha_module_free(modref) };
 }
 
 /// TaghaFunc tagha_module_get_func(struct TaghaModule *module, const char name[]);
 static NO_NULL union TaghaVal native_tagha_module_get_func(struct TaghaModule *const module, const union TaghaVal params[const static 2])
 {
-	const struct TaghaModule *const p = ( const struct TaghaModule* )params[0].uintptr;
-	return ( union TaghaVal ){ .uintptr = ( uintptr_t )tagha_module_get_func(p==NULL ? module : p, ( const char* )params[1].uintptr) };
+	const struct TaghaModule *const p = ( const struct TaghaModule* )(params[0].uintptr);
+	const char *const name = ( const char* )(params[1].uintptr);
+	return ( union TaghaVal ){ .uintptr = ( uintptr_t )(tagha_module_get_func((p==NULL)? module : p, name)) };
 }
 
 /// int puts(const char *str);
 static NO_NULL union TaghaVal native_puts(struct TaghaModule *const restrict module, const union TaghaVal params[const static 1])
 {
-	( void )module;
-	return ( union TaghaVal ){ .int32 = puts(( const char* )params[0].uintptr) };
+	( void )(module);
+	const char *const cstr = ( const char* )(params[0].uintptr);
+	return ( union TaghaVal ){ .int32 = puts(cstr) };
 }
 
 /// char *fgets(char *str, int num, FILE *stream);
 static NO_NULL union TaghaVal native_fgets(struct TaghaModule *const module, const union TaghaVal params[const static 3])
 {
-	( void )module;
-	return ( union TaghaVal ){ .uintptr = ( uintptr_t )fgets(( char* )params[0].uintptr, params[1].int32, ( FILE* )params[2].uintptr) };
+	( void )(module);
+	char *const restrict buffer = ( char* )(params[0].uintptr);
+	FILE *const restrict stream = ( FILE* )(params[2].uintptr);
+	return ( union TaghaVal ){ .uintptr = ( uintptr_t )(fgets(buffer, params[1].int32, stream)) };
 }
 
 /// int add_one(const int n);
 static NO_NULL union TaghaVal native_add_one(struct TaghaModule *const module, const union TaghaVal params[const static 1])
 {
-	( void )module;
+	( void )(module);
 	return ( union TaghaVal ){ .int32 = params[0].int32 + 1 };
 }
 
@@ -52,14 +57,14 @@ static NO_NULL union TaghaVal native_add_one(struct TaghaModule *const module, c
 /// int strcpy(char *str1, const char *str2);
 static NO_NULL union TaghaVal native_strcpy(struct TaghaModule *const restrict module, const union TaghaVal params[const restrict static 2])
 {
-	( void )module;
-	char *restrict str1 = ( char* )params[0].uintptr;
-	const char *restrict str2 = ( const char* )params[1].uintptr;
+	( void )(module);
+	char *restrict str1 = ( char* )(params[0].uintptr);
+	const char *str2 = ( const char* )(params[1].uintptr);
 	
 	int i=0;
-	while( (str1[i] = str2[i]) != 0 )
+	while( (str1[i] = str2[i]) != 0 ) {
 		i++;
-	
+	}
 	return ( union TaghaVal ){ .int32 = i };
 }
 */
@@ -67,9 +72,9 @@ static NO_NULL union TaghaVal native_strcpy(struct TaghaModule *const restrict m
 /// void tagha_module_link_module(struct TaghaModule *module, struct TaghaModule *lib);
 static NO_NULL union TaghaVal native_tagha_module_link_module(struct TaghaModule *const restrict module, const union TaghaVal params[const static 2])
 {
-	struct TaghaModule       *const restrict caller = ( struct TaghaModule* )params[0].uintptr;
-	const struct TaghaModule *const restrict lib    = ( const struct TaghaModule* )params[1].uintptr;
-	tagha_module_link_module((caller==NULL ? module : caller), lib);
+	struct TaghaModule *const restrict caller = ( struct TaghaModule* )(params[0].uintptr);
+	const struct TaghaModule *const lib = ( const struct TaghaModule* )(params[1].uintptr);
+	tagha_module_link_module(((caller==NULL)? module : caller), lib);
 	return ( union TaghaVal ){ 0 };
 }
 
@@ -85,13 +90,12 @@ static NO_NULL union TaghaVal native_alloca(struct TaghaModule *const module, co
 	const size_t len = params[0].size;
 	const size_t aligned_len = (len + (sizeof(union TaghaVal)-1)) & -sizeof(union TaghaVal);
 	const uintptr_t alloc_space = module->osp - aligned_len;
-	return ( union TaghaVal ){ .uintptr = (alloc_space < module->opstack) ? NIL : alloc_space };
+	return ( union TaghaVal ){ .uintptr = (alloc_space < module->opstack)? NIL : alloc_space };
 }
 
 
-NO_NULL int main(const int argc, char *argv[const restrict static 1])
-{
-	( void )argc;
+NO_NULL int main(const int argc, char *argv[restrict static 1]) {
+	( void )(argc);
 	if( argv[1]==NULL ) {
 		printf("[TaghaVM (v%s) Test Host App Usage]: './%s' '.tbc filepath' \n", TAGHA_VERSION_STRING, argv[0]);
 		return 1;
@@ -110,16 +114,17 @@ NO_NULL int main(const int argc, char *argv[const restrict static 1])
 				{NULL, NULL}
 			});
 			
-			tagha_module_link_ptr(module, "stdin",  ( uintptr_t )stdin);
-			tagha_module_link_ptr(module, "stderr", ( uintptr_t )stderr);
-			tagha_module_link_ptr(module, "stdout", ( uintptr_t )stdout);
-			tagha_module_link_ptr(module, "self",   ( uintptr_t )module);
+			tagha_module_link_ptr(module, "stdin",  ( uintptr_t )(stdin));
+			tagha_module_link_ptr(module, "stderr", ( uintptr_t )(stderr));
+			tagha_module_link_ptr(module, "stdout", ( uintptr_t )(stdout));
+			tagha_module_link_ptr(module, "self",   ( uintptr_t )(module));
 			
-			const clock_t start = clock();
-			const int r = tagha_module_run(module, 0, NULL);
-			const clock_t end = clock();
-			const double elapsed_time = ( double )(end - start)/(CLOCKS_PER_SEC);
-			printf("result => %i | err? '%s' | elapsed => %f\n", r, tagha_module_get_err(module), elapsed_time);
+			const clock_t start     = clock();
+			const int     r         = tagha_module_run(module, 0, NULL);
+			const clock_t end       = clock();
+			const float64_t elapsed = ( float64_t )(end - start) / ( float64_t )(CLOCKS_PER_SEC);
+			printf("result => %i | err? '%s' | elapsed => %" PRIf64 "\n", r, tagha_module_get_err(module), elapsed);
+			//printf("result => %i | err? '%s'\n", r, tagha_module_get_err(module));
 			//tagha_module_print_opstack(module, stdout);
 			//tagha_module_print_callstack(module, stdout);
 			
