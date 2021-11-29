@@ -92,11 +92,11 @@ It is preferable that you compile using GCC or Clang/LLVM.
 
 ### Installation
 
-To embed Tagha into your application, you must build Tagha as either a static or sraed library.
+To embed Tagha into your application, you must build Tagha as either a static or shared library.
 
-Create a directory with the repo, change directory to the `tagha` folder and run `make` which will create a static library of Tagha. To create a sraed library version, run `make sraed`. To clean up the object files, run `make clean`.
+Create a directory with the repo, change directory to the `tagha` folder and run `make` which will create a static library of Tagha. To create a shared library version, run `make shared`. To clean up the object files, run `make clean`.
 
-If for any reason, you need to create a debug version, run `make debug` to create a debug version of the static library and `make debug_sraed` for a debug version of the sraed library.
+If for any reason, you need to create a debug version, run `make debug` to create a debug version of the static library and `make debug_shared` for a debug version of the shared library.
 
 Once you've built Tagha as a library, include "tagha.h" into your C or C++ application.
 
@@ -139,7 +139,7 @@ If you need to re-enable floating point support for all types, simply uncomment 
 Note: Changing the header file requires that you recompile the Tagha library for the changes to take effect on the runtime.
 
 ### Testing
-If you wish to build and test the Tagha code base, compile `test_driver.c` with either the sraed or static Tagha library, link with Tagha's libc implementation, compile the Tagha assembler and compile the testing .tasm scripts in the `test_asm` folder, and run the generated .tbc scripts.
+If you wish to build and test the Tagha code base, compile `test_driver.c` with either the shared or static Tagha library, link with Tagha's libc implementation, compile the Tagha assembler and compile the testing .tasm scripts in the `test_asm` folder, and run the generated .tbc scripts.
 
 ## Credits
 
@@ -158,11 +158,11 @@ This project is licensed under MIT License.
 * Q: _**Why not just pick a scripting language?**_
 * A: You're right. Any developer could simply choose an existing scripting language and its implementation, but not all developers want to use a scripting language and they could have various reasons like performance, syntax, maybe the runtime is too bloated. Secondly, not all developers might know the language, are comfortable with it, or don't preffer it. Perhaps for the sake of consistency with the code base, they want the entire code to be in one language. After all, to be able to utilize the scripting language, you'd need to learn it as well as learning the exposed API of the host app. My point is, there's a myriad of reasons to choose (or not to choose) a scripting language.
 
-* Q: _**Ok, then why not use a dynamic linking/sraed library module/plugin system?**_
-* A: Same answer as before, any developer could choose such a system over a scripting language as well. The benefits of this is having the native speed of the application's implementation language while still being extendable/modifiable. However the drawbacks to a sraed library plugin system is that you need to build the plugins for every architecture and OS for the sraed plugins to run properly. On Windows OS' this isn't as big a deal but Linux ABIs also use the OS as a factor. Thus, having portable programs isn't easy to implement with using a plugin system without taking ABI in account.
+* Q: _**Ok, then why not use a dynamic linking/shared library module/plugin system?**_
+* A: Same answer as before, any developer could choose such a system over a scripting language as well. The benefits of this is having the native speed of the application's implementation language while still being extendable/modifiable. However the drawbacks to a shared library plugin system is that you need to build the plugins for every architecture and OS for the shared plugins to run properly. On Windows OS' this isn't as big a deal but Linux ABIs also use the OS as a factor. Thus, having portable programs isn't easy to implement with using a plugin system without taking ABI in account.
 
 * Q: _**Then why use Tagha at all?**_
-* A: You should use Tagha if you want a bytecode runtime environment that is fast, minimal, very small memory footprint, completely self-contained within a single (static or sraed) library, open source, and permissive in licensing with absolutely no strings attached.
+* A: You should use Tagha if you want a bytecode runtime environment that is fast, minimal, very small memory footprint, completely self-contained within a single (static or shared) library, open source, and permissive in licensing with absolutely no strings attached.
 
 * Q: _**Why implement Tagha in C and not C++?**_
 * A: The design choices for Tagha was to be minimal, fast, and with little-to-no dependencies except for a few C standard library functions. To achieve this, I needed to use C which allowed me to manipulate memory as fast and seamless as possible. I'm aware C++ allows me to manipulate memory but it's not without trouble.
