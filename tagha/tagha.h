@@ -311,7 +311,7 @@ TAGHA_EXPORT NEVER_NULL(1) int tagha_module_run(struct TaghaModule *module, size
 /// Runtime Data API.
 TAGHA_EXPORT NO_NULL void *tagha_module_get_var(const struct TaghaModule *module, const char name[]);
 TAGHA_EXPORT NO_NULL TaghaFunc tagha_module_get_func(const struct TaghaModule *module, const char name[]);
-TAGHA_EXPORT NO_NULL uint_fast32_t tagha_module_get_flags(const struct TaghaModule *module);
+TAGHA_EXPORT NO_NULL uint32_t tagha_module_get_flags(const struct TaghaModule *module);
 
 TAGHA_EXPORT NO_NULL uintptr_t tagha_module_heap_alloc(struct TaghaModule *module, size_t size);
 TAGHA_EXPORT NO_NULL bool tagha_module_heap_free(struct TaghaModule *module, uintptr_t ptr);
