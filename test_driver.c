@@ -97,7 +97,8 @@ static NO_NULL union TaghaVal native_alloca(struct TaghaModule *const module, co
 NO_NULL int main(const int argc, char *argv[restrict static 1]) {
 	( void )(argc);
 	if( argv[1]==NULL ) {
-		printf("[TaghaVM (v%s) Test Host App Usage]: './%s' '.tbc filepath' \n", TAGHA_VERSION_STRING, argv[0]);
+		printf("[TaghaVM (v%s) Test Host App Usage]: '%s' '.tbc filepath' \n", TAGHA_VERSION_STRING, argv[0]);
+		//remove("tagha_test_res.txt");
 		return 1;
 	} else {
 		struct TaghaModule *module = tagha_module_new_from_file(argv[1]);
@@ -123,10 +124,14 @@ NO_NULL int main(const int argc, char *argv[restrict static 1]) {
 			const int     r         = tagha_module_run(module, 0, NULL);
 			const clock_t end       = clock();
 			const float64_t elapsed = ( float64_t )(end - start) / ( float64_t )(CLOCKS_PER_SEC);
-			printf("result => %i | err? '%s' | elapsed => %" PRIf64 "\n", r, tagha_module_get_err(module), elapsed);
-			//printf("result => %i | err? '%s'\n", r, tagha_module_get_err(module));
-			//tagha_module_print_opstack(module, stdout);
-			//tagha_module_print_callstack(module, stdout);
+			FILE *res_file = fopen("tagha_test_res.txt", "a+");
+			if( res_file==NULL )
+				return -1;
+			
+			fprintf(res_file, "result => %i | err? '%s' | elapsed => %" PRIf64 "ms\n", r, tagha_module_get_err(module), elapsed * 1000.);
+			fclose(res_file);
+			//tagha_module_print_opstack(module, res_file);
+			//tagha_module_print_callstack(module, res_file);
 			
 			tagha_module_free(&module);
 		}

@@ -30,8 +30,9 @@ profile:
 	$(AR) cr $(LIBNAME).a $(OBJS)
 
 disasm:
-	$(CC) -O2 -fverbose-asm -masm=intel -S $(SRCS)
-	#llvm-gcc -emit-llvm -S $(SRCS)
+	$(CC) -O2 -masm=intel -S $(SRCS)
+#	llvm-gcc -emit-llvm -S $(SRCS)
+# -fverbose-asm
 
 clean:
 	$(RM) *.o

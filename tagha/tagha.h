@@ -73,6 +73,7 @@ union TaghaVal {
 
 
 union TaghaPtr {
+	const void           *v;
 	const uint64_t       *uint64;
 	const uint32_t       *uint32;
 	const uint16_t       *uint16;
@@ -277,7 +278,6 @@ struct TaghaModule {
 	const struct TaghaSymTable *funcs, *vars;
 	uintptr_t
 		script,     /// ptr to base address of script (uint8_t*)
-		//ip,         /// instruction ptr (uint8_t*)
 		low_seg,    /// lower  memory segment (uint8_t*)
 		high_seg,   /// higher memory segment (uint8_t*)
 		opstack,    /// ptr to base of operand stack (union TaghaVal*)
