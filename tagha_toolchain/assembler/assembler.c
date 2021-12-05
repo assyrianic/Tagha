@@ -3,7 +3,7 @@
 #include "../instr_gen.h"
 #include "../module_gen.h"
 
-#define TAGHA_ASM_DEBUG
+//#define TAGHA_ASM_DEBUG
 
 #define COLOR_RED       "\x1B[31m"
 #define COLOR_MAGENTA   "\x1B[35m"

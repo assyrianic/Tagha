@@ -448,16 +448,29 @@ static void _tagha_pop_lr(struct TaghaModule *const vm) {
 
 static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const restrict vm)
 {
-#if (defined(COMPILER_CLANG) || defined(COMPILER_GCC)) && defined(PLATFORM_AMD64)
+#if (defined(COMPILER_CLANG) || defined(COMPILER_GCC))
+#	if defined(PLATFORM_AMD64)
 	register uintptr_t vreg_osp __asm__ ("r15") = vm->osp;
+#	elif defined(PLATFORM_ARM64)
+	register uintptr_t vreg_osp __asm__ ("x15") = vm->osp;
+#	elif defined(PLATFORM_RISCV64)
+	register uintptr_t vreg_osp __asm__ ("x31") = vm->osp;
+#	endif 
 #else
 	uintptr_t vreg_osp = vm->osp;
 #endif
-	//uintptr_t vreg_ofp = vm->ofp;
-	
-#if (defined(COMPILER_CLANG) || defined(COMPILER_GCC)) && defined(PLATFORM_AMD64)
+
+#if (defined(COMPILER_CLANG) || defined(COMPILER_GCC))
+#	if defined(PLATFORM_AMD64)
 	register const struct TaghaSymTable *table_funcs __asm__ ("r14") = vm->funcs;
 	register const struct TaghaSymTable *table_vars  __asm__ ("r13") = vm->vars;
+#	elif defined(PLATFORM_ARM64)
+	register const struct TaghaSymTable *table_funcs __asm__ ("x14") = vm->funcs;
+	register const struct TaghaSymTable *table_vars  __asm__ ("x13") = vm->vars;
+#	elif defined(PLATFORM_RISCV64)
+	register const struct TaghaSymTable *table_funcs __asm__ ("x30") = vm->funcs;
+	register const struct TaghaSymTable *table_vars  __asm__ ("x29") = vm->vars;
+#	endif
 #else
 	const struct TaghaSymTable *table_funcs = vm->funcs;
 	const struct TaghaSymTable *table_vars  = vm->vars;
@@ -593,7 +606,7 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 	exec_lea: { /// u8: opcode | u8: dest | u8: src | i16: offset
 		const uint32_t instr = *ip.uint32++;
 		const uint_fast8_t dst   = instr & 0xff;
-		const uint_fast8_t src   = (instr & 0xffff) >> 8;
+		const uint_fast8_t src   = (instr >> 8) & 0xff;
 		const int32_t offset = ( int32_t )(instr) >> 16;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vreg_osp);
 		rsp[dst].uintptr = rsp[src].uintptr + offset;
@@ -620,7 +633,7 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 	exec_ld1: { /// u8: opcode | u8: dest reg | u8: src reg | i16: offset
 		const uint_fast32_t instr = *ip.uint32++;
 		const uint_fast8_t  dst   = instr & 0xff;
-		const uint_fast8_t  src   = (instr & 0xffff) >> 8;
+		const uint_fast8_t  src   = (instr >> 8) & 0xff;
 		const int32_t offset = ( int32_t )(instr) >> 16;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vreg_osp);
 		const uintptr_t mem = rsp[src].uintptr + offset;
@@ -636,7 +649,7 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 	exec_ld2: { /// u8: opcode | u8: dest reg | u8: src reg | i16: offset
 		const uint_fast32_t instr = *ip.uint32++;
 		const uint_fast8_t  dst   = instr & 0xff;
-		const uint_fast8_t  src   = (instr & 0xffff) >> 8;
+		const uint_fast8_t  src   = (instr >> 8) & 0xff;
 		const int32_t offset = ( int32_t )(instr) >> 16;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vreg_osp);
 		const uintptr_t mem = rsp[src].uintptr + offset;
@@ -652,7 +665,7 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 	exec_ld4: { /// u8: opcode | u8: dest reg | u8: src reg | i16: offset
 		const uint_fast32_t instr = *ip.uint32++;
 		const uint_fast8_t  dst   = instr & 0xff;
-		const uint_fast8_t  src   = (instr & 0xffff) >> 8;
+		const uint_fast8_t  src   = (instr >> 8) & 0xff;
 		const int32_t offset = ( int32_t )(instr) >> 16;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vreg_osp);
 		const uintptr_t mem = rsp[src].uintptr + offset;
@@ -668,7 +681,7 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 	exec_ld8: { /// u8: opcode | u8: dest reg | u8: src reg | i16: offset
 		const uint_fast32_t instr = *ip.uint32++;
 		const uint_fast8_t  dst   = instr & 0xff;
-		const uint_fast8_t  src   = (instr & 0xffff) >> 8;
+		const uint_fast8_t  src   = (instr >> 8) & 0xff;
 		const int32_t offset = ( int32_t )(instr) >> 16;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vreg_osp);
 		const uintptr_t mem = rsp[src].uintptr + offset;
@@ -685,7 +698,7 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 	exec_ldu1: { /// u8: opcode | u8: dest reg | u8: src reg | i16: offset
 		const uint_fast32_t instr = *ip.uint32++;
 		const uint_fast8_t  dst   = instr & 0xff;
-		const uint_fast8_t  src   = (instr & 0xffff) >> 8;
+		const uint_fast8_t  src   = (instr >> 8) & 0xff;
 		const int32_t offset = ( int32_t )(instr) >> 16;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vreg_osp);
 		const uintptr_t mem = rsp[src].uintptr + offset;
@@ -701,7 +714,7 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 	exec_ldu2: { /// u8: opcode | u8: dest reg | u8: src reg | i16: offset
 		const uint_fast32_t instr = *ip.uint32++;
 		const uint_fast8_t  dst   = instr & 0xff;
-		const uint_fast8_t  src   = (instr & 0xffff) >> 8;
+		const uint_fast8_t  src   = (instr >> 8) & 0xff;
 		const int32_t offset = ( int32_t )(instr) >> 16;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vreg_osp);
 		const uintptr_t mem = rsp[src].uintptr + offset;
@@ -717,7 +730,7 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 	exec_ldu4: { /// u8: opcode | u8: dest reg | u8: src reg | i16: offset
 		const uint_fast32_t instr = *ip.uint32++;
 		const uint_fast8_t  dst   = instr & 0xff;
-		const uint_fast8_t  src   = (instr & 0xffff) >> 8;
+		const uint_fast8_t  src   = (instr >> 8) & 0xff;
 		const int32_t offset = ( int32_t )(instr) >> 16;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vreg_osp);
 		const uintptr_t mem = rsp[src].uintptr + offset;
@@ -734,7 +747,7 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 	exec_st1: { /// u8: opcode | u8: dest reg | u8: src reg | i16: offset
 		const uint_fast32_t instr = *ip.uint32++;
 		const uint_fast8_t  dst   = instr & 0xff;
-		const uint_fast8_t  src   = (instr & 0xffff) >> 8;
+		const uint_fast8_t  src   = (instr >> 8) & 0xff;
 		const int32_t offset = ( int32_t )(instr) >> 16;
 		const union TaghaVal *const rsp = ( const union TaghaVal* )(vreg_osp);
 		const uintptr_t mem = rsp[dst].uintptr + offset;
@@ -750,7 +763,7 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 	exec_st2: { /// u8: opcode | u8: dest reg | u8: src reg | i16: offset
 		const uint_fast32_t instr = *ip.uint32++;
 		const uint_fast8_t  dst   = instr & 0xff;
-		const uint_fast8_t  src   = (instr & 0xffff) >> 8;
+		const uint_fast8_t  src   = (instr >> 8) & 0xff;
 		const int32_t offset = ( int32_t )(instr) >> 16;
 		const union TaghaVal *const rsp = ( const union TaghaVal* )(vreg_osp);
 		const uintptr_t mem = rsp[dst].uintptr + offset;
@@ -766,7 +779,7 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 	exec_st4: { /// u8: opcode | u8: dest reg | u8: src reg | i16: offset
 		const uint_fast32_t instr = *ip.uint32++;
 		const uint_fast8_t  dst   = instr & 0xff;
-		const uint_fast8_t  src   = (instr & 0xffff) >> 8;
+		const uint_fast8_t  src   = (instr >> 8) & 0xff;
 		const int32_t offset = ( int32_t )(instr) >> 16;
 		const union TaghaVal *const rsp = ( const union TaghaVal* )(vreg_osp);
 		const uintptr_t mem = rsp[dst].uintptr + offset;
@@ -782,7 +795,7 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 	exec_st8: { /// u8: opcode | u8: dest reg | u8: src reg | i16: offset
 		const uint_fast32_t instr = *ip.uint32++;
 		const uint_fast8_t  dst   = instr & 0xff;
-		const uint_fast8_t  src   = (instr & 0xffff) >> 8;
+		const uint_fast8_t  src   = (instr >> 8) & 0xff;
 		const int32_t offset = ( int32_t )(instr) >> 16;
 		const union TaghaVal *const rsp = ( const union TaghaVal* )(vreg_osp);
 		const uintptr_t mem = rsp[dst].uintptr + offset;
@@ -801,7 +814,7 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 		const uint_fast8_t  dst   = instr & 0xff;
 		const uint_fast8_t  src   = instr >> 8;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vreg_osp);
-		rsp[dst].int64 += rsp[src].int64;
+		rsp[dst].uint64 += rsp[src].uint64;
 		DISPATCH();
 	}
 	
@@ -810,7 +823,7 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 		const uint_fast8_t  dst   = instr & 0xff;
 		const uint_fast8_t  src   = instr >> 8;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vreg_osp);
-		rsp[dst].int64 -= rsp[src].int64;
+		rsp[dst].uint64 -= rsp[src].uint64;
 		DISPATCH();
 	}
 	
@@ -819,7 +832,7 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 		const uint_fast8_t  dst   = instr & 0xff;
 		const uint_fast8_t  src   = instr >> 8;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vreg_osp);
-		rsp[dst].int64 *= rsp[src].int64;
+		rsp[dst].uint64 *= rsp[src].uint64;
 		DISPATCH();
 	}
 	
@@ -844,7 +857,7 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 	exec_neg: { /// u8: opcode | u8: regid
 		const uint_fast8_t regid = *ip.uint8++;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vreg_osp);
-		rsp[regid].int64 = -rsp[regid].int64;
+		rsp[regid].uint64 = -rsp[regid].uint64;
 		DISPATCH();
 	}
 	
@@ -1111,17 +1124,30 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 				DISPATCH();
 			}
 		} else if( flags & TAGHA_FLAG_EXTERN ) {
+			/**
+			 * It's very important to use the owner (callee) module's runtime symbols
+			 * instead of the caller module's as the function call system
+			 * uses indexes rather than instruction addresses.
+			 *
+			 * This is so we can segment and maintain some level of safety
+			 * with the bytecode execution.
+			 *
+			 * So when doing an inter-module call, preserve the caller runtime symbols
+			 * then restore after call is done.
+			 */
 			const struct TaghaModule *const lib = ( const struct TaghaModule* )(owner);
-			table_funcs = lib->funcs;
-			table_vars  = lib->vars;
+			vm->funcs = lib->funcs;
+			vm->vars  = lib->vars;
 			
 			_tagha_push_lr(vm);
 			vm->lr = NIL;
+			vm->osp = vreg_osp;
 			_tagha_module_exec(( union TaghaPtr )(( const void* )(item)), vm);
+			vreg_osp = vm->osp;
 			_tagha_pop_lr(vm);
 			
-			table_funcs = vm->funcs;
-			table_vars  = vm->vars;
+			vm->funcs = table_funcs;
+			vm->vars  = table_vars;
 			DISPATCH();
 		} else {
 			vm->lr   = ( uintptr_t )(ip.uint8);
@@ -1158,16 +1184,17 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 					goto exec_halt;
 				} else {
 					const struct TaghaModule *const lib = ( const struct TaghaModule* )(func->owner);
-					table_funcs = lib->funcs;
-					table_vars  = lib->vars;
+					vm->funcs = lib->funcs;
+					vm->vars  = lib->vars;
 					
 					_tagha_push_lr(vm);
 					vm->lr = NIL;
+					vm->osp = vreg_osp;
 					_tagha_module_exec(( union TaghaPtr )(( const void* )(item)), vm);
+					vreg_osp = vm->osp;
 					_tagha_pop_lr(vm);
-					
-					table_funcs = vm->funcs;
-					table_vars  = vm->vars;
+					vm->funcs = table_funcs;
+					vm->vars  = table_vars;
 					DISPATCH();
 				}
 			} else {
@@ -1271,21 +1298,21 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 		const uint_fast8_t  src   = instr >> 8;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vreg_osp);
 		for( size_t i=0; i<vm->vec_len; i++ ) {
-			if( vm->elem_len==sizeof(int8_t) ) {
-				int8_t *const restrict r1 = ( int8_t* )(rsp + dst);
-				const int8_t *const r2 = ( const int8_t* )(rsp + src);
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				uint8_t *const restrict r1 = ( uint8_t* )(rsp + dst);
+				const uint8_t *const r2 = ( const uint8_t* )(rsp + src);
 				r1[i] += r2[i];
-			} else if( vm->elem_len==sizeof(int16_t) ) {
-				int16_t *const restrict r1 = ( int16_t* )(rsp + dst);
-				const int16_t *const r2 = ( const int16_t* )(rsp + src);
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				uint16_t *const restrict r1 = ( uint16_t* )(rsp + dst);
+				const uint16_t *const r2 = ( const uint16_t* )(rsp + src);
 				r1[i] += r2[i];
-			} else if( vm->elem_len==sizeof(int32_t) ) {
-				int32_t *const restrict r1 = ( int32_t* )(rsp + dst);
-				const int32_t *const r2 = ( const int32_t* )(rsp + src);
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				uint32_t *const restrict r1 = ( uint32_t* )(rsp + dst);
+				const uint32_t *const r2 = ( const uint32_t* )(rsp + src);
 				r1[i] += r2[i];
 			} else {
-				int64_t *const restrict r1 = ( int64_t* )(rsp + dst);
-				const int64_t *const r2 = ( const int64_t* )(rsp + src);
+				uint64_t *const restrict r1 = ( uint64_t* )(rsp + dst);
+				const uint64_t *const r2 = ( const uint64_t* )(rsp + src);
 				r1[i] += r2[i];
 			}
 		}
@@ -1297,21 +1324,21 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 		const uint_fast8_t  src   = instr >> 8;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vreg_osp);
 		for( size_t i=0; i<vm->vec_len; i++ ) {
-			if( vm->elem_len==sizeof(int8_t) ) {
-				int8_t *const restrict r1 = ( int8_t* )(rsp + dst);
-				const int8_t *const r2 = ( const int8_t* )(rsp + src);
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				uint8_t *const restrict r1 = ( uint8_t* )(rsp + dst);
+				const uint8_t *const r2 = ( const uint8_t* )(rsp + src);
 				r1[i] -= r2[i];
-			} else if( vm->elem_len==sizeof(int16_t) ) {
-				int16_t *const restrict r1 = ( int16_t* )(rsp + dst);
-				const int16_t *const r2 = ( const int16_t* )(rsp + src);
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				uint16_t *const restrict r1 = ( uint16_t* )(rsp + dst);
+				const uint16_t *const r2 = ( const uint16_t* )(rsp + src);
 				r1[i] -= r2[i];
-			} else if( vm->elem_len==sizeof(int32_t) ) {
-				int32_t *const restrict r1 = ( int32_t* )(rsp + dst);
-				const int32_t *const r2 = ( const int32_t* )(rsp + src);
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				uint32_t *const restrict r1 = ( uint32_t* )(rsp + dst);
+				const uint32_t *const r2 = ( const uint32_t* )(rsp + src);
 				r1[i] -= r2[i];
 			} else {
-				int64_t *const restrict r1 = ( int64_t* )(rsp + dst);
-				const int64_t *const r2 = ( const int64_t* )(rsp + src);
+				uint64_t *const restrict r1 = ( uint64_t* )(rsp + dst);
+				const uint64_t *const r2 = ( const uint64_t* )(rsp + src);
 				r1[i] -= r2[i];
 			}
 		}
@@ -1323,21 +1350,21 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 		const uint_fast8_t  src   = instr >> 8;
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vreg_osp);
 		for( size_t i=0; i<vm->vec_len; i++ ) {
-			if( vm->elem_len==sizeof(int8_t) ) {
-				int8_t *const restrict r1 = ( int8_t* )(rsp + dst);
-				const int8_t *const r2 = ( const int8_t* )(rsp + src);
+			if( vm->elem_len==sizeof(uint8_t) ) {
+				uint8_t *const restrict r1 = ( uint8_t* )(rsp + dst);
+				const uint8_t *const r2 = ( const uint8_t* )(rsp + src);
 				r1[i] *= r2[i];
-			} else if( vm->elem_len==sizeof(int16_t) ) {
-				int16_t *const restrict r1 = ( int16_t* )(rsp + dst);
-				const int16_t *const r2 = ( const int16_t* )(rsp + src);
+			} else if( vm->elem_len==sizeof(uint16_t) ) {
+				uint16_t *const restrict r1 = ( uint16_t* )(rsp + dst);
+				const uint16_t *const r2 = ( const uint16_t* )(rsp + src);
 				r1[i] *= r2[i];
-			} else if( vm->elem_len==sizeof(int32_t) ) {
-				int32_t *const restrict r1 = ( int32_t* )(rsp + dst);
-				const int32_t *const r2 = ( const int32_t* )(rsp + src);
+			} else if( vm->elem_len==sizeof(uint32_t) ) {
+				uint32_t *const restrict r1 = ( uint32_t* )(rsp + dst);
+				const uint32_t *const r2 = ( const uint32_t* )(rsp + src);
 				r1[i] *= r2[i];
 			} else {
-				int64_t *const restrict r1 = ( int64_t* )(rsp + dst);
-				const int64_t *const r2 = ( const int64_t* )(rsp + src);
+				uint64_t *const restrict r1 = ( uint64_t* )(rsp + dst);
+				const uint64_t *const r2 = ( const uint64_t* )(rsp + src);
 				r1[i] *= r2[i];
 			}
 		}
@@ -1400,16 +1427,16 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 		union TaghaVal *const restrict rsp = ( union TaghaVal* )(vreg_osp);
 		for( size_t i=0; i<vm->vec_len; i++ ) {
 			if( vm->elem_len==sizeof(uint8_t) ) {
-				int8_t *const restrict r = ( int8_t* )(rsp + regid);
+				uint8_t *const restrict r = ( uint8_t* )(rsp + regid);
 				r[i] = -r[i];
 			} else if( vm->elem_len==sizeof(uint16_t) ) {
-				int16_t *const restrict r = ( int16_t* )(rsp + regid);
+				uint16_t *const restrict r = ( uint16_t* )(rsp + regid);
 				r[i] = -r[i];
 			} else if( vm->elem_len==sizeof(uint32_t) ) {
-				int32_t *const restrict r = ( int32_t* )(rsp + regid);
+				uint32_t *const restrict r = ( uint32_t* )(rsp + regid);
 				r[i] = -r[i];
 			} else {
-				int64_t *const restrict r = ( int64_t* )(rsp + regid);
+				uint64_t *const restrict r = ( uint64_t* )(rsp + regid);
 				r[i] = -r[i];
 			}
 		}
@@ -1659,19 +1686,19 @@ static void _tagha_module_exec(union TaghaPtr ip, struct TaghaModule *const rest
 		for( size_t i=0; i<vm->vec_len; i++ ) {
 			if( vm->elem_len==sizeof(uint8_t) ) {
 				int8_t *const restrict r1 = ( int8_t* )(rsp + dst);
-				const int8_t *const r2 = ( const int8_t* )(rsp + src);
+				const uint8_t *const r2 = ( const uint8_t* )(rsp + src);
 				r1[i] >>= r2[i];
 			} else if( vm->elem_len==sizeof(uint16_t) ) {
 				int16_t *const restrict r1 = ( int16_t* )(rsp + dst);
-				const int16_t *const r2 = ( const int16_t* )(rsp + src);
+				const uint16_t *const r2 = ( const uint16_t* )(rsp + src);
 				r1[i] >>= r2[i];
 			} else if( vm->elem_len==sizeof(uint32_t) ) {
 				int32_t *const restrict r1 = ( int32_t* )(rsp + dst);
-				const int32_t *const r2 = ( const int32_t* )(rsp + src);
+				const uint32_t *const r2 = ( const uint32_t* )(rsp + src);
 				r1[i] >>= r2[i];
 			} else {
 				int64_t *const restrict r1 = ( int64_t* )(rsp + dst);
-				const int64_t *const r2 = ( const int64_t* )(rsp + src);
+				const uint64_t *const r2 = ( const uint64_t* )(rsp + src);
 				r1[i] >>= r2[i];
 			}
 		}
