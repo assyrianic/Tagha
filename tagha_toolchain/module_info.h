@@ -40,7 +40,7 @@ static inline NO_NULL void tagha_module_print_callstack(const struct TaghaModule
 	const uintptr_t *const base = reinterpret_cast< decltype(top) >(mod->callstack);
 	for( const uintptr_t *head = reinterpret_cast< decltype(head) >(mod->csp); head >= base; head-- ) {
 #else
-	const uintptr_t *const base = ( const uintptr_t* )mod->callstack;
+	const uintptr_t *const base = ( const uintptr_t* )(mod->callstack);
 	for( const uintptr_t *head = ( const uintptr_t* )(mod->csp); head >= base; head-- ) {
 #endif
 		fprintf(stream, "call stack : %-10zu - '%" PRIuPTR "'\n", i, *head);
