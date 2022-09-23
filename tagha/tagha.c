@@ -43,6 +43,12 @@ static NO_NULL bool _setup_memory(struct TaghaModule *const module)
 		return false;
 	}
 	
+	/// PATCH: Sep 23, 2022. Verify that sizes do not mismatch one another.
+	if( (hdr->stacksize + hdr->heapsize) != hdr->memsize || (hdr->callstacksize + hdr->opstacksize + hdr->heapsize) != hdr->memsize ) {
+		fprintf(stderr, "Tagha Module File Error :: **** stack size (%u) and heap size (%u) do not match total memory size! (%u). ****\n", hdr->stacksize, hdr->heapsize, hdr->memsize);
+		return false;
+	}
+	
 	const size_t given_heapsize = harbol_mempool_mem_remaining(&module->heap);
 	if( given_heapsize != hdr->memsize ) {
 		fprintf(stderr, "Tagha Module File Error :: **** given heapsize (%zu) is not same as required memory size! (%u). ****\n", given_heapsize, hdr->memsize);
